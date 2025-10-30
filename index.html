@@ -1,0 +1,1234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MemePlay Arcade</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <link rel="preconnect" href="https://moonshot-bnb.lovable.app" crossorigin>
+  <link rel="preconnect" href="https://bird-squash-dev.lovable.app" crossorigin>
+  <link rel="preconnect" href="https://monkey-crypto-climb.lovable.app" crossorigin>
+  <link rel="preconnect" href="https://whack-a-chibi-zombie.lovable.app" crossorigin>
+  <style>
+    /* ===== HEADER (merged version: logo left, nav right, same row) ===== */
+    .main-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      background: #111;
+      color: #fff;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 20px;
+      box-sizing: border-box;
+      z-index: 9999;
+      border-bottom: 2px solid #222;
+    }
+    .main-header .logo {
+      font-size: 20px;
+      font-weight: bold;
+      letter-spacing: 1px;
+      white-space: nowrap;
+    }
+    .main-header .nav-menu-bar {
+      position: static;
+      top: auto;
+      left: auto;
+      width: auto;
+      height: auto;
+      background: none;
+      border-bottom: none;
+      z-index: auto;
+      box-sizing: content-box;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      flex: 0 0 auto;
+    }
+    .nav-dropdown {
+      position: relative;
+      display: flex;
+      align-items: center;
+      background: #22272b;
+      color: #fff;
+      font-weight: 700;
+      font-size: 20px;
+      border-radius: 16px;
+      padding: 0 24px 0 18px;
+      height: 38px;
+      cursor: pointer;
+      box-shadow: 0 2px 14px #0005;
+      user-select: none;
+      transition: background 0.18s;
+      border: none;
+      min-width: 180px;
+    }
+    .nav-dropdown .arrow {
+      margin-left: 10px;
+      font-size: 19px;
+      transition: transform 0.22s;
+    }
+    .nav-dropdown.open .arrow {
+      transform: rotate(-180deg);
+    }
+    .dropdown-list {
+      position: absolute;
+      left: 0;
+      top: 105%;
+      width: 210px;
+      background: #23272b;
+      color: #fff;
+      border-radius: 16px;
+      box-shadow: 0 6px 18px #0008;
+      display: none;
+      flex-direction: column;
+      font-size: 18px;
+      overflow: hidden;
+      z-index: 10000;
+      padding: 8px 0;
+      animation: fadeIn 0.16s;
+    }
+    .nav-dropdown.open .dropdown-list {
+      display: flex;
+    }
+    .dropdown-item {
+      padding: 13px 28px 13px 22px;
+      cursor: pointer;
+      transition: background 0.18s;
+    }
+    .dropdown-item:hover, .dropdown-item.active {
+      background: #273e66;
+    }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px);}
+      to { opacity: 1; transform: none;}
+    }
+
+    /* ===== PAGE LAYOUT SPACING ===== */
+    body {
+      margin: 0;
+      padding-top: 60px; /* Only header height now */
+      background: #000;
+      color: #fff;
+      font-family: Arial, sans-serif;
+    }
+    /* Move the game container below the header */
+    .game-container {
+      margin-top: 30px;
+    }
+
+    .game-card {
+      position: relative;
+    }
+
+    @media (max-width: 800px) {
+      .main-header {
+        height: 48px;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0;
+      }
+      .main-header .logo {
+        font-size: 16px;
+      }
+      .main-header .nav-menu-bar {
+        justify-content: flex-end;
+      }
+      .nav-dropdown {
+        font-size: 16px;
+        min-width: 112px;
+        height: 33px;
+        padding: 0 14px 0 12px;
+      }
+      .dropdown-list {
+        width: 160px;
+        font-size: 16px;
+      }
+      body {
+        padding-top: 48px;
+      }
+    }
+
+    /* Like button active state */
+    .game-icons button.liked {
+      color: #ff4d4d;
+      transform: scale(1.1);
+    }
+    .game-icons {
+      display: flex;
+      justify-content: center;
+      align-items: center; /* ensure vertical center alignment */
+      gap: 25px;
+      margin-bottom: 6px;
+    }
+    .game-icons button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1; /* remove extra baseline space */
+      vertical-align: middle;
+      padding: 0;
+    }
+    .icon-count {
+      margin-left: 1px; /* closer to icon */
+      color: #bbb;
+      font-size: 32px; /* doubled */
+      font-weight: 600;
+      line-height: 1;
+      vertical-align: middle;
+      position: relative;
+      top: -1px; /* nudge up to align with heart */
+    }
+    /* Comments overlay */
+    .comments-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100000}
+    .comments-overlay.open{display:flex}
+    .comments-box{width:720px;max-width:95vw;background:#0b0b0b;border:1px solid #1f1f1f;border-radius:12px;box-shadow:0 10px 30px #000a;display:flex;flex-direction:column}
+    .comments-header{display:flex;align-items:center;justify-content:flex-end;padding:10px 14px;border-bottom:1px solid #1f1f1f}
+    .comments-title{display:none}
+    .comments-list{height:50vh;overflow:auto;padding:10px 14px;display:flex;flex-direction:column;gap:10px}
+    .comment-item{background:#101010;border:1px solid #1f1f1f;border-radius:10px;padding:10px}
+    .comment-meta{color:#8aa; font-size:24px;margin-bottom:8px}
+    .comment-text{font-size:28px;line-height:1.6;white-space:pre-wrap}
+    .comments-input{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #1f1f1f}
+    .comments-input textarea{flex:1;min-height:60px;max-height:160px;background:#0e0e0e;color:#fff;border:1px solid #2a2a2a;border-radius:8px;padding:10px;font-size:20px;resize:vertical}
+    .comments-input button{height:56px;background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:8px;padding:0 16px;cursor:pointer;font-size:32px}
+    .comments-footer{display:flex;justify-content:center;padding:10px 14px}
+    .comments-footer button{background:none;border:1px solid #2a2a2a;color:#bbb;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:16px}
+  </style>
+</head>
+<body>
+  <!-- HEADER: Logo left, Dropdown right, single row -->
+  <div class="main-header">
+    <div class="logo">MEMEPLAY <span style="font-weight:500;color:#0ff;opacity:0.9">· 🔥 Streak: <span id="streakCount">0</span> · PLAY points: <span id="headerEarned">0</span> <span id="headerEarnedFlash" style="margin-left:10px;color:#0ff;opacity:0;transition:opacity .18s; font-weight:700;"></span></span></div>
+    <div class="nav-menu-bar">
+      <div class="nav-dropdown" id="navDropdown">
+        <span id="selectedCategory">Recommended</span>
+        <span class="arrow">▼</span>
+        <div class="dropdown-list" id="dropdownList">
+          <div class="dropdown-item active" data-category="Recommended">Recommended</div>
+          <div class="dropdown-item" data-category="Trending">Trending</div>
+          <div class="dropdown-item" data-category="Popular">Popular</div>
+          <div class="dropdown-item" data-category="New">New & Hot</div>
+          <div class="dropdown-item" data-category="Arcade">Arcade</div>
+        </div>
+      </div>
+      <button id="connectWalletBtn" style="margin-left:14px;height:32px;background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:8px;padding:0 12px;cursor:pointer;">Connect Wallet</button>
+      <span id="walletStatus" style="margin-left:10px;color:#0ff;font-weight:600;"></span>
+    </div>
+  </div>
+
+  
+
+  <div class="game-container"> 
+      <!-- 🎯 Game 1: Moonshot BNB -->
+      <div class="game-card" id="moonshot-bnb" data-game-id="moonshot-bnb" style="margin-bottom: 60px;">
+        <iframe
+          src="https://moonshot-bnb.lovable.app"
+          data-game="rocket"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Moonshot BNB">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+    
+      <!-- 🐤 Game 2: Bird Squash -->
+      <div class="game-card" id="bird-squash" data-game-id="bird-squash" style="margin-bottom: 60px;">
+        <iframe
+          src="https://bird-squash-dev.lovable.app"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Bird Squash">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+    
+      <!-- 🐒 Game 3: Monkey Crypto Climb -->
+      <div class="game-card" id="monkey-crypto-climb" data-game-id="monkey-crypto-climb" style="margin-bottom: 60px;">
+        <iframe
+          src="https://monkey-crypto-climb.lovable.app"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Monkey Crypto Climb">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+    
+      <!-- 🧟 Game 4: Whack-a-Chibi Zombie -->
+      <div class="game-card" id="whack-a-chibi-zombie" data-game-id="whack-a-chibi-zombie" style="margin-bottom: 60px;">
+        <iframe
+          src="https://whack-a-chibi-zombie.lovable.app"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Whack-a-Chibi Zombie">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+    
+      <!-- 🕵️ Game 5: Game Detective Clone -->
+      <div class="game-card" id="game-detective-clone" data-game-id="game-detective-clone" style="margin-bottom: 60px;">
+        <iframe
+          src="https://game-detective-clone.lovable.app/"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Game Detective Clone">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+
+      <!-- 🟣 Game 6: Pixel Orb Escape -->
+      <div class="game-card" id="pixel-orb-escape" data-game-id="pixel-orb-escape" style="margin-bottom: 60px;">
+        <iframe
+          src="https://pixel-orb-escape.lovable.app/"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Pixel Orb Escape">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+
+      <!-- 🪝 Game 7: Hook Pull Crypto -->
+      <div class="game-card" id="hook-pull-crypto" data-game-id="hook-pull-crypto" style="margin-bottom: 60px;">
+        <iframe
+          src="https://hook-pull-crypto.lovable.app/"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Hook Pull Crypto">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+
+      <!-- 💎 Game 8: Crypto Gem Blast -->
+      <div class="game-card" id="crypto-gem-blast" data-game-id="crypto-gem-blast" style="margin-bottom: 60px;">
+        <iframe
+          src="https://crypto-gem-blast.lovable.app/"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Crypto Gem Blast">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+
+      <!-- 🎵 Game 9: Block Beat Boost -->
+      <div class="game-card" id="block-beat-boost" data-game-id="block-beat-boost" style="margin-bottom: 60px;">
+        <iframe
+          src="https://block-beat-boost.lovable.app/"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Block Beat Boost">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+
+      <!-- 🔪 Game 10: Knife Slice Win -->
+      <div class="game-card" id="knife-slice-win" data-game-id="knife-slice-win" style="margin-bottom: 60px;">
+        <iframe
+          src="https://knife-slice-win.lovable.app/"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Knife Slice Win">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+
+      <!-- 🚀 Game 11: Moon Rocket Glide -->
+      <div class="game-card" id="moon-rocket-glide" data-game-id="moon-rocket-glide" style="margin-bottom: 60px;">
+        <iframe
+          src="https://moon-rocket-glide.lovable.app/"
+          width="720"
+          height="1000"
+          frameborder="0"
+          title="Moon Rocket Glide">
+        </iframe>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <button>❤️</button>
+            <button>💬</button>
+            <button>📊</button>
+            <button>↗️</button>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>MemePlay Studio</strong>
+          </div>
+        </footer>
+      </div>
+    </div>
+    
+
+  <footer style="margin-bottom:30px; color:#999;">© 2025 MemePlay Studio</footer>
+  
+  <div id="commentsOverlay" class="comments-overlay">
+    <div class="comments-box">
+      <div class="comments-header">
+        <div class="comments-title"></div>
+        <button id="commentsCloseBtn" style="background:none;border:1px solid #2a2a2a;color:#bbb;border-radius:6px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:42px;line-height:1;font-weight:700;">×</button>
+      </div>
+      <div id="commentsList" class="comments-list"></div>
+      <div class="comments-footer">
+        <button id="commentsLoadMore">Load more</button>
+      </div>
+      <div class="comments-input">
+        <textarea id="commentsTextarea" placeholder="Write a comment..."></textarea>
+        <button id="commentsPostBtn">Post</button>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Game management system (auto-activate visible card)
+    let currentActiveGame = null;
+    
+    // Game URLs mapping
+    const gameUrls = {
+      'moonshot-bnb': 'https://moonshot-bnb.lovable.app',
+      'bird-squash': 'https://bird-squash-dev.lovable.app',
+      'monkey-crypto-climb': 'https://monkey-crypto-climb.lovable.app',
+      'whack-a-chibi-zombie': 'https://whack-a-chibi-zombie.lovable.app',
+      'game-detective-clone': 'https://game-detective-clone.lovable.app/',
+      'pixel-orb-escape': 'https://pixel-orb-escape.lovable.app/',
+      'hook-pull-crypto': 'https://hook-pull-crypto.lovable.app/',
+      'crypto-gem-blast': 'https://crypto-gem-blast.lovable.app/',
+      'block-beat-boost': 'https://block-beat-boost.lovable.app/',
+      'knife-slice-win': 'https://knife-slice-win.lovable.app/',
+      'moon-rocket-glide': 'https://moon-rocket-glide.lovable.app/'
+    };
+  
+    function activateGame(gameId) {
+      if (currentActiveGame === gameId) return;
+      if (currentActiveGame) {
+        // Ensure previous session is stopped (module exposes on window)
+        try { window.memeplay && window.memeplay.stopGame && window.memeplay.stopGame(); } catch {}
+        const prevCard = document.getElementById(currentActiveGame);
+        if (prevCard) {
+          const prevIframe = prevCard.querySelector('iframe');
+          if (prevIframe) prevIframe.src = 'about:blank';
+        }
+      }
+  
+
+      const card = document.getElementById(gameId);
+      if (!card) return;
+      const iframe = card.querySelector('iframe');
+      if (iframe && gameUrls[gameId]) {
+        // Bust cache to guarantee a load event even if same URL
+        const sep = gameUrls[gameId].includes('?') ? '&' : '?'
+        iframe.src = gameUrls[gameId] + sep + 'v=' + Date.now();
+        currentActiveGame = gameId;
+        console.log('🎮 Activated', gameId);
+        // Proactively start session ticker in case load fired earlier (module-exposed)
+        setTimeout(() => {
+          try {
+            if (window.memeplay && window.memeplay.forceStart) window.memeplay.forceStart(gameId);
+            else if (window.memeplay && window.memeplay.startGame) window.memeplay.startGame(gameId);
+          } catch {}
+        }, 500);
+      }
+    }
+
+    // Observe which game card is visible and activate early for snappier switching
+    const thresholds = Array.from({ length: 10 }, (_, i) => (i + 1) / 10);
+    const observer = new IntersectionObserver((entries) => {
+      const visible = entries.filter(e => e.isIntersecting);
+      if (!visible.length) return;
+
+      // Pick the entry with the greatest intersection; this favors the one you're scrolling to
+      const best = visible.reduce((a, b) => a.intersectionRatio >= b.intersectionRatio ? a : b);
+      const gameId = best.target.id;
+      activateGame(gameId);
+    }, {
+      // Activate sooner: when a card enters the upper 25% of viewport and before the bottom leaves
+      rootMargin: '25% 0px -55% 0px',
+      threshold: thresholds
+    });
+
+    document.querySelectorAll('.game-card').forEach(card => observer.observe(card));
+    
+    // Dropdown nav logic
+    const navDropdown = document.getElementById('navDropdown');
+    const dropdownList = document.getElementById('dropdownList');
+    const items = dropdownList.querySelectorAll('.dropdown-item');
+    const selectedCategory = document.getElementById('selectedCategory');
+
+    navDropdown.addEventListener('click', function(event) {
+      // Only toggle if not clicking on an item
+      if (event.target.classList.contains('dropdown-item')) return;
+      navDropdown.classList.toggle('open');
+      event.stopPropagation();
+    });
+
+    items.forEach(item => {
+      item.addEventListener('click', function(e) {
+        items.forEach(i => i.classList.remove('active'));
+        this.classList.add('active');
+        selectedCategory.textContent = this.textContent;
+        navDropdown.classList.remove('open');
+        e.stopPropagation();
+        // TODO: Optionally, filter game list by category, or scroll to different section.
+      });
+    });
+
+    // Close dropdown if clicking outside
+
+    document.addEventListener('click', function(e) {
+      navDropdown.classList.remove('open');
+    });
+  </script>
+
+  <!-- main.js disabled (conflicts with embedded iframes) -->
+
+  <!-- === SUPABASE DAILY CHECK-IN & REWARD === -->
+
+<script type="module">
+  // 1️⃣ Import SDK Supabase (thư viện kết nối Supabase trực tiếp trên web)
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+  // 2️⃣ Khai báo thông tin kết nối (URL & Anon Key của dự án bạn)
+  const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'    // ← URL của bạn
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'             // ← Dán key thật tại đây
+
+  // 3️⃣ Tạo đối tượng "supabase" để sử dụng RPC, truy vấn, insert, v.v.
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
+  // =========================================================
+  // 🔹 TẠO USER ID DUY NHẤT (ghi trong localStorage)
+  // =========================================================
+  // User identifier prefers wallet address if connected; falls back to random local id
+  function getLocalUserId() {
+    let id = localStorage.getItem('mp_user_id')
+    if (!id) {
+      id = 'u_' + crypto.randomUUID()
+      localStorage.setItem('mp_user_id', id)
+    }
+    return id
+  }
+  function getWalletAddress() {
+    return localStorage.getItem('mp_user_wallet') || ''
+  }
+  let userId = getWalletAddress() || getLocalUserId()
+  console.log('👤 Current user identifier:', userId)
+
+  // =========================================================
+  // 🔹 UI HELPERS (PLAY points header only)
+  // =========================================================
+  const els = {
+    headerEarned: document.getElementById('headerEarned'),
+    headerEarnedFlash: document.getElementById('headerEarnedFlash'),
+    streak: document.getElementById('streakCount'),
+    connectBtn: document.getElementById('connectWalletBtn'),
+    walletStatus: document.getElementById('walletStatus')
+  }
+
+  function lsGetInt(key, fallback = 0) {
+    const raw = localStorage.getItem(key)
+    const num = raw == null ? NaN : Number(raw)
+    return Number.isFinite(num) ? num : fallback
+  }
+  function lsSetInt(key, value) {
+    localStorage.setItem(key, String(Math.max(0, Math.trunc(value))))
+  }
+  // No status bar counters
+
+  function updateHeaderEarned() {
+    const totalEarned = lsGetInt('mp_total_earned_plays')
+    els.headerEarned && (els.headerEarned.textContent = String(totalEarned))
+  }
+
+  // Show inline banner near PLAY points and apply increment after 3s
+  function showPlayAward(amount, label) {
+    if (!amount || amount <= 0) return
+    const el = els.headerEarnedFlash
+    if (!el) {
+      // Fallback: immediate update
+      const newTotal = lsGetInt('mp_total_earned_plays') + amount
+      lsSetInt('mp_total_earned_plays', newTotal)
+      updateHeaderEarned()
+      return
+    }
+    el.textContent = `+${amount} PLAY${label ? ` for ${label}` : ''}`
+    el.style.opacity = '1'
+    setTimeout(() => {
+      el.style.opacity = '0'
+      const newTotal = lsGetInt('mp_total_earned_plays') + amount
+      lsSetInt('mp_total_earned_plays', newTotal)
+      updateHeaderEarned()
+    }, 3000)
+  }
+
+  function updateStreak() {
+    const streak = lsGetInt('mp_streak_count')
+    els.streak && (els.streak.textContent = String(streak))
+  }
+
+  // Initialize UI from localStorage
+  updateHeaderEarned()
+  updateStreak()
+
+  // Load initial real play counts for all cards
+  document.querySelectorAll('.game-card').forEach(card => {
+    const gid = card.getAttribute('data-game-id') || card.id
+    if (gid) loadPlayCount(gid)
+  })
+
+  // ==============================
+  // Wallet Connect (MetaMask)
+  // ==============================
+  function shortAddr(addr) {
+    if (!addr) return ''
+    return addr.slice(0, 6) + '…' + addr.slice(-4)
+  }
+  function setWalletStatus(addr) {
+    if (!els.walletStatus) return
+    els.walletStatus.textContent = addr ? `Connected: ${shortAddr(addr)}` : ''
+  }
+  setWalletStatus(getWalletAddress())
+
+  async function connectWallet() {
+    if (!window.ethereum) {
+      alert('Please install MetaMask to connect your wallet.')
+      return
+    }
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+      const address = (accounts && accounts[0]) ? String(accounts[0]) : ''
+      if (!address) return
+      localStorage.setItem('mp_user_wallet', address)
+      userId = address // prefer wallet as identifier
+      setWalletStatus(address)
+      // Do not auto re-checkin on wallet switch; guard by daily window
+      if (!hasCheckedInToday()) {
+        try { await dailyCheckin() } catch {}
+      }
+    } catch (e) {
+      console.warn('Wallet connect failed:', e?.message || e)
+    }
+  }
+  function disconnectWallet() {
+    localStorage.removeItem('mp_user_wallet')
+    userId = getLocalUserId()
+    setWalletStatus('')
+    setConnectButtonState()
+  }
+  function setConnectButtonState() {
+    if (!els.connectBtn) return
+    const isConnected = !!getWalletAddress()
+    els.connectBtn.textContent = isConnected ? 'Disconnect' : 'Connect Wallet'
+    els.connectBtn.onclick = isConnected ? disconnectWallet : connectWallet
+  }
+  els.connectBtn && setConnectButtonState()
+  if (window.ethereum) {
+    window.ethereum.on?.('accountsChanged', (accs) => {
+      const addr = (accs && accs[0]) ? String(accs[0]) : ''
+      if (addr) {
+        localStorage.setItem('mp_user_wallet', addr)
+        userId = addr
+      } else {
+        localStorage.removeItem('mp_user_wallet')
+        userId = getLocalUserId()
+      }
+      setWalletStatus(addr)
+      setConnectButtonState()
+    })
+  }
+
+  // =========================================================
+  // 🔹 PER-GAME ACCUMULATED PLAYTIME & ONE-TIME REWARDS
+  // =========================================================
+  const REWARD_THRESHOLDS = [20, 60, 300] // seconds
+  const REWARD_VALUES = { 20: 100, 60: 300, 300: 1000 }
+  const MAX_ACCUM_SECONDS = 300
+
+  function getGameSeconds(gameId) {
+    return lsGetInt(`mp_game_seconds_${gameId}`)
+  }
+  function setGameSeconds(gameId, seconds) {
+    lsSetInt(`mp_game_seconds_${gameId}`, Math.min(seconds, MAX_ACCUM_SECONDS))
+  }
+  function getGameAwards(gameId) {
+    try {
+      const raw = localStorage.getItem(`mp_game_awards_${gameId}`)
+      return raw ? JSON.parse(raw) : {}
+    } catch {
+      return {}
+    }
+  }
+  function setGameAwards(gameId, awardsObj) {
+    localStorage.setItem(`mp_game_awards_${gameId}`, JSON.stringify(awardsObj || {}))
+  }
+  // Console helpers
+  function listAllGameSeconds() {
+    const cards = Array.from(document.querySelectorAll('.game-card'))
+    const rows = cards.map(c => {
+      const id = c.getAttribute('data-game-id') || c.id || 'unknown'
+      return { gameId: id, seconds: getGameSeconds(id) }
+    })
+    console.table(rows)
+    return rows
+  }
+  function resetGameProgress(gameId) {
+    if (!gameId) return false
+    lsSetInt(`mp_game_seconds_${gameId}`, 0)
+    localStorage.removeItem(`mp_game_awards_${gameId}`)
+    console.log(`🔄 Reset progress for ${gameId}`)
+    return true
+  }
+  // Expose to window for activation script and dev console usage
+  const helpers = Object.freeze({
+    // inspectors
+    getGameSeconds,
+    listAllGameSeconds,
+    resetGameProgress,
+    // controls
+    startGame,
+    stopGame,
+    forceStart
+  })
+  try { window.memeplay = helpers } catch {}
+  try { self.memeplay = helpers } catch {}
+  try { globalThis.memeplay = helpers } catch {}
+  console.log('🧩 memeplay helpers ready:', Object.keys(helpers))
+  function grantPlays(amount) {
+    if (!amount || amount <= 0) return 0
+    const newTotal = lsGetInt('mp_total_earned_plays') + amount
+    lsSetInt('mp_total_earned_plays', newTotal)
+    updateHeaderEarned()
+    return amount
+  }
+
+  // ===== Real play counts (per game) =====
+  function setPlaysLabelForCard(gameId, totalPlays) {
+    const card = document.querySelector(`.game-card[data-game-id="${gameId}"]`) || document.getElementById(gameId)
+    if (!card) return
+    const creator = card.querySelector('.creator-text')
+    if (!creator) return
+    let span = creator.querySelector('[data-plays-count]')
+    if (!span) {
+      // insert separator dot and span once
+      const sep = document.createTextNode(' • ')
+      span = document.createElement('span')
+      span.setAttribute('data-plays-count', gameId)
+      creator.appendChild(sep)
+      creator.appendChild(span)
+    }
+    span.textContent = `${totalPlays} plays`
+  }
+  async function loadPlayCount(gameId) {
+    try {
+      const { data, error } = await supabase.rpc('get_game_play_count', { p_game_id: gameId })
+      if (error) { console.error('get_game_play_count error:', error.message); return }
+      const val = (data && typeof data.total_plays === 'number') ? data.total_plays : 0
+      setPlaysLabelForCard(gameId, val)
+      console.log(`[plays] ${gameId}:`, val)
+    } catch (e) { console.error('get_game_play_count error:', e?.message || e) }
+  }
+  async function incrementPlayCountIfEligible(gameId, seconds) {
+    if (!gameId || !seconds || seconds < 10) return
+    try {
+      const { data, error } = await supabase.rpc('increment_play_count', {
+        p_user_id: userId,
+        p_game_id: gameId,
+        p_seconds: seconds
+      })
+      if (error) { console.error('increment_play_count error:', error.message); return }
+      const val = (data && typeof data.total_plays === 'number') ? data.total_plays : undefined
+      if (val != null) {
+        setPlaysLabelForCard(gameId, val)
+        console.log(`[plays +1] ${gameId}:`, val)
+      }
+    } catch (e) {
+      console.error('increment_play_count error:', e?.message || e)
+    }
+  }
+
+  // =========================================================
+  // 🔹 DAILY CHECK-IN (guarded once per day per device)
+  // =========================================================
+  function todayKey() {
+    const d = new Date()
+    return d.toISOString().slice(0,10)
+  }
+  function hasCheckedInToday() {
+    return localStorage.getItem('mp_checkin_'+todayKey()) === '1'
+  }
+  function markCheckedInToday() {
+    localStorage.setItem('mp_checkin_'+todayKey(), '1')
+  }
+  async function dailyCheckin() {
+    const { data, error } = await supabase.rpc('daily_checkin', { p_user_id: userId })
+    if (error) {
+      console.error('❌ Daily check-in error:', error.message)
+      return
+    }
+    console.log('✅ Daily check-in result:', data)
+    if (data?.awarded > 0) {
+      showPlayAward(Number(data.awarded), 'daily login')
+      markCheckedInToday()
+    }
+    if (Number.isFinite(data?.streak)) {
+      lsSetInt('mp_streak_count', Number(data.streak))
+      updateStreak()
+    }
+  }
+
+  // Only run on first load if not already checked in today (prevents wallet-switch abuse)
+  if (!hasCheckedInToday()) dailyCheckin()
+// ==============================
+//  AUTO-TRACK PLAYTIME + FOCUS DELAY
+// ==============================
+
+// Biến toàn cục để theo dõi game đang chạy
+let activeGame = null;
+let activeStartTime = 0;
+let progressInterval = null;
+
+// Bắt đầu đếm thời gian
+function startGame(gameId) {
+  // Nếu đang có game khác thì dừng nó, còn nếu cùng game thì reset lại ticker/time
+  if (activeGame && activeGame !== gameId) stopGame();
+
+  // Reset ticker trước khi start (kể cả cùng game)
+  clearInterval(progressInterval);
+  progressInterval = null;
+
+  activeGame = gameId;
+  activeStartTime = Date.now();
+  console.log(`▶️ Game ${gameId} started`);
+
+  // Live progress ticker: log session and cumulative totals each second
+  clearInterval(progressInterval);
+  progressInterval = setInterval(() => {
+    if (!activeGame || !activeStartTime) return;
+    const sessionSeconds = Math.max(0, Math.floor((Date.now() - activeStartTime) / 1000));
+    const prevTotal = getGameSeconds(activeGame);
+    const previewTotal = Math.min(prevTotal + sessionSeconds, MAX_ACCUM_SECONDS);
+
+    // Early reward grant when crossing thresholds during play
+    const awardedMap = getGameAwards(activeGame);
+    const crossedNow = [];
+    for (const t of REWARD_THRESHOLDS) {
+      if (prevTotal < t && previewTotal >= t && !awardedMap[t]) {
+        awardedMap[t] = true;
+        crossedNow.push(t);
+      }
+    }
+    if (crossedNow.length) {
+      setGameAwards(activeGame, awardedMap);
+      let grant = 0;
+      for (const t of crossedNow) grant += REWARD_VALUES[t];
+      if (grant > 0) {
+        const last = crossedNow[crossedNow.length - 1]
+        showPlayAward(grant, `${last}s`)
+      }
+    }
+
+    console.log(`⏳ ${activeGame}: session ${sessionSeconds}s · total ${previewTotal}/${MAX_ACCUM_SECONDS}s`);
+  }, 1000);
+}
+
+// Ép start an toàn khi chuyển game
+function forceStart(gameId) {
+  try { stopGame(); } catch {}
+  clearInterval(progressInterval);
+  progressInterval = null;
+  activeGame = null;
+  activeStartTime = 0;
+  startGame(gameId);
+}
+
+// Dừng đếm + gửi dữ liệu Supabase
+async function stopGame() {
+  if (!activeGame || !activeStartTime) return;
+
+  const seconds = Math.floor((Date.now() - activeStartTime) / 1000);
+  if (seconds > 0) {
+    console.log(`⏱ Played ${seconds}s on ${activeGame}`);
+
+    // Calculate per-game accumulated time and threshold rewards
+    const prevTotal = getGameSeconds(activeGame)
+    const nextTotalRaw = prevTotal + seconds
+    const prevCapped = Math.min(prevTotal, MAX_ACCUM_SECONDS)
+    const nextCapped = Math.min(nextTotalRaw, MAX_ACCUM_SECONDS)
+    setGameSeconds(activeGame, nextCapped)
+
+    const awardedMap = getGameAwards(activeGame)
+    const newlyAwarded = []
+    for (const t of REWARD_THRESHOLDS) {
+      if (prevCapped < t && nextCapped >= t && !awardedMap[t]) {
+        awardedMap[t] = true
+        newlyAwarded.push(t)
+      }
+    }
+    console.log(`📈 Accumulated for ${activeGame}: ${nextCapped}s (was ${prevCapped}s)`) 
+    if (newlyAwarded.length) {
+      let totalGrant = 0
+      for (const t of newlyAwarded) totalGrant += REWARD_VALUES[t]
+      setGameAwards(activeGame, awardedMap)
+      if (totalGrant > 0) {
+        const last = newlyAwarded[newlyAwarded.length - 1]
+        showPlayAward(totalGrant, `${last}s`)
+      }
+    }
+
+    try {
+      const { data, error } = await supabase.rpc('track_playtime_and_reward', {
+        p_user_id: userId,
+        p_game_id: activeGame,
+        p_seconds: seconds
+      });
+      if (error) throw error;
+      console.log(`🎮 [${activeGame}] reward result:`, data);
+      if (data?.awarded > 0) showPlayAward(Number(data.awarded))
+
+      // No plays-per-match counter anymore
+    } catch (err) {
+      console.error('RPC error:', err.message);
+    }
+
+    // Increment real play count if eligible (>=10s)
+    await incrementPlayCountIfEligible(activeGame, seconds)
+  }
+
+  activeGame = null;
+  activeStartTime = 0;
+  clearInterval(progressInterval);
+  progressInterval = null;
+}
+
+// Khi iframe load xong game → bắt đầu tracking có delay
+const iframes = document.querySelectorAll(".game-card iframe");
+if (iframes && iframes.length) {
+iframes.forEach((iframe) => {
+  const gameId = iframe.closest(".game-card")?.dataset.gameId;
+  if (!gameId) {
+    console.warn("⚠️ Missing data-game-id for an iframe, tracking skipped.");
+    return;
+  }
+
+  iframe.addEventListener("load", () => {
+    setTimeout(() => {
+      if (document.hasFocus()) {
+        startGame(gameId);
+      } else {
+        console.log(`⏸ Tab not focused — deferred start ${gameId}`);
+      }
+    }, 1000);
+  });
+});
+}
+
+// Dừng khi tab ẩn
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) stopGame();
+  else if (activeGame) startGame(activeGame);
+});
+
+// Dừng khi rời trang
+window.addEventListener("beforeunload", stopGame);
+
+  // ==============================
+  // Likes & Comments (Supabase RPC)
+  // ==============================
+  function initSocialHandlers() {
+    // Global overlay controller (single instance handlers)
+    const overlay = document.getElementById('commentsOverlay')
+    const listEl = document.getElementById('commentsList')
+    const loadMoreBtn = document.getElementById('commentsLoadMore')
+    const closeBtn = document.getElementById('commentsCloseBtn')
+    const ta = document.getElementById('commentsTextarea')
+    const postBtn = document.getElementById('commentsPostBtn')
+
+    const paging = { gameId: null, offset: 0, limit: 10, loading: false, done: false }
+    function shortAddr10(addr){ if(!addr) return ''; return addr.slice(0,6) + '…' + addr.slice(-3) }
+    async function fetchMore(){
+      if (paging.loading || paging.done || !paging.gameId) return
+      paging.loading = true
+      try {
+        const { data, error } = await supabase.rpc('list_comments', {
+          p_game_id: paging.gameId,
+          p_limit: paging.limit,
+          p_offset: paging.offset
+        })
+        if (error) throw error
+        const rows = Array.isArray(data) ? data : []
+        if (rows.length === 0) { paging.done = true; return }
+        rows.forEach(r => {
+          const item = document.createElement('div')
+          item.className = 'comment-item'
+          const meta = document.createElement('div')
+          meta.className = 'comment-meta'
+          const when = new Date(r.created_at).toLocaleString()
+          meta.textContent = `${shortAddr10(r.user_id)} • ${when}`
+          const text = document.createElement('div')
+          text.className = 'comment-text'
+          text.textContent = r.text
+          item.appendChild(meta)
+          item.appendChild(text)
+          listEl.appendChild(item)
+        })
+        paging.offset += rows.length
+      } catch(e){
+        console.error('list_comments error:', e?.message || e)
+      } finally { paging.loading = false }
+    }
+    function openPanel(forGame){
+      paging.gameId = forGame
+      paging.offset = 0
+      paging.loading = false
+      paging.done = false
+      listEl.innerHTML = ''
+      ta.value = ''
+      overlay.classList.add('open')
+      fetchMore()
+    }
+    loadMoreBtn.onclick = fetchMore
+    closeBtn.onclick = () => overlay.classList.remove('open')
+    postBtn.onclick = async () => {
+      const text = (ta.value || '').trim()
+      if (!text || !paging.gameId) return
+      postBtn.disabled = true
+      try {
+        const { data, error } = await supabase.rpc('add_comment', {
+      p_user_id: userId,
+          p_game_id: paging.gameId,
+          p_text: text
+        })
+        if (error) throw error
+        const item = document.createElement('div')
+        item.className = 'comment-item'
+        const meta = document.createElement('div')
+        meta.className = 'comment-meta'
+        meta.textContent = `${shortAddr10(userId)} • just now`
+        const body = document.createElement('div')
+        body.className = 'comment-text'
+        body.textContent = text
+        item.appendChild(meta)
+        item.appendChild(body)
+        listEl.prepend(item)
+        ta.value = ''
+      } catch(e){
+        console.error('add_comment error:', e?.message || e)
+      } finally { postBtn.disabled = false }
+    }
+
+    const cards = document.querySelectorAll('.game-card')
+    cards.forEach(card => {
+      const gameId = card.getAttribute('data-game-id') || card.id
+      if (!gameId) return
+      const buttons = card.querySelectorAll('.game-icons button')
+      if (!buttons || buttons.length < 2) return
+      const likeBtn = buttons[0]
+      const commentBtn = buttons[1]
+
+      // Inject counters just to the right of each button
+      let likeCountEl = likeBtn.nextElementSibling
+      if (!likeCountEl || !likeCountEl.classList || !likeCountEl.classList.contains('icon-count')) {
+        likeCountEl = document.createElement('span')
+        likeCountEl.className = 'icon-count'
+        likeCountEl.textContent = '0'
+        likeBtn.after(likeCountEl)
+      }
+      let cmtCountEl = commentBtn.nextElementSibling
+      if (!cmtCountEl || !cmtCountEl.classList || !cmtCountEl.classList.contains('icon-count')) {
+        cmtCountEl = document.createElement('span')
+        cmtCountEl.className = 'icon-count'
+        cmtCountEl.textContent = '0'
+        commentBtn.after(cmtCountEl)
+      }
+
+      function setCounts(likes, comments) {
+        if (likeCountEl) likeCountEl.textContent = String(Math.max(0, likes|0))
+        if (cmtCountEl) cmtCountEl.textContent = String(Math.max(0, comments|0))
+      }
+      function renderHeart(isLiked) {
+        likeBtn.classList.toggle('liked', !!isLiked)
+        likeBtn.textContent = isLiked ? '❤️' : '🤍'
+      }
+      ;(async () => {
+        try {
+          const { data, error } = await supabase.rpc('get_social_counts', { p_game_id: gameId })
+          if (!error && data) setCounts(data.likes ?? 0, data.comments ?? 0)
+        } catch {}
+      })()
+      const liked = localStorage.getItem('mp_like_' + gameId) === '1'
+      renderHeart(liked)
+      likeBtn.addEventListener('click', async () => {
+        likeBtn.disabled = true
+        try {
+          const { data, error } = await supabase.rpc('toggle_like', {
+            p_user_id: userId,
+            p_game_id: gameId
+          })
+          if (error) throw error
+          const isLiked = !!(data && (data.is_liked ?? data.liked))
+          renderHeart(isLiked)
+          localStorage.setItem('mp_like_' + gameId, isLiked ? '1' : '0')
+          const likes = (data && (data.total_likes ?? data.likes))
+          if (likes != null) setCounts(likes, (cmtCountEl ? Number(cmtCountEl.textContent)||0 : 0))
+        } catch (e) {
+          console.error('toggle_like error:', e?.message || e)
+        } finally {
+          likeBtn.disabled = false
+        }
+      })
+      commentBtn.addEventListener('click', () => openPanel(gameId))
+    })
+  }
+  initSocialHandlers()
+
+  
+  </script>
+
+  <!-- Global helpers shim (non-module) to guarantee console access -->
+  <script>
+    (function installMemeplayShim(){
+      function lsGetInt(key){
+        const raw = localStorage.getItem(key);
+        const num = raw == null ? NaN : Number(raw);
+        return Number.isFinite(num) ? num : 0;
+      }
+      function getIds(){
+        return Array.from(document.querySelectorAll('.game-card')).map(c => c.getAttribute('data-game-id') || c.id || 'unknown');
+      }
+      const shim = {
+        getGameSeconds: function(gameId){ return lsGetInt('mp_game_seconds_' + gameId); },
+        listAllGameSeconds: function(){
+          const rows = getIds().map(id => ({ gameId: id, seconds: lsGetInt('mp_game_seconds_' + id) }));
+          try { console.table(rows); } catch {}
+          return rows;
+        },
+        resetGameProgress: function(gameId){
+          if (!gameId) return false;
+          localStorage.setItem('mp_game_seconds_' + gameId, '0');
+          localStorage.removeItem('mp_game_awards_' + gameId);
+          console.log('🔄 Reset progress for', gameId);
+          return true;
+        },
+        startGame: function(gameId){
+          try { if (window.memeplay && window.memeplay.startGame) return window.memeplay.startGame(gameId); } catch {}
+          console.warn('startGame bridge: module not ready');
+        },
+        stopGame: function(){
+          try { if (window.memeplay && window.memeplay.stopGame) return window.memeplay.stopGame(); } catch {}
+          console.warn('stopGame bridge: module not ready');
+        }
+      };
+      try { window.memeplay = Object.assign({}, shim, window.memeplay || {}); } catch {}
+      try { self.memeplay = window.memeplay; } catch {}
+      try { globalThis.memeplay = window.memeplay; } catch {}
+      console.log('🧩 memeplay console shim ready');
+    })();
+  </script>
