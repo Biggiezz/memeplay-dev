@@ -954,11 +954,13 @@
   // ==============================
   function shortAddr(addr) {
     if (!addr) return ''
-    return addr.slice(0, 6) + '…' + addr.slice(-4)
+    const lower = String(addr).toLowerCase()
+    if (lower.length <= 6) return lower
+    return `${lower.slice(0, 3)}...${lower.slice(-3)}`
   }
   function setWalletStatus(addr) {
     if (!els.walletStatus) return
-    els.walletStatus.textContent = addr ? `Connected: ${shortAddr(addr)}` : ''
+    els.walletStatus.textContent = addr ? `connected :${shortAddr(addr)}` : ''
     if (typeof window.__updateWalletOverlay === 'function') window.__updateWalletOverlay()
   }
   setWalletStatus(getWalletAddress())
@@ -998,6 +1000,7 @@
     if (isConnected) {
       els.connectBtn.hidden = true
       els.walletBadge.hidden = false
+      els.walletStatus.textContent = `connected :${shortAddr(address)}`
       els.walletBadge.onclick = () => {
         if (typeof window.__openWalletOverlay === 'function') {
           window.__openWalletOverlay()
