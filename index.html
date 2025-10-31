@@ -170,7 +170,7 @@
       width: 0 !important;
       height: 0 !important;
     }
-    .game-card { margin-left: auto; margin-right: auto; max-width: 720px; scroll-snap-align: start; scroll-snap-stop: always; min-height: calc(100svh - var(--header-h) - env(safe-area-inset-top)); margin-bottom: 0 !important; }
+    .game-card { margin-left: auto; margin-right: auto; max-width: 720px; scroll-snap-align: center; scroll-snap-stop: always; min-height: calc(100svh - var(--header-h) - env(safe-area-inset-top)); margin-bottom: 0 !important; }
     .game-card iframe { border: 0; display: block; margin: 0 auto; }
     .game-footer { width: 100%; max-width: 720px; height: auto; padding: 10px 0; margin: 0 auto; }
 
@@ -1361,12 +1361,53 @@ window.addEventListener("beforeunload", stopGame);
             e.preventDefault();
             e.stopPropagation();
             
+            // Scroll với tốc độ mượt hơn
+            const scrollAmount = e.deltaY * 1.2; // Tăng tốc độ scroll một chút
+            
             // Sử dụng scrollBy để trigger scroll-snap tự nhiên
-            // scroll-snap sẽ tự động snap vào game card gần nhất
             gameContainer.scrollBy({
-              top: e.deltaY,
+              top: scrollAmount,
               behavior: 'auto' // 'auto' để scroll-snap hoạt động
             });
+            
+            // Sau khi scroll, tự động snap vào game card gần nhất ở center
+            clearTimeout(gameContainer._snapTimeout);
+            gameContainer._snapTimeout = setTimeout(() => {
+              const cards = Array.from(document.querySelectorAll('.game-card'));
+              if (!cards.length) return;
+              
+              const containerTop = gameContainer.scrollTop;
+              const containerHeight = gameContainer.clientHeight;
+              const viewportCenter = containerTop + containerHeight / 2;
+              
+              let bestCard = null;
+              let bestDistance = Infinity;
+              
+              cards.forEach(card => {
+                const cardTop = card.offsetTop - gameContainer.offsetTop;
+                const cardHeight = card.offsetHeight;
+                const cardCenter = cardTop + cardHeight / 2;
+                const distance = Math.abs(cardCenter - viewportCenter);
+                
+                if (distance < bestDistance) {
+                  bestDistance = distance;
+                  bestCard = card;
+                }
+              });
+              
+              // Nếu card gần nhất chưa ở center, scroll đến center của nó
+              if (bestCard && bestDistance > 50) {
+                const cardTop = bestCard.offsetTop - gameContainer.offsetTop;
+                const cardHeight = bestCard.offsetHeight;
+                const cardCenter = cardTop + cardHeight / 2;
+                const targetScroll = cardCenter - containerHeight / 2;
+                
+                gameContainer.scrollTo({
+                  top: targetScroll,
+                  behavior: 'smooth'
+                });
+              }
+            }, 150); // Debounce để không snap quá nhiều lần
           }
         }
       }, { passive: false });
@@ -1415,12 +1456,18 @@ window.addEventListener("beforeunload", stopGame);
             nextIndex = (currentIndex - 1 + cards.length) % cards.length;
           }
           
-          // Scroll đến game card với smooth behavior để trigger scroll-snap
+          // Scroll đến center của game card để game xuất hiện đúng tâm
           if (cards[nextIndex]) {
-            cards[nextIndex].scrollIntoView({ 
-              behavior: 'smooth', 
-              block: 'start',
-              inline: 'nearest'
+            const card = cards[nextIndex];
+            const cardTop = card.offsetTop - gameContainer.offsetTop;
+            const cardHeight = card.offsetHeight;
+            const containerHeight = gameContainer.clientHeight;
+            const cardCenter = cardTop + cardHeight / 2;
+            const targetScroll = cardCenter - containerHeight / 2;
+            
+            gameContainer.scrollTo({
+              top: targetScroll,
+              behavior: 'smooth'
             });
           }
         }
