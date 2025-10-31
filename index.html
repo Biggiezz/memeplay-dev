@@ -4,13 +4,17 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>MemePlay Arcade</title>
-  <link rel="icon" href="data:,">
+  <!-- Favicon files (desktop + mobile) -->
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg?v=2">
+  <link rel="shortcut icon" href="assets/favicon.svg?v=2">
+  <link rel="apple-touch-icon" href="assets/favicon.svg?v=2">
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://moonshot-bnb.lovable.app" crossorigin>
   <link rel="preconnect" href="https://bird-squash-dev.lovable.app" crossorigin>
   <link rel="preconnect" href="https://monkey-crypto-climb.lovable.app" crossorigin>
   <link rel="preconnect" href="https://whack-a-chibi-zombie.lovable.app" crossorigin>
   <style>
+    :root { --header-h: 60px; }
     /* ===== HEADER (merged version: logo left, nav right, same row) ===== */
     .main-header {
       position: fixed;
@@ -112,10 +116,13 @@
     /* ===== PAGE LAYOUT SPACING ===== */
     body {
       margin: 0;
-      padding-top: 60px; /* Only header height now */
+      padding-top: calc(var(--header-h) + env(safe-area-inset-top));
+      min-height: 100svh;
       background: #000;
       color: #fff;
       font-family: Arial, sans-serif;
+      scroll-behavior: smooth;
+      overflow: hidden; /* scroll inside .game-container for snap */
     }
     /* Move the game container below the header */
     .game-container {
@@ -124,7 +131,20 @@
 
     .game-card {
       position: relative;
+      overflow: hidden;
     }
+
+    /* ===== Game area base ===== */
+    .game-container {
+      height: calc(100svh - var(--header-h) - env(safe-area-inset-top));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: y mandatory;
+    }
+    .game-card { margin-left: auto; margin-right: auto; max-width: 720px; scroll-snap-align: start; scroll-snap-stop: always; min-height: calc(100svh - var(--header-h) - env(safe-area-inset-top)); margin-bottom: 0 !important; }
+    .game-card iframe { border: 0; display: block; margin: 0 auto; }
+    .game-footer { width: 100%; max-width: 720px; height: auto; padding: 10px 0; margin: 0 auto; }
 
     @media (max-width: 800px) {
       .main-header {
@@ -149,9 +169,7 @@
         width: 160px;
         font-size: 16px;
       }
-      body {
-        padding-top: 48px;
-      }
+      :root { --header-h: 48px; }
     }
 
     /* Like button active state */
@@ -541,8 +559,8 @@
     }
 
     // Observe which game card is visible and activate early for snappier switching
-    const thresholds = Array.from({ length: 10 }, (_, i) => (i + 1) / 10);
-    const observer = new IntersectionObserver((entries) => {
+  const thresholds = Array.from({ length: 10 }, (_, i) => (i + 1) / 10);
+  const observer = new IntersectionObserver((entries) => {
       const visible = entries.filter(e => e.isIntersecting);
       if (!visible.length) return;
 
@@ -550,13 +568,14 @@
       const best = visible.reduce((a, b) => a.intersectionRatio >= b.intersectionRatio ? a : b);
       const gameId = best.target.id;
       activateGame(gameId);
-    }, {
-      // Activate sooner: when a card enters the upper 25% of viewport and before the bottom leaves
+  }, {
+      // Observe inside the snapping container
+      root: document.querySelector('.game-container') || null,
       rootMargin: '25% 0px -55% 0px',
       threshold: thresholds
     });
 
-    document.querySelectorAll('.game-card').forEach(card => observer.observe(card));
+  document.querySelectorAll('.game-card').forEach(card => observer.observe(card));
     
     // Dropdown nav logic
     const navDropdown = document.getElementById('navDropdown');
@@ -588,6 +607,64 @@
       navDropdown.classList.remove('open');
     });
   </script>
+
+  <!-- Universal iframe scaler: fits 720x1000 games to any touch device -->
+  <script>
+    (function installIframeScaler(){
+      const DESIGN_W = 720;
+      const DESIGN_H = 1000;
+
+      function ensureWrapper(card){
+        const iframe = card.querySelector('iframe');
+        if (!iframe) return null;
+        if (iframe.parentElement && iframe.parentElement.classList.contains('iframe-scale-wrap')) {
+          return iframe.parentElement;
+        }
+        const wrap = document.createElement('div');
+        wrap.className = 'iframe-scale-wrap';
+        wrap.style.position = 'relative';
+        wrap.style.width = DESIGN_W + 'px';
+        wrap.style.height = DESIGN_H + 'px';
+        wrap.style.transformOrigin = 'top center';
+        wrap.style.margin = '0 auto';
+        iframe.style.display = 'block';
+        iframe.style.border = '0';
+        iframe.style.width = DESIGN_W + 'px';
+        iframe.style.height = DESIGN_H + 'px';
+        card.insertBefore(wrap, iframe);
+        wrap.appendChild(iframe);
+        return wrap;
+      }
+
+      function scaleCard(card){
+        const wrap = ensureWrapper(card);
+        if (!wrap) return;
+        const container = document.querySelector('.game-container');
+        const containerW = container ? container.clientWidth : 0;
+        const availW = Math.max(1, Math.min(containerW || (card.clientWidth || window.innerWidth), DESIGN_W));
+        // Extra shrink on small touch devices for better HUD fit
+        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+        const extra = isTouch ? 0.9 : 1; // 90% on mobile
+        const scale = Math.min(1, (availW / DESIGN_W) * extra);
+        wrap.style.transform = 'translateZ(0) scale(' + scale + ')';
+        const scaledH = Math.round(DESIGN_H * scale);
+        card.style.height = Math.max(scaledH,  Math.round((window.innerHeight || scaledH) - 0)) + 'px';
+      }
+
+      function scaleAll(){
+        document.querySelectorAll('.game-card').forEach(scaleCard);
+      }
+
+      // Initial and reactive
+      window.addEventListener('resize', scaleAll, { passive: true });
+      window.addEventListener('orientationchange', scaleAll, { passive: true });
+      const ro = new ResizeObserver(scaleAll); ro.observe(document.body);
+      // Run after first paint
+      requestAnimationFrame(scaleAll);
+    })();
+  </script>
+
+  
 
   <!-- main.js disabled (conflicts with embedded iframes) -->
 
@@ -1232,3 +1309,151 @@ window.addEventListener("beforeunload", stopGame);
       console.log('🧩 memeplay console shim ready');
     })();
   </script>
+
+  <!-- Swipe navigation: up/down moves to next/prev game (loops) -->
+  <script>
+    (function swipeNavigation(){
+      const sc = document.querySelector('.game-container');
+      const cards = Array.from(document.querySelectorAll('.game-card'));
+      if (!cards.length) return;
+
+      let tops = [];
+      function recalc(){
+        tops = cards.map(el => el.offsetTop);
+      }
+      function currentIndex(){
+        const y = sc.scrollTop + sc.clientHeight * 0.25; // focus upper quarter
+        let best = 0, bestDiff = Infinity;
+        for (let i=0;i<tops.length;i++){
+          const d = Math.abs(tops[i]-y);
+          if (d < bestDiff){ best = i; bestDiff = d; }
+        }
+        return best;
+      }
+      function scrollToIndex(i){
+        const n = cards.length;
+        const idx = ((i % n) + n) % n; // safe modulo
+        const y = tops[idx] ?? 0;
+        sc.scrollTo({ top: y, behavior: 'smooth' });
+      }
+
+      recalc();
+      window.addEventListener('resize', recalc, { passive: true });
+      window.addEventListener('orientationchange', recalc, { passive: true });
+
+      let startY = 0, startT = 0, moved = false;
+      const THRESHOLD = 60; // px
+      const VELOCITY = 0.35; // px/ms
+
+      sc.addEventListener('touchstart', (e) => {
+        if (!e.touches || !e.touches.length) return;
+        startY = e.touches[0].clientY; startT = performance.now(); moved = false;
+      }, { passive: true });
+
+      sc.addEventListener('touchmove', (e) => {
+        moved = true;
+      }, { passive: true });
+
+      sc.addEventListener('touchend', (e) => {
+        if (!moved) return;
+        const endY = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientY : startY;
+        const dy = endY - startY; // down = positive
+        const dt = Math.max(1, performance.now() - startT);
+        const v = Math.abs(dy) / dt;
+        if (Math.abs(dy) < THRESHOLD && v < VELOCITY) return; // ignore tiny swipes
+
+        const cur = currentIndex();
+        if (dy < 0) scrollToIndex(cur + 1); // swipe up -> next
+        else scrollToIndex(cur - 1);        // swipe down -> prev
+      }, { passive: true });
+
+      // Force snap to nearest after inertial scrolling stops (prevents resting between cards)
+      let snapTimer = null;
+      sc.addEventListener('scroll', () => {
+        if (snapTimer) clearTimeout(snapTimer);
+        snapTimer = setTimeout(() => {
+          recalc();
+          const idx = currentIndex();
+          scrollToIndex(idx);
+        }, 120);
+      }, { passive: true });
+    })();
+  </script>
+
+  <script>
+    // Tạo Bottom Nav bằng JavaScript (đảm bảo render)
+    function createBottomNav() {
+      // Kiểm tra đã tạo chưa
+      if (document.getElementById('bottomNavBar')) {
+        console.log('Bottom nav already exists');
+        return;
+      }
+      
+      // Tạo container
+      const bottomNav = document.createElement('div');
+      bottomNav.style.cssText = 'position:fixed;bottom:0;left:0;right:0;height:60px;background:#111;border-top:2px solid #222;display:flex;justify-content:space-between;align-items:center;padding:0 20px;z-index:99999;color:#fff;';
+      bottomNav.id = 'bottomNavBar';
+      
+      // Left section
+      const left = document.createElement('div');
+      left.style.cssText = 'display:flex;gap:12px;';
+      
+      const btnStats = document.createElement('button');
+      btnStats.id = 'navStats';
+      btnStats.style.cssText = 'background:#22272b;color:#fff;border:none;border-radius:16px;padding:0 16px;height:38px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;';
+      btnStats.innerHTML = '<span>📊</span><span>Stats</span>';
+      
+      const btnGames = document.createElement('button');
+      btnGames.id = 'navGames';
+      btnGames.style.cssText = 'background:#22272b;color:#fff;border:none;border-radius:16px;padding:0 16px;height:38px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;';
+      btnGames.innerHTML = '<span>🎮</span><span>Games</span>';
+      
+      left.appendChild(btnStats);
+      left.appendChild(btnGames);
+      
+      // Right section
+      const right = document.createElement('div');
+      right.style.cssText = 'display:flex;gap:12px;';
+      
+      const btnWallet = document.createElement('button');
+      btnWallet.id = 'navWallet';
+      btnWallet.style.cssText = 'background:#22272b;color:#fff;border:none;border-radius:16px;padding:0 16px;height:38px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;';
+      btnWallet.innerHTML = '<span>💼</span><span>Wallet</span>';
+      
+      const btnMore = document.createElement('button');
+      btnMore.id = 'navMore';
+      btnMore.style.cssText = 'background:#22272b;color:#fff;border:none;border-radius:16px;padding:0 16px;height:38px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;';
+      btnMore.innerHTML = '<span>⚙️</span><span>More</span>';
+      
+      right.appendChild(btnWallet);
+      right.appendChild(btnMore);
+      
+      bottomNav.appendChild(left);
+      bottomNav.appendChild(right);
+      document.body.appendChild(bottomNav);
+      
+      console.log('✅ Bottom nav created:', bottomNav);
+      
+      // Event handlers
+      btnStats.addEventListener('click', () => alert('Stats - Coming soon!'));
+      btnGames.addEventListener('click', () => {
+        document.querySelector('.game-container')?.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      btnWallet.addEventListener('click', () => {
+        document.getElementById('connectWalletBtn')?.click();
+      });
+      btnMore.addEventListener('click', () => alert('More - Coming soon!'));
+    }
+    
+    // Gọi khi DOM ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', createBottomNav);
+    } else {
+      createBottomNav();
+    }
+    
+    // Fallback: gọi lại sau 1s
+    setTimeout(createBottomNav, 1000);
+  </script>
+</body>
+</html>

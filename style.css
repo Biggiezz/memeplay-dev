@@ -75,10 +75,11 @@ html, body {
 }
 
 
-/* ===== FOOTER (720x80) ===== */
+/* ===== FOOTER (responsive) ===== */
 .game-footer {
-  width: 720px;
-  height: 80px;
+  width: 100%;
+  max-width: 720px;
+  min-height: 64px;
   background: #111;
   display: flex;
   flex-direction: column;
