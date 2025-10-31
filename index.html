@@ -171,7 +171,7 @@
       width: 0 !important;
       height: 0 !important;
     }
-    .game-card { margin-left: auto; margin-right: auto; max-width: 720px; scroll-snap-align: center; scroll-snap-stop: always; min-height: calc(100svh - var(--header-h) - env(safe-area-inset-top)); margin-bottom: 0 !important; }
+    .game-card { margin-left: auto; margin-right: auto; max-width: 720px; scroll-snap-align: center; scroll-snap-stop: always; min-height: calc(100svh - var(--header-h) - env(safe-area-inset-top)); margin-bottom: 0 !important; scroll-snap-margin-bottom: 5vh; }
     .game-card iframe { border: 0; display: block; margin: 0 auto; }
     .game-footer { width: 100%; max-width: 720px; height: auto; padding: 10px 0; margin: 0 auto; }
 
@@ -1362,12 +1362,13 @@ window.addEventListener("beforeunload", stopGame);
             e.preventDefault();
             e.stopPropagation();
             
-            // Scroll với tốc độ mượt hơn
-            const scrollAmount = e.deltaY * 1.2; // Tăng tốc độ scroll một chút
+            // Scroll với tốc độ mượt hơn, đảm bảo scroll xuống hoạt động
+            const scrollAmount = Math.abs(e.deltaY) * 1.2; // Tăng tốc độ scroll một chút
+            const scrollDirection = e.deltaY > 0 ? 1 : -1; // Xuống = 1, Lên = -1
             
             // Sử dụng scrollBy để trigger scroll-snap tự nhiên
             gameContainer.scrollBy({
-              top: scrollAmount,
+              top: scrollAmount * scrollDirection,
               behavior: 'auto' // 'auto' để scroll-snap hoạt động
             });
             
@@ -1396,13 +1397,14 @@ window.addEventListener("beforeunload", stopGame);
                 }
               });
               
-              // Nếu card gần nhất chưa ở center, scroll đến center chính xác của nó
+              // Nếu card gần nhất chưa ở center, scroll đến center chính xác của nó + offset 5% xuống
               if (bestCard && bestDistance > 30) {
                 const cardTop = bestCard.offsetTop - gameContainer.offsetTop;
                 const cardHeight = bestCard.offsetHeight;
                 const cardCenter = cardTop + cardHeight / 2;
-                // Tính scroll position để card center nằm ở center của container
-                const targetScroll = Math.max(0, cardCenter - containerHeight / 2);
+                // Tính scroll position: center - 5% viewport xuống = center + 5% containerHeight
+                const offsetDown = containerHeight * 0.05; // 5% xuống
+                const targetScroll = Math.max(0, cardCenter - containerHeight / 2 - offsetDown);
                 
                 gameContainer.scrollTo({
                   top: targetScroll,
@@ -1458,15 +1460,16 @@ window.addEventListener("beforeunload", stopGame);
             nextIndex = (currentIndex - 1 + cards.length) % cards.length;
           }
           
-          // Scroll đến center của game card để game xuất hiện đúng tâm
+          // Scroll đến center của game card + offset 5% xuống để game xuất hiện thấp hơn một chút
           if (cards[nextIndex]) {
             const card = cards[nextIndex];
             const cardTop = card.offsetTop - gameContainer.offsetTop;
             const cardHeight = card.offsetHeight;
             const containerHeight = gameContainer.clientHeight;
             const cardCenter = cardTop + cardHeight / 2;
-            // Tính scroll position để card center nằm ở center của container
-            const targetScroll = Math.max(0, cardCenter - containerHeight / 2);
+            // Tính scroll position: center - 5% viewport xuống = center + 5% containerHeight
+            const offsetDown = containerHeight * 0.05; // 5% xuống
+            const targetScroll = Math.max(0, cardCenter - containerHeight / 2 - offsetDown);
             
             gameContainer.scrollTo({
               top: targetScroll,
