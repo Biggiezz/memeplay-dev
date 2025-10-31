@@ -33,10 +33,11 @@
       border-bottom: 2px solid #222;
     }
     .main-header .logo {
-      font-size: 20px;
+      font-size: 22px;
       font-weight: bold;
-      letter-spacing: 1px;
-      white-space: nowrap;
+      color: #fff;
+      text-shadow: 0 0 5px #00f8ff;
+      position: relative;
     }
     .main-header .nav-menu-bar {
       position: static;
@@ -256,12 +257,36 @@
     .stats-metric{font-size:42px;font-weight:700;color:#0ff;text-shadow:0 0 12px rgba(0,255,255,0.35)}
     .stats-divider{width:80%;height:1px;background:#1f1f1f}
     .stats-note{font-size:14px;color:#777}
+    .header-flash {
+      position: absolute;
+      top: 50%;
+      right: -20px;
+      transform: translateY(-50%);
+      font-size: 13px;
+      font-weight: 600;
+      color: #0ff;
+      padding: 4px 10px;
+      border: 1px solid rgba(0, 255, 255, 0.35);
+      border-radius: 999px;
+      background: rgba(0, 255, 255, 0.12);
+      box-shadow: 0 0 8px rgba(0, 255, 255, 0.35);
+      opacity: 0;
+      transition: opacity .18s ease;
+      white-space: nowrap;
+    }
+    .stats-data-cache {
+      position: absolute;
+      width: 0;
+      height: 0;
+      overflow: hidden;
+      opacity: 0;
+    }
   </style>
 </head>
 <body>
   <!-- HEADER: Logo left, Dropdown right, single row -->
   <div class="main-header">
-    <div class="logo">MEMEPLAY <span style="font-weight:500;color:#0ff;opacity:0.9">· 🔥 Streak: <span id="streakCount">0</span> · PLAY points: <span id="headerEarned">0</span> <span id="headerEarnedFlash" style="margin-left:10px;color:#0ff;opacity:0;transition:opacity .18s; font-weight:700;"></span></span></div>
+    <div class="logo">MEMEPLAY <span id="headerEarnedFlash" class="header-flash"></span></div>
     <div class="nav-menu-bar">
       <div class="nav-dropdown" id="navDropdown">
         <span id="selectedCategory">Recommended</span>
@@ -276,6 +301,10 @@
       </div>
       <button id="connectWalletBtn" style="margin-left:14px;height:32px;background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:8px;padding:0 12px;cursor:pointer;">Connect Wallet</button>
       <span id="walletStatus" style="margin-left:10px;color:#0ff;font-weight:600;"></span>
+    </div>
+    <div class="stats-data-cache" aria-hidden="true">
+      <span id="streakCount">0</span>
+      <span id="headerEarned">0</span>
     </div>
   </div>
 
