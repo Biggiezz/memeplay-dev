@@ -1339,7 +1339,7 @@ window.addEventListener("beforeunload", stopGame);
     })();
   </script>
 
-  <!-- Desktop scroll: Chuyển scroll từ toàn trang vào .game-container -->
+  <!-- Desktop scroll: Chuyển scroll từ toàn trang vào .game-container với scroll-snap -->
   <script>
     (function enableDesktopScroll(){
       const gameContainer = document.querySelector('.game-container');
@@ -1360,12 +1360,18 @@ window.addEventListener("beforeunload", stopGame);
           if (!isInGameContainer) {
             e.preventDefault();
             e.stopPropagation();
-            gameContainer.scrollTop += e.deltaY;
+            
+            // Sử dụng scrollBy để trigger scroll-snap tự nhiên
+            // scroll-snap sẽ tự động snap vào game card gần nhất
+            gameContainer.scrollBy({
+              top: e.deltaY,
+              behavior: 'auto' // 'auto' để scroll-snap hoạt động
+            });
           }
         }
       }, { passive: false });
       
-      // Xử lý keyboard scroll (Space, Arrow keys)
+      // Xử lý keyboard scroll (Space, Arrow keys) với scroll-snap
       document.addEventListener('keydown', (e) => {
         // Chỉ xử lý khi focus không nằm trong input/textarea
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
@@ -1373,8 +1379,50 @@ window.addEventListener("beforeunload", stopGame);
         const key = e.key;
         if (key === ' ' || key === 'ArrowDown' || key === 'ArrowUp' || key === 'PageDown' || key === 'PageUp') {
           e.preventDefault();
-          const scrollAmount = key === 'PageDown' ? 500 : key === 'PageUp' ? -500 : key === 'ArrowDown' ? 100 : key === 'ArrowUp' ? -100 : 300;
-          gameContainer.scrollTop += scrollAmount;
+          
+          // Tìm game card hiện tại và scroll đến game tiếp theo/trước đó
+          const cards = Array.from(document.querySelectorAll('.game-card'));
+          if (!cards.length) return;
+          
+          let currentIndex = 0;
+          const containerTop = gameContainer.scrollTop;
+          const containerHeight = gameContainer.clientHeight;
+          
+          // Tìm game card đang hiển thị (chiếm >50% viewport)
+          for (let i = 0; i < cards.length; i++) {
+            const card = cards[i];
+            const cardTop = card.offsetTop - gameContainer.offsetTop;
+            const cardBottom = cardTop + card.offsetHeight;
+            const viewportTop = containerTop;
+            const viewportBottom = containerTop + containerHeight;
+            
+            // Nếu card chiếm >50% viewport
+            const visibleTop = Math.max(cardTop, viewportTop);
+            const visibleBottom = Math.min(cardBottom, viewportBottom);
+            const visibleHeight = visibleBottom - visibleTop;
+            
+            if (visibleHeight > containerHeight * 0.5) {
+              currentIndex = i;
+              break;
+            }
+          }
+          
+          // Xác định game tiếp theo/trước đó
+          let nextIndex = currentIndex;
+          if (key === 'ArrowDown' || key === ' ' || key === 'PageDown') {
+            nextIndex = (currentIndex + 1) % cards.length;
+          } else if (key === 'ArrowUp' || key === 'PageUp') {
+            nextIndex = (currentIndex - 1 + cards.length) % cards.length;
+          }
+          
+          // Scroll đến game card với smooth behavior để trigger scroll-snap
+          if (cards[nextIndex]) {
+            cards[nextIndex].scrollIntoView({ 
+              behavior: 'smooth', 
+              block: 'start',
+              inline: 'nearest'
+            });
+          }
         }
       });
     })();
