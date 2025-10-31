@@ -68,10 +68,11 @@ body::-webkit-scrollbar {
 }
 
 .logo {
-  font-size: 22px;
-  font-weight: bold;
+  font-size: 26px;
+  font-weight: 700;
   color: #fff;
-  text-shadow: 0 0 5px #00f8ff;
+  text-shadow: 0 0 6px rgba(0, 248, 255, 0.55);
+  letter-spacing: 1.4px;
 }
 
 .header-right select {
