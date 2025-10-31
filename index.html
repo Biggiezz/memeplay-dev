@@ -126,7 +126,7 @@
     }
     /* Move the game container below the header */
     .game-container {
-      margin-top: 30px;
+      margin-top: 0; /* Bỏ margin để game căn giữa chính xác */
     }
 
     .game-card {
@@ -141,6 +141,7 @@
       overscroll-behavior: contain;
       -webkit-overflow-scrolling: touch;
       scroll-snap-type: y mandatory;
+      scroll-padding-top: 0; /* Đảm bảo snap không bị offset */
       /* Ẩn scrollbar nhưng vẫn giữ chức năng cuộn - với !important */
       scrollbar-width: none !important;       /* Firefox */
       -ms-overflow-style: none !important;   /* IE và Edge */
@@ -1395,12 +1396,13 @@ window.addEventListener("beforeunload", stopGame);
                 }
               });
               
-              // Nếu card gần nhất chưa ở center, scroll đến center của nó
-              if (bestCard && bestDistance > 50) {
+              // Nếu card gần nhất chưa ở center, scroll đến center chính xác của nó
+              if (bestCard && bestDistance > 30) {
                 const cardTop = bestCard.offsetTop - gameContainer.offsetTop;
                 const cardHeight = bestCard.offsetHeight;
                 const cardCenter = cardTop + cardHeight / 2;
-                const targetScroll = cardCenter - containerHeight / 2;
+                // Tính scroll position để card center nằm ở center của container
+                const targetScroll = Math.max(0, cardCenter - containerHeight / 2);
                 
                 gameContainer.scrollTo({
                   top: targetScroll,
@@ -1463,7 +1465,8 @@ window.addEventListener("beforeunload", stopGame);
             const cardHeight = card.offsetHeight;
             const containerHeight = gameContainer.clientHeight;
             const cardCenter = cardTop + cardHeight / 2;
-            const targetScroll = cardCenter - containerHeight / 2;
+            // Tính scroll position để card center nằm ở center của container
+            const targetScroll = Math.max(0, cardCenter - containerHeight / 2);
             
             gameContainer.scrollTo({
               top: targetScroll,
