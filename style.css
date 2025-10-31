@@ -7,9 +7,8 @@ html, body {
   margin: 0;
   padding: 0;
   width: 100%;
-  min-height: 100vh;           /* ❗ cho phép cao hơn chiều cao màn hình */
-  overflow-x: hidden;          /* chặn cuộn ngang */
-  overflow-y: auto;            /* cho phép cuộn dọc */
+  height: 100%;                /* Thay min-height thành height để không tràn */
+  overflow: hidden !important; /* KHÔNG cho scrollbar trên html/body - scroll trong .game-container */
   display: flex;
   flex-direction: column;
   justify-content: flex-start;
@@ -17,7 +16,41 @@ html, body {
   background: #000;
   color: #fff;
   font-family: Arial, sans-serif;
-  scroll-behavior: smooth;     /* cuộn mượt mà hơn */
+  /* Scroll được xử lý trong .game-container, không cần scrollbar trên html/body */
+  scrollbar-width: none !important;       /* Firefox */
+  -ms-overflow-style: none !important;   /* IE và Edge */
+}
+
+/* Ẩn scrollbar cho Chrome, Safari, Edge - với !important */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Ẩn scrollbar cho .game-container - với !important */
+.game-container {
+  scrollbar-width: none !important;       /* Firefox */
+  -ms-overflow-style: none !important;   /* IE và Edge */
+}
+
+.game-container::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* Ẩn scrollbar cho TẤT CẢ elements - đảm bảo toàn bộ trang không có scrollbar */
+* {
+  scrollbar-width: none !important;  /* Firefox */
+  -ms-overflow-style: none !important; /* IE và Edge */
+}
+
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 
