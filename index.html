@@ -87,6 +87,9 @@
       transition: background 0.18s ease, transform 0.18s ease;
       padding: 0;
     }
+    .icon-button[hidden] {
+      display: none !important;
+    }
     .icon-button:hover {
       background: #273040;
       transform: translateY(-1px);
@@ -152,6 +155,9 @@
       letter-spacing: 0.3px;
       cursor: pointer;
       transition: background 0.18s ease, transform 0.18s ease;
+    }
+    .wallet-status-button[hidden] {
+      display: none !important;
     }
     .wallet-status-button:hover {
       background: #273040;
@@ -992,6 +998,25 @@
     setWalletStatus('')
     setConnectButtonState()
   }
+  function ensureWalletBindings() {
+    const connectBtn = els.connectBtn
+    const statusBtn = els.walletBadge
+    if (connectBtn && !connectBtn.__memeplayBound) {
+      connectBtn.addEventListener('click', (event) => {
+        event.preventDefault()
+        connectWallet()
+      })
+      connectBtn.__memeplayBound = true
+    }
+    if (statusBtn && !statusBtn.__memeplayBound) {
+      statusBtn.addEventListener('click', () => {
+        if (typeof window.__openWalletOverlay === 'function') {
+          window.__openWalletOverlay()
+        }
+      })
+      statusBtn.__memeplayBound = true
+    }
+  }
   function setConnectButtonState() {
     if (!els.connectBtn || !els.walletBadge) return
     const address = getWalletAddress()
@@ -1001,17 +1026,33 @@
       els.connectBtn.hidden = true
       els.walletBadge.hidden = false
       els.walletStatus.textContent = `connected :${shortAddr(address)}`
-      els.walletBadge.onclick = () => {
-        if (typeof window.__openWalletOverlay === 'function') {
-          window.__openWalletOverlay()
-        }
-      }
+      ensureWalletBindings()
     } else {
       els.connectBtn.hidden = false
       els.walletBadge.hidden = true
-      els.connectBtn.onclick = connectWallet
+      ensureWalletBindings()
     }
   }
+  const walletApi = {
+    connect: () => connectWallet(),
+    disconnect: () => disconnectWallet(),
+    isConnected: () => !!getWalletAddress(),
+    getAddress: () => getWalletAddress(),
+    getStreak: () => lsGetInt('mp_streak_count'),
+    getPlayPoints: () => lsGetInt('mp_total_earned_plays'),
+    openOverlay: () => {
+      if (typeof window.__openWalletOverlay === 'function') {
+        window.__openWalletOverlay()
+      }
+    }
+  }
+  try {
+    const existing = (globalThis.memeplayWallet && typeof globalThis.memeplayWallet === 'object') ? globalThis.memeplayWallet : {}
+    globalThis.memeplayWallet = Object.assign({}, existing, walletApi)
+  } catch {
+    globalThis.memeplayWallet = walletApi
+  }
+  ensureWalletBindings()
   els.connectBtn && setConnectButtonState()
   if (window.ethereum) {
     window.ethereum.on?.('accountsChanged', (accs) => {
@@ -1829,7 +1870,12 @@ window.addEventListener("beforeunload", stopGame);
         document.querySelector('.game-container')?.scrollTo({ top: 0, behavior: 'smooth' });
       });
       btnWallet.addEventListener('click', () => {
-        document.getElementById('connectWalletBtn')?.click();
+        const api = globalThis.memeplayWallet || {}
+        if (api.isConnected?.()) {
+          api.openOverlay?.()
+        } else {
+          api.connect?.()
+        }
       });
       btnMore.addEventListener('click', () => alert('More - Coming soon!'));
     }
@@ -1857,10 +1903,13 @@ window.addEventListener("beforeunload", stopGame);
       const playsEl = document.getElementById('walletOverlayPlays')
 
       function updateWalletOverlay() {
-        const address = getWalletAddress()
+        const api = globalThis.memeplayWallet || {}
+        const address = api.getAddress?.() || ''
         addressEl.textContent = address ? address : 'Not connected'
-        streakEl.textContent = els.streak ? (els.streak.textContent || '0') : '0'
-        playsEl.textContent = els.headerEarned ? (els.headerEarned.textContent || '0') : '0'
+        const streak = api.getStreak?.()
+        const plays = api.getPlayPoints?.()
+        streakEl.textContent = String(Number.isFinite(streak) ? streak : 0)
+        playsEl.textContent = String(Number.isFinite(plays) ? plays : 0)
       }
 
       function openWalletOverlay() {
@@ -1881,7 +1930,8 @@ window.addEventListener("beforeunload", stopGame);
       })
 
       copyBtn?.addEventListener('click', async () => {
-        const address = getWalletAddress()
+        const api = globalThis.memeplayWallet || {}
+        const address = api.getAddress?.() || ''
         if (!address) return
         try {
           await navigator.clipboard.writeText(address)
@@ -1895,7 +1945,8 @@ window.addEventListener("beforeunload", stopGame);
       })
 
       disconnectBtn?.addEventListener('click', () => {
-        disconnectWallet()
+        const api = globalThis.memeplayWallet || {}
+        api.disconnect?.()
         closeWalletOverlay()
       })
 
