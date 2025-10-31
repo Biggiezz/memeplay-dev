@@ -1339,6 +1339,47 @@ window.addEventListener("beforeunload", stopGame);
     })();
   </script>
 
+  <!-- Desktop scroll: Chuyển scroll từ toàn trang vào .game-container -->
+  <script>
+    (function enableDesktopScroll(){
+      const gameContainer = document.querySelector('.game-container');
+      if (!gameContainer) return;
+      
+      // Chuyển wheel events từ document vào .game-container
+      document.addEventListener('wheel', (e) => {
+        // Chỉ xử lý scroll dọc
+        if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
+          const target = e.target;
+          // Kiểm tra xem click có trong .game-container không
+          const isInGameContainer = gameContainer.contains(target) || 
+                                    target.closest('.game-card') ||
+                                    target.closest('.game-container') ||
+                                    target.closest('.main-header');
+          
+          // Nếu click ra ngoài game-container (vùng đen), redirect scroll vào .game-container
+          if (!isInGameContainer) {
+            e.preventDefault();
+            e.stopPropagation();
+            gameContainer.scrollTop += e.deltaY;
+          }
+        }
+      }, { passive: false });
+      
+      // Xử lý keyboard scroll (Space, Arrow keys)
+      document.addEventListener('keydown', (e) => {
+        // Chỉ xử lý khi focus không nằm trong input/textarea
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+        
+        const key = e.key;
+        if (key === ' ' || key === 'ArrowDown' || key === 'ArrowUp' || key === 'PageDown' || key === 'PageUp') {
+          e.preventDefault();
+          const scrollAmount = key === 'PageDown' ? 500 : key === 'PageUp' ? -500 : key === 'ArrowDown' ? 100 : key === 'ArrowUp' ? -100 : 300;
+          gameContainer.scrollTop += scrollAmount;
+        }
+      });
+    })();
+  </script>
+
   <!-- Swipe navigation: up/down moves to next/prev game (loops) -->
   <script>
     (function swipeNavigation(){
