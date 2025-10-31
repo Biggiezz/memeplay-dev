@@ -1842,64 +1842,63 @@ window.addEventListener("beforeunload", stopGame);
     setTimeout(createBottomNav, 1000);
   </script>
 
-  ;(function initWalletOverlay(){
-    const overlay = document.getElementById('walletOverlay')
-    if (!overlay) return
-    const closeBtn = document.getElementById('walletCloseBtn')
-    const copyBtn = document.getElementById('walletCopyBtn')
-    const disconnectBtn = document.getElementById('walletDisconnectBtn')
-    const addressEl = document.getElementById('walletOverlayAddress')
-    const streakEl = document.getElementById('walletOverlayStreak')
-    const playsEl = document.getElementById('walletOverlayPlays')
+  <script>
+    ;(function initWalletOverlay(){
+      const overlay = document.getElementById('walletOverlay')
+      if (!overlay) return
+      const closeBtn = document.getElementById('walletCloseBtn')
+      const copyBtn = document.getElementById('walletCopyBtn')
+      const disconnectBtn = document.getElementById('walletDisconnectBtn')
+      const addressEl = document.getElementById('walletOverlayAddress')
+      const streakEl = document.getElementById('walletOverlayStreak')
+      const playsEl = document.getElementById('walletOverlayPlays')
 
-    function updateWalletOverlay() {
-      const address = getWalletAddress()
-      addressEl.textContent = address ? address : 'Not connected'
-      streakEl.textContent = els.streak ? (els.streak.textContent || '0') : '0'
-      playsEl.textContent = els.headerEarned ? (els.headerEarned.textContent || '0') : '0'
-    }
-
-    function openWalletOverlay() {
-      updateWalletOverlay()
-      overlay.classList.add('open')
-    }
-
-    function closeWalletOverlay() {
-      overlay.classList.remove('open')
-    }
-
-    closeBtn?.addEventListener('click', closeWalletOverlay)
-    overlay.addEventListener('click', (event) => {
-      if (event.target === overlay) closeWalletOverlay()
-    })
-    document.addEventListener('keydown', (event) => {
-      if (event.key === 'Escape' && overlay.classList.contains('open')) closeWalletOverlay()
-    })
-
-    copyBtn?.addEventListener('click', async () => {
-      const address = getWalletAddress()
-      if (!address) return
-      try {
-        await navigator.clipboard.writeText(address)
-        copyBtn.textContent = 'Copied!'
-        setTimeout(() => { copyBtn.textContent = 'Copy address' }, 1500)
-      } catch (err) {
-        console.warn('Clipboard copy failed', err)
-        copyBtn.textContent = 'Copy failed'
-        setTimeout(() => { copyBtn.textContent = 'Copy address' }, 1500)
+      function updateWalletOverlay() {
+        const address = getWalletAddress()
+        addressEl.textContent = address ? address : 'Not connected'
+        streakEl.textContent = els.streak ? (els.streak.textContent || '0') : '0'
+        playsEl.textContent = els.headerEarned ? (els.headerEarned.textContent || '0') : '0'
       }
-    })
 
-    disconnectBtn?.addEventListener('click', () => {
-      disconnectWallet()
-      closeWalletOverlay()
-    })
+      function openWalletOverlay() {
+        updateWalletOverlay()
+        overlay.classList.add('open')
+      }
 
-    window.__openWalletOverlay = openWalletOverlay
-    window.__updateWalletOverlay = updateWalletOverlay
-  })()
- 
-   
-   </script>
+      function closeWalletOverlay() {
+        overlay.classList.remove('open')
+      }
+
+      closeBtn?.addEventListener('click', closeWalletOverlay)
+      overlay.addEventListener('click', (event) => {
+        if (event.target === overlay) closeWalletOverlay()
+      })
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && overlay.classList.contains('open')) closeWalletOverlay()
+      })
+
+      copyBtn?.addEventListener('click', async () => {
+        const address = getWalletAddress()
+        if (!address) return
+        try {
+          await navigator.clipboard.writeText(address)
+          copyBtn.textContent = 'Copied!'
+          setTimeout(() => { copyBtn.textContent = 'Copy address' }, 1500)
+        } catch (err) {
+          console.warn('Clipboard copy failed', err)
+          copyBtn.textContent = 'Copy failed'
+          setTimeout(() => { copyBtn.textContent = 'Copy address' }, 1500)
+        }
+      })
+
+      disconnectBtn?.addEventListener('click', () => {
+        disconnectWallet()
+        closeWalletOverlay()
+      })
+
+      window.__openWalletOverlay = openWalletOverlay
+      window.__updateWalletOverlay = updateWalletOverlay
+    })()
+  </script>
 </body>
 </html>
