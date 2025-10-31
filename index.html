@@ -247,6 +247,15 @@
     .comments-input button{height:56px;background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:8px;padding:0 16px;cursor:pointer;font-size:32px}
     .comments-footer{display:flex;justify-content:center;padding:10px 14px}
     .comments-footer button{background:none;border:1px solid #2a2a2a;color:#bbb;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:16px}
+    #statsOverlay .comments-box{max-width:460px;padding:18px 24px;gap:0}
+    .stats-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid #1f1f1f}
+    .stats-title{font-size:20px;font-weight:600;color:#0ff;letter-spacing:1px;text-transform:uppercase}
+    .stats-content{display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center;padding:12px 0 4px}
+    .stats-item{display:flex;flex-direction:column;gap:6px;align-items:center}
+    .stats-label{font-size:16px;color:#9aa;letter-spacing:1px;text-transform:uppercase}
+    .stats-metric{font-size:42px;font-weight:700;color:#0ff;text-shadow:0 0 12px rgba(0,255,255,0.35)}
+    .stats-divider{width:80%;height:1px;background:#1f1f1f}
+    .stats-note{font-size:14px;color:#777}
   </style>
 </head>
 <body>
@@ -537,6 +546,27 @@
     </div>
   </div>
   
+  <div id="statsOverlay" class="comments-overlay">
+    <div class="comments-box">
+      <div class="stats-header">
+        <div class="stats-title">MemePlay Stats</div>
+        <button id="statsCloseBtn" style="background:none;border:1px solid #2a2a2a;color:#bbb;border-radius:6px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:42px;line-height:1;font-weight:700;">×</button>
+      </div>
+      <div class="stats-content">
+        <div class="stats-item">
+          <div class="stats-label">Current Streak</div>
+          <div class="stats-metric" id="statsStreak">0</div>
+        </div>
+        <div class="stats-divider"></div>
+        <div class="stats-item">
+          <div class="stats-label">Play Points</div>
+          <div class="stats-metric" id="statsPlays">0</div>
+        </div>
+        <div class="stats-note">Lifetime PLAY points keep growing — keep gaming daily!</div>
+      </div>
+    </div>
+  </div>
+  
   <script>
     // Game management system (auto-activate visible card)
     let currentActiveGame = null;
@@ -753,6 +783,7 @@
   function updateHeaderEarned() {
     const totalEarned = lsGetInt('mp_total_earned_plays')
     els.headerEarned && (els.headerEarned.textContent = String(totalEarned))
+    if (typeof window.__updateStatsOverlay === 'function') window.__updateStatsOverlay()
   }
 
   // Show inline banner near PLAY points and apply increment after 3s
@@ -779,6 +810,7 @@
   function updateStreak() {
     const streak = lsGetInt('mp_streak_count')
     els.streak && (els.streak.textContent = String(streak))
+    if (typeof window.__updateStatsOverlay === 'function') window.__updateStatsOverlay()
   }
 
   // Initialize UI from localStorage
@@ -1296,7 +1328,42 @@ window.addEventListener("beforeunload", stopGame);
   }
   initSocialHandlers()
 
-  
+  ;(function initStatsOverlay(){
+    const overlay = document.getElementById('statsOverlay')
+    if (!overlay) return
+    const closeBtn = document.getElementById('statsCloseBtn')
+    const streakEl = document.getElementById('statsStreak')
+    const playsEl = document.getElementById('statsPlays')
+
+    function updateStatsOverlay() {
+      const streakSource = document.getElementById('streakCount')
+      const playsSource = document.getElementById('headerEarned')
+      if (streakSource) streakEl.textContent = streakSource.textContent || '0'
+      if (playsSource) playsEl.textContent = playsSource.textContent || '0'
+    }
+
+    function openStatsOverlay() {
+      updateStatsOverlay()
+      overlay.classList.add('open')
+    }
+
+    function closeStatsOverlay() {
+      overlay.classList.remove('open')
+    }
+
+    closeBtn?.addEventListener('click', closeStatsOverlay)
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeStatsOverlay()
+    })
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && overlay.classList.contains('open')) closeStatsOverlay()
+    })
+
+    window.__openStatsOverlay = openStatsOverlay
+    window.__updateStatsOverlay = updateStatsOverlay
+  })()
+ 
+   
   </script>
 
   <!-- Global helpers shim (non-module) to guarantee console access -->
@@ -1606,7 +1673,13 @@ window.addEventListener("beforeunload", stopGame);
       console.log('✅ Bottom nav created:', bottomNav);
       
       // Event handlers
-      btnStats.addEventListener('click', () => alert('Stats - Coming soon!'));
+      btnStats.addEventListener('click', () => {
+        if (typeof window.__openStatsOverlay === 'function') {
+          window.__openStatsOverlay()
+        } else {
+          alert('Stats coming soon!')
+        }
+      });
       btnGames.addEventListener('click', () => {
         document.querySelector('.game-container')?.scrollTo({ top: 0, behavior: 'smooth' });
       });
