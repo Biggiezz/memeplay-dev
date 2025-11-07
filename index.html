@@ -1469,45 +1469,48 @@
       console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
       initFocusControls()
       
-      // Init observers after games loaded
-      initGameObserver()
-      initSocialHandlers()
+      // 🚀 PHƯƠNG ÁN B: Preload 4 games đầu - SCROLL TRƯỚC, LOAD SAU
       
-      // 🚀 PHƯƠNG ÁN B: Preload 4 games đầu cùng lúc (mượt khi scroll)
       // Lấy 4 games đầu tiên trong DOM (không hard-code)
       const allCards = Array.from(document.querySelectorAll('.game-card'))
       const firstFourGames = allCards.slice(0, 4).map(c => c.id).filter(Boolean)
       
       // DEBUG: Check game order
       console.log('📋 Game order in DOM:')
-      document.querySelectorAll('.game-card').forEach((card, idx) => {
+      allCards.forEach((card, idx) => {
         console.log(`  ${idx + 1}. ${card.id}`)
       })
       
+      // BƯỚC 1: SCROLL ĐẾN GAME ĐẦU TIÊN NGAY (trước khi load)
+      const firstCard = allCards[0]
+      if (firstCard) {
+        const gameContainer = document.querySelector('.game-container')
+        if (gameContainer) {
+          gameContainer.scrollTop = 0 // Force scroll to top
+          console.log('📍 Scrolled to top (first game)')
+        }
+      }
+      
+      // BƯỚC 2: Init observers
+      initGameObserver()
+      initSocialHandlers()
+      
+      // BƯỚC 3: Preload 4 games SAU KHI đã scroll
       setTimeout(() => {
-        console.log('🎮 Preloading first 4 games for smooth scrolling...')
+        console.log('🎮 Preloading first 4 games:', firstFourGames)
         firstFourGames.forEach((gameId, index) => {
           // Stagger load mỗi game 200ms để tránh spike
           setTimeout(() => {
             const card = document.getElementById(gameId)
             if (card) {
-              console.log(`  → Loading ${gameId}`)
+              console.log(`  ✅ Loading ${gameId}`)
               activateGame(gameId)
             } else {
               console.error(`  ❌ Game not found: ${gameId}`)
             }
           }, index * 200)
         })
-      }, 100)
-      
-      // Auto scroll to first game (fix vấn đề màn hình đen)
-      setTimeout(() => {
-        const firstCard = document.querySelector('.game-card')
-        if (firstCard) {
-          firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' })
-          console.log('📍 Scrolled to first game:', firstCard.id)
-        }
-      }, 500)
+      }, 200)
       
     } catch (error) {
       console.error('Load game list failed:', error)
