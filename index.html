@@ -1474,7 +1474,9 @@
       initSocialHandlers()
       
       // 🚀 PHƯƠNG ÁN B: Preload 4 games đầu cùng lúc (mượt khi scroll)
-      const firstFourGames = ['bird-squash', 'wojak-btc-blast', 'moonshot-bnb', 'valley-explorer-3d']
+      // Lấy 4 games đầu tiên trong DOM (không hard-code)
+      const allCards = Array.from(document.querySelectorAll('.game-card'))
+      const firstFourGames = allCards.slice(0, 4).map(c => c.id).filter(Boolean)
       
       // DEBUG: Check game order
       console.log('📋 Game order in DOM:')
