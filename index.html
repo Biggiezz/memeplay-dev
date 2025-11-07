@@ -20,6 +20,9 @@
   <link rel="preconnect" href="https://inverse-cramer.lovable.app" crossorigin>
   <link rel="preconnect" href="https://rosebud.ai" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <!-- Debug console for mobile - Remove sau khi fix xong -->
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
   <style>
     :root { --header-h: 60px; }
     /* ===== HEADER (Docs link left, actions right) ===== */
@@ -1473,6 +1476,12 @@
       // 🚀 PHƯƠNG ÁN B: Preload 4 games đầu cùng lúc (mượt khi scroll)
       const firstFourGames = ['bird-squash', 'wojak-btc-blast', 'moonshot-bnb', 'valley-explorer-3d']
       
+      // DEBUG: Check game order
+      console.log('📋 Game order in DOM:')
+      document.querySelectorAll('.game-card').forEach((card, idx) => {
+        console.log(`  ${idx + 1}. ${card.id}`)
+      })
+      
       setTimeout(() => {
         console.log('🎮 Preloading first 4 games for smooth scrolling...')
         firstFourGames.forEach((gameId, index) => {
@@ -1482,10 +1491,21 @@
             if (card) {
               console.log(`  → Loading ${gameId}`)
               activateGame(gameId)
+            } else {
+              console.error(`  ❌ Game not found: ${gameId}`)
             }
           }, index * 200)
         })
       }, 100)
+      
+      // Auto scroll to first game (fix vấn đề màn hình đen)
+      setTimeout(() => {
+        const firstCard = document.querySelector('.game-card')
+        if (firstCard) {
+          firstCard.scrollIntoView({ behavior: 'smooth', block: 'center' })
+          console.log('📍 Scrolled to first game:', firstCard.id)
+        }
+      }, 500)
       
     } catch (error) {
       console.error('Load game list failed:', error)
