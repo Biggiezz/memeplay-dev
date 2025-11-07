@@ -1882,6 +1882,33 @@
     }
   }
 
+  // Queue achievements để hiện sau game over
+  const pendingAchievements = {}
+  
+  // Show all pending achievements for a game
+  function showPendingAchievements(gameId) {
+    const achievements = pendingAchievements[gameId]
+    if (!achievements || achievements.length === 0) return
+    
+    console.log(`🎉 Showing ${achievements.length} pending achievement(s) for ${gameId}`)
+    
+    // Sort by threshold (10 → 60 → 300)
+    achievements.sort((a, b) => a.threshold - b.threshold)
+    
+    // Show từng achievement với delay
+    achievements.forEach((ach, index) => {
+      setTimeout(() => {
+        celebrateAchievement(gameId, ach.name, ach.count, ach.reward)
+      }, index * 2500) // Mỗi achievement cách nhau 2.5s
+    })
+    
+    // Clear queue sau khi hiện
+    delete pendingAchievements[gameId]
+  }
+  
+  // Expose globally để game có thể gọi
+  window.__showPendingAchievements = showPendingAchievements
+  
   function showPlayAward(amount, label, isNewAchievement = false) {
     if (!amount || amount <= 0) return
     
@@ -1890,12 +1917,25 @@
     lsSetInt('mp_total_earned_plays', newTotal)
     updateHeaderEarned()
     
-    // If new achievement, celebrate!
+    // If new achievement, QUEUE thay vì celebrate ngay
     if (isNewAchievement && activeGame) {
       const achievedCount = Object.values(getGameAwards(activeGame)).filter(Boolean).length
       const achievementNames = { 10: 'Starter', 60: 'Engaged', 300: 'Champion' }
       const threshold = parseInt(label.replace('s', ''))
-      celebrateAchievement(activeGame, achievementNames[threshold], achievedCount, amount)
+      
+      // Add to pending queue
+      if (!pendingAchievements[activeGame]) {
+        pendingAchievements[activeGame] = []
+      }
+      pendingAchievements[activeGame].push({
+        name: achievementNames[threshold],
+        count: achievedCount,
+        reward: amount,
+        threshold
+      })
+      
+      console.log(`🎖️ Achievement queued: ${achievementNames[threshold]} (+${amount} PLAY)`)
+      console.log('   → Will show after game over')
       return
     }
     
@@ -2583,6 +2623,15 @@ window.addEventListener("beforeunload", stopGame);
       const finalScore = Math.floor(Number(score))
       
       console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
+      
+      // GAME OVER detected → Show pending achievements
+      console.log('🎮 Game Over detected! Checking pending achievements...')
+      if (pendingAchievements[gameId] && pendingAchievements[gameId].length > 0) {
+        // Đợi 1s sau game over, mới hiện achievements
+        setTimeout(() => {
+          showPendingAchievements(gameId)
+        }, 1000)
+      }
       
       try {
         const { data, error } = await supabase.rpc('submit_game_score', {
