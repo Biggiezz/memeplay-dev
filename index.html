@@ -1470,11 +1470,22 @@
       initGameObserver()
       initSocialHandlers()
       
-      // Auto-activate first game
+      // 🚀 PHƯƠNG ÁN B: Preload 4 games đầu cùng lúc (mượt khi scroll)
+      const firstFourGames = ['bird-squash', 'wojak-btc-blast', 'moonshot-bnb', 'valley-explorer-3d']
+      
       setTimeout(() => {
-        const firstGame = document.querySelector('.game-card')
-        if (firstGame) activateGame(firstGame.id)
-      }, 300)
+        console.log('🎮 Preloading first 4 games for smooth scrolling...')
+        firstFourGames.forEach((gameId, index) => {
+          // Stagger load mỗi game 200ms để tránh spike
+          setTimeout(() => {
+            const card = document.getElementById(gameId)
+            if (card) {
+              console.log(`  → Loading ${gameId}`)
+              activateGame(gameId)
+            }
+          }, index * 200)
+        })
+      }, 100)
       
     } catch (error) {
       console.error('Load game list failed:', error)
