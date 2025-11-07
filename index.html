@@ -3334,21 +3334,29 @@ window.addEventListener("beforeunload", stopGame);
     const mcCache = {}
     const mcLoading = {}
     
-    // Lazy load MC khi game visible
+    // Lazy load MC khi game visible VÀ iframe loaded
     const mcObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
-        if (entry.isIntersecting) {
+        if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
           const gameId = entry.target.id
-          if (!mcCache[gameId] && !mcLoading[gameId]) {
-            mcLoading[gameId] = true
-            console.log(`[MC] Loading for visible game: ${gameId}`)
-            update(gameId)
+          
+          // Check iframe đã load chưa
+          const iframe = entry.target.querySelector('iframe')
+          const iframeLoaded = iframe && iframe.src && !iframe.src.includes('about:blank')
+          
+          if (iframeLoaded && !mcCache[gameId] && !mcLoading[gameId]) {
+            // Đợi thêm 2s để game ổn định, MỚI fetch MC
+            setTimeout(() => {
+              mcLoading[gameId] = true
+              console.log(`[MC] Loading for game (iframe ready): ${gameId}`)
+              update(gameId)
+            }, 2000)
           }
         }
       })
     }, { 
-      threshold: 0.3,
-      rootMargin: '100px' // Preload khi gần đến game
+      threshold: 0.5, // Tăng từ 0.3 → 0.5 (visible 50%)
+      rootMargin: '0px' // Bỏ preload, chỉ fetch khi thực sự visible
     })
     
     // Đợi 5s sau khi page load, bắt đầu observe
