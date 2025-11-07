@@ -1466,6 +1466,9 @@
       container.innerHTML = '<div style="padding:24px;text-align:center;color:#bbb;">Unable to load games. Please refresh.</div>'
     }
   }
+  
+  // Load games on page load
+  loadGameCards()
 
   function updateFocusButtons() {
     const active = document.body.classList.contains('focus-mode')
