@@ -1524,12 +1524,13 @@
       initGameObserver()
       initSocialHandlers()
       
-      // BƯỚC 3: PRELOAD 4 games CÙNG LÚC (parallel loading)
+      // BƯỚC 3: PRELOAD 2 GAMES ĐẦU TIÊN (optimal balance)
       setTimeout(() => {
-        console.log('🎮 Preloading 4 games IN PARALLEL:', firstFourGames)
+        const firstTwo = firstFourGames.slice(0, 2)
+        console.log('🎮 Preloading first 2 games IN PARALLEL:', firstTwo)
         
-        // Load TẤT CẢ 4 games CÙNG LÚC (không setTimeout)
-        firstFourGames.forEach((gameId) => {
+        // Load 2 games CÙNG LÚC (true parallel - different subdomains)
+        firstTwo.forEach((gameId) => {
           if (gameId) {
             // isPreload = true → Load parallel, không stop nhau
             activateGame(gameId, true)
@@ -1540,6 +1541,7 @@
         if (firstFourGames[0]) {
           currentActiveGame = firstFourGames[0]
           console.log('  ✅ Current game:', firstFourGames[0])
+          console.log('  🎯 Strategy: First 2 preloaded (parallel), others load on scroll')
         }
       }, 300)
       
