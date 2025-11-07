@@ -37,3 +37,15 @@ build/
 *.temp
 .cache/
 
+# Sensitive files
+*.txt
+*.key
+*.pem
+*.secret
+config.local.js
+secrets.json
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
