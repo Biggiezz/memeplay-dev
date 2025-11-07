@@ -1286,6 +1286,7 @@
   <script>
     // Game management system (auto-activate visible card)
     let currentActiveGame = null;
+    const preloadedGames = new Set(); // Track preloaded games
     
     // Game URLs mapping (active games only)
     const gameUrls = {
@@ -1301,9 +1302,12 @@
       'inverse-cramer': 'https://inverse-cramer.lovable.app'
     };
   
-    function activateGame(gameId) {
-      if (currentActiveGame === gameId) return;
-      if (currentActiveGame) {
+    function activateGame(gameId, isPreload = false) {
+      // Nếu là preload, không check currentActiveGame
+      if (!isPreload && currentActiveGame === gameId) return;
+      
+      // Chỉ stop previous game nếu KHÔNG phải preload
+      if (!isPreload && currentActiveGame && !preloadedGames.has(currentActiveGame)) {
         // Ensure previous session is stopped (module exposes on window)
         try { window.memeplay && window.memeplay.stopGame && window.memeplay.stopGame(); } catch {}
         const prevCard = document.getElementById(currentActiveGame);
@@ -1318,13 +1322,22 @@
       if (!card) return;
       const iframe = card.querySelector('iframe');
       if (iframe && gameUrls[gameId]) {
-        // Bust cache to guarantee a load event even if same URL
-        const sep = gameUrls[gameId].includes('?') ? '&' : '?'
-        iframe.src = gameUrls[gameId] + sep + 'v=' + Date.now();
-        currentActiveGame = gameId;
-        try { window.__memeplayActiveGame = gameId } catch {}
-        document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }));
-        console.log('🎮 Activated', gameId);
+        // Chỉ load nếu chưa có src
+        if (!iframe.src || iframe.src === '' || iframe.src.includes('about:blank')) {
+          // Bust cache to guarantee a load event even if same URL
+          const sep = gameUrls[gameId].includes('?') ? '&' : '?'
+          iframe.src = gameUrls[gameId] + sep + 'v=' + Date.now();
+          console.log(isPreload ? '🔄 Preloaded' : '🎮 Activated', gameId);
+        }
+        
+        if (isPreload) {
+          preloadedGames.add(gameId);
+        } else {
+          currentActiveGame = gameId;
+          try { window.__memeplayActiveGame = gameId } catch {}
+          document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }));
+        }
+        
         // Proactively start session ticker in case load fired earlier (module-exposed)
         setTimeout(() => {
           try {
@@ -1481,36 +1494,56 @@
         console.log(`  ${idx + 1}. ${card.id}`)
       })
       
-      // BƯỚC 1: SCROLL ĐẾN GAME ĐẦU TIÊN NGAY (trước khi load)
+      // BƯỚC 1: FORCE SCROLL ĐẾN GAME ĐẦU TIÊN (disable snap trước)
       const firstCard = allCards[0]
-      if (firstCard) {
-        const gameContainer = document.querySelector('.game-container')
-        if (gameContainer) {
-          gameContainer.scrollTop = 0 // Force scroll to top
-          console.log('📍 Scrolled to top (first game)')
-        }
+      const gameContainer = document.querySelector('.game-container')
+      
+      if (firstCard && gameContainer) {
+        // Disable scroll-snap tạm thời để force position
+        gameContainer.style.scrollSnapType = 'none'
+        gameContainer.style.scrollBehavior = 'auto'
+        
+        // Force scroll to absolute top
+        gameContainer.scrollTop = 0
+        
+        // Scroll to first card explicitly
+        requestAnimationFrame(() => {
+          firstCard.scrollIntoView({ block: 'start' })
+          console.log('📍 Force scrolled to:', firstCard.id)
+          
+          // Re-enable scroll-snap sau 500ms
+          setTimeout(() => {
+            gameContainer.style.scrollSnapType = 'y mandatory'
+            gameContainer.style.scrollBehavior = 'smooth'
+            console.log('✅ Scroll-snap re-enabled')
+          }, 500)
+        })
       }
       
       // BƯỚC 2: Init observers
       initGameObserver()
       initSocialHandlers()
       
-      // BƯỚC 3: Preload 4 games SAU KHI đã scroll
+      // BƯỚC 3: PRELOAD 4 games đầu (KHÔNG stop lẫn nhau)
       setTimeout(() => {
         console.log('🎮 Preloading first 4 games:', firstFourGames)
         firstFourGames.forEach((gameId, index) => {
-          // Stagger load mỗi game 200ms để tránh spike
           setTimeout(() => {
-            const card = document.getElementById(gameId)
-            if (card) {
-              console.log(`  ✅ Loading ${gameId}`)
-              activateGame(gameId)
-            } else {
-              console.error(`  ❌ Game not found: ${gameId}`)
+            if (gameId) {
+              // isPreload = true → Không stop game khác
+              activateGame(gameId, true)
             }
-          }, index * 200)
+          }, index * 150) // Stagger 150ms
         })
-      }, 200)
+        
+        // Set game đầu tiên làm "current" sau khi preload
+        setTimeout(() => {
+          if (firstFourGames[0]) {
+            currentActiveGame = firstFourGames[0]
+            console.log('  ✅ Set current game:', firstFourGames[0])
+          }
+        }, 800)
+      }, 300)
       
     } catch (error) {
       console.error('Load game list failed:', error)
