@@ -1333,23 +1333,26 @@
     }
 
     // Observe which game card is visible and activate early for snappier switching
-  const thresholds = Array.from({ length: 10 }, (_, i) => (i + 1) / 10);
-  const observer = new IntersectionObserver((entries) => {
-      const visible = entries.filter(e => e.isIntersecting);
-      if (!visible.length) return;
+  function initGameObserver() {
+    const thresholds = Array.from({ length: 10 }, (_, i) => (i + 1) / 10);
+    const observer = new IntersectionObserver((entries) => {
+        const visible = entries.filter(e => e.isIntersecting);
+        if (!visible.length) return;
 
-      // Pick the entry with the greatest intersection; this favors the one you're scrolling to
-      const best = visible.reduce((a, b) => a.intersectionRatio >= b.intersectionRatio ? a : b);
-      const gameId = best.target.id;
-      activateGame(gameId);
-  }, {
-      // Observe inside the snapping container
-      root: document.querySelector('.game-container') || null,
-      rootMargin: '25% 0px -55% 0px',
-      threshold: thresholds
-    });
+        // Pick the entry with the greatest intersection; this favors the one you're scrolling to
+        const best = visible.reduce((a, b) => a.intersectionRatio >= b.intersectionRatio ? a : b);
+        const gameId = best.target.id;
+        activateGame(gameId);
+    }, {
+        // Observe inside the snapping container
+        root: document.querySelector('.game-container') || null,
+        rootMargin: '25% 0px -55% 0px',
+        threshold: thresholds
+      });
 
-  document.querySelectorAll('.game-card').forEach(card => observer.observe(card));
+    document.querySelectorAll('.game-card').forEach(card => observer.observe(card));
+    console.log('✅ Game observer initialized for', document.querySelectorAll('.game-card').length, 'games')
+  }
     
     // Dropdown nav logic
     const navDropdown = document.getElementById('navDropdown');
@@ -1460,7 +1463,19 @@
       const doc = parser.parseFromString(markup, 'text/html')
       const wrapper = doc.querySelector('[data-game-list]')
       container.innerHTML = wrapper ? wrapper.innerHTML : markup
+      console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
       initFocusControls()
+      
+      // Init observers after games loaded
+      initGameObserver()
+      initSocialHandlers()
+      
+      // Auto-activate first game
+      setTimeout(() => {
+        const firstGame = document.querySelector('.game-card')
+        if (firstGame) activateGame(firstGame.id)
+      }, 300)
+      
     } catch (error) {
       console.error('Load game list failed:', error)
       container.innerHTML = '<div style="padding:24px;text-align:center;color:#bbb;">Unable to load games. Please refresh.</div>'
