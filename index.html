@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -11,8 +11,10 @@
   <link rel="stylesheet" href="style.css">
   <link rel="preconnect" href="https://moonshot-bnb.lovable.app" crossorigin>
   <link rel="preconnect" href="https://bird-squash-dev.lovable.app" crossorigin>
-  <link rel="preconnect" href="https://monkey-crypto-climb.lovable.app" crossorigin>
-  <link rel="preconnect" href="https://whack-a-chibi-zombie.lovable.app" crossorigin>
+  <link rel="preconnect" href="https://wojak-btc-blast.lovable.app" crossorigin>
+  <link rel="preconnect" href="https://hodl-tower-stack.lovable.app" crossorigin>
+  <link rel="preconnect" href="https://rosebud.ai" crossorigin>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
   <style>
     :root { --header-h: 60px; }
     /* ===== HEADER (Docs link left, actions right) ===== */
@@ -36,8 +38,8 @@
       font-size: 26px;
       font-weight: 700;
       letter-spacing: 1.4px;
-      color: #fff;
-      text-shadow: 0 0 6px rgba(0, 248, 255, 0.55);
+      color: #ffb642;
+      text-shadow: 0 0 12px rgba(255, 182, 66, 0.45);
       text-decoration: none;
       display: inline-flex;
       align-items: center;
@@ -47,7 +49,7 @@
     }
     .logo:hover {
       transform: translateY(-1px);
-      color: #0ff;
+      color: #ffd678;
     }
     .header-flash {
       position: absolute;
@@ -56,12 +58,12 @@
       transform: translateY(-50%);
       font-size: 12px;
       font-weight: 600;
-      color: #0ff;
+      color: #ffb642;
       padding: 4px 10px;
-      border: 1px solid rgba(0, 255, 255, 0.35);
+      border: 1px solid rgba(255, 182, 66, 0.35);
       border-radius: 999px;
-      background: rgba(0, 255, 255, 0.12);
-      box-shadow: 0 0 8px rgba(0, 255, 255, 0.35);
+      background: rgba(255, 182, 66, 0.12);
+      box-shadow: 0 0 8px rgba(255, 182, 66, 0.35);
       opacity: 0;
       transition: opacity .18s ease;
       white-space: nowrap;
@@ -94,9 +96,33 @@
       background: #273040;
       transform: translateY(-1px);
     }
+    .icon-button svg.header-icon {
+      width: 22px;
+      height: 22px;
+      stroke: #ffb642;
+      fill: none;
+      stroke-width: 2.1;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: stroke 0.18s ease;
+    }
+    .icon-button:hover svg.header-icon,
+    .icon-button:focus-visible svg.header-icon {
+      stroke: #ffd678;
+    }
     .icon-button img {
       width: 22px;
       height: 22px;
+    }
+    .icon-button .icon-plus {
+      font-size: 24px;
+      font-weight: 600;
+      color: #ffb642;
+      line-height: 1;
+      transition: color 0.18s ease;
+    }
+    .icon-button:hover .icon-plus {
+      color: #ffd678;
     }
     .nav-dropdown {
       position: absolute;
@@ -186,25 +212,6 @@
 
     .game-card {
       position: relative;
-      overflow: hidden;
-    }
-
-    /* ===== Game area base ===== */
-    .game-container {
-      height: calc(100svh - var(--header-h) - env(safe-area-inset-top));
-      overflow-y: auto;
-      overscroll-behavior: contain;
-      -webkit-overflow-scrolling: touch;
-      scroll-snap-type: y mandatory;
-      scroll-padding-top: 0; /* Đảm bảo snap không bị offset */
-      /* Ẩn scrollbar nhưng vẫn giữ chức năng cuộn - với !important */
-      scrollbar-width: none !important;       /* Firefox */
-      -ms-overflow-style: none !important;   /* IE và Edge */
-    }
-    .game-container::-webkit-scrollbar {
-      display: none !important;              /* Chrome, Safari, Edge */
-      width: 0 !important;
-      height: 0 !important;
     }
     
     /* Đảm bảo html và body cũng ẩn scrollbar */
@@ -220,78 +227,776 @@
     body {
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
+      user-select: none;
+      -webkit-user-select: none;
+      -webkit-touch-callout: none;
     }
     body::-webkit-scrollbar {
       display: none !important;
       width: 0 !important;
       height: 0 !important;
     }
-    .game-card { margin-left: auto; margin-right: auto; max-width: 720px; scroll-snap-align: center; scroll-snap-stop: always; min-height: calc(100svh - var(--header-h) - env(safe-area-inset-top)); margin-bottom: 0 !important; }
-    .game-card iframe { border: 0; display: block; margin: 0 auto; }
-    .game-footer { width: 100%; max-width: 720px; height: auto; padding: 10px 0; margin: 0 auto; }
+    .allow-text-select,
+    .allow-text-select * {
+      user-select: text !important;
+      -webkit-user-select: text !important;
+      -webkit-touch-callout: default !important;
+    }
+    textarea,
+    input,
+    .comments-input,
+    .comments-input * {
+      user-select: text !important;
+      -webkit-user-select: text !important;
+      -webkit-touch-callout: default !important;
+    }
+    .game-container {
+      height: calc(100svh - var(--header-h) - env(safe-area-inset-top));
+      overflow-y: auto;
+      overscroll-behavior: contain;
+      -webkit-overflow-scrolling: touch;
+      scroll-snap-type: y mandatory;
+      scroll-padding-top: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      padding: 2px 0 28px;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    .game-container::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
+    }
+    .game-card {
+      width: min(calc(100vw - 8px), 720px);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+      margin: 0 auto 6px;
+      padding: 0 3px 6px;
+      box-sizing: border-box;
+      scroll-snap-align: center;
+      scroll-snap-stop: always;
+      contain: layout;
+    }
+    .game-card.is-playing {
+      will-change: contents;
+    }
+    .game-card.is-playing .game-footer *,
+    .game-card.is-playing .focus-toggle {
+      transition: none !important;
+      animation: none !important;
+    }
+    .game-card iframe {
+      touch-action: pan-y;
+    }
+    .game-stage {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 720 / 1000;
+      border-radius: 28px;
+      background: linear-gradient(145deg, rgba(14,19,30,0.92), rgba(6,9,15,0.92));
+      border: 1px solid rgba(40,58,90,0.35);
+      overflow: hidden;
+      box-shadow: 0 20px 55px rgba(0,0,0,0.6);
+      user-select: none;
+      -webkit-user-select: none;
+      contain: layout style paint;
+      content-visibility: auto;
+    }
+    .game-stage iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+      display: block;
+      will-change: transform;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      pointer-events: auto;
+    }
+    .focus-toggle {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      width: 44px;
+      height: 44px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(6, 9, 15, 0.3);
+      color: #eef4ff;
+      font-size: 22px;
+      line-height: 1;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0.32;
+      transition: background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .focus-toggle:hover,
+    .focus-toggle:focus-visible {
+      background: rgba(6, 9, 15, 0.72);
+      opacity: 0.95;
+      transform: translateY(-1px);
+      outline: none;
+    }
+    .game-footer {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 4px 10px 6px;
+      background: rgba(9, 14, 22, 0.94);
+      border: 1px solid rgba(40,58,90,0.25);
+      border-radius: 14px;
+      box-shadow: 0 5px 16px rgba(0,0,0,0.35);
+      color: #e3ecff;
+      font-size: 9.8px;
+      user-select: none;
+      -webkit-user-select: none;
+      text-align: center;
+    }
+    .game-icons {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: nowrap;
+      gap: 14px;
+    }
+    .game-icons-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .game-icons-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .icon-wrapper {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+    .icon-wrapper button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 26px;
+      height: 26px;
+      border: none;
+      background: none;
+      padding: 0;
+      cursor: pointer;
+      transition: transform 0.18s ease, opacity 0.18s ease;
+    }
+    .icon-wrapper button:hover {
+      transform: translateY(-2px);
+    }
+    .icon-wrapper button:focus-visible {
+      outline: 2px solid rgba(255,182,66,0.45);
+      outline-offset: 3px;
+    }
+    .icon-wrapper[data-role="marketcap"] {
+      margin-right: -10px;
+    }
+    .icon-wrapper[data-role="marketcap"] button {
+      width: auto;
+      min-width: 26px;
+      padding: 0;
+    }
+    .icon-wrapper[data-role="marketcap"] button span {
+      white-space: nowrap;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      line-height: 1;
+      color: #ffffff;
+    }
+    .icon-wrapper[data-role="donate"] svg {
+      stroke: #ffffff;
+      stroke-width: 3.5;
+      width: 20px;
+      height: 20px;
+    }
+    .icon-wrapper[data-role="donate"] .icon-count {
+      color: #ffffff;
+      font-weight: 700;
+    }
+    @media (max-width: 768px) {
+      .icon-wrapper[data-role="marketcap"] {
+        transform: translateX(-30px);
+      }
+      .icon-wrapper[data-role="marketcap"] button span {
+        font-size: 8.5px;
+        letter-spacing: 0.1px;
+      }
+      .game-footer {
+        padding: 4px 14px 6px 14px !important;
+        position: relative;
+      }
+      .creator-text {
+        font-size: 8.25px !important;
+        margin-left: 0px !important;
+        padding-right: 36px !important;
+        text-align: left !important;
+        display: block !important;
+        width: 100%;
+      }
+      .creator-text strong {
+        font-size: 8.25px !important;
+        font-weight: 600;
+      }
+      .icon-wrapper[data-role="leaderboard"] {
+        position: absolute !important;
+        bottom: 6px !important;
+        right: 14px !important;
+        transform: scale(1) !important;
+      }
+    }
+    .icon-wrapper svg {
+      width: 22px;
+      height: 22px;
+      stroke: #ffb642;
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      transition: stroke 0.18s ease, fill 0.18s ease;
+    }
+    .icon-wrapper:hover svg,
+    .icon-wrapper:active svg {
+      stroke: #ffd678;
+    }
+    .icon-wrapper.liked svg {
+      stroke: #ffb642;
+      fill: #ffb642;
+    }
+    .icon-count {
+      color: #ffb642;
+      font-size: 11px;
+      font-weight: 600;
+      line-height: 1;
+      min-width: 20px;
+      text-align: right;
+    }
+    .creator-text {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      color: #d4def5;
+      font-size: 11px;
+      letter-spacing: 0.2px;
+      line-height: 1.2;
+    }
+    .creator-box {
+      max-width: 540px;
+      padding: 36px 32px;
+      gap: 0;
+      background: #0b0b0b;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+    }
+    .creator-box .wallet-header {
+      border-bottom: none;
+      margin-bottom: 16px;
+      padding-bottom: 0;
+    }
+    .creator-hero {
+      color: #ffb642;
+      font-size: 34px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: left;
+      margin-bottom: 32px;
+      border-bottom: none;
+    }
+    .creator-points {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      margin-bottom: 32px;
+      color: #f3c978;
+      font-size: 18px;
+      line-height: 1.5;
+    }
+    .creator-point {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .creator-point-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      border: 2px solid #ffb642;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 700;
+    }
+    .creator-cta {
+      margin-top: auto;
+      border: 2px solid #ffb642;
+      border-radius: 16px;
+      padding: 18px 24px;
+      text-align: center;
+      color: #ffb642;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      opacity: 0.45;
+      transition: opacity 0.2s ease;
+    }
+    .creator-cta span {
+      display: block;
+      font-size: 14px;
+      font-weight: 500;
+      color: #e5c37a;
+      letter-spacing: 0;
+      text-transform: none;
+      opacity: 0.75;
+    }
+    .leaderboard-box {
+      max-width: 520px;
+      padding: 20px 24px;
+      background: #0b0b0b;
+      border: 1px solid rgba(255,182,66,0.35);
+    }
+    .leaderboard-header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .leaderboard-tabs {
+      display: flex;
+      gap: 10px;
+      background: rgba(255,182,66,0.08);
+      padding: 6px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,182,66,0.25);
+    }
+    .leaderboard-tab {
+      background: transparent;
+      border: none;
+      color: #ffce7a;
+      font-weight: 700;
+      font-size: 16px;
+      padding: 8px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+      transition: background 0.2s ease, color 0.2s ease, transform 0.1s ease;
+      letter-spacing: 0.5px;
+    }
+    .leaderboard-tab:hover {
+      background: rgba(255,182,66,0.12);
+      transform: scale(1.02);
+    }
+    .leaderboard-tab.active {
+      background: rgba(255,182,66,0.35);
+      color: #ffffff;
+      text-shadow: 0 0 12px rgba(255,182,66,0.6);
+      font-weight: 700;
+    }
+    .leaderboard-panels {
+      margin-top: 18px;
+    }
+    .leaderboard-panel {
+      display: none;
+    }
+    .leaderboard-panel.active {
+      display: block;
+    }
+    .leaderboard-list {
+      max-height: 65vh;
+      overflow-y: auto;
+      padding: 12px 0;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+    }
+    .leaderboard-list::-webkit-scrollbar {
+      display: none;
+    }
+    .leaderboard-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: #15191f;
+      border: 1px solid rgba(255,182,66,0.15);
+      border-radius: 10px;
+      padding: 12px 16px;
+      gap: 12px;
+      transition: background 0.2s ease;
+    }
+    .leaderboard-item:hover {
+      background: #1a1f28;
+    }
+    .leaderboard-item.user-highlight {
+      background: linear-gradient(135deg, rgba(255,182,66,0.2), rgba(255,206,122,0.15));
+      border: 2px solid #ffb642;
+      margin-bottom: 12px;
+    }
+    .leaderboard-rank {
+      font-size: 18px;
+      font-weight: 700;
+      color: #ffb642;
+      min-width: 48px;
+      text-align: center;
+    }
+    .leaderboard-user {
+      flex: 1;
+      color: #d5d9e6;
+      font-size: 15px;
+      font-weight: 500;
+    }
+    .leaderboard-score {
+      font-size: 17px;
+      font-weight: 700;
+      color: #ffb642;
+      min-width: 60px;
+      text-align: right;
+    }
+    .leaderboard-divider {
+      text-align: center;
+      color: #f0c67a;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      margin: 20px 0 6px;
+    }
+    .leaderboard-reward-summary {
+      text-align: center;
+      color: #f0c67a;
+      margin-bottom: 18px;
+    }
+    .leaderboard-reward-summary .reward-total {
+      font-size: 30px;
+      font-weight: 700;
+      color: #ffb642;
+      margin-top: 6px;
+    }
+    .leaderboard-reward-progress {
+      width: 100%;
+      height: 8px;
+      background: rgba(255,182,66,0.2);
+      border-radius: 4px;
+      overflow: hidden;
+      margin-top: 12px;
+    }
+    .leaderboard-reward-progress span {
+      display: block;
+      height: 100%;
+      background: #ffb642;
+      transition: width 0.3s ease;
+    }
+    .leaderboard-reward-list {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .leaderboard-reward-card {
+      padding: 16px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(60, 90, 138, 0.4);
+      background: rgba(39, 62, 102, 0.3);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      transition: border 0.2s ease, background 0.2s ease;
+    }
+    .leaderboard-reward-card.unlocked {
+      background: rgba(255, 182, 66, 0.15);
+      border-color: rgba(255, 182, 66, 0.4);
+    }
+    .leaderboard-reward-card .reward-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: #999;
+    }
+    .leaderboard-reward-card.unlocked .reward-name {
+      color: #ffb642;
+    }
+    .leaderboard-reward-card .reward-status {
+      font-size: 14px;
+      color: #bbb;
+      margin-top: 4px;
+    }
+    .leaderboard-reward-card .reward-amount {
+      font-size: 18px;
+      font-weight: 700;
+      color: #666;
+    }
+    .leaderboard-reward-card.unlocked .reward-amount {
+      color: #ffb642;
+    }
+    /* Share Modal Buttons */
+    .share-option-btn {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 16px 20px;
+      background: rgba(39, 62, 102, 0.4);
+      border: 1px solid rgba(60, 90, 138, 0.5);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      width: 100%;
+      box-sizing: border-box;
+    }
+    .share-option-btn:hover {
+      background: rgba(39, 62, 102, 0.7);
+      border-color: rgba(60, 90, 138, 0.8);
+      transform: translateY(-2px);
+    }
+    .share-option-btn:active {
+      transform: translateY(0);
+    }
+    .share-option-btn svg {
+      flex-shrink: 0;
+    }
+    .share-option-btn span {
+      flex: 1;
+      text-align: left;
+    }
+    #shareCopyBtn svg {
+      stroke: #ffb642;
+    }
+    #shareTelegramBtn svg {
+      fill: #0088cc;
+    }
+    #shareXBtn svg {
+      fill: #fff;
+    }
+    /* Achievement Toast Center */
+    .achievement-toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 100000;
+      background: linear-gradient(135deg, rgba(255, 182, 66, 0.95) 0%, rgba(255, 144, 0, 0.95) 100%);
+      border: 3px solid #ffb642;
+      border-radius: 20px;
+      padding: 24px 32px;
+      text-align: center;
+      box-shadow: 0 10px 50px rgba(255, 182, 66, 0.6);
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      pointer-events: none;
+    }
+    .achievement-toast.show {
+      opacity: 1;
+      animation: bounceIn 0.5s ease-out;
+    }
+    .achievement-toast-title {
+      font-size: 28px;
+      font-weight: 700;
+      color: #000;
+      margin-bottom: 12px;
+      text-shadow: 0 2px 4px rgba(255,255,255,0.3);
+    }
+    .achievement-toast-subtitle {
+      font-size: 20px;
+      font-weight: 600;
+      color: #333;
+      margin-bottom: 8px;
+    }
+    .achievement-toast-reward {
+      font-size: 32px;
+      font-weight: 700;
+      color: #fff;
+      text-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    }
+    @keyframes bounceIn {
+      0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+      50% { transform: translate(-50%, -50%) scale(1.05); }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    /* Achievement Icon Shake */
+    @keyframes shakeIcon {
+      0%, 100% { transform: rotate(0deg); }
+      10%, 30%, 50%, 70%, 90% { transform: rotate(-15deg); }
+      20%, 40%, 60%, 80% { transform: rotate(15deg); }
+    }
+    .icon-wrapper[data-role="leaderboard"].shake {
+      animation: shakeIcon 0.8s ease-in-out;
+    }
+    .icon-wrapper[data-role="leaderboard"] svg {
+      transform: scale(1); /* Bằng kích thước trái tim */
+    }
+    .icon-wrapper[data-role="leaderboard"].shake svg {
+      fill: #ffb642;
+      filter: drop-shadow(0 0 8px rgba(255, 182, 66, 0.8));
+    }
+    /* Confetti Canvas */
+    .confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 99999;
+    }
+    body.focus-mode {
+      padding-top: env(safe-area-inset-top);
+      overscroll-behavior: none;
+      overflow: hidden;
+      height: 100svh;
+      position: fixed;
+      inset: 0;
+      width: 100%;
+    }
+    body.focus-mode .main-header,
+    body.focus-mode .page-footer {
+      display: none !important;
+    }
+    body.focus-mode .game-container {
+      height: calc(100svh - env(safe-area-inset-top));
+      padding: 0;
+      overflow: hidden;
+      scroll-snap-type: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      position: fixed;
+      top: env(safe-area-inset-top);
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(calc(100vw - 4px), 780px);
+    }
+    body.focus-mode .game-card {
+      width: 100%;
+      margin: 0;
+      padding: 0;
+    }
+    body.focus-mode .game-stage {
+      border-radius: 18px;
+      box-shadow: 0 12px 48px rgba(0,0,0,0.7);
+      touch-action: none !important;
+      -ms-touch-action: none !important;
+      overscroll-behavior: contain;
+    }
+    body.focus-mode .game-card:not(.is-focus-active) {
+      display: none !important;
+    }
+    body.focus-mode .game-footer {
+      display: none !important;
+    }
+    body.focus-mode .focus-toggle {
+      background: rgba(0, 0, 0, 0.55);
+      opacity: 0.55;
+    }
+    body.focus-mode .game-card:not(.is-focus-active) {
+      display: none !important;
+    }
 
     @media (max-width: 800px) {
-      :root { --header-h: 52px; }
+      /* HEADER - Thu hẹp 25% */
+      :root { --header-h: 39px; } /* Giảm từ 52px */
       .main-header {
         height: var(--header-h);
         padding: 0 14px;
       }
       .logo {
-        font-size: 22px;
-        letter-spacing: 1px;
+        font-size: 17px; /* Giảm 25% từ 22px */
+        letter-spacing: 0.8px;
       }
       .header-actions {
-        gap: 10px;
+        gap: 8px;
       }
       .icon-button {
-        width: 40px;
-        height: 40px;
-        border-radius: 12px;
+        width: 30px; /* Giảm 25% từ 40px */
+        height: 30px; /* Giảm 25% từ 40px */
+        border-radius: 9px;
+      }
+      .icon-button svg.header-icon {
+        width: 16px; /* Giảm tương ứng */
+        height: 16px;
       }
       .wallet-status-button {
-        height: 40px;
-        padding: 0 12px;
-        font-size: 13px;
+        height: 30px; /* Giảm 25% từ 40px */
+        padding: 0 10px;
+        font-size: 12px;
       }
       .wallet-status-icon {
-        width: 18px;
-        height: 16px;
+        width: 14px;
+        height: 12px;
       }
       .nav-dropdown {
         width: 180px;
         right: 0;
+      }
+      
+      /* FOOTER - Tăng 25% */
+      .game-footer {
+        gap: 5px; /* Tăng từ 4px */
+        padding: 5px 12px 8px; /* Tăng từ 4px 10px 6px */
+      }
+      .game-icons {
+        padding: 0; /* Xóa padding để sát lề */
+      }
+      .game-icons-left {
+        gap: 8px;
+        margin-left: -8px; /* Kéo sát lề trái hơn 50% */
+      }
+      .game-icons-right {
+        gap: 8px;
+        margin-right: -8px; /* Kéo sát lề phải hơn 50% */
+      }
+      .icon-wrapper {
+        gap: 6px; /* Giảm từ 8px để icon+text gần nhau */
+      }
+      .icon-wrapper button {
+        width: 25px; /* Giảm 25% từ 33px */
+        height: 25px;
+      }
+      .icon-wrapper svg {
+        width: 21px; /* Giảm 25% từ 28px */
+        height: 21px;
+        stroke-width: 2.2;
+      }
+      .icon-wrapper button span {
+        font-size: 19px !important; /* MC text giảm 25% từ 25px */
+      }
+      .icon-count {
+        font-size: 11px; /* Giảm 25% từ 14px */
+        min-width: 20px;
+      }
+      .creator-text {
+        font-size: 11px; /* Giữ size nhỏ gọn trên mobile */
       }
     }
 
     /* Like button active state */
     .game-icons button.liked {
       color: #ff4d4d;
-      transform: scale(1.1);
-    }
-    .game-icons {
-      display: flex;
-      justify-content: center;
-      align-items: center; /* ensure vertical center alignment */
-      gap: 25px;
-      margin-bottom: 6px;
-    }
-    .game-icons button {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      line-height: 1; /* remove extra baseline space */
-      vertical-align: middle;
-      padding: 0;
-    }
-    .icon-count {
-      margin-left: 1px; /* closer to icon */
-      color: #bbb;
-      font-size: 32px; /* doubled */
-      font-weight: 600;
-      line-height: 1;
-      vertical-align: middle;
-      position: relative;
-      top: -1px; /* nudge up to align with heart */
+      transform: scale(1.08);
     }
     /* Comments overlay */
     .comments-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:100000}
@@ -309,15 +1014,15 @@
     .comments-input button{height:56px;background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:8px;padding:0 16px;cursor:pointer;font-size:32px}
     .comments-footer{display:flex;justify-content:center;padding:10px 14px}
     .comments-footer button{background:none;border:1px solid #2a2a2a;color:#bbb;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:16px}
-    #statsOverlay .comments-box{max-width:460px;padding:18px 24px;gap:0}
-    .stats-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;margin-bottom:8px;border-bottom:1px solid #1f1f1f}
-    .stats-title{font-size:20px;font-weight:600;color:#0ff;letter-spacing:1px;text-transform:uppercase}
-    .stats-content{display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center;padding:12px 0 4px}
+    #statsOverlay .comments-box{max-width:460px;padding:24px 28px;background:#0b0b0b;border:1px solid rgba(255,182,66,0.35)}
+    .stats-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:12px;margin-bottom:12px;border-bottom:1px solid rgba(255,182,66,0.25)}
+    .stats-title{font-size:20px;font-weight:600;color:#ffb642;letter-spacing:1px;text-transform:uppercase}
+    .stats-content{display:flex;flex-direction:column;gap:18px;align-items:center;text-align:center;padding:12px 0 8px}
     .stats-item{display:flex;flex-direction:column;gap:6px;align-items:center}
-    .stats-label{font-size:16px;color:#9aa;letter-spacing:1px;text-transform:uppercase}
-    .stats-metric{font-size:42px;font-weight:700;color:#0ff;text-shadow:0 0 12px rgba(0,255,255,0.35)}
-    .stats-divider{width:80%;height:1px;background:#1f1f1f}
-    .stats-note{font-size:14px;color:#777}
+    .stats-label{font-size:16px;color:#f0c67a;letter-spacing:1px;text-transform:uppercase}
+    .stats-metric{font-size:42px;font-weight:700;color:#ffb642;text-shadow:0 0 18px rgba(255,182,66,0.35)}
+    .stats-divider{width:80%;height:1px;background:rgba(255,182,66,0.2)}
+    .stats-note{font-size:14px;color:#bfa36a}
     .stats-data-cache {
       position: absolute;
       width: 0;
@@ -336,27 +1041,68 @@
     .wallet-actions{display:flex;justify-content:flex-end;gap:12px;margin-top:8px}
     .wallet-actions button{background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:10px;padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer}
     .wallet-actions button.secondary{background:none;border:1px solid #2a2f38;color:#bbb}
+    @media (min-width: 1024px) {
+      .game-footer {
+        gap: 10px;
+        padding: 8px 16px 12px;
+        font-size: 15.5px;
+      }
+      .game-icons {
+        gap: 22px;
+      }
+      .icon-wrapper button {
+        width: 42px;
+        height: 42px;
+      }
+      .icon-wrapper svg {
+        width: 36px;
+        height: 36px;
+        stroke-width: 2.6;
+      }
+      .icon-count {
+        font-size: 17px;
+        min-width: 28px;
+      }
+      .creator-text {
+        font-size: 17px;
+        line-height: 1.4;
+        letter-spacing: 0.25px;
+      }
+    }
   </style>
 </head>
 <body>
   <!-- HEADER: Logo left, Dropdown right, single row -->
   <div class="main-header">
-    <a class="logo" href="https://docs.memeplay.dev" target="_blank" rel="noopener noreferrer">
+    <a class="logo" href="docs.html" target="_blank" rel="noopener noreferrer">
       MEMEPLAY
       <span id="headerEarnedFlash" class="header-flash"></span>
     </a>
     <div class="header-actions">
       <div class="search-wrapper">
         <button id="searchToggleButton" class="icon-button search-button" aria-haspopup="true" aria-expanded="false" title="Browse categories">
-          <img src="assets/icons/search.svg" alt="Browse" />
+          <svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="10.5" cy="10.5" r="6.5"></circle>
+            <path d="M15.5 15.5L21 21"></path>
+          </svg>
         </button>
         <div class="nav-dropdown" id="navDropdown" role="menu" aria-hidden="true">
           <div class="dropdown-list" id="dropdownList">
             <div class="dropdown-item active" data-category="Recommended">Recommended</div>
+            <div class="dropdown-item" data-category="Liked">Liked</div>
             <div class="dropdown-item" data-category="Trending">Trending</div>
             <div class="dropdown-item" data-category="Popular">Popular</div>
-            <div class="dropdown-item" data-category="New">New & Hot</div>
-            <div class="dropdown-item" data-category="Arcade">Arcade</div>
+          </div>
+        </div>
+      </div>
+      <div class="search-wrapper">
+        <button id="quickActionsButton" class="icon-button" aria-haspopup="true" aria-expanded="false" title="Quick actions">
+          <span class="icon-plus">＋</span>
+        </button>
+        <div class="nav-dropdown" id="quickActionsDropdown" role="menu" aria-hidden="true">
+          <div class="dropdown-list" id="quickActionsList">
+            <div class="dropdown-item" data-action="stats">Stats</div>
+            <div class="dropdown-item" data-action="creator">Creator</div>
           </div>
         </div>
       </div>
@@ -376,253 +1122,9 @@
 
   
 
-  <div class="game-container"> 
-      <!-- 🎯 Game 1: Moonshot BNB -->
-      <div class="game-card" id="moonshot-bnb" data-game-id="moonshot-bnb" style="margin-bottom: 60px;">
-        <iframe
-          src="https://moonshot-bnb.lovable.app"
-          data-game="rocket"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Moonshot BNB">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-    
-      <!-- 🐤 Game 2: Bird Squash -->
-      <div class="game-card" id="bird-squash" data-game-id="bird-squash" style="margin-bottom: 60px;">
-        <iframe
-          src="https://bird-squash-dev.lovable.app"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Bird Squash">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-    
-      <!-- 🐒 Game 3: Monkey Crypto Climb -->
-      <div class="game-card" id="monkey-crypto-climb" data-game-id="monkey-crypto-climb" style="margin-bottom: 60px;">
-        <iframe
-          src="https://monkey-crypto-climb.lovable.app"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Monkey Crypto Climb">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-    
-      <!-- 🧟 Game 4: Whack-a-Chibi Zombie -->
-      <div class="game-card" id="whack-a-chibi-zombie" data-game-id="whack-a-chibi-zombie" style="margin-bottom: 60px;">
-        <iframe
-          src="https://whack-a-chibi-zombie.lovable.app"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Whack-a-Chibi Zombie">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-    
-      <!-- 🕵️ Game 5: Game Detective Clone -->
-      <div class="game-card" id="game-detective-clone" data-game-id="game-detective-clone" style="margin-bottom: 60px;">
-        <iframe
-          src="https://game-detective-clone.lovable.app/"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Game Detective Clone">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-
-      <!-- 🟣 Game 6: Pixel Orb Escape -->
-      <div class="game-card" id="pixel-orb-escape" data-game-id="pixel-orb-escape" style="margin-bottom: 60px;">
-        <iframe
-          src="https://pixel-orb-escape.lovable.app/"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Pixel Orb Escape">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-
-      <!-- 🪝 Game 7: Hook Pull Crypto -->
-      <div class="game-card" id="hook-pull-crypto" data-game-id="hook-pull-crypto" style="margin-bottom: 60px;">
-        <iframe
-          src="https://hook-pull-crypto.lovable.app/"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Hook Pull Crypto">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-
-      <!-- 💎 Game 8: Crypto Gem Blast -->
-      <div class="game-card" id="crypto-gem-blast" data-game-id="crypto-gem-blast" style="margin-bottom: 60px;">
-        <iframe
-          src="https://crypto-gem-blast.lovable.app/"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Crypto Gem Blast">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-
-      <!-- 🎵 Game 9: Block Beat Boost -->
-      <div class="game-card" id="block-beat-boost" data-game-id="block-beat-boost" style="margin-bottom: 60px;">
-        <iframe
-          src="https://block-beat-boost.lovable.app/"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Block Beat Boost">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-
-      <!-- 🔪 Game 10: Knife Slice Win -->
-      <div class="game-card" id="knife-slice-win" data-game-id="knife-slice-win" style="margin-bottom: 60px;">
-        <iframe
-          src="https://knife-slice-win.lovable.app/"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Knife Slice Win">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-
-      <!-- 🚀 Game 11: Moon Rocket Glide -->
-      <div class="game-card" id="moon-rocket-glide" data-game-id="moon-rocket-glide" style="margin-bottom: 60px;">
-        <iframe
-          src="https://moon-rocket-glide.lovable.app/"
-          width="720"
-          height="1000"
-          frameborder="0"
-          title="Moon Rocket Glide">
-        </iframe>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <button>❤️</button>
-            <button>💬</button>
-            <button>📊</button>
-            <button>↗️</button>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>MemePlay Studio</strong>
-          </div>
-        </footer>
-      </div>
-    </div>
+  <div class="game-container"></div>
     
 
-  <footer style="margin-bottom:30px; color:#999;">© 2025 MemePlay Studio</footer>
   
   <div id="commentsOverlay" class="comments-overlay">
     <div class="comments-box">
@@ -668,11 +1170,34 @@
     </div>
   </div>
   
+  <div id="creatorOverlay" class="comments-overlay">
+    <div class="comments-box creator-box">
+      <div class="wallet-header" style="justify-content:flex-end;">
+        <button id="creatorCloseBtn" style="background:none;border:1px solid #2a2a2a;color:#bbb;border-radius:6px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:42px;line-height:1;font-weight:700;">×</button>
+      </div>
+      <div class="creator-hero">Build your game with MemePlay AI studio.</div>
+      <div class="creator-points">
+        <div class="creator-point">
+          <div class="creator-point-icon">↑</div>
+          <div>Instantly public + meme coin exposure for featured drops.</div>
+        </div>
+        <div class="creator-point">
+          <div class="creator-point-icon">$</div>
+          <div>Earn additional airdrop tokens every time players engage.</div>
+        </div>
+      </div>
+      <div class="creator-cta">
+        Create game
+        <span>(coming soon)</span>
+      </div>
+    </div>
+  </div>
+
   <div id="statsOverlay" class="comments-overlay">
     <div class="comments-box">
       <div class="stats-header">
         <div class="stats-title">MemePlay Stats</div>
-        <button id="statsCloseBtn" style="background:none;border:1px solid #2a2a2a;color:#bbb;border-radius:6px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:42px;line-height:1;font-weight:700;">×</button>
+        <button id="statsCloseBtn" style="background:none;border:1px solid rgba(255,182,66,0.4);color:#ffce7a;border-radius:8px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:36px;line-height:1;font-weight:700;">×</button>
       </div>
       <div class="stats-content">
         <div class="stats-item">
@@ -688,24 +1213,79 @@
       </div>
     </div>
   </div>
-  
+
+  <div id="leaderboardOverlay" class="comments-overlay">
+    <div class="comments-box leaderboard-box">
+      <div class="stats-header leaderboard-header">
+        <div class="leaderboard-tabs">
+          <button class="leaderboard-tab active" data-panel="scores">🏆 SCORES</button>
+          <button class="leaderboard-tab" data-panel="rewards">🎖 REWARDS</button>
+        </div>
+        <button id="leaderboardCloseBtn" style="background:none;border:1px solid rgba(255,182,66,0.4);color:#ffce7a;border-radius:8px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:36px;line-height:1;font-weight:700;margin-left:auto;">×</button>
+      </div>
+      <div class="leaderboard-panels">
+        <div id="leaderboardPanelScores" class="leaderboard-panel active">
+          <div id="leaderboardList" class="leaderboard-list"></div>
+        </div>
+        <div id="leaderboardPanelRewards" class="leaderboard-panel">
+          <div id="leaderboardRewardSummary" class="leaderboard-reward-summary"></div>
+          <div id="leaderboardRewardList" class="leaderboard-reward-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="shareOverlay" class="comments-overlay">
+    <div class="comments-box" style="max-width:420px;padding:28px 32px;">
+      <div class="stats-header">
+        <div class="stats-title">Share Game</div>
+        <button id="shareCloseBtn" style="background:none;border:1px solid rgba(255,182,66,0.4);color:#ffce7a;border-radius:8px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:36px;line-height:1;font-weight:700;">×</button>
+      </div>
+      <div style="display:flex;flex-direction:column;gap:14px;padding:20px 0 10px;">
+        <button id="shareCopyBtn" class="share-option-btn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path>
+          </svg>
+          <span>Copy Link</span>
+        </button>
+        <button id="shareTelegramBtn" class="share-option-btn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm4.64 6.8c-.15 1.58-.8 5.42-1.13 7.19-.14.75-.42 1-.68 1.03-.58.05-1.02-.38-1.58-.75-.88-.58-1.38-.94-2.23-1.5-.99-.65-.35-1.01.22-1.59.15-.15 2.71-2.48 2.76-2.69a.2.2 0 00-.05-.18c-.06-.05-.14-.03-.21-.02-.09.02-1.49.95-4.22 2.79-.4.27-.76.41-1.08.4-.36-.01-1.04-.2-1.55-.37-.63-.2-1.12-.31-1.08-.66.02-.18.27-.36.74-.55 2.92-1.27 4.86-2.11 5.83-2.51 2.78-1.16 3.35-1.36 3.73-1.36.08 0 .27.02.39.12.1.08.13.19.14.27-.01.06.01.24 0 .38z"/>
+          </svg>
+          <span>Share on Telegram</span>
+        </button>
+        <button id="shareXBtn" class="share-option-btn">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+            <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+          </svg>
+          <span>Share on X</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Achievement Toast -->
+  <div id="achievementToast" class="achievement-toast">
+    <div class="achievement-toast-title">🎉 Achievement Unlocked!</div>
+    <div class="achievement-toast-subtitle" id="achievementName">⭐ Starter (1/3)</div>
+    <div class="achievement-toast-reward" id="achievementReward">+100 PLAY</div>
+  </div>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
+
   <script>
     // Game management system (auto-activate visible card)
     let currentActiveGame = null;
     
-    // Game URLs mapping
+    // Game URLs mapping (active games only)
     const gameUrls = {
-      'moonshot-bnb': 'https://moonshot-bnb.lovable.app',
       'bird-squash': 'https://bird-squash-dev.lovable.app',
-      'monkey-crypto-climb': 'https://monkey-crypto-climb.lovable.app',
-      'whack-a-chibi-zombie': 'https://whack-a-chibi-zombie.lovable.app',
-      'game-detective-clone': 'https://game-detective-clone.lovable.app/',
-      'pixel-orb-escape': 'https://pixel-orb-escape.lovable.app/',
-      'hook-pull-crypto': 'https://hook-pull-crypto.lovable.app/',
-      'crypto-gem-blast': 'https://crypto-gem-blast.lovable.app/',
-      'block-beat-boost': 'https://block-beat-boost.lovable.app/',
-      'knife-slice-win': 'https://knife-slice-win.lovable.app/',
-      'moon-rocket-glide': 'https://moon-rocket-glide.lovable.app/'
+      'wojak-btc-blast': 'https://wojak-btc-blast.lovable.app',
+      'moonshot-bnb': 'https://moonshot-bnb.lovable.app',
+      'valley-explorer-3d': 'https://rosebud.ai/p/85b0b137-33c2-40a0-bdce-dbb9abee3493',
+      'hodl-tower-stack': 'https://hodl-tower-stack.lovable.app'
     };
   
     function activateGame(gameId) {
@@ -729,6 +1309,8 @@
         const sep = gameUrls[gameId].includes('?') ? '&' : '?'
         iframe.src = gameUrls[gameId] + sep + 'v=' + Date.now();
         currentActiveGame = gameId;
+        try { window.__memeplayActiveGame = gameId } catch {}
+        document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }));
         console.log('🎮 Activated', gameId);
         // Proactively start session ticker in case load fired earlier (module-exposed)
         setTimeout(() => {
@@ -762,8 +1344,11 @@
     // Dropdown nav logic
     const navDropdown = document.getElementById('navDropdown');
     const dropdownList = document.getElementById('dropdownList');
-    const items = dropdownList.querySelectorAll('.dropdown-item');
+    const items = dropdownList ? dropdownList.querySelectorAll('.dropdown-item') : [];
     const searchToggleButton = document.getElementById('searchToggleButton');
+    const quickToggleButton = document.getElementById('quickActionsButton');
+    const quickDropdown = document.getElementById('quickActionsDropdown');
+    const quickItems = quickDropdown ? quickDropdown.querySelectorAll('.dropdown-item') : [];
 
     function closeNavDropdown() {
       navDropdown.classList.remove('open');
@@ -771,8 +1356,15 @@
       searchToggleButton?.setAttribute('aria-expanded', 'false');
     }
 
+    function closeQuickDropdown() {
+      quickDropdown?.classList.remove('open');
+      quickDropdown?.setAttribute('aria-hidden', 'true');
+      quickToggleButton?.setAttribute('aria-expanded', 'false');
+    }
+
     searchToggleButton?.addEventListener('click', (event) => {
       event.stopPropagation();
+      closeQuickDropdown();
       const willOpen = !navDropdown.classList.contains('open');
       if (willOpen) {
         navDropdown.classList.add('open');
@@ -793,75 +1385,204 @@
       });
     });
 
-    document.addEventListener('click', function(e) {
-      if (navDropdown.contains(e.target) || searchToggleButton.contains(e.target)) return;
+    quickToggleButton?.addEventListener('click', (event) => {
+      event.stopPropagation();
       closeNavDropdown();
+      const willOpen = !quickDropdown.classList.contains('open');
+      if (willOpen) {
+        quickDropdown.classList.add('open');
+        quickDropdown.setAttribute('aria-hidden', 'false');
+        quickToggleButton.setAttribute('aria-expanded', 'true');
+      } else {
+        closeQuickDropdown();
+      }
+    });
+
+    quickItems.forEach(item => {
+      item.addEventListener('click', (event) => {
+        event.stopPropagation();
+        const action = item.getAttribute('data-action');
+        switch(action) {
+          case 'stats':
+            if (typeof window.__openStatsOverlay === 'function') {
+              window.__openStatsOverlay();
+            }
+            break;
+          case 'creator':
+            if (typeof window.__openCreatorOverlay === 'function') {
+              window.__openCreatorOverlay();
+            }
+            break;
+          default:
+            document.querySelector('.game-container')?.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        closeQuickDropdown();
+      });
+    });
+
+    document.addEventListener('click', function(e) {
+      if (navDropdown.contains(e.target) || searchToggleButton.contains(e.target)) {
+        closeQuickDropdown();
+        return;
+      }
+      if (quickDropdown?.contains(e.target) || quickToggleButton?.contains(e.target)) {
+      closeNavDropdown();
+        return;
+      }
+      closeNavDropdown();
+      closeQuickDropdown();
     });
   </script>
-
-  <!-- Universal iframe scaler: fits 720x1000 games to any touch device -->
-  <script>
-    (function installIframeScaler(){
-      const DESIGN_W = 720;
-      const DESIGN_H = 1000;
-
-      function ensureWrapper(card){
-        const iframe = card.querySelector('iframe');
-        if (!iframe) return null;
-        if (iframe.parentElement && iframe.parentElement.classList.contains('iframe-scale-wrap')) {
-          return iframe.parentElement;
-        }
-        const wrap = document.createElement('div');
-        wrap.className = 'iframe-scale-wrap';
-        wrap.style.position = 'relative';
-        wrap.style.width = DESIGN_W + 'px';
-        wrap.style.height = DESIGN_H + 'px';
-        wrap.style.transformOrigin = 'top center';
-        wrap.style.margin = '0 auto';
-        iframe.style.display = 'block';
-        iframe.style.border = '0';
-        iframe.style.width = DESIGN_W + 'px';
-        iframe.style.height = DESIGN_H + 'px';
-        card.insertBefore(wrap, iframe);
-        wrap.appendChild(iframe);
-        return wrap;
-      }
-
-      function scaleCard(card){
-        const wrap = ensureWrapper(card);
-        if (!wrap) return;
-        const container = document.querySelector('.game-container');
-        const containerW = container ? container.clientWidth : 0;
-        const availW = Math.max(1, Math.min(containerW || (card.clientWidth || window.innerWidth), DESIGN_W));
-        // Extra shrink on small touch devices for better HUD fit
-        const isTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
-        const extra = isTouch ? 0.9 : 1; // 90% on mobile
-        const scale = Math.min(1, (availW / DESIGN_W) * extra);
-        wrap.style.transform = 'translateZ(0) scale(' + scale + ')';
-        const scaledH = Math.round(DESIGN_H * scale);
-        card.style.height = Math.max(scaledH,  Math.round((window.innerHeight || scaledH) - 0)) + 'px';
-      }
-
-      function scaleAll(){
-        document.querySelectorAll('.game-card').forEach(scaleCard);
-      }
-
-      // Initial and reactive
-      window.addEventListener('resize', scaleAll, { passive: true });
-      window.addEventListener('orientationchange', scaleAll, { passive: true });
-      const ro = new ResizeObserver(scaleAll); ro.observe(document.body);
-      // Run after first paint
-      requestAnimationFrame(scaleAll);
-    })();
-  </script>
-
-  
 
   <!-- main.js disabled (conflicts with embedded iframes) -->
 
   <!-- === SUPABASE DAILY CHECK-IN & REWARD === -->
 
 <script type="module">
+  async function loadGameCards() {
+    const container = document.querySelector('.game-container')
+    if (!container) return
+    try {
+      const response = await fetch('games/game-list.html', { cache: 'no-cache' })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const markup = await response.text()
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(markup, 'text/html')
+      const wrapper = doc.querySelector('[data-game-list]')
+      container.innerHTML = wrapper ? wrapper.innerHTML : markup
+      initFocusControls()
+    } catch (error) {
+      console.error('Load game list failed:', error)
+      container.innerHTML = '<div style="padding:24px;text-align:center;color:#bbb;">Unable to load games. Please refresh.</div>'
+    }
+  }
+
+  function updateFocusButtons() {
+    const active = document.body.classList.contains('focus-mode')
+    document.querySelectorAll('.focus-toggle').forEach(btn => {
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false')
+      btn.textContent = active ? '⤡' : '⤢'
+    })
+  }
+
+  const focusState = { scrollTop: 0, gameId: null }
+
+  function toggleFocusMode(force) {
+    const next = typeof force === 'boolean' ? force : !document.body.classList.contains('focus-mode')
+    document.body.classList.toggle('focus-mode', !!next)
+    const container = document.querySelector('.game-container')
+    if (!next) {
+      if (container) {
+        container.style.scrollBehavior = 'auto'
+        if (focusState.gameId) {
+          const card = document.getElementById(focusState.gameId)
+          if (card) {
+            container.scrollTop = Math.max(0, card.offsetTop - container.offsetTop)
+          } else {
+            container.scrollTop = Math.max(0, focusState.scrollTop)
+          }
+        } else {
+          container.scrollTop = Math.max(0, focusState.scrollTop)
+        }
+        container.style.scrollBehavior = ''
+      }
+      clearFocusActiveCard()
+    } else {
+      if (container) {
+        focusState.scrollTop = container.scrollTop
+      }
+      const fallbackId = currentActiveGame || document.querySelector('.game-card')?.id
+      let focusId = window.__memeplayActiveGame || fallbackId
+      if (!focusId && fallbackId) focusId = fallbackId
+      if (focusId) {
+        focusState.gameId = focusId
+        if (!window.__memeplayActiveGame) {
+          try { window.__memeplayActiveGame = focusId } catch {}
+        }
+        applyFocusActiveCard(focusId)
+      }
+      requestAnimationFrame(scrollActiveGameIntoView)
+    }
+    updateFocusButtons()
+  }
+
+  function initFocusControls() {
+    const buttons = document.querySelectorAll('.focus-toggle')
+    buttons.forEach(btn => {
+      if (btn.dataset.bound === '1') return
+      btn.dataset.bound = '1'
+      btn.addEventListener('click', (event) => {
+        event.preventDefault()
+        event.stopPropagation()
+        const ownerCard = btn.closest('.game-card')
+        if (ownerCard) {
+          const gid = ownerCard.getAttribute('data-game-id') || ownerCard.id
+          if (gid) {
+            try { window.__memeplayActiveGame = gid } catch {}
+            focusState.gameId = gid
+          }
+        }
+        toggleFocusMode()
+      })
+    })
+    updateFocusButtons()
+  }
+
+  function scrollActiveGameIntoView() {
+    const container = document.querySelector('.game-container')
+    if (!container) return
+    const targetId = window.__memeplayActiveGame || currentActiveGame || container.querySelector('.game-card')?.id
+    if (!targetId) return
+    const card = document.getElementById(targetId)
+    if (!card) return
+    container.style.scrollBehavior = 'auto'
+    container.scrollTop = Math.max(0, card.offsetTop - container.offsetTop)
+    container.style.scrollBehavior = ''
+  }
+
+  function clearFocusActiveCard() {
+    document.querySelectorAll('.game-card.is-focus-active').forEach(card => card.classList.remove('is-focus-active'))
+  }
+
+  function applyFocusActiveCard(gameId) {
+    if (!gameId) return
+    const card = document.getElementById(gameId)
+    if (!card) return
+    clearFocusActiveCard()
+    card.classList.add('is-focus-active')
+  }
+
+  function lockGameTouch(gameId) {
+    const stage = document.querySelector(`.game-card[data-game-id="${gameId}"] .game-stage`)
+    if (!stage || stage.dataset.touchLocked === '1') return
+    stage.dataset.touchLocked = '1'
+    const prevent = (event) => { if (event.cancelable) event.preventDefault() }
+    // Only prevent touchmove to stop scrolling, don't interfere with touchstart
+    stage.addEventListener('touchmove', prevent, { passive: false, capture: true })
+  }
+
+  document.addEventListener('memeplay:active-game-changed', (event) => {
+    const gameId = event?.detail?.gameId
+    if (gameId) {
+      try { window.__memeplayActiveGame = gameId } catch {}
+      focusState.gameId = gameId
+      lockGameTouch(gameId)
+      if (document.body.classList.contains('focus-mode')) {
+        applyFocusActiveCard(gameId)
+        requestAnimationFrame(scrollActiveGameIntoView)
+      }
+    }
+  })
+
+  window.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && document.body.classList.contains('focus-mode')) {
+      toggleFocusMode(false)
+    }
+  })
+
+  await loadGameCards()
+  lockGameTouch('wojak-btc-blast')
+
   // 1️⃣ Import SDK Supabase (thư viện kết nối Supabase trực tiếp trên web)
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -872,14 +1593,63 @@
   // 3️⃣ Tạo đối tượng "supabase" để sử dụng RPC, truy vấn, insert, v.v.
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+  // 🚀 Helper: Send RPC with keepalive (prevents data loss on F5/close)
+  async function rpcWithKeepalive(functionName, params) {
+    try {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/rpc/${functionName}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apikey': SUPABASE_ANON_KEY,
+          'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+          'Prefer': 'return=representation'
+        },
+        body: JSON.stringify(params),
+        keepalive: true  // ← Ensures delivery even if page closes!
+      })
+      
+      if (!response.ok) {
+        throw new Error(`RPC ${functionName} failed: ${response.statusText}`)
+      }
+      
+      const data = await response.json()
+      return { data, error: null }
+    } catch (error) {
+      console.error(`rpcWithKeepalive(${functionName}) error:`, error.message)
+      return { data: null, error }
+    }
+  }
+
   // =========================================================
   // 🔹 TẠO USER ID DUY NHẤT (ghi trong localStorage)
   // =========================================================
   // User identifier prefers wallet address if connected; falls back to random local id
+  function generateLocalUuid() {
+    try {
+      const cryptoObj = globalThis.crypto || globalThis.msCrypto
+      if (cryptoObj?.randomUUID) return cryptoObj.randomUUID()
+      if (cryptoObj?.getRandomValues) {
+        const buf = cryptoObj.getRandomValues(new Uint8Array(16))
+        buf[6] = (buf[6] & 0x0f) | 0x40
+        buf[8] = (buf[8] & 0x3f) | 0x80
+        const hex = Array.from(buf, b => b.toString(16).padStart(2, '0')).join('')
+        return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+      }
+    } catch (err) {
+      console.warn('generateLocalUuid fallback', err)
+    }
+    const fallback = 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+      const r = Math.random() * 16 | 0
+      const v = c === 'x' ? r : ((r & 0x3) | 0x8)
+      return v.toString(16)
+    })
+    return fallback
+  }
+
   function getLocalUserId() {
     let id = localStorage.getItem('mp_user_id')
     if (!id) {
-      id = 'u_' + crypto.randomUUID()
+      id = 'u_' + generateLocalUuid()
       localStorage.setItem('mp_user_id', id)
     }
     return id
@@ -919,23 +1689,126 @@
   }
 
   // Show inline banner near PLAY points and apply increment after 3s
-  function showPlayAward(amount, label) {
+  // Confetti Engine
+  function createConfetti() {
+    const canvas = document.getElementById('confettiCanvas')
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+    canvas.width = window.innerWidth
+    canvas.height = window.innerHeight
+    
+    const particles = []
+    const colors = ['#ffb642', '#ff9000', '#ffd700', '#ff6b6b', '#4ecdc4']
+    
+    for (let i = 0; i < 100; i++) {
+      particles.push({
+        x: canvas.width / 2,
+        y: canvas.height * 0.8, // Từ vị trí icon ⭐
+        vx: (Math.random() - 0.5) * 10,
+        vy: (Math.random() - 1) * 15,
+        color: colors[Math.floor(Math.random() * colors.length)],
+        size: Math.random() * 8 + 4,
+        rotation: Math.random() * 360,
+        rotationSpeed: (Math.random() - 0.5) * 10
+      })
+    }
+    
+    function animate() {
+      ctx.clearRect(0, 0, canvas.width, canvas.height)
+      let active = false
+      
+      particles.forEach(p => {
+        p.vy += 0.3 // Gravity
+        p.x += p.vx
+        p.y += p.vy
+        p.rotation += p.rotationSpeed
+        
+        if (p.y < canvas.height + 50) {
+          active = true
+          ctx.save()
+          ctx.translate(p.x, p.y)
+          ctx.rotate(p.rotation * Math.PI / 180)
+          ctx.fillStyle = p.color
+          ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size)
+          ctx.restore()
+        }
+      })
+      
+      if (active) requestAnimationFrame(animate)
+      else canvas.style.opacity = '0'
+    }
+    
+    canvas.style.opacity = '1'
+    animate()
+    
+    setTimeout(() => {
+      canvas.style.opacity = '0'
+    }, 3000)
+  }
+
+  function showAchievementToast(achievementName, count, total, reward) {
+    const toast = document.getElementById('achievementToast')
+    const nameEl = document.getElementById('achievementName')
+    const rewardEl = document.getElementById('achievementReward')
+    
+    if (!toast) return
+    
+    nameEl.textContent = `⭐ ${achievementName} (${count}/${total})`
+    rewardEl.textContent = `+${reward} PLAY`
+    
+    toast.classList.add('show')
+    
+    setTimeout(() => {
+      toast.classList.remove('show')
+    }, 2000)
+  }
+
+  function celebrateAchievement(gameId, achievementName, count, reward) {
+    // 1. Pháo hoa nổ
+    createConfetti()
+    
+    // 2. Toast center
+    showAchievementToast(achievementName, count, 3, reward)
+    
+    // 3. Icon rung
+    const card = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
+    const achievementIcon = card?.querySelector('.icon-wrapper[data-role="leaderboard"]')
+    if (achievementIcon) {
+      achievementIcon.classList.add('shake')
+      setTimeout(() => achievementIcon.classList.remove('shake'), 800)
+      
+    }
+
+    const leaderboardOverlayEl = document.getElementById('leaderboardOverlay')
+    if (leaderboardOverlayEl?.classList.contains('open')) {
+      renderRewardsPanel(gameId)
+    }
+  }
+
+  function showPlayAward(amount, label, isNewAchievement = false) {
     if (!amount || amount <= 0) return
-    const el = els.headerEarnedFlash
-    if (!el) {
-      // Fallback: immediate update
-      const newTotal = lsGetInt('mp_total_earned_plays') + amount
-      lsSetInt('mp_total_earned_plays', newTotal)
-      updateHeaderEarned()
+    
+    // Update total
+    const newTotal = lsGetInt('mp_total_earned_plays') + amount
+    lsSetInt('mp_total_earned_plays', newTotal)
+    updateHeaderEarned()
+    
+    // If new achievement, celebrate!
+    if (isNewAchievement && activeGame) {
+      const achievedCount = Object.values(getGameAwards(activeGame)).filter(Boolean).length
+      const achievementNames = { 10: 'Starter', 60: 'Engaged', 300: 'Champion' }
+      const threshold = parseInt(label.replace('s', ''))
+      celebrateAchievement(activeGame, achievementNames[threshold], achievedCount, amount)
       return
     }
+    
+    // Old header flash (fallback)
+    const el = els.headerEarnedFlash
+    if (!el) return
     el.textContent = `+${amount} PLAY${label ? ` for ${label}` : ''}`
     el.style.opacity = '1'
     setTimeout(() => {
       el.style.opacity = '0'
-      const newTotal = lsGetInt('mp_total_earned_plays') + amount
-      lsSetInt('mp_total_earned_plays', newTotal)
-      updateHeaderEarned()
     }, 3000)
   }
 
@@ -952,7 +1825,9 @@
   // Load initial real play counts for all cards
   document.querySelectorAll('.game-card').forEach(card => {
     const gid = card.getAttribute('data-game-id') || card.id
-    if (gid) loadPlayCount(gid)
+    if (gid) {
+      loadPlayCount(gid)
+    }
   })
 
   // ==============================
@@ -973,7 +1848,19 @@
 
   async function connectWallet() {
     if (!window.ethereum) {
-      alert('Please install MetaMask to connect your wallet.')
+      const ua = navigator.userAgent || ''
+      const isMobile = /iphone|ipad|ipod|android/i.test(ua)
+      if (isMobile) {
+        const rawUrl = window.location.href.split('#')[0]
+        const cleaned = rawUrl.replace(/^https?:\/\//i, '')
+        const deepLink = `https://metamask.app.link/dapp/${cleaned}`
+        const proceed = confirm('MetaMask mobile chưa mở. Mở ứng dụng MetaMask để kết nối?')
+        if (proceed) {
+          window.location.href = deepLink
+        }
+      } else {
+        alert('Please install MetaMask to connect your wallet.')
+      }
       return
     }
     try {
@@ -1041,11 +1928,11 @@
     getStreak: () => lsGetInt('mp_streak_count'),
     getPlayPoints: () => lsGetInt('mp_total_earned_plays'),
     openOverlay: () => {
-      if (typeof window.__openWalletOverlay === 'function') {
-        window.__openWalletOverlay()
+        if (typeof window.__openWalletOverlay === 'function') {
+          window.__openWalletOverlay()
+        }
       }
     }
-  }
   try {
     const existing = (globalThis.memeplayWallet && typeof globalThis.memeplayWallet === 'object') ? globalThis.memeplayWallet : {}
     globalThis.memeplayWallet = Object.assign({}, existing, walletApi)
@@ -1073,8 +1960,8 @@
   // =========================================================
   // 🔹 PER-GAME ACCUMULATED PLAYTIME & ONE-TIME REWARDS
   // =========================================================
-  const REWARD_THRESHOLDS = [20, 60, 300] // seconds
-  const REWARD_VALUES = { 20: 100, 60: 300, 300: 1000 }
+  const REWARD_THRESHOLDS = [10, 60, 300] // seconds (10s để user nhanh hiểu có thưởng)
+  const REWARD_VALUES = { 10: 100, 60: 300, 300: 1000 }
   const MAX_ACCUM_SECONDS = 300
 
   function getGameSeconds(gameId) {
@@ -1150,6 +2037,9 @@
       creator.appendChild(span)
     }
     span.textContent = `${totalPlays} plays`
+
+    const statsCount = card.querySelector('.icon-wrapper[data-role="stats"] .icon-count')
+    if (statsCount) statsCount.textContent = String(Math.max(0, totalPlays|0))
   }
   async function loadPlayCount(gameId) {
     try {
@@ -1161,7 +2051,7 @@
     } catch (e) { console.error('get_game_play_count error:', e?.message || e) }
   }
   async function incrementPlayCountIfEligible(gameId, seconds) {
-    if (!gameId || !seconds || seconds < 10) return
+    if (!gameId || !seconds || seconds < 5) return
     try {
       const { data, error } = await supabase.rpc('increment_play_count', {
         p_user_id: userId,
@@ -1232,10 +2122,28 @@ function startGame(gameId) {
   activeGame = gameId;
   activeStartTime = Date.now();
   console.log(`▶️ Game ${gameId} started`);
+  
+  // Mark game card as playing to disable animations/transitions
+  document.querySelectorAll('.game-card').forEach(card => card.classList.remove('is-playing'));
+  const activeCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`);
+  if (activeCard) activeCard.classList.add('is-playing');
 
-  // Live progress ticker: log session and cumulative totals each second
+  // Live progress ticker: log session and cumulative totals every 5 seconds (optimized for performance)
   clearInterval(progressInterval);
   progressInterval = setInterval(() => {
+    if (!activeGame || !activeStartTime) return;
+    
+    // Use requestIdleCallback to avoid interrupting game
+    if (window.requestIdleCallback) {
+      window.requestIdleCallback(() => {
+        updateProgress();
+      }, { timeout: 1000 });
+    } else {
+      updateProgress();
+    }
+  }, 5000);
+  
+  function updateProgress() {
     if (!activeGame || !activeStartTime) return;
     const sessionSeconds = Math.max(0, Math.floor((Date.now() - activeStartTime) / 1000));
     const prevTotal = getGameSeconds(activeGame);
@@ -1256,12 +2164,12 @@ function startGame(gameId) {
       for (const t of crossedNow) grant += REWARD_VALUES[t];
       if (grant > 0) {
         const last = crossedNow[crossedNow.length - 1]
-        showPlayAward(grant, `${last}s`)
+        showPlayAward(grant, `${last}s`, true) // ← true = NEW achievement!
       }
     }
 
     console.log(`⏳ ${activeGame}: session ${sessionSeconds}s · total ${previewTotal}/${MAX_ACCUM_SECONDS}s`);
-  }, 1000);
+  }
 }
 
 // Ép start an toàn khi chuyển game
@@ -1304,12 +2212,13 @@ async function stopGame() {
       setGameAwards(activeGame, awardedMap)
       if (totalGrant > 0) {
         const last = newlyAwarded[newlyAwarded.length - 1]
-        showPlayAward(totalGrant, `${last}s`)
+        showPlayAward(totalGrant, `${last}s`, true) // ← true = NEW achievement!
       }
     }
 
+    // Use keepalive to prevent data loss on F5/close tab
     try {
-      const { data, error } = await supabase.rpc('track_playtime_and_reward', {
+      const { data, error } = await rpcWithKeepalive('track_playtime_and_reward', {
         p_user_id: userId,
         p_game_id: activeGame,
         p_seconds: seconds
@@ -1317,16 +2226,34 @@ async function stopGame() {
       if (error) throw error;
       console.log(`🎮 [${activeGame}] reward result:`, data);
       if (data?.awarded > 0) showPlayAward(Number(data.awarded))
-
-      // No plays-per-match counter anymore
     } catch (err) {
-      console.error('RPC error:', err.message);
+      console.error('Playtime tracking error:', err.message);
     }
 
-    // Increment real play count if eligible (>=10s)
-    await incrementPlayCountIfEligible(activeGame, seconds)
+    // Increment real play count if eligible (>=5s) with keepalive
+    if (seconds >= 5) {
+      try {
+        const { data, error } = await rpcWithKeepalive('increment_play_count', {
+          p_user_id: userId,
+          p_game_id: activeGame,
+          p_seconds: seconds
+        });
+        if (error) throw error;
+        
+        // Update UI after server confirms (accurate count)
+        if (data && typeof data.total_plays === 'number') {
+          setPlaysLabelForCard(activeGame, data.total_plays)
+          console.log(`📊 [plays +1] ${activeGame}: ${data.total_plays}`)
+        }
+      } catch (err) {
+        console.error('Play count increment error:', err.message);
+      }
+    }
   }
 
+  // Remove is-playing class to re-enable animations
+  document.querySelectorAll('.game-card').forEach(card => card.classList.remove('is-playing'));
+  
   activeGame = null;
   activeStartTime = 0;
   clearInterval(progressInterval);
@@ -1453,39 +2380,50 @@ window.addEventListener("beforeunload", stopGame);
     cards.forEach(card => {
       const gameId = card.getAttribute('data-game-id') || card.id
       if (!gameId) return
-      const buttons = card.querySelectorAll('.game-icons button')
-      if (!buttons || buttons.length < 2) return
-      const likeBtn = buttons[0]
-      const commentBtn = buttons[1]
 
-      // Inject counters just to the right of each button
-      let likeCountEl = likeBtn.nextElementSibling
-      if (!likeCountEl || !likeCountEl.classList || !likeCountEl.classList.contains('icon-count')) {
-        likeCountEl = document.createElement('span')
-        likeCountEl.className = 'icon-count'
-        likeCountEl.textContent = '0'
-        likeBtn.after(likeCountEl)
+      const likeWrapper = card.querySelector('.icon-wrapper[data-role="like"]')
+      const commentWrapper = card.querySelector('.icon-wrapper[data-role="comment"]')
+      const shareWrapper = card.querySelector('.icon-wrapper[data-role="share"]')
+      const leaderboardWrapper = card.querySelector('.icon-wrapper[data-role="leaderboard"]')
+      const marketcapWrapper = card.querySelector('.icon-wrapper[data-role="marketcap"]')
+
+      const likeBtn = likeWrapper?.querySelector('button')
+      const commentBtn = commentWrapper?.querySelector('button')
+      const shareBtn = shareWrapper?.querySelector('button')
+      const leaderboardBtn = leaderboardWrapper?.querySelector('button')
+      const marketcapBtn = marketcapWrapper?.querySelector('button')
+
+      if (!likeBtn || !commentBtn) return
+
+      const ensureCountEl = (wrapper, selector, fallback = '0') => {
+        if (!wrapper) return null
+        const existing = wrapper.querySelector(selector)
+        if (existing) return existing
+        const span = document.createElement('span')
+        span.className = 'icon-count'
+        span.textContent = fallback
+        wrapper.appendChild(span)
+        return span
       }
-      let cmtCountEl = commentBtn.nextElementSibling
-      if (!cmtCountEl || !cmtCountEl.classList || !cmtCountEl.classList.contains('icon-count')) {
-        cmtCountEl = document.createElement('span')
-        cmtCountEl.className = 'icon-count'
-        cmtCountEl.textContent = '0'
-        commentBtn.after(cmtCountEl)
-      }
+
+      const likeCountEl = ensureCountEl(likeWrapper, '.icon-count')
+      const cmtCountEl = ensureCountEl(commentWrapper, '.icon-count')
 
       function setCounts(likes, comments) {
         if (likeCountEl) likeCountEl.textContent = String(Math.max(0, likes|0))
         if (cmtCountEl) cmtCountEl.textContent = String(Math.max(0, comments|0))
       }
       function renderHeart(isLiked) {
-        likeBtn.classList.toggle('liked', !!isLiked)
-        likeBtn.textContent = isLiked ? '❤️' : '🤍'
+        const wrapper = likeBtn.closest('.icon-wrapper')
+        if (wrapper) wrapper.classList.toggle('liked', !!isLiked)
+        likeBtn.setAttribute('aria-pressed', isLiked ? 'true' : 'false')
       }
       ;(async () => {
         try {
           const { data, error } = await supabase.rpc('get_social_counts', { p_game_id: gameId })
-          if (!error && data) setCounts(data.likes ?? 0, data.comments ?? 0)
+          if (!error && data) {
+            setCounts(data.likes ?? 0, data.comments ?? 0)
+          }
         } catch {}
       })()
       const liked = localStorage.getItem('mp_like_' + gameId) === '1'
@@ -1502,7 +2440,10 @@ window.addEventListener("beforeunload", stopGame);
           renderHeart(isLiked)
           localStorage.setItem('mp_like_' + gameId, isLiked ? '1' : '0')
           const likes = (data && (data.total_likes ?? data.likes))
-          if (likes != null) setCounts(likes, (cmtCountEl ? Number(cmtCountEl.textContent)||0 : 0))
+          if (likes != null) {
+            const currentComments = cmtCountEl ? Number(cmtCountEl.textContent) || 0 : 0
+            setCounts(likes, currentComments)
+          }
         } catch (e) {
           console.error('toggle_like error:', e?.message || e)
         } finally {
@@ -1510,9 +2451,322 @@ window.addEventListener("beforeunload", stopGame);
         }
       })
       commentBtn.addEventListener('click', () => openPanel(gameId))
+      if (marketcapBtn) {
+        marketcapBtn.addEventListener('click', () => {
+          console.log('Market Cap clicked for', gameId)
+          // TODO: Show market cap overlay/link for game token
+        })
+      }
+      if (shareBtn) {
+        shareBtn.addEventListener('click', () => {
+          openShareOverlay(gameId)
+        })
+      }
+      if (leaderboardBtn) {
+        leaderboardBtn.addEventListener('click', () => {
+          if (typeof window.__openLeaderboardOverlay === 'function') {
+            window.__openLeaderboardOverlay(gameId)
+          }
+        })
+      }
     })
   }
   initSocialHandlers()
+
+  // Listen for game scores via postMessage
+  window.addEventListener('message', async (event) => {
+    // DEBUG: Log ALL messages to see what's being received
+    console.log('📨 [DEBUG] Parent received message:', event.data, 'from origin:', event.origin);
+    
+    if (event.data?.type === 'GAME_SCORE') {
+      const { gameId, score } = event.data
+      if (!gameId || !score || score <= 0) return
+      
+      // Convert to integer (round down for fairness)
+      const finalScore = Math.floor(Number(score))
+      
+      console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
+      
+      try {
+        const { data, error } = await supabase.rpc('submit_game_score', {
+          p_user_id: userId,
+          p_game_id: gameId,
+          p_score: finalScore
+        })
+        
+        if (error) throw error
+        
+        if (data?.is_new_best) {
+          console.log(`🏆 New high score! Rank #${data.user_rank}/${data.total_players}`)
+          // TODO: Show toast/animation "New Best!"
+        } else {
+          console.log(`✓ Score submitted. Best: ${data.best_score}, Rank: #${data.user_rank}`)
+        }
+      } catch (err) {
+        console.error('Submit score error:', err)
+      }
+    }
+  })
+
+  // Format count helper (1K, 10.5K, 1.2M)
+  function formatCount(num) {
+    const n = Number(num) || 0
+    if (n >= 1000000) return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M'
+    if (n >= 1000) return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'K'
+    return String(n)
+  }
+
+  function shortAddrLeaderboard(addr) {
+    if (!addr || addr.length <= 10) return addr || 'Anonymous'
+    return addr.slice(0, 6) + '…' + addr.slice(-4)
+  }
+
+  // Format score based on game type
+  function formatScore(score, gameId) {
+    const num = Number(score) || 0;
+    
+    // Wojak game shows percentage
+    if (gameId === 'wojak-btc-blast') {
+      return num + '%';
+    }
+    
+    // Other games use normal format (1K, 1M...)
+    return formatCount(num);
+  }
+
+  function setLeaderboardActivePanel(panel) {
+    const overlay = document.getElementById('leaderboardOverlay')
+    if (!overlay) return
+    const tabs = overlay.querySelectorAll('.leaderboard-tab')
+    const scoresPanel = document.getElementById('leaderboardPanelScores')
+    const rewardsPanel = document.getElementById('leaderboardPanelRewards')
+
+    const target = panel === 'rewards' ? 'rewards' : 'scores'
+    tabs.forEach(btn => {
+      const isActive = btn.dataset.panel === target
+      btn.classList.toggle('active', isActive)
+    })
+    scoresPanel?.classList.toggle('active', target === 'scores')
+    rewardsPanel?.classList.toggle('active', target === 'rewards')
+    overlay.dataset.activePanel = target
+  }
+
+  function renderRewardsPanel(gameId) {
+    const summaryEl = document.getElementById('leaderboardRewardSummary')
+    const listEl = document.getElementById('leaderboardRewardList')
+    if (!summaryEl || !listEl) return
+
+    const awardedMap = getGameAwards(gameId)
+    const totalSeconds = getGameSeconds(gameId)
+    const achievements = [
+      { threshold: 10, name: 'Starter', reward: 100 },
+      { threshold: 60, name: 'Engaged', reward: 300 },
+      { threshold: 300, name: 'Champion', reward: 1000 }
+    ]
+
+    const progress = Math.min(100, (totalSeconds / 300) * 100)
+    summaryEl.innerHTML = `
+      <div style="font-size:18px;">Total Playtime</div>
+      <div class="reward-total">${totalSeconds}s / 300s</div>
+      <div class="leaderboard-reward-progress"><span style="width:${progress}%"></span></div>
+      <div style="margin-top:6px;font-size:13px;color:#a9b1c4;">Play more to unlock bonus PLAY rewards</div>
+    `
+
+    listEl.innerHTML = ''
+    achievements.forEach(ach => {
+      const unlocked = awardedMap[ach.threshold] || totalSeconds >= ach.threshold
+      const secondsLeft = Math.max(0, ach.threshold - totalSeconds)
+      const card = document.createElement('div')
+      card.className = 'leaderboard-reward-card' + (unlocked ? ' unlocked' : '')
+      card.innerHTML = `
+        <div style="flex:1;">
+          <div class="reward-name">${unlocked ? '✅' : '🔒'} ${ach.name}</div>
+          <div class="reward-status">${unlocked ? 'Unlocked!' : `${secondsLeft}s remaining`}</div>
+        </div>
+        <div class="reward-amount">+${ach.reward}</div>
+      `
+      listEl.appendChild(card)
+    })
+  }
+
+  async function openLeaderboardOverlay(gameId) {
+    const overlay = document.getElementById('leaderboardOverlay')
+    const list = document.getElementById('leaderboardList')
+    const rewardSummary = document.getElementById('leaderboardRewardSummary')
+    const rewardList = document.getElementById('leaderboardRewardList')
+    if (!overlay || !list || !rewardSummary || !rewardList) return
+
+    overlay.dataset.gameId = gameId
+    setLeaderboardActivePanel('scores')
+    renderRewardsPanel(gameId)
+
+    list.innerHTML = '<div style="padding:24px;text-align:center;color:#bbb;">Loading...</div>'
+    overlay.classList.add('open')
+
+    try {
+      const { data, error } = await supabase.rpc('get_game_leaderboard_with_user', {
+        p_game_id: gameId,
+        p_user_id: userId,
+        p_limit: 100
+      })
+
+      if (error) throw error
+
+      list.innerHTML = ''
+
+      const userEntry = data?.current_user
+      if (userEntry) {
+        const userItem = document.createElement('div')
+        userItem.className = 'leaderboard-item user-highlight'
+        userItem.innerHTML = `
+          <div class="leaderboard-rank">${userEntry.rank ? '#' + userEntry.rank : '-'}</div>
+          <div class="leaderboard-user">You</div>
+          <div class="leaderboard-score">${formatScore(userEntry.best_score, gameId)}</div>
+        `
+        list.appendChild(userItem)
+      }
+
+      const divider = document.createElement('div')
+      divider.className = 'leaderboard-divider'
+      divider.textContent = 'Top 100 Players'
+      list.appendChild(divider)
+
+      const topPlayers = data?.top_players || []
+      if (topPlayers.length === 0) {
+        const empty = document.createElement('div')
+        empty.style.cssText = 'padding:24px;text-align:center;color:#888;'
+        empty.textContent = 'No scores yet. Be the first!'
+        list.appendChild(empty)
+        return
+      }
+
+      topPlayers.forEach(player => {
+        const item = document.createElement('div')
+        item.className = 'leaderboard-item'
+        if (player.user_id === userId) {
+          item.classList.add('is-current-user')
+        }
+
+        let rankDisplay = `#${player.rank}`
+        if (player.rank === 1) rankDisplay = '🥇'
+        else if (player.rank === 2) rankDisplay = '🥈'
+        else if (player.rank === 3) rankDisplay = '🥉'
+
+        item.innerHTML = `
+          <div class="leaderboard-rank">${rankDisplay}</div>
+          <div class="leaderboard-user">${shortAddrLeaderboard(player.user_id)}</div>
+          <div class="leaderboard-score">${formatScore(player.best_score, gameId)}</div>
+        `
+        list.appendChild(item)
+      })
+    } catch (err) {
+      console.error('Leaderboard error:', err)
+      list.innerHTML = '<div style="padding:24px;text-align:center;color:#f88;">Failed to load leaderboard</div>'
+    }
+  }
+
+  ;(function initLeaderboardOverlay(){
+    const overlay = document.getElementById('leaderboardOverlay')
+    if (!overlay) return
+    const closeBtn = document.getElementById('leaderboardCloseBtn')
+    const tabButtons = overlay.querySelectorAll('.leaderboard-tab')
+
+    if (!overlay.dataset.activePanel) overlay.dataset.activePanel = 'scores'
+
+    function closeLeaderboardOverlay() {
+      overlay.classList.remove('open')
+    }
+
+    tabButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const panel = btn.dataset.panel
+        if (panel) setLeaderboardActivePanel(panel)
+      })
+    })
+
+    closeBtn?.addEventListener('click', closeLeaderboardOverlay)
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeLeaderboardOverlay()
+    })
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && overlay.classList.contains('open')) closeLeaderboardOverlay()
+    })
+
+    window.__openLeaderboardOverlay = openLeaderboardOverlay
+    window.__closeLeaderboardOverlay = closeLeaderboardOverlay
+  })()
+
+  // Share Modal Logic
+  let currentShareGameId = null
+  
+  function openShareOverlay(gameId) {
+    currentShareGameId = gameId
+    const overlay = document.getElementById('shareOverlay')
+    if (overlay) overlay.classList.add('open')
+  }
+
+  ;(function initShareOverlay(){
+    const overlay = document.getElementById('shareOverlay')
+    if (!overlay) return
+    
+    const closeBtn = document.getElementById('shareCloseBtn')
+    const copyBtn = document.getElementById('shareCopyBtn')
+    const telegramBtn = document.getElementById('shareTelegramBtn')
+    const xBtn = document.getElementById('shareXBtn')
+
+    function closeShareOverlay() {
+      overlay.classList.remove('open')
+    }
+
+    // Close handlers
+    closeBtn?.addEventListener('click', closeShareOverlay)
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeShareOverlay()
+    })
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && overlay.classList.contains('open')) closeShareOverlay()
+    })
+
+    // Copy Link Button
+    copyBtn?.addEventListener('click', async () => {
+      const shareUrl = `${window.location.origin}${window.location.pathname}#${currentShareGameId}`
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          await navigator.clipboard.writeText(shareUrl)
+          const originalHTML = copyBtn.innerHTML
+          copyBtn.innerHTML = `
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"></polyline>
+            </svg>
+            <span>✓ Copied!</span>
+          `
+          setTimeout(() => {
+            copyBtn.innerHTML = originalHTML
+          }, 2000)
+        }
+      } catch (err) {
+        console.error('Copy failed:', err)
+      }
+    })
+
+    // Telegram Button
+    telegramBtn?.addEventListener('click', () => {
+      const shareUrl = `${window.location.origin}${window.location.pathname}#${currentShareGameId}`
+      const text = `🎮 Check out this awesome game on MemePlay Arcade! Play and earn PLAY points! 🚀`
+      const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`
+      window.open(telegramUrl, '_blank')
+      closeShareOverlay()
+    })
+
+    // X/Twitter Button
+    xBtn?.addEventListener('click', () => {
+      const shareUrl = `${window.location.origin}${window.location.pathname}#${currentShareGameId}`
+      const text = `🎮 Just played an awesome game on MemePlay! Play & earn PLAY points! 🚀`
+      const xUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`
+      window.open(xUrl, '_blank')
+      closeShareOverlay()
+    })
+  })()
 
   ;(function initStatsOverlay(){
     const overlay = document.getElementById('statsOverlay')
@@ -1805,93 +3059,6 @@ window.addEventListener("beforeunload", stopGame);
   </script>
 
   <script>
-    // Tạo Bottom Nav bằng JavaScript (đảm bảo render)
-    function createBottomNav() {
-      // Kiểm tra đã tạo chưa
-      if (document.getElementById('bottomNavBar')) {
-        console.log('Bottom nav already exists');
-        return;
-      }
-      
-      // Tạo container
-      const bottomNav = document.createElement('div');
-      bottomNav.style.cssText = 'position:fixed;bottom:0;left:0;right:0;height:60px;background:#111;border-top:2px solid #222;display:flex;justify-content:space-between;align-items:center;padding:0 20px;z-index:99999;color:#fff;';
-      bottomNav.id = 'bottomNavBar';
-      
-      // Left section
-      const left = document.createElement('div');
-      left.style.cssText = 'display:flex;gap:12px;';
-      
-      const btnStats = document.createElement('button');
-      btnStats.id = 'navStats';
-      btnStats.style.cssText = 'background:#22272b;color:#fff;border:none;border-radius:16px;padding:0 16px;height:38px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;';
-      btnStats.innerHTML = '<span>📊</span><span>Stats</span>';
-      
-      const btnGames = document.createElement('button');
-      btnGames.id = 'navGames';
-      btnGames.style.cssText = 'background:#22272b;color:#fff;border:none;border-radius:16px;padding:0 16px;height:38px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;';
-      btnGames.innerHTML = '<span>🎮</span><span>Games</span>';
-      
-      left.appendChild(btnStats);
-      left.appendChild(btnGames);
-      
-      // Right section
-      const right = document.createElement('div');
-      right.style.cssText = 'display:flex;gap:12px;';
-      
-      const btnWallet = document.createElement('button');
-      btnWallet.id = 'navWallet';
-      btnWallet.style.cssText = 'background:#22272b;color:#fff;border:none;border-radius:16px;padding:0 16px;height:38px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;';
-      btnWallet.innerHTML = '<span>💼</span><span>Wallet</span>';
-      
-      const btnMore = document.createElement('button');
-      btnMore.id = 'navMore';
-      btnMore.style.cssText = 'background:#22272b;color:#fff;border:none;border-radius:16px;padding:0 16px;height:38px;cursor:pointer;font-weight:700;display:flex;align-items:center;gap:6px;';
-      btnMore.innerHTML = '<span>⚙️</span><span>More</span>';
-      
-      right.appendChild(btnWallet);
-      right.appendChild(btnMore);
-      
-      bottomNav.appendChild(left);
-      bottomNav.appendChild(right);
-      document.body.appendChild(bottomNav);
-      
-      console.log('✅ Bottom nav created:', bottomNav);
-      
-      // Event handlers
-      btnStats.addEventListener('click', () => {
-        if (typeof window.__openStatsOverlay === 'function') {
-          window.__openStatsOverlay()
-        } else {
-          alert('Stats coming soon!')
-        }
-      });
-      btnGames.addEventListener('click', () => {
-        document.querySelector('.game-container')?.scrollTo({ top: 0, behavior: 'smooth' });
-      });
-      btnWallet.addEventListener('click', () => {
-        const api = globalThis.memeplayWallet || {}
-        if (api.isConnected?.()) {
-          api.openOverlay?.()
-        } else {
-          api.connect?.()
-        }
-      });
-      btnMore.addEventListener('click', () => alert('More - Coming soon!'));
-    }
-    
-    // Gọi khi DOM ready
-    if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', createBottomNav);
-    } else {
-      createBottomNav();
-    }
-    
-    // Fallback: gọi lại sau 1s
-    setTimeout(createBottomNav, 1000);
-  </script>
-
-  <script>
     ;(function initWalletOverlay(){
       const overlay = document.getElementById('walletOverlay')
       if (!overlay) return
@@ -1951,8 +3118,162 @@ window.addEventListener("beforeunload", stopGame);
       })
 
       window.__openWalletOverlay = openWalletOverlay
-      window.__updateWalletOverlay = updateWalletOverlay
-    })()
+    window.__updateWalletOverlay = updateWalletOverlay
+  })()
+
+  ;(function initCreatorOverlay(){
+    const overlay = document.getElementById('creatorOverlay')
+    if (!overlay) return
+    const closeBtn = document.getElementById('creatorCloseBtn')
+
+    function openCreatorOverlay() {
+      overlay.classList.add('open')
+    }
+
+    function closeCreatorOverlay() {
+      overlay.classList.remove('open')
+    }
+
+    closeBtn?.addEventListener('click', closeCreatorOverlay)
+    overlay.addEventListener('click', (event) => {
+      if (event.target === overlay) closeCreatorOverlay()
+    })
+    document.addEventListener('keydown', (event) => {
+      if (event.key === 'Escape' && overlay.classList.contains('open')) closeCreatorOverlay()
+    })
+
+    window.__openCreatorOverlay = openCreatorOverlay
+    window.__closeCreatorOverlay = closeCreatorOverlay
+  })()
+
+  // ==========================================
+  // MARKET CAP - 4meme Integration
+  // ==========================================
+  setTimeout(() => {
+    console.log('🚀 MC script start')
+    
+    if (!window.ethers) return console.error('❌ No ethers.js')
+    console.log('✅ Ethers OK')
+    
+    const TOKEN = '0x2685ba9d4c0386f9982169920435ddc97aa34444'
+    const HELPER = '0xF251F83e40a78868FcfA3FA4599Dad6494E46034'
+    
+    function fmt(n) {
+      if (!n) return '--'
+      if (n >= 1e9) return (n/1e9).toFixed(1)+'B'
+      if (n >= 1e6) return (n/1e6).toFixed(1)+'M'
+      if (n >= 1e3) return (n/1e3).toFixed(1)+'K'
+      return n.toFixed(0)
+    }
+    
+    // Get BNB price
+    async function getBNB() {
+      try {
+        const res = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=binancecoin&vs_currencies=usd')
+        const data = await res.json()
+        return data.binancecoin?.usd || 600
+      } catch {
+        return 600
+      }
+    }
+    
+    async function update(id) {
+      const btn = document.querySelector(`#${id} [data-role="marketcap"] button span`)
+      if (!btn) return console.log(`[MC] No span: ${id}`)
+      
+      const wrap = document.querySelector(`#${id} [data-role="marketcap"] button`)
+      btn.textContent = 'MC ...'
+      
+      try {
+        // Init provider & contract
+        const p = new ethers.providers.JsonRpcProvider('https://bsc-dataseed.binance.org/')
+        const h = new ethers.Contract(HELPER, ['function getTokenInfo(address) view returns (uint256,address,address,uint256,uint256,uint256,uint256,uint256,uint256,uint256,uint256,bool)'], p)
+        
+        // Get token info
+        const info = await h.getTokenInfo(TOKEN)
+        const graduated = info[11] // liquidityAdded
+        
+        let mc = 0
+        
+        if (graduated) {
+          // CASE 1: Đã lên PancakeSwap → DexScreener
+          console.log(`[MC] ${id} graduated → DexScreener`)
+          
+          const dex = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN}`)
+          const dexData = await dex.json()
+          
+          if (dexData.pairs && dexData.pairs.length > 0) {
+            mc = dexData.pairs[0].fdv || dexData.pairs[0].marketCap || 0
+            console.log(`✅ [MC] ${id}: $${fmt(mc)} (DexScreener)`)
+          } else {
+            throw new Error('No DEX data')
+          }
+          
+        } else {
+          // CASE 2: Bonding curve → 4meme contract
+          console.log(`[MC] ${id} bonding curve → 4meme contract`)
+          
+          const bnb = await getBNB()
+          const priceBNB = Number(info[3]) / 1e18
+          const priceUSD = priceBNB * bnb
+          mc = priceUSD * 1e9
+          
+          console.log(`✅ [MC] ${id}: $${fmt(mc)} (4meme contract)`)
+        }
+        
+        // Update UI
+        btn.textContent = `MC ${fmt(mc)}`
+        wrap.style.cursor = 'pointer'
+        wrap.onclick = () => window.open(`https://four.meme/token/${TOKEN}`, '_blank')
+        wrap.title = `$${mc.toLocaleString()}`
+        mcCache[id] = mc // Cache kết quả
+        
+      } catch (e) {
+        console.error(`❌ [MC] ${id}:`, e)
+        btn.textContent = 'MC --'
+        mcCache[id] = 'error' // Cache error để không retry
+      }
+    }
+    
+    // Cache để không fetch lại
+    const mcCache = {}
+    const mcLoading = {}
+    
+    // Lazy load MC khi game visible
+    const mcObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const gameId = entry.target.id
+          if (!mcCache[gameId] && !mcLoading[gameId]) {
+            mcLoading[gameId] = true
+            console.log(`[MC] Loading for visible game: ${gameId}`)
+            update(gameId)
+          }
+        }
+      })
+    }, { 
+      threshold: 0.3,
+      rootMargin: '100px' // Preload khi gần đến game
+    })
+    
+    // Đợi 5s sau khi page load, bắt đầu observe
+    setTimeout(() => {
+      console.log('[MC] Starting lazy load observer (after 5s delay)')
+      document.querySelectorAll('.game-card').forEach(card => {
+        mcObserver.observe(card)
+      })
+    }, 5000)
+    
+    // Manual trigger
+    window.__updateMC = () => {
+      update('bird-squash')
+      update('wojak-btc-blast')
+      update('moonshot-bnb')
+      update('valley-explorer-3d')
+      update('hodl-tower-stack')
+    }
+  }, 5000)
+  
   </script>
 </body>
 </html>
