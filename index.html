@@ -1524,25 +1524,23 @@
       initGameObserver()
       initSocialHandlers()
       
-      // BƯỚC 3: PRELOAD 4 games đầu (KHÔNG stop lẫn nhau)
+      // BƯỚC 3: PRELOAD 4 games CÙNG LÚC (parallel loading)
       setTimeout(() => {
-        console.log('🎮 Preloading first 4 games:', firstFourGames)
-        firstFourGames.forEach((gameId, index) => {
-          setTimeout(() => {
-            if (gameId) {
-              // isPreload = true → Không stop game khác
-              activateGame(gameId, true)
-            }
-          }, index * 150) // Stagger 150ms
+        console.log('🎮 Preloading 4 games IN PARALLEL:', firstFourGames)
+        
+        // Load TẤT CẢ 4 games CÙNG LÚC (không setTimeout)
+        firstFourGames.forEach((gameId) => {
+          if (gameId) {
+            // isPreload = true → Load parallel, không stop nhau
+            activateGame(gameId, true)
+          }
         })
         
-        // Set game đầu tiên làm "current" sau khi preload
-        setTimeout(() => {
-          if (firstFourGames[0]) {
-            currentActiveGame = firstFourGames[0]
-            console.log('  ✅ Set current game:', firstFourGames[0])
-          }
-        }, 800)
+        // Set game đầu tiên làm "current" ngay
+        if (firstFourGames[0]) {
+          currentActiveGame = firstFourGames[0]
+          console.log('  ✅ Current game:', firstFourGames[0])
+        }
       }, 300)
       
     } catch (error) {
