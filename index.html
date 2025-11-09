@@ -1368,13 +1368,8 @@
           document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }));
         }
         
-        // Proactively start session ticker in case load fired earlier (module-exposed)
-        setTimeout(() => {
-          try {
-            if (window.memeplay && window.memeplay.forceStart) window.memeplay.forceStart(gameId);
-            else if (window.memeplay && window.memeplay.startGame) window.memeplay.startGame(gameId);
-          } catch {}
-        }, 500);
+        // ❌ REMOVED: Auto-start timer after 500ms (was causing timer to run without user interaction!)
+        // ✅ Timer now ONLY starts when user actually plays (via GAME_SCORE message with score > 0)
       }
     }
 
@@ -2678,28 +2673,21 @@ window.addEventListener("beforeunload", stopGame);
     // DEBUG: Log ALL messages to see what's being received
     console.log('📨 [DEBUG] Parent received message:', event.data, 'from origin:', event.origin);
     
-    // ✅ CHỈ sync activeGame khi game THỰC SỰ CHƠI (GAME_START hoặc GAME_SCORE)
-    // ❌ KHÔNG sync với các message khác (init, ready, etc.) để tránh auto-start
-    if (event.data?.gameId && event.data?.type) {
+    // ✅ CHỈ sync activeGame khi game THỰC SỰ CHƠI (GAME_SCORE only!)
+    // ❌ KHÔNG sync với GAME_START/RESTART (có thể gửi tự động khi iframe load)
+    // ❌ KHÔNG sync với các message khác (init, ready, etc.)
+    if (event.data?.gameId && event.data?.type === 'GAME_SCORE') {
       const messageGameId = event.data.gameId
-      const isPlayingMessage = event.data.type === 'GAME_START' || 
-                               event.data.type === 'GAME_RESTART' || 
-                               event.data.type === 'GAME_SCORE'
       
-      if (isPlayingMessage && activeGame !== messageGameId) {
+      if (activeGame !== messageGameId) {
         console.log('🔄 Syncing activeGame:', activeGame, '→', messageGameId)
         activeGame = messageGameId
       }
     }
     
-    // DETECT GAME START (for Play Again scenario)
-    if (event.data?.type === 'GAME_START' || event.data?.type === 'GAME_RESTART') {
-      const { gameId } = event.data
-      if (gameId && document.hasFocus()) {
-        console.log('🎮 Game (re)started via message:', gameId)
-        startGame(gameId)
-      }
-    }
+    // ❌ REMOVED: GAME_START auto-handler (was causing timer to start on iframe load!)
+    // ✅ We already detect "Play Again" via GAME_SCORE with low score (<15)
+    // ✅ This prevents auto-starting timer for preloaded iframes
     
     if (event.data?.type === 'GAME_SCORE') {
       const { gameId, score } = event.data
