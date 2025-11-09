@@ -69,19 +69,23 @@
     .header-flash {
       position: absolute;
       top: 50%;
-      right: -18px;
-      transform: translateY(-50%);
-      font-size: 12px;
-      font-weight: 600;
-      color: #ffb642;
-      padding: 4px 10px;
-      border: 1px solid rgba(255, 182, 66, 0.35);
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 26px;
+      font-weight: 900;
+      color: #fff;
+      background: linear-gradient(135deg, #ffb642, #ff6b42);
+      padding: 14px 28px;
       border-radius: 999px;
-      background: rgba(255, 182, 66, 0.12);
-      box-shadow: 0 0 8px rgba(255, 182, 66, 0.35);
+      border: 3px solid rgba(255, 255, 255, 0.4);
+      box-shadow: 0 10px 40px rgba(255, 182, 66, 0.8), 0 0 60px rgba(255, 107, 66, 0.6), 0 0 100px rgba(255, 182, 66, 0.3);
+      z-index: 1000;
       opacity: 0;
-      transition: opacity .18s ease;
+      transition: opacity 0.3s ease;
       white-space: nowrap;
+      pointer-events: none;
+      text-shadow: 0 3px 8px rgba(0, 0, 0, 0.5);
+      letter-spacing: 0.5px;
     }
     .header-actions {
       display: flex;
@@ -1993,7 +1997,7 @@
     el.style.opacity = '1'
     setTimeout(() => {
       el.style.opacity = '0'
-    }, 3000)
+    }, 10000)
   }
 
   function updateStreak() {
