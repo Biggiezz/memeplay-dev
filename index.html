@@ -2768,19 +2768,26 @@ window.addEventListener("beforeunload", stopGame);
     
     if (event.data?.type === 'GAME_SCORE') {
       const { gameId, score } = event.data
-      if (!gameId) return
+      console.log('🎮 [TIMER DEBUG] GAME_SCORE received:', { gameId, score, origin: event.origin })
+      
+      if (!gameId) {
+        console.log('❌ [TIMER DEBUG] No gameId in message!')
+        return
+      }
       
       // Convert to integer (round down for fairness)
       const finalScore = Math.floor(Number(score))
+      console.log('🎮 [TIMER DEBUG] Processing game:', gameId, 'score:', finalScore)
       
       // DETECT PLAY AGAIN: User is playing (score > 0) but timer not running for this game
       const hasScore = score > 0  // Score > 0 = game is being played
       const timerNotRunningForThisGame = !activeStartTime || (activeGame && activeGame !== gameId)
       
       const isPlayAgain = hasScore && timerNotRunningForThisGame
+      console.log('🎮 [TIMER DEBUG] isPlayAgain check:', { hasScore, timerNotRunningForThisGame, activeStartTime, activeGame })
       
       if (isPlayAgain) {
-        console.log('🔄 Play Again detected! Score:', score, '| Timer running:', !!activeStartTime, '| Active game:', activeGame, '| This game:', gameId)
+        console.log('🔄 [TIMER DEBUG] ✅ Play Again detected! Starting timer for:', gameId)
         
         // Stop previous session if exists (different game)
         if (activeGame && activeStartTime && activeGame !== gameId) {
