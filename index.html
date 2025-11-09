@@ -2432,7 +2432,11 @@ async function stopGame() {
       });
       if (error) throw error;
       console.log(`🎮 [${activeGame}] reward result:`, data);
-      if (data?.awarded > 0) showPlayAward(Number(data.awarded))
+      
+      // ❌ REMOVED: Backend reward display (duplicate with frontend achievement system!)
+      // Frontend already handles rewards via threshold checking (line ~2356)
+      // Backend RPC just saves to DB, không cần hiện notification lại!
+      // if (data?.awarded > 0) showPlayAward(Number(data.awarded))
     } catch (err) {
       console.error('Playtime tracking error:', err.message);
     }
