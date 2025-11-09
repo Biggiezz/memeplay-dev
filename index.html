@@ -1493,6 +1493,16 @@
   <!-- === SUPABASE DAILY CHECK-IN & REWARD === -->
 
 <script type="module">
+  // 1️⃣ Import SDK Supabase (thư viện kết nối Supabase trực tiếp trên web)
+  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+
+  // 2️⃣ Khai báo thông tin kết nối (URL & Anon Key của dự án bạn)
+  const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'
+  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'
+
+  // 3️⃣ Tạo đối tượng "supabase" để sử dụng RPC, truy vấn, insert, v.v.
+  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+
   async function loadGameCards() {
     const container = document.querySelector('.game-container')
     if (!container) return
@@ -1725,15 +1735,7 @@
   await loadGameCards()
   lockGameTouch('wojak-btc-blast')
 
-  // 1️⃣ Import SDK Supabase (thư viện kết nối Supabase trực tiếp trên web)
-  import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-
-  // 2️⃣ Khai báo thông tin kết nối (URL & Anon Key của dự án bạn)
-  const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'    // ← URL của bạn
-  const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'             // ← Dán key thật tại đây
-
-  // 3️⃣ Tạo đối tượng "supabase" để sử dụng RPC, truy vấn, insert, v.v.
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  // ✅ Supabase already initialized at top of script (before loadGameCards)
 
   // 🚀 Helper: Send RPC with keepalive (prevents data loss on F5/close)
   async function rpcWithKeepalive(functionName, params) {
