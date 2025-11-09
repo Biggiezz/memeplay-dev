@@ -301,9 +301,6 @@
     .game-card.is-playing {
       will-change: contents;
     }
-    .game-card.is-playing .game-stage iframe {
-      pointer-events: auto;
-    }
     .game-card.is-playing .game-footer *,
     .game-card.is-playing .focus-toggle {
       transition: none !important;
@@ -326,13 +323,22 @@
       contain: layout style paint;
       content-visibility: auto;
     }
+    .game-stage .scroll-overlay {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      background: transparent;
+      cursor: pointer;
+    }
+    .game-card.is-playing .scroll-overlay {
+      display: none;
+    }
     .game-stage iframe {
       position: absolute;
       inset: 0;
       width: 100%;
       height: 100%;
       border: 0;
-      pointer-events: none;
       display: block;
       will-change: transform;
       transform: translateZ(0);
@@ -381,6 +387,8 @@
       background: rgba(9, 14, 22, 0.94);
       border: 1px solid rgba(40,58,90,0.25);
       border-radius: 14px;
+      position: relative;
+      z-index: 20;
       box-shadow: 0 5px 16px rgba(0,0,0,0.35);
       color: #e3ecff;
       font-size: 9.8px;
@@ -1387,6 +1395,25 @@
     document.querySelectorAll('.game-card').forEach(card => observer.observe(card));
     console.log('✅ Game observer initialized for', document.querySelectorAll('.game-card').length, 'games')
   }
+
+  // Add scroll overlays to enable scrolling through iframes
+  function initScrollOverlays() {
+    document.querySelectorAll('.game-stage').forEach(stage => {
+      // Skip if overlay already exists
+      if (stage.querySelector('.scroll-overlay')) return;
+      
+      const overlay = document.createElement('div');
+      overlay.className = 'scroll-overlay';
+      overlay.addEventListener('click', () => {
+        const gameCard = stage.closest('.game-card');
+        if (gameCard) {
+          activateGame(gameCard.id);
+        }
+      });
+      stage.appendChild(overlay);
+    });
+    console.log('✅ Scroll overlays initialized');
+  }
     
     // Dropdown nav logic
     const navDropdown = document.getElementById('navDropdown');
@@ -1540,6 +1567,7 @@
       
       // BƯỚC 2: Init observers
       initGameObserver()
+      initScrollOverlays()
       initSocialHandlers()
       
       // BƯỚC 3: PRELOAD 2 GAMES ĐẦU TIÊN (optimal balance)
