@@ -2470,8 +2470,13 @@ iframes.forEach((iframe) => {
 
 // Dừng khi tab ẩn
 document.addEventListener("visibilitychange", () => {
-  if (document.hidden) stopGame();
-  else if (activeGame) startGame(activeGame);
+  if (document.hidden) {
+    stopGame();
+  } else if (activeGame && gameStartTime) {
+    // ✅ CHỈ resume timer nếu game ĐANG CHƠI (có gameStartTime)
+    // ❌ KHÔNG auto-start nếu chỉ có activeGame (chưa click play)
+    startGame(activeGame);
+  }
 });
 
 // Dừng khi rời trang
@@ -2673,10 +2678,15 @@ window.addEventListener("beforeunload", stopGame);
     // DEBUG: Log ALL messages to see what's being received
     console.log('📨 [DEBUG] Parent received message:', event.data, 'from origin:', event.origin);
     
-    // SYNC activeGame when receiving ANY message from game
+    // ✅ CHỈ sync activeGame khi game THỰC SỰ CHƠI (GAME_START hoặc GAME_SCORE)
+    // ❌ KHÔNG sync với các message khác (init, ready, etc.) để tránh auto-start
     if (event.data?.gameId && event.data?.type) {
       const messageGameId = event.data.gameId
-      if (activeGame !== messageGameId) {
+      const isPlayingMessage = event.data.type === 'GAME_START' || 
+                               event.data.type === 'GAME_RESTART' || 
+                               event.data.type === 'GAME_SCORE'
+      
+      if (isPlayingMessage && activeGame !== messageGameId) {
         console.log('🔄 Syncing activeGame:', activeGame, '→', messageGameId)
         activeGame = messageGameId
       }
