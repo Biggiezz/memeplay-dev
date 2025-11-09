@@ -1538,42 +1538,23 @@
       initGameObserver()
       initSocialHandlers()
       
-      // BƯỚC 3: PRELOAD 4 GAMES ĐẦU TIÊN (fast UX)
+      // BƯỚC 3: PRELOAD ALL GAMES (simple & guaranteed)
       setTimeout(() => {
-        console.log('🎮 Preloading first 4 games IN PARALLEL:', firstFourGames)
+        console.log('🎮 Preloading ALL 16 games IN PARALLEL:', allCards.map(c => c.id))
         
-        // Load 4 games CÙNG LÚC (true parallel - different subdomains)
-        firstFourGames.forEach((gameId) => {
-          if (gameId) {
-            // isPreload = true → Load parallel, không stop nhau
-            activateGame(gameId, true)
+        // Load TẤT CẢ games CÙNG LÚC
+        allCards.forEach((card) => {
+          if (card.id) {
+            activateGame(card.id, true)
           }
         })
         
         // Set game đầu tiên làm "current" ngay
-        if (firstFourGames[0]) {
-          currentActiveGame = firstFourGames[0]
-          console.log('  ✅ Current game:', firstFourGames[0])
-          console.log('  🎯 Strategy: First 4 preloaded, next 4 in 2s, rest on scroll')
+        if (allCards[0]) {
+          currentActiveGame = allCards[0].id
+          console.log('  ✅ Current game:', allCards[0].id)
+          console.log('  🎯 Strategy: ALL 16 games preloaded - INSTANT scroll!')
         }
-        
-        // BƯỚC 4: Preload games 5-8 sau 2 giây
-        setTimeout(() => {
-          const nextFour = allCards.slice(4, 8).map(c => c.id).filter(Boolean)
-          console.log('🎮 Preloading games 5-8 IN PARALLEL:', nextFour)
-          nextFour.forEach(gameId => {
-            if (gameId) activateGame(gameId, true)
-          })
-          
-          // BƯỚC 5: Preload remaining games 9-16 sau 2 giây nữa
-          setTimeout(() => {
-            const remaining = allCards.slice(8).map(c => c.id).filter(Boolean)
-            console.log('🎮 Preloading remaining games IN PARALLEL:', remaining)
-            remaining.forEach(gameId => {
-              if (gameId) activateGame(gameId, true)
-            })
-          }, 2000)
-        }, 2000)
       }, 300)
       
     } catch (error) {
