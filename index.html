@@ -2461,13 +2461,9 @@ iframes.forEach((iframe) => {
   }
 
   iframe.addEventListener("load", () => {
-    setTimeout(() => {
-      if (document.hasFocus()) {
-        startGame(gameId);
-      } else {
-        console.log(`⏸ Tab not focused — deferred start ${gameId}`);
-      }
-    }, 1000);
+    // KHÔNG tự động start timer khi iframe load!
+    // Timer chỉ start khi user THỰC SỰ chơi (via GAME_SCORE message)
+    console.log(`✅ Iframe loaded: ${gameId} (timer will start when user plays)`);
   });
 });
 }
