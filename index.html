@@ -2685,9 +2685,26 @@ window.addEventListener("beforeunload", stopGame);
       }
     }
     
+    // DETECT GAME START (for Play Again scenario)
+    if (event.data?.type === 'GAME_START' || event.data?.type === 'GAME_RESTART') {
+      const { gameId } = event.data
+      if (gameId && document.hasFocus()) {
+        console.log('🎮 Game (re)started via message:', gameId)
+        startGame(gameId)
+      }
+    }
+    
     if (event.data?.type === 'GAME_SCORE') {
       const { gameId, score } = event.data
-      if (!gameId || !score || score <= 0) return
+      if (!gameId) return
+      
+      // DETECT PLAY AGAIN: Low score + game not running = restart!
+      if (score > 0 && score < 10 && (!activeGame || !activeStartTime)) {
+        console.log('🔄 Detected Play Again! Low score + no active session. Starting timer...')
+        startGame(gameId)
+      }
+      
+      if (!score || score <= 0) return
       
       // Convert to integer (round down for fairness)
       const finalScore = Math.floor(Number(score))
