@@ -1987,6 +1987,8 @@
       
       console.log(`🎖️ Achievement queued: ${achievementNames[threshold]} (+${amount} PLAY)`)
       console.log('   → Will show Toast after game over + Header flash NOW')
+      console.log('   🔑 Queued for activeGame:', activeGame)
+      console.log('   📦 Current queue:', pendingAchievements)
       // KHÔNG return - tiếp tục hiện header flash!
     }
     
@@ -2685,22 +2687,29 @@ window.addEventListener("beforeunload", stopGame);
       
       // GAME OVER detected → Show pending achievements
       console.log('🎮 Game Over detected! Checking pending achievements...')
-      console.log('   🔍 gameId:', gameId)
-      console.log('   🔍 pendingAchievements:', pendingAchievements)
-      console.log('   🔍 pendingAchievements[gameId]:', pendingAchievements[gameId])
-      console.log('   🔍 All keys:', Object.keys(pendingAchievements))
+      console.log('   🔑 gameId from GAME_SCORE message:', gameId)
+      console.log('   🔑 activeGame variable:', activeGame)
+      console.log('   🔑 Match?', gameId === activeGame)
+      console.log('   📦 pendingAchievements:', pendingAchievements)
+      console.log('   📦 Keys in pending:', Object.keys(pendingAchievements))
+      console.log('   📦 pendingAchievements[gameId]:', pendingAchievements[gameId])
+      console.log('   📦 pendingAchievements[activeGame]:', pendingAchievements[activeGame])
       
-      if (pendingAchievements[gameId] && pendingAchievements[gameId].length > 0) {
-        console.log('   ✅ WILL show', pendingAchievements[gameId].length, 'achievement(s) in 1s!')
+      // Try BOTH gameId and activeGame!
+      const achievementsToShow = pendingAchievements[gameId] || pendingAchievements[activeGame]
+      
+      if (achievementsToShow && achievementsToShow.length > 0) {
+        const keyUsed = pendingAchievements[gameId] ? gameId : activeGame
+        console.log('   ✅ Found', achievementsToShow.length, 'achievement(s) under key:', keyUsed)
         // Đợi 1s sau game over, mới hiện achievements
         setTimeout(() => {
           console.log('   🎉 NOW showing achievements...')
-          showPendingAchievements(gameId)
+          showPendingAchievements(keyUsed)
         }, 1000)
       } else {
-        console.log('   ❌ NO pending achievements to show!')
-        console.log('      - pendingAchievements[gameId] =', pendingAchievements[gameId])
-        console.log('      - Condition failed!')
+        console.log('   ❌ NO pending achievements found!')
+        console.log('      - Tried gameId:', gameId)
+        console.log('      - Tried activeGame:', activeGame)
       }
       
       try {
