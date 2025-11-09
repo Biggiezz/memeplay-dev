@@ -1324,11 +1324,12 @@
       if (!isPreload && currentActiveGame && !preloadedGames.has(currentActiveGame)) {
         // Ensure previous session is stopped (module exposes on window)
         try { window.memeplay && window.memeplay.stopGame && window.memeplay.stopGame(); } catch {}
-        const prevCard = document.getElementById(currentActiveGame);
-        if (prevCard) {
-          const prevIframe = prevCard.querySelector('iframe');
-          if (prevIframe) prevIframe.src = 'about:blank';
-        }
+        // KHÔNG xóa src - giữ cached để dùng lại khi scroll back!
+        // const prevCard = document.getElementById(currentActiveGame);
+        // if (prevCard) {
+        //   const prevIframe = prevCard.querySelector('iframe');
+        //   if (prevIframe) prevIframe.src = 'about:blank';
+        // }
       }
   
 
