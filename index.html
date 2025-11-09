@@ -2698,20 +2698,27 @@ window.addEventListener("beforeunload", stopGame);
       const { gameId, score } = event.data
       if (!gameId) return
       
-      // DETECT PLAY AGAIN: Low score + game not running = restart!
-      if (score > 0 && score < 10 && (!activeGame || !activeStartTime)) {
-        console.log('🔄 Detected Play Again! Low score + no active session. Starting timer...')
-        startGame(gameId)
-      }
-      
-      if (!score || score <= 0) return
-      
       // Convert to integer (round down for fairness)
       const finalScore = Math.floor(Number(score))
       
-      console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
+      // DETECT PLAY AGAIN: Low score = just started/restarted!
+      const isPlayAgain = score > 0 && score < 15
       
-      // GAME OVER detected → STOP GAME FIRST để finalize achievements!
+      if (isPlayAgain) {
+        console.log('🔄 Detected Play Again or early game! Score:', score)
+        // FORCE restart timer bất kể state
+        if (activeGame && activeStartTime) {
+          console.log('   ⏹️ Stopping previous session...')
+          await stopGame()
+        }
+        console.log('   ▶️ Starting new session for', gameId)
+        startGame(gameId)
+        // Return early, đợi score cao hơn mới xử lý game over
+        return
+      }
+      
+      // HIGH SCORE = GAME OVER
+      console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
       console.log('🎮 Game Over detected! Stopping game to finalize achievements...')
       
       // Stop game = finalize playtime + queue any remaining achievements
