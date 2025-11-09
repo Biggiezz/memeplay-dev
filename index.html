@@ -2694,21 +2694,27 @@ window.addEventListener("beforeunload", stopGame);
       
       console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
       
-      // GAME OVER detected → Show pending achievements
-      console.log('🎮 Game Over detected! Checking pending achievements...')
+      // GAME OVER detected → STOP GAME FIRST để finalize achievements!
+      console.log('🎮 Game Over detected! Stopping game to finalize achievements...')
+      
+      // Stop game = finalize playtime + queue any remaining achievements
+      if (activeGame === gameId || activeGame) {
+        console.log('   ⏹️ Calling stopGame() to finalize playtime...')
+        await stopGame()
+        console.log('   ✅ stopGame() completed - achievements finalized!')
+      }
+      
+      // NOW check pending achievements (after stopGame finalized them)
+      console.log('   🔍 Checking pending achievements...')
       console.log('   🔑 gameId from GAME_SCORE message:', gameId)
-      console.log('   🔑 activeGame variable:', activeGame)
-      console.log('   🔑 Match?', gameId === activeGame)
       console.log('   📦 pendingAchievements:', pendingAchievements)
       console.log('   📦 Keys in pending:', Object.keys(pendingAchievements))
-      console.log('   📦 pendingAchievements[gameId]:', pendingAchievements[gameId])
-      console.log('   📦 pendingAchievements[activeGame]:', pendingAchievements[activeGame])
       
-      // Try BOTH gameId and activeGame!
-      const achievementsToShow = pendingAchievements[gameId] || pendingAchievements[activeGame]
+      // Try BOTH gameId and any pending
+      const achievementsToShow = pendingAchievements[gameId] || pendingAchievements[Object.keys(pendingAchievements)[0]]
       
       if (achievementsToShow && achievementsToShow.length > 0) {
-        const keyUsed = pendingAchievements[gameId] ? gameId : activeGame
+        const keyUsed = pendingAchievements[gameId] ? gameId : Object.keys(pendingAchievements)[0]
         console.log('   ✅ Found', achievementsToShow.length, 'achievement(s) under key:', keyUsed)
         // Đợi 1s sau game over, mới hiện achievements
         setTimeout(() => {
@@ -2716,9 +2722,7 @@ window.addEventListener("beforeunload", stopGame);
           showPendingAchievements(keyUsed)
         }, 1000)
       } else {
-        console.log('   ❌ NO pending achievements found!')
-        console.log('      - Tried gameId:', gameId)
-        console.log('      - Tried activeGame:', activeGame)
+        console.log('   ❌ NO pending achievements found after stopGame!')
       }
       
       try {
