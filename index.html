@@ -2676,6 +2676,15 @@ window.addEventListener("beforeunload", stopGame);
     // DEBUG: Log ALL messages to see what's being received
     console.log('📨 [DEBUG] Parent received message:', event.data, 'from origin:', event.origin);
     
+    // SYNC activeGame when receiving ANY message from game
+    if (event.data?.gameId && event.data?.type) {
+      const messageGameId = event.data.gameId
+      if (activeGame !== messageGameId) {
+        console.log('🔄 Syncing activeGame:', activeGame, '→', messageGameId)
+        activeGame = messageGameId
+      }
+    }
+    
     if (event.data?.type === 'GAME_SCORE') {
       const { gameId, score } = event.data
       if (!gameId || !score || score <= 0) return
