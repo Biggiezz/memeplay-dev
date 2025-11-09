@@ -1968,7 +1968,7 @@
     lsSetInt('mp_total_earned_plays', newTotal)
     updateHeaderEarned()
     
-    // If new achievement, QUEUE thay vì celebrate ngay
+    // If new achievement, QUEUE để hiện sau game over
     if (isNewAchievement && activeGame) {
       const achievedCount = Object.values(getGameAwards(activeGame)).filter(Boolean).length
       const achievementNames = { 10: 'Starter', 60: 'Engaged', 300: 'Champion' }
@@ -1986,11 +1986,11 @@
       })
       
       console.log(`🎖️ Achievement queued: ${achievementNames[threshold]} (+${amount} PLAY)`)
-      console.log('   → Will show after game over')
-      return
+      console.log('   → Will show Toast after game over + Header flash NOW')
+      // KHÔNG return - tiếp tục hiện header flash!
     }
     
-    // Old header flash (fallback)
+    // Header flash - LUÔN HIỆN cho mọi rewards!
     const el = els.headerEarnedFlash
     if (!el) return
     el.textContent = `+${amount} PLAY${label ? ` for ${label}` : ''}`
