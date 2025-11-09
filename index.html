@@ -1550,25 +1550,46 @@
       initGameObserver()
       initSocialHandlers()
       
-      // BƯỚC 3: PRELOAD 4 GAMES (optimal for all devices)
-      setTimeout(() => {
-        const gamesToPreload = allCards.slice(0, 4)
-        console.log('🎮 Preloading first 4 games:', gamesToPreload.map(c => c.id))
+      // BƯỚC 3: PRIORITY LOADING (mobile-optimized)
+      const isMobile = window.innerWidth < 768
+      
+      if (isMobile) {
+        // 📱 MOBILE: Load game 1 NGAY, games 2-4 sau (không block game 1!)
+        console.log('📱 Mobile detected - Priority loading!')
         
-        // Load 4 games đầu tiên
-        gamesToPreload.forEach((card) => {
-          if (card.id) {
-            activateGame(card.id, true)
-          }
-        })
-        
-        // Set game đầu tiên làm "current"
-        if (allCards[0]) {
+        // Load game 1 NGAY (0ms delay) - User có thể play instant!
+        if (allCards[0]?.id) {
+          activateGame(allCards[0].id, true)
           currentActiveGame = allCards[0].id
-          console.log('  ✅ Current game:', allCards[0].id)
-          console.log('  🎯 Strategy: First 4 preloaded, remaining load on scroll (300px ahead)')
+          console.log('  🚀 PRIORITY: Game 1 loading NOW for instant play!')
+          
+          // Load games 2-4 sau 2 giây (user đang chơi game 1)
+          setTimeout(() => {
+            const games2to4 = allCards.slice(1, 4)
+            console.log('  🎮 Background: Loading games 2-4:', games2to4.map(c => c.id))
+            games2to4.forEach(card => {
+              if (card.id) activateGame(card.id, true)
+            })
+            console.log('  🎯 Strategy: Game 1 instant, 2-4 background, 5+ on scroll')
+          }, 2000)
         }
-      }, 300)
+      } else {
+        // 💻 DESKTOP: Load 4 games parallel (fast connection)
+        setTimeout(() => {
+          const gamesToPreload = allCards.slice(0, 4)
+          console.log('💻 Desktop - Preloading 4 games parallel:', gamesToPreload.map(c => c.id))
+          
+          gamesToPreload.forEach((card) => {
+            if (card.id) activateGame(card.id, true)
+          })
+          
+          if (allCards[0]) {
+            currentActiveGame = allCards[0].id
+            console.log('  ✅ Current game:', allCards[0].id)
+            console.log('  🎯 Strategy: 4 parallel, 5+ on scroll (300px ahead)')
+          }
+        }, 300)
+      }
       
     } catch (error) {
       console.error('Load game list failed:', error)
