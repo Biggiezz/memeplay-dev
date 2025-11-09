@@ -1335,12 +1335,16 @@
       const card = document.getElementById(gameId);
       if (!card) return;
       const iframe = card.querySelector('iframe');
-      if (iframe && gameUrls[gameId]) {
+      
+      // Get URL from data-src or gameUrls
+      const gameUrl = iframe?.dataset.src || gameUrls[gameId];
+      
+      if (iframe && gameUrl) {
         // Chỉ load nếu chưa có src
         if (!iframe.src || iframe.src === '' || iframe.src.includes('about:blank')) {
           // Bust cache to guarantee a load event even if same URL
-          const sep = gameUrls[gameId].includes('?') ? '&' : '?'
-          iframe.src = gameUrls[gameId] + sep + 'v=' + Date.now();
+          const sep = gameUrl.includes('?') ? '&' : '?'
+          iframe.src = gameUrl + sep + 'v=' + Date.now();
           console.log(isPreload ? '🔄 Preloaded' : '🎮 Activated', gameId);
         }
         
