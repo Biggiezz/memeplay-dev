@@ -2490,29 +2490,32 @@ iframes.forEach((iframe) => {
     console.log(`✅ Iframe loaded: ${gameId} (timer will start when user plays)`);
   });
   
-  // 🔧 FALLBACK: Detect user click → start timer nếu không có GAME_SCORE
-  iframe.addEventListener('click', () => {
-    console.log(`🖱️ [FALLBACK] User clicked iframe: ${gameId}`)
-    
-    // Clear previous fallback timer
-    if (fallbackTimers[gameId]) {
-      clearTimeout(fallbackTimers[gameId])
-    }
-    
-    // Nếu timer đang chạy rồi → skip
-    if (activeGame === gameId && activeStartTime) {
-      console.log(`⏭️ [FALLBACK] Timer already running for ${gameId}`)
-      return
-    }
-    
-    // Đợi 2 giây, nếu không có GAME_SCORE → start timer
-    fallbackTimers[gameId] = setTimeout(() => {
-      if (activeGame !== gameId || !activeStartTime) {
-        console.log(`⚠️ [FALLBACK] No GAME_SCORE after 2s → Auto-starting timer for ${gameId}`)
-        startGame(gameId)
+  // 🔧 FALLBACK: Detect click trên .game-stage (wrapper của iframe)
+  const gameStage = iframe.closest('.game-stage')
+  if (gameStage) {
+    gameStage.addEventListener('click', () => {
+      console.log(`🖱️ [FALLBACK] User clicked game: ${gameId}`)
+      
+      // Clear previous fallback timer
+      if (fallbackTimers[gameId]) {
+        clearTimeout(fallbackTimers[gameId])
       }
-    }, 2000)
-  }, { passive: true })
+      
+      // Nếu timer đang chạy rồi → skip
+      if (activeGame === gameId && activeStartTime) {
+        console.log(`⏭️ [FALLBACK] Timer already running for ${gameId}`)
+        return
+      }
+      
+      // Đợi 2 giây, nếu không có GAME_SCORE → start timer
+      fallbackTimers[gameId] = setTimeout(() => {
+        if (activeGame !== gameId || !activeStartTime) {
+          console.log(`⚠️ [FALLBACK] No GAME_SCORE after 2s → Auto-starting timer for ${gameId}`)
+          startGame(gameId)
+        }
+      }, 2000)
+    }, { passive: true })
+  }
 });
 }
 
