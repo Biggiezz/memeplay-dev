@@ -2473,6 +2473,9 @@ async function stopGame() {
 
 // Khi iframe load xong game → bắt đầu tracking có delay
 const iframes = document.querySelectorAll(".game-card iframe");
+const fallbackTimers = {} // Track fallback timers for games without postMessage
+window.fallbackTimers = fallbackTimers // Expose globally for GAME_SCORE handler
+
 if (iframes && iframes.length) {
 iframes.forEach((iframe) => {
   const gameId = iframe.closest(".game-card")?.dataset.gameId;
@@ -2486,6 +2489,30 @@ iframes.forEach((iframe) => {
     // Timer chỉ start khi user THỰC SỰ chơi (via GAME_SCORE message)
     console.log(`✅ Iframe loaded: ${gameId} (timer will start when user plays)`);
   });
+  
+  // 🔧 FALLBACK: Detect user click → start timer nếu không có GAME_SCORE
+  iframe.addEventListener('click', () => {
+    console.log(`🖱️ [FALLBACK] User clicked iframe: ${gameId}`)
+    
+    // Clear previous fallback timer
+    if (fallbackTimers[gameId]) {
+      clearTimeout(fallbackTimers[gameId])
+    }
+    
+    // Nếu timer đang chạy rồi → skip
+    if (activeGame === gameId && activeStartTime) {
+      console.log(`⏭️ [FALLBACK] Timer already running for ${gameId}`)
+      return
+    }
+    
+    // Đợi 2 giây, nếu không có GAME_SCORE → start timer
+    fallbackTimers[gameId] = setTimeout(() => {
+      if (activeGame !== gameId || !activeStartTime) {
+        console.log(`⚠️ [FALLBACK] No GAME_SCORE after 2s → Auto-starting timer for ${gameId}`)
+        startGame(gameId)
+      }
+    }, 2000)
+  }, { passive: true })
 });
 }
 
@@ -2775,6 +2802,13 @@ window.addEventListener("beforeunload", stopGame);
     if (event.data?.type === 'GAME_SCORE') {
       const { gameId, score } = event.data
       console.log('🎮 [TIMER DEBUG] GAME_SCORE received:', { gameId, score, origin: event.origin })
+      
+      // ✅ Clear fallback timer khi nhận GAME_SCORE (game tự handle!)
+      if (window.fallbackTimers && window.fallbackTimers[gameId]) {
+        clearTimeout(window.fallbackTimers[gameId])
+        delete window.fallbackTimers[gameId]
+        console.log('🔄 [FALLBACK] Cleared fallback timer for', gameId, '(game sends GAME_SCORE)')
+      }
       
       if (!gameId) {
         console.log('❌ [TIMER DEBUG] No gameId in message!')
