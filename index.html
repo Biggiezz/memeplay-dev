@@ -1335,16 +1335,12 @@
       const card = document.getElementById(gameId);
       if (!card) return;
       const iframe = card.querySelector('iframe');
-      
-      // Get URL from data-src or gameUrls
-      const gameUrl = iframe?.dataset.src || gameUrls[gameId];
-      
-      if (iframe && gameUrl) {
+      if (iframe && gameUrls[gameId]) {
         // Chỉ load nếu chưa có src
         if (!iframe.src || iframe.src === '' || iframe.src.includes('about:blank')) {
           // Bust cache to guarantee a load event even if same URL
-          const sep = gameUrl.includes('?') ? '&' : '?'
-          iframe.src = gameUrl + sep + 'v=' + Date.now();
+          const sep = gameUrls[gameId].includes('?') ? '&' : '?'
+          iframe.src = gameUrls[gameId] + sep + 'v=' + Date.now();
           console.log(isPreload ? '🔄 Preloaded' : '🎮 Activated', gameId);
         }
         
@@ -1380,7 +1376,7 @@
     }, {
         // Observe inside the snapping container
         root: document.querySelector('.game-container') || null,
-        rootMargin: '0px 0px 0px 0px',
+        rootMargin: '0px 0px 1500px 0px',
         threshold: thresholds
       });
 
@@ -1542,13 +1538,12 @@
       initGameObserver()
       initSocialHandlers()
       
-      // BƯỚC 3: PRELOAD 2 GAMES ĐẦU TIÊN (optimal balance)
+      // BƯỚC 3: PRELOAD 4 GAMES ĐẦU TIÊN (fast UX)
       setTimeout(() => {
-        const firstTwo = firstFourGames.slice(0, 2)
-        console.log('🎮 Preloading first 2 games IN PARALLEL:', firstTwo)
+        console.log('🎮 Preloading first 4 games IN PARALLEL:', firstFourGames)
         
-        // Load 2 games CÙNG LÚC (true parallel - different subdomains)
-        firstTwo.forEach((gameId) => {
+        // Load 4 games CÙNG LÚC (true parallel - different subdomains)
+        firstFourGames.forEach((gameId) => {
           if (gameId) {
             // isPreload = true → Load parallel, không stop nhau
             activateGame(gameId, true)
@@ -1559,7 +1554,7 @@
         if (firstFourGames[0]) {
           currentActiveGame = firstFourGames[0]
           console.log('  ✅ Current game:', firstFourGames[0])
-          console.log('  🎯 Strategy: First 2 preloaded (parallel), others load on scroll')
+          console.log('  🎯 Strategy: First 4 preloaded (parallel), games 5+ load 1500px ahead')
         }
       }, 300)
       
