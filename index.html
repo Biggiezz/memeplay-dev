@@ -2665,7 +2665,8 @@ window.addEventListener("beforeunload", stopGame);
       }
     })
   }
-  initSocialHandlers()
+  // ❌ REMOVED: initSocialHandlers() - Already called in DOMContentLoaded (line 1555)
+  // This was causing duplicate event listeners → like button flickering!
 
   // Listen for game scores via postMessage
   window.addEventListener('message', async (event) => {
