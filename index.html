@@ -1376,7 +1376,7 @@
     }, {
         // Observe inside the snapping container
         root: document.querySelector('.game-container') || null,
-        rootMargin: '1500px 0px 1500px 0px',
+        rootMargin: '300px 0px 300px 0px',
         threshold: thresholds
       });
 
@@ -1554,8 +1554,26 @@
         if (firstFourGames[0]) {
           currentActiveGame = firstFourGames[0]
           console.log('  ✅ Current game:', firstFourGames[0])
-          console.log('  🎯 Strategy: First 4 preloaded (parallel), games 5+ load 1500px ahead')
+          console.log('  🎯 Strategy: First 4 preloaded, next 4 in 2s, rest on scroll')
         }
+        
+        // BƯỚC 4: Preload games 5-8 sau 2 giây
+        setTimeout(() => {
+          const nextFour = allCards.slice(4, 8).map(c => c.id).filter(Boolean)
+          console.log('🎮 Preloading games 5-8 IN PARALLEL:', nextFour)
+          nextFour.forEach(gameId => {
+            if (gameId) activateGame(gameId, true)
+          })
+          
+          // BƯỚC 5: Preload remaining games 9-16 sau 2 giây nữa
+          setTimeout(() => {
+            const remaining = allCards.slice(8).map(c => c.id).filter(Boolean)
+            console.log('🎮 Preloading remaining games IN PARALLEL:', remaining)
+            remaining.forEach(gameId => {
+              if (gameId) activateGame(gameId, true)
+            })
+          }, 2000)
+        }, 2000)
       }, 300)
       
     } catch (error) {
