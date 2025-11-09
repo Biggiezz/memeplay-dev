@@ -1538,22 +1538,23 @@
       initGameObserver()
       initSocialHandlers()
       
-      // BƯỚC 3: PRELOAD ALL GAMES (simple & guaranteed)
+      // BƯỚC 3: PRELOAD 4 GAMES (optimal for all devices)
       setTimeout(() => {
-        console.log('🎮 Preloading ALL 16 games IN PARALLEL:', allCards.map(c => c.id))
+        const gamesToPreload = allCards.slice(0, 4)
+        console.log('🎮 Preloading first 4 games:', gamesToPreload.map(c => c.id))
         
-        // Load TẤT CẢ games CÙNG LÚC
-        allCards.forEach((card) => {
+        // Load 4 games đầu tiên
+        gamesToPreload.forEach((card) => {
           if (card.id) {
             activateGame(card.id, true)
           }
         })
         
-        // Set game đầu tiên làm "current" ngay
+        // Set game đầu tiên làm "current"
         if (allCards[0]) {
           currentActiveGame = allCards[0].id
           console.log('  ✅ Current game:', allCards[0].id)
-          console.log('  🎯 Strategy: ALL 16 games preloaded - INSTANT scroll!')
+          console.log('  🎯 Strategy: First 4 preloaded, remaining load on scroll (300px ahead)')
         }
       }, 300)
       
