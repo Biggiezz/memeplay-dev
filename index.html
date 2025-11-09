@@ -2752,7 +2752,9 @@ window.addEventListener("beforeunload", stopGame);
   // Listen for game scores via postMessage
   window.addEventListener('message', async (event) => {
     // DEBUG: Log ALL messages to see what's being received
-    console.log('📨 [DEBUG] Parent received message:', event.data, 'from origin:', event.origin);
+    const msgType = event.data?.type
+    const msgGameId = event.data?.gameId
+    console.log('📨 [DEBUG] Parent received:', msgType, 'from', msgGameId, '| Origin:', event.origin);
     
     // ✅ CHỈ sync activeGame khi game THỰC SỰ CHƠI (GAME_SCORE only!)
     // ❌ KHÔNG sync với GAME_START/RESTART (có thể gửi tự động khi iframe load)
