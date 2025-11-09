@@ -1959,6 +1959,7 @@
   
   // Expose globally để game có thể gọi
   window.__showPendingAchievements = showPendingAchievements
+  window.__pendingAchievements = pendingAchievements
   
   function showPlayAward(amount, label, isNewAchievement = false) {
     if (!amount || amount <= 0) return
@@ -2685,11 +2686,17 @@ window.addEventListener("beforeunload", stopGame);
       
       // GAME OVER detected → Show pending achievements
       console.log('🎮 Game Over detected! Checking pending achievements...')
+      console.log('   📋 Pending for', gameId, ':', pendingAchievements[gameId])
+      console.log('   📋 All pending:', Object.keys(pendingAchievements).length, 'games')
+      
       if (pendingAchievements[gameId] && pendingAchievements[gameId].length > 0) {
+        console.log('   ✅ Will show', pendingAchievements[gameId].length, 'achievement(s) in 1s')
         // Đợi 1s sau game over, mới hiện achievements
         setTimeout(() => {
           showPendingAchievements(gameId)
         }, 1000)
+      } else {
+        console.log('   ℹ️ No pending achievements for', gameId)
       }
       
       try {
