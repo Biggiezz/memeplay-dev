@@ -1336,12 +1336,23 @@
       if (!card) return;
       const iframe = card.querySelector('iframe');
       if (iframe && gameUrls[gameId]) {
-        // Chỉ load nếu chưa có src
-        if (!iframe.src || iframe.src === '' || iframe.src.includes('about:blank')) {
-          // Bust cache to guarantee a load event even if same URL
-          const sep = gameUrls[gameId].includes('?') ? '&' : '?'
-          iframe.src = gameUrls[gameId] + sep + 'v=' + Date.now();
+        const currentSrc = iframe.src || '';
+        const targetUrl = gameUrls[gameId];
+        
+        // Load nếu: chưa có src, hoặc src khác với gameUrls, hoặc chưa có cache bust
+        const needsLoad = !currentSrc || 
+                         currentSrc === '' || 
+                         currentSrc.includes('about:blank') ||
+                         !currentSrc.includes(targetUrl) ||
+                         !currentSrc.includes('?v=');
+        
+        if (needsLoad) {
+          // Bust cache to guarantee a load event
+          const sep = targetUrl.includes('?') ? '&' : '?'
+          iframe.src = targetUrl + sep + 'v=' + Date.now();
           console.log(isPreload ? '🔄 Preloaded' : '🎮 Activated', gameId);
+        } else {
+          console.log('⏭️ Skip', gameId, '- already loaded');
         }
         
         if (isPreload) {
