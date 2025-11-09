@@ -1910,16 +1910,21 @@
   }
 
   function celebrateAchievement(gameId, achievementName, count, reward) {
+    console.log('🎯 [DEBUG] celebrateAchievement called!', { gameId, achievementName, count, reward })
+    
     // 1. Pháo hoa nổ
+    console.log('🎆 [DEBUG] Creating confetti...')
     createConfetti()
     
     // 2. Toast center
+    console.log('🍞 [DEBUG] Showing achievement toast...')
     showAchievementToast(achievementName, count, 3, reward)
     
     // 3. Icon rung
     const card = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
     const achievementIcon = card?.querySelector('.icon-wrapper[data-role="leaderboard"]')
     if (achievementIcon) {
+      console.log('📍 [DEBUG] Shaking achievement icon...')
       achievementIcon.classList.add('shake')
       setTimeout(() => achievementIcon.classList.remove('shake'), 800)
       
@@ -1927,6 +1932,7 @@
 
     const leaderboardOverlayEl = document.getElementById('leaderboardOverlay')
     if (leaderboardOverlayEl?.classList.contains('open')) {
+      console.log('🏆 [DEBUG] Rendering rewards panel...')
       renderRewardsPanel(gameId)
     }
   }
@@ -1936,8 +1942,16 @@
   
   // Show all pending achievements for a game
   function showPendingAchievements(gameId) {
+    console.log('🔔 [DEBUG] showPendingAchievements called for:', gameId)
+    console.log('🔔 [DEBUG] pendingAchievements object:', pendingAchievements)
+    
     const achievements = pendingAchievements[gameId]
-    if (!achievements || achievements.length === 0) return
+    console.log('🔔 [DEBUG] achievements for', gameId, ':', achievements)
+    
+    if (!achievements || achievements.length === 0) {
+      console.log('❌ [DEBUG] No achievements to show!')
+      return
+    }
     
     console.log(`🎉 Showing ${achievements.length} pending achievement(s) for ${gameId}`)
     
@@ -1946,7 +1960,9 @@
     
     // Show từng achievement với delay
     achievements.forEach((ach, index) => {
+      console.log(`🎊 [DEBUG] Scheduling achievement ${index + 1}:`, ach)
       setTimeout(() => {
+        console.log(`🎊 [DEBUG] NOW showing achievement:`, ach.name)
         celebrateAchievement(gameId, ach.name, ach.count, ach.reward)
       }, index * 2500) // Mỗi achievement cách nhau 2.5s
     })
@@ -2343,16 +2359,11 @@ function startGame(gameId) {
     const crossedNow = [];
     for (const t of REWARD_THRESHOLDS) {
       if (prevTotal < t && previewTotal >= t && !awardedMap[t]) {
-        // ✅ KHÔNG lưu awarded cho 10s → mỗi lần chơi đều có notification!
-        // ❌ CHỈ lưu awarded cho 60s, 300s (1-time achievements)
-        if (t !== 10) {
-          awardedMap[t] = true;
-        }
+        awardedMap[t] = true;
         crossedNow.push(t);
       }
     }
     if (crossedNow.length) {
-      // Chỉ save awardedMap cho 60s, 300s
       setGameAwards(activeGame, awardedMap);
       let grant = 0;
       for (const t of crossedNow) grant += REWARD_VALUES[t];
@@ -2395,11 +2406,7 @@ async function stopGame() {
     const newlyAwarded = []
     for (const t of REWARD_THRESHOLDS) {
       if (prevCapped < t && nextCapped >= t && !awardedMap[t]) {
-        // ✅ KHÔNG lưu awarded cho 10s → mỗi lần chơi đều có notification!
-        // ❌ CHỈ lưu awarded cho 60s, 300s (1-time achievements)
-        if (t !== 10) {
-          awardedMap[t] = true
-        }
+        awardedMap[t] = true
         newlyAwarded.push(t)
       }
     }
@@ -2407,7 +2414,6 @@ async function stopGame() {
     if (newlyAwarded.length) {
       let totalGrant = 0
       for (const t of newlyAwarded) totalGrant += REWARD_VALUES[t]
-      // Chỉ save awardedMap cho 60s, 300s
       setGameAwards(activeGame, awardedMap)
       if (totalGrant > 0) {
         const last = newlyAwarded[newlyAwarded.length - 1]
