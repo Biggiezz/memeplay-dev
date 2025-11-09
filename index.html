@@ -2696,19 +2696,24 @@ window.addEventListener("beforeunload", stopGame);
       // Convert to integer (round down for fairness)
       const finalScore = Math.floor(Number(score))
       
-      // DETECT PLAY AGAIN: Low score = just started/restarted!
-      const isPlayAgain = score > 0 && score < 15
+      // DETECT PLAY AGAIN: User is playing (score > 0) but timer not running for this game
+      const hasScore = score > 0  // Score > 0 = game is being played
+      const timerNotRunningForThisGame = !activeStartTime || (activeGame && activeGame !== gameId)
+      
+      const isPlayAgain = hasScore && timerNotRunningForThisGame
       
       if (isPlayAgain) {
-        console.log('🔄 Detected Play Again or early game! Score:', score)
-        // FORCE restart timer bất kể state
-        if (activeGame && activeStartTime) {
-          console.log('   ⏹️ Stopping previous session...')
+        console.log('🔄 Play Again detected! Score:', score, '| Timer running:', !!activeStartTime, '| Active game:', activeGame, '| This game:', gameId)
+        
+        // Stop previous session if exists (different game)
+        if (activeGame && activeStartTime && activeGame !== gameId) {
+          console.log('   ⏹️ Stopping previous game session:', activeGame)
           await stopGame()
         }
-        console.log('   ▶️ Starting new session for', gameId)
+        
+        console.log('   ▶️ Starting timer for', gameId)
         startGame(gameId)
-        // Return early, đợi score cao hơn mới xử lý game over
+        // Return early, wait for higher score to process game over
         return
       }
       
