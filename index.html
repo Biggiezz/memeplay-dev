@@ -1286,8 +1286,8 @@
 
   <!-- Achievement Toast -->
   <div id="achievementToast" class="achievement-toast">
-    <div class="achievement-toast-title">🎉 Achievement Unlocked!</div>
-    <div class="achievement-toast-subtitle" id="achievementName">⭐ Starter (1/3)</div>
+    <div class="achievement-toast-title">🎉 Reward Earned!</div>
+    <div class="achievement-toast-subtitle" id="achievementName">⭐ 10s Play Reward</div>
     <div class="achievement-toast-reward" id="achievementReward">+100 PLAY</div>
   </div>
 
@@ -1895,7 +1895,10 @@
     
     if (!toast) return
     
-    nameEl.textContent = `⭐ ${achievementName} (${count}/${total})`
+    // ✅ "10s Play Reward" không hiện (x/3) vì không phải 1-time achievement
+    // ❌ 60s, 300s vẫn hiện (x/3)
+    const showProgress = achievementName !== '10s Play Reward'
+    nameEl.textContent = showProgress ? `⭐ ${achievementName} (${count}/${total})` : `⭐ ${achievementName}`
     rewardEl.textContent = `+${reward} PLAY`
     
     toast.classList.add('show')
@@ -1966,7 +1969,8 @@
     // If new achievement, QUEUE để hiện sau game over
     if (isNewAchievement && activeGame) {
       const achievedCount = Object.values(getGameAwards(activeGame)).filter(Boolean).length
-      const achievementNames = { 10: 'Starter', 60: 'Engaged', 300: 'Champion' }
+      // ✅ Đổi tên: "Starter" → "10s Play Reward" (mỗi lần đều có)
+      const achievementNames = { 10: '10s Play Reward', 60: 'Engaged', 300: 'Champion' }
       const threshold = parseInt(label.replace('s', ''))
       
       // Add to pending queue
@@ -2339,11 +2343,16 @@ function startGame(gameId) {
     const crossedNow = [];
     for (const t of REWARD_THRESHOLDS) {
       if (prevTotal < t && previewTotal >= t && !awardedMap[t]) {
-        awardedMap[t] = true;
+        // ✅ KHÔNG lưu awarded cho 10s → mỗi lần chơi đều có notification!
+        // ❌ CHỈ lưu awarded cho 60s, 300s (1-time achievements)
+        if (t !== 10) {
+          awardedMap[t] = true;
+        }
         crossedNow.push(t);
       }
     }
     if (crossedNow.length) {
+      // Chỉ save awardedMap cho 60s, 300s
       setGameAwards(activeGame, awardedMap);
       let grant = 0;
       for (const t of crossedNow) grant += REWARD_VALUES[t];
@@ -2386,7 +2395,11 @@ async function stopGame() {
     const newlyAwarded = []
     for (const t of REWARD_THRESHOLDS) {
       if (prevCapped < t && nextCapped >= t && !awardedMap[t]) {
-        awardedMap[t] = true
+        // ✅ KHÔNG lưu awarded cho 10s → mỗi lần chơi đều có notification!
+        // ❌ CHỈ lưu awarded cho 60s, 300s (1-time achievements)
+        if (t !== 10) {
+          awardedMap[t] = true
+        }
         newlyAwarded.push(t)
       }
     }
@@ -2394,6 +2407,7 @@ async function stopGame() {
     if (newlyAwarded.length) {
       let totalGrant = 0
       for (const t of newlyAwarded) totalGrant += REWARD_VALUES[t]
+      // Chỉ save awardedMap cho 60s, 300s
       setGameAwards(activeGame, awardedMap)
       if (totalGrant > 0) {
         const last = newlyAwarded[newlyAwarded.length - 1]
@@ -2821,7 +2835,7 @@ window.addEventListener("beforeunload", stopGame);
     const awardedMap = getGameAwards(gameId)
     const totalSeconds = getGameSeconds(gameId)
     const achievements = [
-      { threshold: 10, name: 'Starter', reward: 100 },
+      { threshold: 10, name: '10s Play Reward', reward: 100 },
       { threshold: 60, name: 'Engaged', reward: 300 },
       { threshold: 300, name: 'Champion', reward: 1000 }
     ]
