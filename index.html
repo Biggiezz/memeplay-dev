@@ -1850,7 +1850,7 @@
     for (let i = 0; i < 100; i++) {
       particles.push({
         x: canvas.width / 2,
-        y: canvas.height * 0.8, // Từ vị trí icon ⭐
+        y: (canvas.height * 0.5) - 50, // Cao hơn toast 50px (toast ở 50%)
         vx: (Math.random() - 0.5) * 10,
         vy: (Math.random() - 1) * 15,
         color: colors[Math.floor(Math.random() * colors.length)],
