@@ -2538,11 +2538,26 @@ window.addEventListener("beforeunload", stopGame);
           listEl.appendChild(item)
         })
         paging.offset += rows.length
+        
+        // ✅ Update comment count khi đã load comments
+        const card = document.querySelector(`.game-card[data-game-id="${paging.gameId}"]`)
+        if (card) {
+          const cmtWrapper = card.querySelector('.icon-wrapper[data-role="comment"]')
+          const cmtCountEl = cmtWrapper?.querySelector('.icon-count')
+          if (cmtCountEl && paging.offset > 0) {
+            // Chỉ update nếu count hiện tại = 0 (sai) mà thực tế có comments
+            const currentCount = parseInt(cmtCountEl.textContent) || 0
+            if (currentCount === 0) {
+              cmtCountEl.textContent = String(paging.offset)
+              console.log('[COMMENT DEBUG] fetchMore - Fixed count from 0 to', paging.offset)
+            }
+          }
+        }
       } catch(e){
         console.error('list_comments error:', e?.message || e)
       } finally { paging.loading = false }
     }
-    function openPanel(forGame){
+    async function openPanel(forGame){
       paging.gameId = forGame
       paging.offset = 0
       paging.loading = false
@@ -2550,7 +2565,29 @@ window.addEventListener("beforeunload", stopGame);
       listEl.innerHTML = ''
       ta.value = ''
       overlay.classList.add('open')
-      fetchMore()
+      
+      // ✅ Load comments và update count based on actual data
+      await fetchMore()
+      
+      // Update comment count based on loaded comments
+      try {
+        const { data, error } = await supabase.rpc('get_social_counts', { p_game_id: forGame })
+        console.log('[COMMENT DEBUG] openPanel - Refreshing counts for', forGame, ':', data)
+        if (!error && data) {
+          const card = document.querySelector(`.game-card[data-game-id="${forGame}"]`)
+          if (card) {
+            const cmtWrapper = card.querySelector('.icon-wrapper[data-role="comment"]')
+            const cmtCountEl = cmtWrapper?.querySelector('.icon-count')
+            if (cmtCountEl) {
+              const realCount = data.comments ?? 0
+              cmtCountEl.textContent = String(Math.max(0, realCount))
+              console.log('[COMMENT DEBUG] openPanel - Updated count to', realCount)
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[COMMENT DEBUG] openPanel - Error refreshing count:', e)
+      }
     }
     loadMoreBtn.onclick = fetchMore
     closeBtn.onclick = () => overlay.classList.remove('open')
@@ -2585,6 +2622,19 @@ window.addEventListener("beforeunload", stopGame);
         item.appendChild(body)
         listEl.prepend(item)
         ta.value = ''
+        
+        // ✅ Refresh comment count sau khi post thành công!
+        console.log('[COMMENT DEBUG] Comment posted! Refreshing count for', paging.gameId)
+        const card = document.querySelector(`.game-card[data-game-id="${paging.gameId}"]`)
+        if (card) {
+          const cmtWrapper = card.querySelector('.icon-wrapper[data-role="comment"]')
+          const cmtCountEl = cmtWrapper?.querySelector('.icon-count')
+          if (cmtCountEl) {
+            const currentCount = parseInt(cmtCountEl.textContent) || 0
+            cmtCountEl.textContent = String(currentCount + 1)
+            console.log('[COMMENT DEBUG] Updated count from', currentCount, 'to', currentCount + 1)
+          }
+        }
       } catch(e){
         console.error('add_comment error:', e?.message || e)
       } finally { postBtn.disabled = false }
