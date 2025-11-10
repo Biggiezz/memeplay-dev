@@ -50,21 +50,42 @@
       border-bottom: 2px solid #222;
     }
     .logo {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      position: relative;
+    }
+    .docs-menu-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: rgba(255, 182, 66, 0.08);
+      transition: all 0.2s ease;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .docs-menu-btn:hover {
+      background: rgba(255, 182, 66, 0.15);
+      transform: translateY(-1px);
+    }
+    .docs-menu-btn:active {
+      transform: translateY(0);
+    }
+    .hamburger-icon {
+      width: 20px;
+      height: 20px;
+      display: block;
+    }
+    .logo-text {
       font-size: 26px;
       font-weight: 700;
       letter-spacing: 1.4px;
       color: #ffb642;
       text-shadow: 0 0 12px rgba(255, 182, 66, 0.45);
-      text-decoration: none;
-      display: inline-flex;
-      align-items: center;
-      gap: 10px;
-      position: relative;
-      transition: transform 0.18s ease;
-    }
-    .logo:hover {
-      transform: translateY(-1px);
-      color: #ffd678;
+      user-select: none;
     }
     .header-flash {
       position: absolute;
@@ -951,6 +972,18 @@
         padding: 0 14px;
       }
       .logo {
+        gap: 8px;
+      }
+      .docs-menu-btn {
+        width: 30px;
+        height: 30px;
+        border-radius: 6px;
+      }
+      .hamburger-icon {
+        width: 16px;
+        height: 16px;
+      }
+      .logo-text {
         font-size: 17px; /* Reduced 25% from 22px */
         letter-spacing: 0.8px;
       }
@@ -1101,10 +1134,17 @@
 <body>
   <!-- HEADER: Logo left, Dropdown right, single row -->
   <div class="main-header">
-    <a class="logo" href="docs.html" target="_blank" rel="noopener noreferrer">
-      MEMEPLAY
+    <div class="logo">
+      <a href="docs.html" target="_blank" rel="noopener noreferrer" class="docs-menu-btn" title="Documentation">
+        <svg class="hamburger-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <line x1="3" y1="6" x2="21" y2="6" stroke="#ffb642" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="3" y1="12" x2="21" y2="12" stroke="#ffb642" stroke-width="2.5" stroke-linecap="round"/>
+          <line x1="3" y1="18" x2="21" y2="18" stroke="#ffb642" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </a>
+      <span class="logo-text">MEMEPLAY</span>
       <span id="headerEarnedFlash" class="header-flash"></span>
-    </a>
+    </div>
     <div class="header-actions">
       <div class="search-wrapper">
         <button id="searchToggleButton" class="icon-button search-button" aria-haspopup="true" aria-expanded="false" title="Browse categories">
