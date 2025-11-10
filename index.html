@@ -1342,37 +1342,42 @@
       const card = document.getElementById(gameId);
       if (!card) return;
       const iframe = card.querySelector('iframe');
-      if (iframe && gameUrls[gameId]) {
-        const currentSrc = iframe.src || '';
-        const targetUrl = gameUrls[gameId];
-        
-        // Load if: no src yet, or src differs from gameUrls, or no cache bust
-        const needsLoad = !currentSrc || 
-                         currentSrc === '' || 
-                         currentSrc.includes('about:blank') ||
-                         !currentSrc.includes(targetUrl) ||
-                         !currentSrc.includes('?v=');
-        
-        if (needsLoad) {
-          // Bust cache to guarantee a load event
-          const sep = targetUrl.includes('?') ? '&' : '?'
-          iframe.src = targetUrl + sep + 'v=' + Date.now();
-          console.log(isPreload ? '🔄 Preloaded' : '🎮 Activated', gameId);
-        } else {
-          console.log('⏭️ Skip', gameId, '- already loaded');
-        }
-        
-        if (isPreload) {
-          preloadedGames.add(gameId);
-        } else {
-          currentActiveGame = gameId;
-          try { window.__memeplayActiveGame = gameId } catch {}
-          document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }));
-        }
-        
-        // ❌ REMOVED: Auto-start timer after 500ms (was causing timer to run without user interaction!)
-        // ✅ Timer now ONLY starts when user actually plays (via GAME_SCORE message with score > 0)
+      if (!iframe) return;
+      
+      // ✅ TRUE LAZY LOADING: Read data-game-url and only set src when needed
+      const targetUrl = iframe.getAttribute('data-game-url') || gameUrls[gameId];
+      if (!targetUrl) {
+        console.warn(`⚠️ No URL found for ${gameId}`);
+        return;
       }
+      
+      const currentSrc = iframe.src || '';
+      
+      // Load if: no src yet (empty), or different game URL
+      const needsLoad = !currentSrc || 
+                       currentSrc === '' || 
+                       currentSrc.includes('about:blank') ||
+                       (!currentSrc.includes(targetUrl.split('?')[0])); // Compare base URL without params
+      
+      if (needsLoad) {
+        // Bust cache to guarantee a load event
+        const sep = targetUrl.includes('?') ? '&' : '?';
+        iframe.src = targetUrl + sep + 'v=' + Date.now();
+        console.log((isPreload ? '🔄 Preloaded:' : '🎮 Activated:'), gameId);
+      } else {
+        console.log('⏭️ Skip', gameId, '- already loaded');
+      }
+      
+      if (isPreload) {
+        preloadedGames.add(gameId);
+      } else {
+        currentActiveGame = gameId;
+        try { window.__memeplayActiveGame = gameId; } catch {}
+        document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }));
+      }
+      
+      // ❌ REMOVED: Auto-start timer (was causing timer to run without user interaction!)
+      // ✅ Timer now ONLY starts when user plays (via GAME_SCORE/GAME_STARTED message)
     }
 
     // Observe which game card is visible and activate early for snappier switching
