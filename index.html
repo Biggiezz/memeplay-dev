@@ -226,14 +226,14 @@
     }
     /* Move the game container below the header */
     .game-container {
-      margin-top: 0; /* Bỏ margin để game căn giữa chính xác */
+      margin-top: 0; /* Remove margin for precise centering */
     }
 
     .game-card {
       position: relative;
     }
     
-    /* Đảm bảo html và body cũng ẩn scrollbar */
+    /* Ensure html and body also hide scrollbar */
     html {
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
@@ -316,7 +316,7 @@
     .game-stage {
       position: relative;
       width: 100%;
-      aspect-ratio: 720 / 1000;
+      aspect-ratio: 720 / 1000 !important;  /* ← FORCE TABLE VERSION! */
       border-radius: 28px;
       background: linear-gradient(145deg, rgba(14,19,30,0.92), rgba(6,9,15,0.92));
       border: 1px solid rgba(40,58,90,0.35);
@@ -865,7 +865,7 @@
       animation: shakeIcon 0.8s ease-in-out;
     }
     .icon-wrapper[data-role="leaderboard"] svg {
-      transform: scale(1); /* Bằng kích thước trái tim */
+      transform: scale(1); /* Same size as heart icon */
     }
     .icon-wrapper[data-role="leaderboard"].shake svg {
       fill: #ffb642;
@@ -911,6 +911,7 @@
     }
     body.focus-mode .game-card {
       width: 100%;
+      max-width: 720px;  /* ← FORCE TABLE VERSION! */
       margin: 0;
       padding: 0;
     }
@@ -936,30 +937,30 @@
     }
 
     @media (max-width: 800px) {
-      /* HEADER - Thu hẹp 25% */
-      :root { --header-h: 39px; } /* Giảm từ 52px */
+      /* HEADER - Reduce by 25% */
+      :root { --header-h: 39px; } /* Reduced from 52px */
       .main-header {
         height: var(--header-h);
         padding: 0 14px;
       }
       .logo {
-        font-size: 17px; /* Giảm 25% từ 22px */
+        font-size: 17px; /* Reduced 25% from 22px */
         letter-spacing: 0.8px;
       }
       .header-actions {
         gap: 8px;
       }
       .icon-button {
-        width: 30px; /* Giảm 25% từ 40px */
-        height: 30px; /* Giảm 25% từ 40px */
+        width: 30px; /* Reduced 25% from 40px */
+        height: 30px; /* Reduced 25% from 40px */
         border-radius: 9px;
       }
       .icon-button svg.header-icon {
-        width: 16px; /* Giảm tương ứng */
+        width: 16px; /* Reduced accordingly */
         height: 16px;
       }
       .wallet-status-button {
-        height: 30px; /* Giảm 25% từ 40px */
+        height: 30px; /* Reduced 25% from 40px */
         padding: 0 10px;
         font-size: 12px;
       }
@@ -972,43 +973,43 @@
         right: 0;
       }
       
-      /* FOOTER - Tăng 25% */
+      /* FOOTER - Increase by 25% */
       .game-footer {
-        gap: 5px; /* Tăng từ 4px */
-        padding: 5px 12px 8px; /* Tăng từ 4px 10px 6px */
+        gap: 5px; /* Increased from 4px */
+        padding: 5px 12px 8px; /* Increased from 4px 10px 6px */
       }
       .game-icons {
-        padding: 0; /* Xóa padding để sát lề */
+        padding: 0; /* Remove padding to align to edge */
       }
       .game-icons-left {
         gap: 8px;
-        margin-left: -8px; /* Kéo sát lề trái hơn 50% */
+        margin-left: -8px; /* Pull closer to left edge by 50% */
       }
       .game-icons-right {
         gap: 8px;
-        margin-right: -8px; /* Kéo sát lề phải hơn 50% */
+        margin-right: -8px; /* Pull closer to right edge by 50% */
       }
       .icon-wrapper {
-        gap: 6px; /* Giảm từ 8px để icon+text gần nhau */
+        gap: 6px; /* Reduced from 8px for tighter icon+text */
       }
       .icon-wrapper button {
-        width: 25px; /* Giảm 25% từ 33px */
+        width: 25px; /* Reduced 25% from 33px */
         height: 25px;
       }
       .icon-wrapper svg {
-        width: 21px; /* Giảm 25% từ 28px */
+        width: 21px; /* Reduced 25% from 28px */
         height: 21px;
         stroke-width: 2.2;
       }
       .icon-wrapper button span {
-        font-size: 19px !important; /* MC text giảm 25% từ 25px */
+        font-size: 19px !important; /* MC text reduced 25% from 25px */
       }
       .icon-count {
-        font-size: 11px; /* Giảm 25% từ 14px */
+        font-size: 11px; /* Reduced 25% from 14px */
         min-width: 20px;
       }
       .creator-text {
-        font-size: 11px; /* Giữ size nhỏ gọn trên mobile */
+        font-size: 11px; /* Keep compact size on mobile */
       }
     }
 
@@ -1321,14 +1322,14 @@
     };
   
     function activateGame(gameId, isPreload = false) {
-      // Nếu là preload, không check currentActiveGame
+      // If preloading, don't check currentActiveGame
       if (!isPreload && currentActiveGame === gameId) return;
       
-      // Chỉ stop previous game nếu KHÔNG phải preload
+      // Only stop previous game if NOT preloading
       if (!isPreload && currentActiveGame && !preloadedGames.has(currentActiveGame)) {
         // Ensure previous session is stopped (module exposes on window)
         try { window.memeplay && window.memeplay.stopGame && window.memeplay.stopGame(); } catch {}
-        // KHÔNG xóa src - giữ cached để dùng lại khi scroll back!
+        // DON'T clear src - keep cached for reuse when scrolling back!
         // const prevCard = document.getElementById(currentActiveGame);
         // if (prevCard) {
         //   const prevIframe = prevCard.querySelector('iframe');
@@ -1344,7 +1345,7 @@
         const currentSrc = iframe.src || '';
         const targetUrl = gameUrls[gameId];
         
-        // Load nếu: chưa có src, hoặc src khác với gameUrls, hoặc chưa có cache bust
+        // Load if: no src yet, or src differs from gameUrls, or no cache bust
         const needsLoad = !currentSrc || 
                          currentSrc === '' || 
                          currentSrc.includes('about:blank') ||
@@ -1493,14 +1494,14 @@
   <!-- === SUPABASE DAILY CHECK-IN & REWARD === -->
 
 <script type="module">
-  // 1️⃣ Import SDK Supabase (thư viện kết nối Supabase trực tiếp trên web)
+  // 1️⃣ Import Supabase SDK (library for connecting to Supabase directly on web)
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
-  // 2️⃣ Khai báo thông tin kết nối (URL & Anon Key của dự án bạn)
+  // 2️⃣ Declare connection info (URL & Anon Key of your project)
   const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'
 
-  // 3️⃣ Tạo đối tượng "supabase" để sử dụng RPC, truy vấn, insert, v.v.
+  // 3️⃣ Create "supabase" object for using RPC, queries, insert, etc.
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
   async function loadGameCards() {
@@ -1517,9 +1518,9 @@
       console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
       initFocusControls()
       
-      // 🚀 PHƯƠNG ÁN B: Preload 4 games đầu - SCROLL TRƯỚC, LOAD SAU
+      // 🚀 APPROACH B: Preload first 4 games - SCROLL FIRST, LOAD AFTER
       
-      // Lấy 4 games đầu tiên trong DOM (không hard-code)
+      // Get first 4 games in DOM (not hard-coded)
       const allCards = Array.from(document.querySelectorAll('.game-card'))
       const firstFourGames = allCards.slice(0, 4).map(c => c.id).filter(Boolean)
       
@@ -1529,12 +1530,12 @@
         console.log(`  ${idx + 1}. ${card.id}`)
       })
       
-      // BƯỚC 1: FORCE SCROLL ĐẾN GAME ĐẦU TIÊN (disable snap trước)
+      // STEP 1: FORCE SCROLL TO FIRST GAME (disable snap first)
       const firstCard = allCards[0]
       const gameContainer = document.querySelector('.game-container')
       
       if (firstCard && gameContainer) {
-        // Disable scroll-snap tạm thời để force position
+        // Temporarily disable scroll-snap to force position
         gameContainer.style.scrollSnapType = 'none'
         gameContainer.style.scrollBehavior = 'auto'
         
@@ -1555,24 +1556,24 @@
         })
       }
       
-      // BƯỚC 2: Init observers
+      // STEP 2: Init observers
       initGameObserver()
       initSocialHandlers()
       
-      // BƯỚC 3: PRIORITY LOADING (mobile-optimized)
+      // STEP 3: PRIORITY LOADING (mobile-optimized)
       const isMobile = window.innerWidth < 768
       
       if (isMobile) {
-        // 📱 MOBILE: Load game 1 NGAY, games 2-4 sau (không block game 1!)
+        // 📱 MOBILE: Load game 1 INSTANTLY, games 2-4 after (don't block game 1!)
         console.log('📱 Mobile detected - Priority loading!')
         
-        // Load game 1 NGAY (0ms delay) - User có thể play instant!
+        // Load game 1 INSTANTLY (0ms delay) - User can play immediately!
         if (allCards[0]?.id) {
           activateGame(allCards[0].id, true)
           currentActiveGame = allCards[0].id
           console.log('  🚀 PRIORITY: Game 1 loading NOW for instant play!')
-          
-          // Load games 2-4 sau 2 giây (user đang chơi game 1)
+        
+          // Load games 2-4 after 2 seconds (user is playing game 1)
           setTimeout(() => {
             const games2to4 = allCards.slice(1, 4)
             console.log('  🎮 Background: Loading games 2-4:', games2to4.map(c => c.id))
@@ -1596,8 +1597,8 @@
             currentActiveGame = allCards[0].id
             console.log('  ✅ Current game:', allCards[0].id)
             console.log('  🎯 Strategy: 4 parallel, 5+ on scroll (300px ahead)')
-          }
-        }, 300)
+        }
+      }, 300)
       }
       
     } catch (error) {
@@ -1765,7 +1766,7 @@
   }
 
   // =========================================================
-  // 🔹 TẠO USER ID DUY NHẤT (ghi trong localStorage)
+  // 🔹 CREATE UNIQUE USER ID (stored in localStorage)
   // =========================================================
   // User identifier prefers wallet address if connected; falls back to random local id
   function generateLocalUuid() {
@@ -1847,7 +1848,7 @@
     for (let i = 0; i < 100; i++) {
       particles.push({
         x: canvas.width / 2,
-        y: (canvas.height * 0.5) - 50, // Cao hơn toast 50px (toast ở 50%)
+        y: (canvas.height * 0.5) - 50, // 50px higher than toast (toast at 50%)
         vx: (Math.random() - 0.5) * 10,
         vy: (Math.random() - 1) * 15,
         color: colors[Math.floor(Math.random() * colors.length)],
@@ -1897,15 +1898,15 @@
     
     if (!toast) return
     
-    // ✅ "10s Play Reward" không hiện (x/3) vì không phải 1-time achievement
-    // ❌ 60s, 300s vẫn hiện (x/3)
+    // ✅ "10s Play Reward" doesn't show (x/3) because it's not a 1-time achievement
+    // ❌ 60s, 300s still show (x/3)
     const showProgress = achievementName !== '10s Play Reward'
     nameEl.textContent = showProgress ? `⭐ ${achievementName} (${count}/${total})` : `⭐ ${achievementName}`
     rewardEl.textContent = `+${reward} PLAY`
     
     toast.classList.add('show')
     
-    // Giữ 5s rồi mới mờ đi
+    // Keep for 5s then fade out
     setTimeout(() => {
       toast.classList.remove('show')
     }, 5000)
@@ -1914,7 +1915,7 @@
   function celebrateAchievement(gameId, achievementName, count, reward) {
     console.log('🎯 [DEBUG] celebrateAchievement called!', { gameId, achievementName, count, reward })
     
-    // 1. Pháo hoa nổ
+    // 1. Fireworks explosion
     console.log('🎆 [DEBUG] Creating confetti...')
     createConfetti()
     
@@ -1939,7 +1940,7 @@
     }
   }
 
-  // Queue achievements để hiện sau game over
+  // Queue achievements to show after game over
   const pendingAchievements = {}
   
   // Show all pending achievements for a game
@@ -1960,20 +1961,20 @@
     // Sort by threshold (10 → 60 → 300)
     achievements.sort((a, b) => a.threshold - b.threshold)
     
-    // Show từng achievement với delay
+    // Show each achievement with delay
     achievements.forEach((ach, index) => {
       console.log(`🎊 [DEBUG] Scheduling achievement ${index + 1}:`, ach)
       setTimeout(() => {
         console.log(`🎊 [DEBUG] NOW showing achievement:`, ach.name)
         celebrateAchievement(gameId, ach.name, ach.count, ach.reward)
-      }, index * 2500) // Mỗi achievement cách nhau 2.5s
+      }, index * 2500) // Each achievement 2.5s apart
     })
     
-    // Clear queue sau khi hiện
+    // Clear queue after showing
     delete pendingAchievements[gameId]
   }
   
-  // Expose globally để game có thể gọi
+  // Expose globally so game can call
   window.__showPendingAchievements = showPendingAchievements
   
   function showPlayAward(amount, label, isNewAchievement = false) {
@@ -1984,10 +1985,10 @@
     lsSetInt('mp_total_earned_plays', newTotal)
     updateHeaderEarned()
     
-    // If new achievement, QUEUE để hiện sau game over
+    // If new achievement, QUEUE to show after game over
     if (isNewAchievement && activeGame) {
       const achievedCount = Object.values(getGameAwards(activeGame)).filter(Boolean).length
-      // ✅ Đổi tên: "Starter" → "10s Play Reward" (mỗi lần đều có)
+      // ✅ Rename: "Starter" → "10s Play Reward" (repeatable every time)
       const achievementNames = { 10: '10s Play Reward', 60: 'Engaged', 300: 'Champion' }
       const threshold = parseInt(label.replace('s', ''))
       
@@ -2006,10 +2007,10 @@
       console.log('   → Will show Toast after game over + Header flash NOW')
       console.log('   🔑 Queued for activeGame:', activeGame)
       console.log('   📦 Current queue:', pendingAchievements)
-      // KHÔNG return - tiếp tục hiện header flash!
+      // DON'T return - continue showing header flash!
     }
     
-    // Header flash - LUÔN HIỆN cho mọi rewards!
+    // Header flash - ALWAYS SHOW for all rewards!
     const el = els.headerEarnedFlash
     if (!el) return
     el.textContent = `+${amount} PLAY${label ? ` for ${label}` : ''}`
@@ -2061,7 +2062,7 @@
         const rawUrl = window.location.href.split('#')[0]
         const cleaned = rawUrl.replace(/^https?:\/\//i, '')
         const deepLink = `https://metamask.app.link/dapp/${cleaned}`
-        const proceed = confirm('MetaMask mobile chưa mở. Mở ứng dụng MetaMask để kết nối?')
+        const proceed = confirm('MetaMask mobile not opened. Open MetaMask app to connect?')
         if (proceed) {
           window.location.href = deepLink
         }
@@ -2167,7 +2168,7 @@
   // =========================================================
   // 🔹 PER-GAME ACCUMULATED PLAYTIME & ONE-TIME REWARDS
   // =========================================================
-  const REWARD_THRESHOLDS = [10, 60, 300] // seconds (10s để user nhanh hiểu có thưởng)
+  const REWARD_THRESHOLDS = [10, 60, 300] // seconds (10s so user quickly understands rewards)
   const REWARD_VALUES = { 10: 100, 60: 300, 300: 1000 }
   const MAX_ACCUM_SECONDS = 300
 
@@ -2312,17 +2313,17 @@
 //  AUTO-TRACK PLAYTIME + FOCUS DELAY
 // ==============================
 
-// Biến toàn cục để theo dõi game đang chạy
+// Global variable to track running game
 let activeGame = null;
 let activeStartTime = 0;
 let progressInterval = null;
 
-// Bắt đầu đếm thời gian
+// Start timer
 function startGame(gameId) {
-  // Nếu đang có game khác thì dừng nó, còn nếu cùng game thì reset lại ticker/time
+  // If another game is running, stop it; if same game, reset ticker/time
   if (activeGame && activeGame !== gameId) stopGame();
 
-  // Reset ticker trước khi start (kể cả cùng game)
+  // Reset ticker before starting (even for same game)
   clearInterval(progressInterval);
   progressInterval = null;
 
@@ -2379,7 +2380,7 @@ function startGame(gameId) {
   }
 }
 
-// Ép start an toàn khi chuyển game
+// Force safe start when switching games
 function forceStart(gameId) {
   try { stopGame(); } catch {}
   clearInterval(progressInterval);
@@ -2389,7 +2390,7 @@ function forceStart(gameId) {
   startGame(gameId);
 }
 
-// Dừng đếm + gửi dữ liệu Supabase
+// Stop timer + send data to Supabase
 async function stopGame() {
   if (!activeGame || !activeStartTime) return;
 
@@ -2435,7 +2436,7 @@ async function stopGame() {
       
       // ❌ REMOVED: Backend reward display (duplicate with frontend achievement system!)
       // Frontend already handles rewards via threshold checking (line ~2356)
-      // Backend RPC just saves to DB, không cần hiện notification lại!
+      // Backend RPC just saves to DB, no need to show notification again!
       // if (data?.awarded > 0) showPlayAward(Number(data.awarded))
     } catch (err) {
       console.error('Playtime tracking error:', err.message);
@@ -2471,7 +2472,7 @@ async function stopGame() {
   progressInterval = null;
 }
 
-// Khi iframe load xong game → bắt đầu tracking có delay
+// When iframe finishes loading game → start tracking with delay
 const iframes = document.querySelectorAll(".game-card iframe");
 const fallbackTimers = {} // Track fallback timers for games without postMessage
 window.fallbackTimers = fallbackTimers // Expose globally for GAME_SCORE handler
@@ -2485,12 +2486,12 @@ iframes.forEach((iframe) => {
   }
 
   iframe.addEventListener("load", () => {
-    // KHÔNG tự động start timer khi iframe load!
-    // Timer chỉ start khi user THỰC SỰ chơi (via GAME_SCORE message)
+    // DON'T auto-start timer when iframe loads!
+    // Timer only starts when user ACTUALLY plays (via GAME_SCORE message)
     console.log(`✅ Iframe loaded: ${gameId} (timer will start when user plays)`);
   });
   
-  // 🔧 FALLBACK: Detect click trên .game-stage (wrapper của iframe)
+  // 🔧 FALLBACK: Detect click on .game-stage (iframe wrapper)
   const gameStage = iframe.closest('.game-stage')
   if (gameStage) {
     gameStage.addEventListener('click', () => {
@@ -2501,36 +2502,36 @@ iframes.forEach((iframe) => {
         clearTimeout(fallbackTimers[gameId])
       }
       
-      // Nếu timer đang chạy rồi → skip
+      // If timer already running → skip
       if (activeGame === gameId && activeStartTime) {
         console.log(`⏭️ [FALLBACK] Timer already running for ${gameId}`)
         return
       }
       
-      // Đợi 2 giây, nếu không có GAME_SCORE → start timer
+      // Wait 2 seconds, if no GAME_SCORE → start timer
       fallbackTimers[gameId] = setTimeout(() => {
         if (activeGame !== gameId || !activeStartTime) {
           console.log(`⚠️ [FALLBACK] No GAME_SCORE after 2s → Auto-starting timer for ${gameId}`)
           startGame(gameId)
-        }
+      }
       }, 2000)
     }, { passive: true })
   }
 });
 }
 
-// Dừng khi tab ẩn
+// Stop when tab hidden
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     stopGame();
   } else if (activeGame && gameStartTime) {
-    // ✅ CHỈ resume timer nếu game ĐANG CHƠI (có gameStartTime)
-    // ❌ KHÔNG auto-start nếu chỉ có activeGame (chưa click play)
+    // ✅ ONLY resume timer if game IS PLAYING (has gameStartTime)
+    // ❌ DON'T auto-start if only activeGame exists (haven't clicked play)
     startGame(activeGame);
   }
 });
 
-// Dừng khi rời trang
+// Stop when leaving page
 window.addEventListener("beforeunload", stopGame);
 
   // ==============================
@@ -2575,13 +2576,13 @@ window.addEventListener("beforeunload", stopGame);
         })
         paging.offset += rows.length
         
-        // ✅ Update comment count khi đã load comments
+        // ✅ Update comment count after loading comments
         const card = document.querySelector(`.game-card[data-game-id="${paging.gameId}"]`)
         if (card) {
           const cmtWrapper = card.querySelector('.icon-wrapper[data-role="comment"]')
           const cmtCountEl = cmtWrapper?.querySelector('.icon-count')
           if (cmtCountEl && paging.offset > 0) {
-            // Chỉ update nếu count hiện tại = 0 (sai) mà thực tế có comments
+            // Only update if current count = 0 (wrong) but actually has comments
             const currentCount = parseInt(cmtCountEl.textContent) || 0
             if (currentCount === 0) {
               cmtCountEl.textContent = String(paging.offset)
@@ -2602,7 +2603,7 @@ window.addEventListener("beforeunload", stopGame);
       ta.value = ''
       overlay.classList.add('open')
       
-      // ✅ Load comments và update count based on actual data
+      // ✅ Load comments and update count based on actual data
       await fetchMore()
       
       // Update comment count based on loaded comments
@@ -2628,7 +2629,7 @@ window.addEventListener("beforeunload", stopGame);
     loadMoreBtn.onclick = fetchMore
     closeBtn.onclick = () => overlay.classList.remove('open')
     
-    // Click outside to close (chỉ trên desktop)
+    // Click outside to close (desktop only)
     overlay.addEventListener('click', (e) => {
       if (e.target === overlay) {
         overlay.classList.remove('open')
@@ -2659,7 +2660,7 @@ window.addEventListener("beforeunload", stopGame);
         listEl.prepend(item)
         ta.value = ''
         
-        // ✅ Refresh comment count sau khi post thành công!
+        // ✅ Refresh comment count after successful post!
         console.log('[COMMENT DEBUG] Comment posted! Refreshing count for', paging.gameId)
         const card = document.querySelector(`.game-card[data-game-id="${paging.gameId}"]`)
         if (card) {
@@ -2786,9 +2787,9 @@ window.addEventListener("beforeunload", stopGame);
     const msgGameId = event.data?.gameId
     console.log('📨 [DEBUG] Parent received:', msgType, 'from', msgGameId, '| Origin:', event.origin);
     
-    // ✅ CHỈ sync activeGame khi game THỰC SỰ CHƠI (GAME_SCORE only!)
-    // ❌ KHÔNG sync với GAME_START/RESTART (có thể gửi tự động khi iframe load)
-    // ❌ KHÔNG sync với các message khác (init, ready, etc.)
+    // ✅ ONLY sync activeGame when game is ACTUALLY PLAYING (GAME_SCORE only!)
+    // ❌ DON'T sync with GAME_START/RESTART (may send automatically on iframe load)
+    // ❌ DON'T sync with other messages (init, ready, etc.)
     if (event.data?.gameId && event.data?.type === 'GAME_SCORE') {
       const messageGameId = event.data.gameId
       
@@ -2806,7 +2807,7 @@ window.addEventListener("beforeunload", stopGame);
       const { gameId, score } = event.data
       console.log('🎮 [TIMER DEBUG] GAME_SCORE received:', { gameId, score, origin: event.origin })
       
-      // ✅ Clear fallback timer khi nhận GAME_SCORE (game tự handle!)
+      // ✅ Clear fallback timer when receiving GAME_SCORE (game handles itself!)
       if (window.fallbackTimers && window.fallbackTimers[gameId]) {
         clearTimeout(window.fallbackTimers[gameId])
         delete window.fallbackTimers[gameId]
@@ -2867,7 +2868,7 @@ window.addEventListener("beforeunload", stopGame);
       if (achievementsToShow && achievementsToShow.length > 0) {
         const keyUsed = pendingAchievements[gameId] ? gameId : Object.keys(pendingAchievements)[0]
         console.log('   ✅ Found', achievementsToShow.length, 'achievement(s) under key:', keyUsed)
-        // Đợi 1s sau game over, mới hiện achievements
+        // Wait 1s after game over, then show achievements
         setTimeout(() => {
           console.log('   🎉 NOW showing achievements...')
           showPendingAchievements(keyUsed)
@@ -3236,39 +3237,39 @@ window.addEventListener("beforeunload", stopGame);
     })();
   </script>
 
-  <!-- Desktop scroll: Chuyển scroll từ toàn trang vào .game-container với scroll-snap -->
+  <!-- Desktop scroll: Redirect scroll from full page into .game-container with scroll-snap -->
   <script>
     (function enableDesktopScroll(){
       const gameContainer = document.querySelector('.game-container');
       if (!gameContainer) return;
       
-      // Chuyển wheel events từ document vào .game-container
+      // Redirect wheel events from document into .game-container
       document.addEventListener('wheel', (e) => {
-        // Chỉ xử lý scroll dọc
+        // Only handle vertical scroll
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
           const target = e.target;
-          // Kiểm tra xem click có trong .game-container không
+          // Check if click is inside .game-container
           const isInGameContainer = gameContainer.contains(target) || 
                                     target.closest('.game-card') ||
                                     target.closest('.game-container') ||
                                     target.closest('.main-header');
           
-          // Nếu click ra ngoài game-container (vùng đen), redirect scroll vào .game-container
+          // If click outside game-container (black area), redirect scroll into .game-container
           if (!isInGameContainer) {
             e.preventDefault();
             e.stopPropagation();
             
-            // Scroll với tốc độ mượt hơn, đảm bảo scroll xuống hoạt động
-            const scrollAmount = Math.abs(e.deltaY) * 1.2; // Tăng tốc độ scroll một chút
-            const scrollDirection = e.deltaY > 0 ? 1 : -1; // Xuống = 1, Lên = -1
+            // Scroll with smoother speed, ensure scroll down works
+            const scrollAmount = Math.abs(e.deltaY) * 1.2; // Increase scroll speed slightly
+            const scrollDirection = e.deltaY > 0 ? 1 : -1; // Down = 1, Up = -1
             
-            // Sử dụng scrollBy để trigger scroll-snap tự nhiên
+            // Use scrollBy to trigger scroll-snap naturally
             gameContainer.scrollBy({
               top: scrollAmount * scrollDirection,
-              behavior: 'auto' // 'auto' để scroll-snap hoạt động
+              behavior: 'auto' // 'auto' for scroll-snap to work
             });
             
-            // Sau khi scroll, tự động snap vào game card gần nhất ở center
+            // After scrolling, automatically snap to nearest game card at center
             clearTimeout(gameContainer._snapTimeout);
             gameContainer._snapTimeout = setTimeout(() => {
               const cards = Array.from(document.querySelectorAll('.game-card'));
@@ -3293,13 +3294,13 @@ window.addEventListener("beforeunload", stopGame);
                 }
               });
               
-              // Nếu card gần nhất chưa ở center, scroll đến center chính xác của nó + offset 5% xuống
+              // If nearest card not at center, scroll to its exact center + 5% offset down
               if (bestCard && bestDistance > 30) {
                 const cardTop = bestCard.offsetTop - gameContainer.offsetTop;
                 const cardHeight = bestCard.offsetHeight;
                 const cardCenter = cardTop + cardHeight / 2;
-                // Tính scroll position: center - 5% viewport xuống = center + 5% containerHeight
-                const offsetDown = containerHeight * 0.05; // 5% xuống
+                // Calculate scroll position: center - 5% viewport down = center + 5% containerHeight
+                const offsetDown = containerHeight * 0.05; // 5% down
                 const targetScroll = Math.max(0, cardCenter - containerHeight / 2 - offsetDown);
                 
                 gameContainer.scrollTo({
@@ -3307,21 +3308,21 @@ window.addEventListener("beforeunload", stopGame);
                   behavior: 'smooth'
                 });
               }
-            }, 150); // Debounce để không snap quá nhiều lần
+            }, 150); // Debounce to avoid snapping too many times
           }
         }
       }, { passive: false });
       
-      // Xử lý keyboard scroll (Space, Arrow keys) với scroll-snap
+      // Handle keyboard scroll (Space, Arrow keys) with scroll-snap
       document.addEventListener('keydown', (e) => {
-        // Chỉ xử lý khi focus không nằm trong input/textarea
+        // Only handle when focus is not in input/textarea
         if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
         
         const key = e.key;
         if (key === ' ' || key === 'ArrowDown' || key === 'ArrowUp' || key === 'PageDown' || key === 'PageUp') {
           e.preventDefault();
           
-          // Tìm game card hiện tại và scroll đến game tiếp theo/trước đó
+          // Find current game card and scroll to next/previous game
           const cards = Array.from(document.querySelectorAll('.game-card'));
           if (!cards.length) return;
           
@@ -3329,7 +3330,7 @@ window.addEventListener("beforeunload", stopGame);
           const containerTop = gameContainer.scrollTop;
           const containerHeight = gameContainer.clientHeight;
           
-          // Tìm game card đang hiển thị (chiếm >50% viewport)
+          // Find currently visible game card (occupying >50% viewport)
           for (let i = 0; i < cards.length; i++) {
             const card = cards[i];
             const cardTop = card.offsetTop - gameContainer.offsetTop;
@@ -3337,7 +3338,7 @@ window.addEventListener("beforeunload", stopGame);
             const viewportTop = containerTop;
             const viewportBottom = containerTop + containerHeight;
             
-            // Nếu card chiếm >50% viewport
+            // If card occupies >50% viewport
             const visibleTop = Math.max(cardTop, viewportTop);
             const visibleBottom = Math.min(cardBottom, viewportBottom);
             const visibleHeight = visibleBottom - visibleTop;
@@ -3348,7 +3349,7 @@ window.addEventListener("beforeunload", stopGame);
             }
           }
           
-          // Xác định game tiếp theo/trước đó
+          // Determine next/previous game
           let nextIndex = currentIndex;
           if (key === 'ArrowDown' || key === ' ' || key === 'PageDown') {
             nextIndex = (currentIndex + 1) % cards.length;
@@ -3356,15 +3357,15 @@ window.addEventListener("beforeunload", stopGame);
             nextIndex = (currentIndex - 1 + cards.length) % cards.length;
           }
           
-          // Scroll đến center của game card + offset 5% xuống để game xuất hiện thấp hơn một chút
+          // Scroll to center of game card + 5% offset down to make game appear slightly lower
           if (cards[nextIndex]) {
             const card = cards[nextIndex];
             const cardTop = card.offsetTop - gameContainer.offsetTop;
             const cardHeight = card.offsetHeight;
             const containerHeight = gameContainer.clientHeight;
             const cardCenter = cardTop + cardHeight / 2;
-            // Tính scroll position: center - 5% viewport xuống = center + 5% containerHeight
-            const offsetDown = containerHeight * 0.05; // 5% xuống
+            // Calculate scroll position: center - 5% viewport down = center + 5% containerHeight
+            const offsetDown = containerHeight * 0.05; // 5% down
             const targetScroll = Math.max(0, cardCenter - containerHeight / 2 - offsetDown);
             
             gameContainer.scrollTo({
@@ -3585,7 +3586,7 @@ window.addEventListener("beforeunload", stopGame);
         let mc = 0
         
         if (graduated) {
-          // CASE 1: Đã lên PancakeSwap → DexScreener
+          // CASE 1: Already on PancakeSwap → DexScreener
           console.log(`[MC] ${id} graduated → DexScreener`)
           
           const dex = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN}`)
@@ -3615,16 +3616,16 @@ window.addEventListener("beforeunload", stopGame);
         wrap.style.cursor = 'pointer'
         wrap.onclick = () => window.open(`https://four.meme/token/${TOKEN}`, '_blank')
         wrap.title = `$${mc.toLocaleString()}`
-        mcCache[id] = mc // Cache kết quả
+        mcCache[id] = mc // Cache result
         
       } catch (e) {
         console.error(`❌ [MC] ${id}:`, e)
         btn.textContent = 'MC --'
-        mcCache[id] = 'error' // Cache error để không retry
+        mcCache[id] = 'error' // Cache error to avoid retry
       }
     }
     
-    // Cache để không fetch lại
+    // Cache to avoid refetching
     const mcCache = {}
     const mcLoading = {}
     
@@ -3634,12 +3635,12 @@ window.addEventListener("beforeunload", stopGame);
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
           const gameId = entry.target.id
           
-          // Check iframe đã load chưa
+          // Check if iframe has loaded
           const iframe = entry.target.querySelector('iframe')
           const iframeLoaded = iframe && iframe.src && !iframe.src.includes('about:blank')
           
           if (iframeLoaded && !mcCache[gameId] && !mcLoading[gameId]) {
-            // Đợi thêm 2s để game ổn định, MỚI fetch MC
+            // Wait 2s for game to stabilize, THEN fetch MC
             setTimeout(() => {
               mcLoading[gameId] = true
               console.log(`[MC] Loading for game (iframe ready): ${gameId}`)
@@ -3649,11 +3650,11 @@ window.addEventListener("beforeunload", stopGame);
         }
       })
     }, { 
-      threshold: 0.5, // Tăng từ 0.3 → 0.5 (visible 50%)
-      rootMargin: '0px' // Bỏ preload, chỉ fetch khi thực sự visible
+      threshold: 0.5, // Increased from 0.3 → 0.5 (visible 50%)
+      rootMargin: '0px' // Remove preload, only fetch when actually visible
     })
     
-    // Đợi 5s sau khi page load, bắt đầu observe
+    // Wait 5s after page load, then start observing
     setTimeout(() => {
       console.log('[MC] Starting lazy load observer (after 5s delay)')
       document.querySelectorAll('.game-card').forEach(card => {
