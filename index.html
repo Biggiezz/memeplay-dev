@@ -1363,10 +1363,9 @@
         // Bust cache to guarantee a load event
         const sep = targetUrl.includes('?') ? '&' : '?';
         iframe.src = targetUrl + sep + 'v=' + Date.now();
-        console.log((isPreload ? '🔄 Preloaded:' : '🎮 Activated:'), gameId);
-      } else {
-        console.log('⏭️ Skip', gameId, '- already loaded');
+        // Silently load game (logs removed for cleaner console)
       }
+      // Game already loaded - no need to reload
       
       if (isPreload) {
         preloadedGames.add(gameId);
@@ -1530,11 +1529,7 @@
       const allCards = Array.from(document.querySelectorAll('.game-card'))
       const firstFourGames = allCards.slice(0, 4).map(c => c.id).filter(Boolean)
       
-      // DEBUG: Check game order
-      console.log('📋 Game order in DOM:')
-      allCards.forEach((card, idx) => {
-        console.log(`  ${idx + 1}. ${card.id}`)
-      })
+      // Game order loaded silently (debug logs removed for cleaner console)
       
       // STEP 1: FORCE SCROLL TO FIRST GAME (disable snap first)
       const firstCard = allCards[0]
@@ -1551,7 +1546,6 @@
         // Scroll to first card explicitly
         requestAnimationFrame(() => {
           firstCard.scrollIntoView({ block: 'start' })
-          console.log('📍 Force scrolled to:', firstCard.id)
           
           // Re-enable scroll-snap sau 500ms
           setTimeout(() => {
@@ -1571,29 +1565,23 @@
       
       if (isMobile) {
         // 📱 MOBILE: Load game 1 INSTANTLY, games 2-4 after (don't block game 1!)
-        console.log('📱 Mobile detected - Priority loading!')
-        
-        // Load game 1 INSTANTLY (0ms delay) - User can play immediately!
+        // 📱 Mobile: Priority loading - game 1 instant, 2-4 after 2s
         if (allCards[0]?.id) {
           activateGame(allCards[0].id, true)
           currentActiveGame = allCards[0].id
-          console.log('  🚀 PRIORITY: Game 1 loading NOW for instant play!')
         
           // Load games 2-4 after 2 seconds (user is playing game 1)
           setTimeout(() => {
             const games2to4 = allCards.slice(1, 4)
-            console.log('  🎮 Background: Loading games 2-4:', games2to4.map(c => c.id))
             games2to4.forEach(card => {
               if (card.id) activateGame(card.id, true)
             })
-            console.log('  🎯 Strategy: Game 1 instant, 2-4 background, 5+ on scroll')
           }, 2000)
         }
       } else {
         // 💻 DESKTOP: Load 4 games parallel (fast connection)
         setTimeout(() => {
           const gamesToPreload = allCards.slice(0, 4)
-          console.log('💻 Desktop - Preloading 4 games parallel:', gamesToPreload.map(c => c.id))
           
           gamesToPreload.forEach((card) => {
             if (card.id) activateGame(card.id, true)
@@ -1601,8 +1589,6 @@
           
           if (allCards[0]) {
             currentActiveGame = allCards[0].id
-            console.log('  ✅ Current game:', allCards[0].id)
-            console.log('  🎯 Strategy: 4 parallel, 5+ on scroll (300px ahead)')
         }
       }, 300)
       }
@@ -3593,7 +3579,7 @@ window.addEventListener("beforeunload", stopGame);
         
         if (graduated) {
           // CASE 1: Already on PancakeSwap → DexScreener
-          console.log(`[MC] ${id} graduated → DexScreener`)
+          // Market cap graduated to DexScreener
           
           const dex = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN}`)
           const dexData = await dex.json()
@@ -3607,7 +3593,7 @@ window.addEventListener("beforeunload", stopGame);
           
         } else {
           // CASE 2: Bonding curve → 4meme contract
-          console.log(`[MC] ${id} bonding curve → 4meme contract`)
+          // Market cap from bonding curve
           
           const bnb = await getBNB()
           const priceBNB = Number(info[3]) / 1e18
@@ -3649,7 +3635,6 @@ window.addEventListener("beforeunload", stopGame);
             // Wait 2s for game to stabilize, THEN fetch MC
             setTimeout(() => {
               mcLoading[gameId] = true
-              console.log(`[MC] Loading for game (iframe ready): ${gameId}`)
               update(gameId)
             }, 2000)
           }
@@ -3662,7 +3647,7 @@ window.addEventListener("beforeunload", stopGame);
     
     // Wait 5s after page load, then start observing
     setTimeout(() => {
-      console.log('[MC] Starting lazy load observer (after 5s delay)')
+      // Start lazy load observer after 5s delay
       document.querySelectorAll('.game-card').forEach(card => {
         mcObserver.observe(card)
       })
