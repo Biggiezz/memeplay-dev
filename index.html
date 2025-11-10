@@ -1199,22 +1199,12 @@
           </div>
         </div>
       </div>
-      <div class="search-wrapper">
-        <button id="quickActionsButton" class="icon-button" aria-haspopup="true" aria-expanded="false" title="Creator">
-          <span class="icon-plus">＋</span>
-        </button>
-        <div class="nav-dropdown" id="quickActionsDropdown" role="menu" aria-hidden="true">
-          <div class="dropdown-list" id="quickActionsList">
-            <div class="dropdown-item" data-action="creator">
-              <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2; margin-right: 8px;">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              Creator
-            </div>
-          </div>
-        </div>
-      </div>
+      <button id="creatorButton" class="icon-button" title="Creator">
+        <svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+          <circle cx="12" cy="7" r="4"></circle>
+        </svg>
+      </button>
       <button id="walletConnectBtn" class="icon-button wallet-connect" aria-label="Connect MetaMask">
         <img src="assets/icons/metamask.svg" alt="MetaMask" />
       </button>
@@ -1488,25 +1478,19 @@
     const dropdownList = document.getElementById('dropdownList');
     const items = dropdownList ? dropdownList.querySelectorAll('.dropdown-item') : [];
     const searchToggleButton = document.getElementById('searchToggleButton');
-    const quickToggleButton = document.getElementById('quickActionsButton');
-    const quickDropdown = document.getElementById('quickActionsDropdown');
-    const quickItems = quickDropdown ? quickDropdown.querySelectorAll('.dropdown-item') : [];
     
     // Hamburger menu dropdown
     const hamburgerButton = document.getElementById('hamburgerButton');
     const hamburgerDropdown = document.getElementById('hamburgerDropdown');
     const hamburgerItems = hamburgerDropdown ? hamburgerDropdown.querySelectorAll('.dropdown-item') : [];
+    
+    // Creator button (direct click - no dropdown)
+    const creatorButton = document.getElementById('creatorButton');
 
     function closeNavDropdown() {
       navDropdown.classList.remove('open');
       navDropdown.setAttribute('aria-hidden', 'true');
       searchToggleButton?.setAttribute('aria-expanded', 'false');
-    }
-
-    function closeQuickDropdown() {
-      quickDropdown?.classList.remove('open');
-      quickDropdown?.setAttribute('aria-hidden', 'true');
-      quickToggleButton?.setAttribute('aria-expanded', 'false');
     }
     
     function closeHamburgerDropdown() {
@@ -1519,7 +1503,6 @@
     hamburgerButton?.addEventListener('click', (event) => {
       event.stopPropagation();
       closeNavDropdown();
-      closeQuickDropdown();
       const willOpen = !hamburgerDropdown.classList.contains('open');
       if (willOpen) {
         hamburgerDropdown.classList.add('open');
@@ -1532,7 +1515,6 @@
 
     searchToggleButton?.addEventListener('click', (event) => {
       event.stopPropagation();
-      closeQuickDropdown();
       closeHamburgerDropdown();
       const willOpen = !navDropdown.classList.contains('open');
       if (willOpen) {
@@ -1554,20 +1536,6 @@
       });
     });
 
-    quickToggleButton?.addEventListener('click', (event) => {
-      event.stopPropagation();
-      closeNavDropdown();
-      closeHamburgerDropdown();
-      const willOpen = !quickDropdown.classList.contains('open');
-      if (willOpen) {
-        quickDropdown.classList.add('open');
-        quickDropdown.setAttribute('aria-hidden', 'false');
-        quickToggleButton.setAttribute('aria-expanded', 'true');
-      } else {
-        closeQuickDropdown();
-      }
-    });
-
     // Hamburger dropdown items
     hamburgerItems.forEach(item => {
       item.addEventListener('click', (event) => {
@@ -1587,39 +1555,28 @@
       });
     });
 
-    quickItems.forEach(item => {
-      item.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const action = item.getAttribute('data-action');
-        switch(action) {
-          case 'creator':
-            if (typeof window.__openCreatorOverlay === 'function') {
-              window.__openCreatorOverlay();
-            }
-            break;
-        }
-        closeQuickDropdown();
-      });
+    // Creator button - direct click to open overlay
+    creatorButton?.addEventListener('click', (event) => {
+      event.stopPropagation();
+      closeNavDropdown();
+      closeHamburgerDropdown();
+      if (typeof window.__openCreatorOverlay === 'function') {
+        window.__openCreatorOverlay();
+      }
     });
 
     document.addEventListener('click', function(e) {
+      // Close dropdowns when clicking outside
       if (navDropdown.contains(e.target) || searchToggleButton.contains(e.target)) {
-        closeQuickDropdown();
-        closeHamburgerDropdown();
-        return;
-      }
-      if (quickDropdown?.contains(e.target) || quickToggleButton?.contains(e.target)) {
-        closeNavDropdown();
         closeHamburgerDropdown();
         return;
       }
       if (hamburgerDropdown?.contains(e.target) || hamburgerButton?.contains(e.target)) {
         closeNavDropdown();
-        closeQuickDropdown();
         return;
       }
+      // Click outside - close all
       closeNavDropdown();
-      closeQuickDropdown();
       closeHamburgerDropdown();
     });
   </script>
