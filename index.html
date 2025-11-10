@@ -59,6 +59,10 @@
       position: relative;
       display: inline-flex;
     }
+    .hamburger-wrapper .nav-dropdown {
+      left: 0;
+      right: auto;
+    }
     .docs-menu-btn {
       display: inline-flex;
       align-items: center;
@@ -182,6 +186,7 @@
       flex-direction: column;
       padding: 10px 0;
       z-index: 10000;
+      overflow: hidden; /* Fix: Prevent content from breaking rounded corners */
     }
     .nav-dropdown.open {
       display: flex;
