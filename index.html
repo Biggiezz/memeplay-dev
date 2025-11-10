@@ -211,10 +211,6 @@
     .dropdown-item.active {
       background: #273e66;
     }
-    .dropdown-item[data-action="coming-soon"]:hover {
-      background: inherit;
-      cursor: not-allowed;
-    }
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(6px);}
       to { opacity: 1; transform: none;}
@@ -1169,7 +1165,7 @@
                 <line x1="16" y1="17" x2="8" y2="17"></line>
                 <polyline points="10 9 9 9 8 9"></polyline>
               </svg>
-              Documentation
+              Docs
             </div>
             <div class="dropdown-item" data-action="stats">
               <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2; margin-right: 8px;">
@@ -1179,13 +1175,6 @@
                 <rect x="3" y="14" width="7" height="7"></rect>
               </svg>
               Stats
-            </div>
-            <div class="dropdown-item" data-action="creator">
-              <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2; margin-right: 8px;">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              Creator
             </div>
           </div>
         </div>
@@ -1211,19 +1200,17 @@
         </div>
       </div>
       <div class="search-wrapper">
-        <button id="quickActionsButton" class="icon-button" aria-haspopup="true" aria-expanded="false" title="Create Game + Token">
+        <button id="quickActionsButton" class="icon-button" aria-haspopup="true" aria-expanded="false" title="Creator">
           <span class="icon-plus">＋</span>
         </button>
         <div class="nav-dropdown" id="quickActionsDropdown" role="menu" aria-hidden="true">
           <div class="dropdown-list" id="quickActionsList">
-            <!-- Reserved for future: Create Game + Token features -->
-            <div class="dropdown-item" data-action="coming-soon" style="opacity: 0.5; cursor: not-allowed;">
+            <div class="dropdown-item" data-action="creator">
               <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2; margin-right: 8px;">
-                <circle cx="12" cy="12" r="10"></circle>
-                <line x1="12" y1="8" x2="12" y2="12"></line>
-                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
               </svg>
-              Coming Soon...
+              Creator
             </div>
           </div>
         </div>
@@ -1595,11 +1582,6 @@
               window.__openStatsOverlay();
             }
             break;
-          case 'creator':
-            if (typeof window.__openCreatorOverlay === 'function') {
-              window.__openCreatorOverlay();
-            }
-            break;
         }
         closeHamburgerDropdown();
       });
@@ -1609,11 +1591,13 @@
       item.addEventListener('click', (event) => {
         event.stopPropagation();
         const action = item.getAttribute('data-action');
-        if (action === 'coming-soon') {
-          // Do nothing - disabled
-          return;
+        switch(action) {
+          case 'creator':
+            if (typeof window.__openCreatorOverlay === 'function') {
+              window.__openCreatorOverlay();
+            }
+            break;
         }
-        // Reserved for future: Create Game + Token
         closeQuickDropdown();
       });
     });
