@@ -987,6 +987,7 @@
       text-shadow: 0 4px 12px rgba(16, 185, 129, 0.5);
       letter-spacing: 2px;
       margin-top: 12px;
+      white-space: nowrap; /* Force single line */
     }
     @media (max-width: 480px) {
       .daily-checkin-toast {
@@ -1011,8 +1012,9 @@
         font-size: 12px;
       }
       .daily-checkin-reward {
-        font-size: 32px;
-        padding: 12px 24px;
+        font-size: 28px;
+        padding: 12px 20px;
+        letter-spacing: 1px;
       }
     }
     @keyframes dailyBounceIn {
