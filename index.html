@@ -473,6 +473,13 @@
       min-width: 26px;
       padding: 0;
     }
+    .icon-wrapper[data-role="marketcap"] button::before {
+      content: 'MC';
+      font-size: 20px;
+      font-weight: 700;
+      color: #ffffff;
+      line-height: 1;
+    }
     .icon-wrapper[data-role="marketcap"] button span {
       white-space: nowrap;
       font-size: 20px;
@@ -480,7 +487,7 @@
       letter-spacing: 0.5px;
       line-height: 1;
       color: #ffffff;
-      display: none !important; /* Tạm ẩn số liệu MC để tránh user hiểu nhầm */
+      display: none !important; /* Hide MC number temporarily to avoid user confusion */
     }
     .icon-wrapper[data-role="donate"] svg {
       stroke: #ffffff;
@@ -496,10 +503,13 @@
       .icon-wrapper[data-role="marketcap"] {
         transform: translateX(-30px);
       }
+      .icon-wrapper[data-role="marketcap"] button::before {
+        font-size: 14px;
+      }
       .icon-wrapper[data-role="marketcap"] button span {
         font-size: 8.5px;
         letter-spacing: 0.1px;
-        display: none !important; /* Tạm ẩn số liệu MC trên mobile */
+        display: none !important; /* Hide MC number on mobile */
       }
       .game-footer {
         padding: 4px 14px 6px 14px !important;
