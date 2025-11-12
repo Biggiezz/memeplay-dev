@@ -1515,19 +1515,19 @@
     let currentActiveGame = null;
     const preloadedGames = new Set(); // Track preloaded games
     
-    // Game URLs mapping (active games only) - using ?device=tablet for 720x1000 optimal display
+    // Game URLs mapping (active games only)
     const gameUrls = {
-      'bird-squash': 'https://bird-squash-dev.lovable.app?device=tablet',
-      'wojak-btc-blast': 'https://wojak-btc-blast.lovable.app?device=tablet',
-      'moonshot-bnb': 'https://moonshot-bnb.lovable.app?device=tablet',
-      'game-detective': 'https://game-detective-clone.lovable.app?device=tablet',
-      'monkey-crypto-climb': 'https://monkey-crypto-climb.lovable.app?device=tablet',
-      'crypto-arrow': 'https://crypto-arrow1.lovable.app?device=tablet',
-      'inverse-cramer': 'https://inverse-cramer.lovable.app?device=tablet',
-      'xstarship-flap': 'https://xstarship-flap.lovable.app?device=tablet',
-      'pacman-memeplay': 'https://pacman-memeplay.lovable.app?device=tablet',
-      'story-shape-studio': 'https://story-shape-studio.lovable.app?device=tablet',
-      'pixel-orb-escape': 'https://pixel-orb-escape.lovable.app?device=tablet'
+      'bird-squash': 'https://bird-squash-dev.lovable.app',
+      'wojak-btc-blast': 'https://wojak-btc-blast.lovable.app',
+      'moonshot-bnb': 'https://moonshot-bnb.lovable.app',
+      'game-detective': 'https://game-detective-clone.lovable.app',
+      'monkey-crypto-climb': 'https://monkey-crypto-climb.lovable.app',
+      'crypto-arrow': 'https://crypto-arrow1.lovable.app',
+      'inverse-cramer': 'https://inverse-cramer.lovable.app',
+      'xstarship-flap': 'https://xstarship-flap.lovable.app',
+      'pacman-memeplay': 'https://pacman-memeplay.lovable.app',
+      'story-shape-studio': 'https://story-shape-studio.lovable.app',
+      'pixel-orb-escape': 'https://pixel-orb-escape.lovable.app'
     };
   
     function activateGame(gameId, isPreload = false) {
