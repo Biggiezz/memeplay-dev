@@ -895,6 +895,8 @@
       align-items: center;
       justify-content: center;
       transition: background 0.2s ease;
+      pointer-events: all !important; /* ✅ Always clickable, even when parent has pointer-events: none */
+      z-index: 10; /* ✅ Above all other elements in toast */
     }
     .achievement-toast-close:hover {
       background: rgba(0, 0, 0, 0.4);
