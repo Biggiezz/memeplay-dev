@@ -61,11 +61,13 @@
       display: none;
       z-index: 100;
       width: 420px;
-      height: 420px;
+      min-height: 420px; /* ✅ Min height instead of fixed */
+      height: auto; /* ✅ Auto height to fit content */
       max-width: 90%;
-      max-height: 90vh;
+      max-height: 90vh; /* ✅ Max 90% viewport height */
       flex-direction: column;
       justify-content: space-between;
+      overflow-y: auto; /* ✅ Scroll if content too long */
     }
     .game-over.show { display: flex; }
     .game-over h2 { font-size: 26px; margin: 0; line-height: 1.2; }
@@ -110,9 +112,10 @@
       .game-over {
         padding: 20px;
         width: 85vw;
-        height: 85vw;
+        min-height: 85vw; /* ✅ Min height instead of fixed */
+        height: auto; /* ✅ Auto height to fit content */
         max-width: 420px;
-        max-height: 420px;
+        max-height: 85vh; /* ✅ Max 85% viewport height on mobile */
       }
       .game-over h2 { 
         font-size: 22px;
