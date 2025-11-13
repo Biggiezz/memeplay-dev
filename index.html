@@ -1567,13 +1567,90 @@
       'pixel-orb-escape': 'https://pixel-orb-escape.lovable.app',
       'rocket-bnb': 'games/rocket-bnb/index.html'
     };
+    
+    // ✅ MODULE-BASED GAMES (NO iframe - 60 FPS!)
+    const moduleGames = {
+      'bird-squash-clone': {
+        module: './games/bird-squash-clone/game.js',
+        className: 'BirdSquashGame',
+        canvasId: 'canvas-bird-squash'
+      }
+    };
+    
+    // Store active module game instances
+    const activeModuleGames = {};
+  
+    // ✅ ACTIVATE MODULE-BASED GAME (NO iframe!)
+    async function activateModuleGame(gameId, isPreload = false) {
+      if (!isPreload && currentActiveGame === gameId) return;
+      
+      const config = moduleGames[gameId];
+      if (!config) return;
+      
+      console.log('🎮 Loading module game:', gameId);
+      
+      // Stop previous game (iframe or module)
+      if (!isPreload && currentActiveGame && !preloadedGames.has(currentActiveGame)) {
+        // Stop module game
+        if (activeModuleGames[currentActiveGame]) {
+          activeModuleGames[currentActiveGame].stop();
+          delete activeModuleGames[currentActiveGame];
+        }
+        // Stop iframe game
+        try { window.memeplay && window.memeplay.stopGame && window.memeplay.stopGame(); } catch {}
+      }
+      
+      // Load module and start game
+      try {
+        const module = await import(config.module);
+        const GameClass = module[config.className];
+        
+        if (!GameClass) {
+          console.error(`❌ Class ${config.className} not found in module!`);
+          return;
+        }
+        
+        // Create game instance
+        const game = new GameClass(config.canvasId, gameId);
+        
+        // Start game
+        game.start();
+        
+        // Store instance
+        activeModuleGames[gameId] = game;
+        
+        console.log('✅ Module game started:', gameId);
+        
+        // Update active game
+        if (!isPreload) {
+          currentActiveGame = gameId;
+          try { window.__memeplayActiveGame = gameId; } catch {}
+          document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }));
+        } else {
+          preloadedGames.add(gameId);
+        }
+        
+      } catch (error) {
+        console.error(`❌ Failed to load module game ${gameId}:`, error);
+      }
+    }
   
     function activateGame(gameId, isPreload = false) {
+      // ✅ CHECK IF MODULE-BASED GAME (NO iframe!)
+      if (moduleGames[gameId]) {
+        return activateModuleGame(gameId, isPreload);
+      }
+      
       // If preloading, don't check currentActiveGame
       if (!isPreload && currentActiveGame === gameId) return;
       
       // Only stop previous game if NOT preloading
       if (!isPreload && currentActiveGame && !preloadedGames.has(currentActiveGame)) {
+        // Stop module game if previous was module
+        if (activeModuleGames[currentActiveGame]) {
+          activeModuleGames[currentActiveGame].stop();
+          delete activeModuleGames[currentActiveGame];
+        }
         // Ensure previous session is stopped (module exposes on window)
         try { window.memeplay && window.memeplay.stopGame && window.memeplay.stopGame(); } catch {}
         // DON'T clear src - keep cached for reuse when scrolling back!
