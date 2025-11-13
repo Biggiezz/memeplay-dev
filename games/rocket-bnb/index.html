@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🚀 BNB Rocket Game</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 0;
+      background: #000;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+      width: 100vw;
+      height: 100vh;
+    }
+    #gameCanvas {
+      border: none;
+      cursor: pointer;
+      display: block;
+      /* ✅ Canvas internal: Always 720×1000px */
+      /* CSS scales to fit screen, but graphics resolution stays fixed */
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      /* Performance hints for iframe */
+      will-change: transform;
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    .score {
+      position: absolute;
+      top: 55px;  /* Desktop: Moved down 25px (30 → 55) */
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 64px;
+      color: #F3BA2F;
+      text-shadow: 3px 3px 0 #000;
+      font-weight: bold;
+      z-index: 10;
+    }
+    @media (max-width: 768px) {
+      .score {
+        top: 40px;  /* Mobile: Higher by 10px (50 → 40) */
+        font-size: 48px;  /* Mobile: 25% smaller (64 → 48) */
+      }
+    }
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: linear-gradient(135deg, #1E1A2E, #2A1E42);
+      padding: 25px;
+      border-radius: 15px;
+      border: 3px solid #F3BA2F;
+      text-align: center;
+      color: #F3BA2F;
+      display: none;
+      z-index: 100;
+      width: 420px;
+      height: 420px;
+      max-width: 90%;
+      max-height: 90vh;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .game-over.show { display: flex; }
+    .game-over h2 { font-size: 26px; margin: 0; line-height: 1.2; }
+    .game-over .score-text { font-size: 22px; margin: 0; font-weight: bold; }
+    .token-showcase { margin: 10px 0; flex: 1; display: flex; flex-direction: column; justify-content: center; }
+    .token-logo { 
+      width: 140px; 
+      height: 140px; 
+      margin: 0 auto 15px; 
+      display: block;
+      border-radius: 50%;
+      border: 2px solid #F3BA2F;
+      object-fit: contain;
+      background: transparent;
+      padding: 2px;
+    }
+    .token-story { 
+      font-size: 13px; 
+      line-height: 1.5; 
+      color: #FFF; 
+      margin: 0;
+      text-align: left;
+      padding: 0 5px;
+      white-space: pre-line;
+    }
+    .game-over button {
+      padding: 14px 30px;
+      font-size: 18px;
+      background: linear-gradient(135deg, #F3BA2F, #FCD535);
+      color: #000;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      font-weight: bold;
+      font-family: 'Courier New', monospace;
+      width: 100%;
+      max-width: 280px;
+      margin: 0 auto;
+      display: block;
+    }
+    @media (max-width: 768px) {
+      .game-over {
+        padding: 20px;
+        width: 85vw;
+        height: 85vw;
+        max-width: 420px;
+        max-height: 420px;
+      }
+      .game-over h2 { 
+        font-size: 22px;
+        margin: 0;
+      }
+      .game-over .score-text { 
+        font-size: 18px;
+        margin: 0;
+      }
+      .token-logo { 
+        width: 55px; 
+        height: 55px;
+        margin-bottom: 10px;
+        object-fit: contain;
+        padding: 3px;
+      }
+      .token-story { 
+        font-size: 12px;
+        line-height: 1.4;
+        padding: 0;
+      }
+      .game-over button { 
+        font-size: 14px;
+        padding: 10px 20px;
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div class="score" id="score">0</div>
+  <div class="game-over" id="gameOver">
+    <h2>GAME OVER</h2>
+    <div class="score-text">Score: <span id="finalScore">0</span></div>
+    <div class="token-showcase">
+      <img id="tokenLogo" src="" alt="Token Logo" class="token-logo">
+      <p id="tokenStory" class="token-story"></p>
+    </div>
+    <button onclick="restart()">TO THE MOON AGAIN!</button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { 
+      alpha: false,              // No transparency = faster!
+      desynchronized: true,      // Don't wait for compositor = smoother!
+      willReadFrequently: false  // Write-only mode = faster!
+    });
+    ctx.imageSmoothingEnabled = false;  // Pixel art = no smoothing!
+    
+    // ✅ Detect if running in iframe (localhost has overhead!)
+    const isInIframe = window.self !== window.top;
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    
+    if (isInIframe) {
+      console.log('⚠️ Running in IFRAME - Using max performance mode!');
+    }
+    
+    // Token stories (random 1/3 for each token)
+    const tokenStories = {
+      coin: [
+        "$BRAIN\n\nAskBrain AI is an on-chain assistant on BNB Chain that reads market data, social signals, and smart contracts in real time.",
+        "$BRAIN\n\nBuilt as a true utility layer: AI search, wallet actions, payments, buyback & burn automation.",
+        "$BRAIN\n\nStrength: gives users instant on-chain intelligence, helping beginners and pros make smarter decisions effortlessly."
+      ],
+      dog: [
+        "$PUP\n\nPUP is a pure meme-coin on BNB Chain with zero hype, zero promises — fully driven by community energy.",
+        "$PUP\n\nFixed supply of 1B tokens, simple and transparent tokenomics.",
+        "$PUP\n\nIts strength lies in embracing meme culture authentically, making it fun, free-spirited, and easy for anyone to join."
+      ]
+    };
+    
+    // ✅ Canvas always 720×1000px (same for desktop & mobile!)
+    // CSS scales display, but graphics resolution stays fixed!
+    canvas.width = 720;
+    canvas.height = 1000;
+
+    // Load rocket WebP (PIXEL ART - Clear Binance logo!)
+    const img = new Image();
+    img.src = 'assets/rocket-pixel.webp';
+    let loaded = false;
+    let rocketPixels = null;
+    img.onload = () => {
+      loaded = true;
+      console.log('✅ Rocket pixel art loaded!', img.width, 'x', img.height);
+      
+      // Extract pixel data for collision detection
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = 144;
+      tempCanvas.height = 125;
+      const tempCtx = tempCanvas.getContext('2d');
+      tempCtx.drawImage(img, 0, 0, 144, 125);
+      rocketPixels = tempCtx.getImageData(0, 0, 144, 125);
+      console.log('✅ Extracted rocket pixel data for collision!');
+    };
+    
+    // Load 3 rock obstacles (random stacking)
+    const rocks = [];
+    const rockPixels = [];
+    const rockPaths = ['assets/rock1.webp', 'assets/rock2.webp', 'assets/rock3.webp'];
+    let rocksLoaded = 0;
+    rockPaths.forEach((path, i) => {
+      rocks[i] = new Image();
+      rocks[i].src = path;
+      rocks[i].onload = () => {
+        rocksLoaded++;
+        
+        // Extract pixel data for collision
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = 144;
+        tempCanvas.height = 144;
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCtx.drawImage(rocks[i], 0, 0, 144, 144);
+        rockPixels[i] = tempCtx.getImageData(0, 0, 144, 144);
+        
+        if (rocksLoaded === 3) console.log('✅ All 3 rocks + pixel data loaded!');
+      };
+    });
+    
+    // ✅ Load coin logo image (REAL image, not code!)
+    const coinImg = new Image();
+    coinImg.src = 'assets/coin-logo.webp';  // ✅ Real Binance logo image!
+    coinImg.onload = () => console.log('✅ Coin logo image loaded!');
+    
+    // ✅ Load dog collectible image
+    const dogImg = new Image();
+    dogImg.src = 'assets/dog-binance.webp';  // ✅ Binance dog image!
+    dogImg.onload = () => console.log('✅ Dog Binance image loaded!');
+
+    // Audio
+    const ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+    function beep(freq, dur, type = 'square') {
+      const o = ctx2.createOscillator();
+      const g = ctx2.createGain();
+      o.connect(g);
+      g.connect(ctx2.destination);
+      o.type = type;
+      o.frequency.value = freq;
+      g.gain.setValueAtTime(0.3, ctx2.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + dur);
+      o.start();
+      o.stop(ctx2.currentTime + dur);
+    }
+
+    // Game vars
+    let started = false;
+    let gameOver = false;
+    let score = 0;
+    let frames = 0;
+    
+    // ✅ MOBILE GAME SPEED BOOST +15% × 2 = +32% TOTAL!
+    const MOBILE_GAME_SPEED = isMobile ? 1.3225 : 1.0;  // 1.15 × 1.15 = 1.3225 (+32% speed!)
+    const MOBILE_PIPE_BOOST = isMobile ? 1.5 * MOBILE_GAME_SPEED : 1.0;  // 1.5 × 1.3225 = 1.984
+    const MOBILE_GRAVITY_BOOST = isMobile ? 1.4 * MOBILE_GAME_SPEED : 1.0;  // 1.4 × 1.3225 = 1.851
+    const MOBILE_SPAWN_ADJUST = isMobile ? 0.6 : 1.0;  // 0.75 × 0.8 = 0.6 (spawn 20% faster!)
+
+    // Rocket
+    const rocket = {
+      x: 150,
+      y: canvas.height / 2,
+      w: 180,  // Rocket width +25% (144 → 180)
+      h: 156,  // Rocket height +25% (125 → 156)
+      vy: 0,
+      
+      draw() {
+        if (!loaded) return;  // Don't draw if not loaded
+        
+        const rot = Math.max(-30, Math.min(30, this.vy * 4.86)) * Math.PI / 180;
+        const centerX = this.x + this.w/2;
+        const centerY = this.y + this.h/2;
+        
+        // ✅ Optimize: Only save/restore if rotating
+        if (Math.abs(rot) > 0.01) {
+          ctx.save();
+          ctx.translate(centerX, centerY);
+          ctx.rotate(rot);
+          ctx.drawImage(img, -this.w/2, -this.h/2, this.w, this.h);
+          ctx.restore();
+        } else {
+          // No rotation = direct draw (faster!)
+          ctx.drawImage(img, this.x, this.y, this.w, this.h);
+        }
+      },
+      
+      update() {
+        if (!started || gameOver) return;
+        this.vy += 0.312 * MOBILE_GRAVITY_BOOST;
+        this.y += this.vy;
+        
+        // ❌ Removed canvas collision - let rocks collision handle all
+      },
+      
+      jump() {
+        if (gameOver) return;
+        if (!started) started = true;
+        // ✅ Jump force increased 32% on mobile! (1.15 × 1.15)
+        const jumpForce = -5.76 * (isMobile ? 1.3225 : 1.0);  // Mobile: -7.618
+        this.vy = jumpForce;
+        beep(400, 0.1);
+      }
+    };
+
+    // ✨ Background gradient + stars (PRE-RENDERED for max performance!)
+    const bgCanvas = document.createElement('canvas');
+    bgCanvas.width = 720;
+    bgCanvas.height = 1000;
+    const bgCtx = bgCanvas.getContext('2d');
+    
+    // Render gradient
+    const bgGradient = bgCtx.createLinearGradient(0, 0, 0, bgCanvas.height);
+    bgGradient.addColorStop(0, '#1A0A2E');     // Deep purple top
+    bgGradient.addColorStop(0.5, '#2D1B4E');   // Medium purple middle
+    bgGradient.addColorStop(1, '#0F051D');     // Dark purple/black bottom
+    bgCtx.fillStyle = bgGradient;
+    bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+    
+    // Render stars (adaptive: 5 stars ONLY for max smoothness!)
+    const starCount = 5;  // Minimal stars = max performance!
+    bgCtx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+    for (let i = 0; i < starCount; i++) {
+      const x = Math.random() * bgCanvas.width;
+      const y = Math.random() * bgCanvas.height;
+      const size = 2;  // Fixed size = consistent
+      bgCtx.fillRect(x, y, size, size);
+    }
+    
+    // ✅ Background = 1 image! Draw once per frame = FAST!
+
+    // Coins/Collectibles (logo coin + dog image)
+    const coins = [];
+    class Coin {
+      constructor(x, y, type = 'coin') {  // ✅ type: 'coin' or 'dog'
+        this.x = x;
+        this.y = y;
+        this.size = 80;  // 80×80px!
+        this.collected = false;
+        this.type = type;  // ✅ Random type!
+      }
+      
+      draw() {
+        if (this.collected) return;
+        
+        if (this.type === 'dog') {
+          // Dog: Draw normal (square, no clip)
+          ctx.drawImage(dogImg, this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+        } else {
+          // Coin: Draw circular (clip for perfect circle!)
+          ctx.save();
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size/2, 0, Math.PI * 2);
+          ctx.clip();
+          ctx.drawImage(coinImg, this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+          ctx.restore();
+        }
+      }
+      
+      update() {
+        if (!started || gameOver || this.collected) return;
+        this.x -= 2.72 * MOBILE_PIPE_BOOST;
+        
+        // Check collision with rocket
+        const dist = Math.hypot(this.x - (rocket.x + rocket.w/2), this.y - (rocket.y + rocket.h/2));
+        if (dist < (this.size + Math.min(rocket.w, rocket.h)) / 2) {
+          this.collected = true;
+          score += 5;  // +5 points!
+          document.getElementById('score').textContent = score;
+          beep(800, 0.15, 'sine');  // Collection sound
+        }
+      }
+    }
+
+    // Obstacles (3 rocks stacked vertically)
+    const pipes = [];
+    class Pipe {
+      constructor() {
+        this.x = canvas.width;
+        this.w = 144;  // Rock width
+        // ✅ Visual gap 230-320, after shrink (±10px) → SAFE gap = 250-340px!
+        this.gap = 230 + Math.random() * 90;  // Gap: 230-320px
+        this.top = Math.random() * (canvas.height - this.gap - 100) + 50;
+        this.passed = false;
+        this.rockSize = 144;  // Bigger rocks +20%
+        this.rocksPerColumn = 3;  // Only 3 rocks per column
+        this.rockSpacing = 0;  // Tightly packed
+        // Random rock types for 3 rocks
+        this.topRocks = [
+          Math.floor(Math.random() * 3),
+          Math.floor(Math.random() * 3),
+          Math.floor(Math.random() * 3)
+        ];
+        this.bottomRocks = [
+          Math.floor(Math.random() * 3),
+          Math.floor(Math.random() * 3),
+          Math.floor(Math.random() * 3)
+        ];
+      }
+      
+      draw() {
+        if (rocksLoaded < 3) return;
+        
+        const rockW = this.rockSize;
+        const rockH = this.rockSize;
+        const overlap = 3;
+        const rockShrinkY = 10;
+        
+        // ✅ OPTIMIZED: Calculate count, then batch draw (fewer state changes!)
+        const effectiveRockH = rockH - overlap;
+        
+        // TOP ROCKS
+        const topGapEdge = this.top - rockShrinkY;
+        const topRocksCount = Math.ceil(topGapEdge / effectiveRockH);
+        
+        for (let i = 0; i < topRocksCount; i++) {
+          const rockType = this.topRocks[i % 3];
+          const yPos = topGapEdge - (i + 1) * effectiveRockH;
+          if (yPos + rockH > 0) {  // Only draw if visible
+            ctx.drawImage(rocks[rockType], this.x, yPos, rockW, rockH);
+          }
+        }
+        
+        this.actualTopRockBottom = topGapEdge;
+        
+        // BOTTOM ROCKS
+        const bottomGapEdge = this.top + this.gap + rockShrinkY;
+        const bottomRocksCount = Math.ceil((canvas.height - bottomGapEdge) / effectiveRockH);
+        
+        for (let i = 0; i < bottomRocksCount; i++) {
+          const rockType = this.bottomRocks[i % 3];
+          const yPos = bottomGapEdge + i * effectiveRockH;
+          if (yPos < canvas.height) {  // Only draw if visible
+            ctx.drawImage(rocks[rockType], this.x, yPos, rockW, rockH);
+          }
+        }
+        
+        this.actualBottomRockTop = bottomGapEdge;
+      }
+      
+      update() {
+        if (!started || gameOver) return;
+        this.x -= 2.72 * MOBILE_PIPE_BOOST;
+        
+        // ✅ COLLISION = BLUE HITBOX 125×73 (OFFSET UP 9px!)
+        
+        // Rocket hitbox: 125×73 (width stays same, height -10%, offset UP 9px)
+        const hitboxW = 125;
+        const hitboxH = 73;
+        const offsetUp = 9;  // Pull hitbox UP 9px!
+        const rocketShrinkX = (rocket.w - hitboxW) / 2;  // (180-125)/2 = 27.5
+        const rocketShrinkY = (rocket.h - hitboxH) / 2 - offsetUp;  // 41.5 - 9 = 32.5
+        const rocketLeft = rocket.x + rocketShrinkX;
+        const rocketRight = rocket.x + rocket.w - rocketShrinkX;
+        const rocketTop = rocket.y + rocketShrinkY;  // Higher by 9px!
+        const rocketBottom = rocket.y + rocketShrinkY + hitboxH;  // = rocketTop + 73
+        
+        // Rock hitbox: Shrink WIDTH by 15%!
+        const rockShrinkX = 20;  // Width shrinks more
+        const rockShrinkY = 10;  // Height shrinks less
+        const rockLeft = this.x + rockShrinkX;
+        const rockRight = this.x + this.w - rockShrinkX;
+        const topRockBottom = this.actualTopRockBottom - rockShrinkY;
+        const bottomRockTop = this.actualBottomRockTop;  // ✅ Already OFFSET +10!
+        
+        // Canvas boundaries (with shrink)
+        if (rocketTop < rockShrinkY || rocketBottom > canvas.height - rockShrinkY) {
+          console.log('💥 HIT CANVAS!');
+          beep(200, 0.2, 'sawtooth');
+          end();
+        }
+        
+        // Rock collision - WHEN BLUE HITBOXES TOUCH!
+        const horizontalOverlap = rocketRight > rockLeft && rocketLeft < rockRight;
+        const hitTopRock = rocketTop < topRockBottom;
+        const hitBottomRock = rocketBottom > bottomRockTop;
+        
+        if (horizontalOverlap && (hitTopRock || hitBottomRock)) {
+          console.log('💥 HITBOX COLLISION!', {
+            'Rocket': { x: rocket.x, y: rocket.y, w: rocket.w, h: rocket.h },
+            'Rock': { x: this.x, topBottom: topRockBottom, bottomTop: bottomRockTop }
+          });
+          beep(200, 0.2, 'sawtooth');
+          end();
+        }
+        
+        // Score when passed
+        if (!this.passed && this.x + this.w < rocket.x) {
+          this.passed = true;
+          score++;
+          document.getElementById('score').textContent = score;
+          beep(800, 0.1, 'sine');
+        }
+      }
+    }
+
+    function spawn() {
+      if (!started || gameOver) return;
+      const rate = Math.floor(158 * MOBILE_SPAWN_ADJUST);
+      if (frames % rate === 0) {
+        const newPipe = new Pipe();
+        pipes.push(newPipe);
+        
+        // Spawn coin/dog 50% chance IN MIDDLE OF HORIZONTAL GAP (between 2 rock columns)
+        if (Math.random() < 0.5 && pipes.length > 0) {
+          const prevPipe = pipes[pipes.length - 2];
+          if (prevPipe) {
+            // X = Middle of 2 rock columns (prevPipe and newPipe)
+            const coinX = prevPipe.x + (newPipe.x - prevPipe.x) / 2;
+            // Y = Random in safe zone (100-900)
+            const coinY = 100 + Math.random() * 800;
+            // ✅ Random type: 50% coin, 50% dog!
+            const type = Math.random() < 0.5 ? 'coin' : 'dog';
+            coins.push(new Coin(coinX, coinY, type));
+          }
+        }
+      }
+    }
+
+    function loop() {
+      try {
+        // ✨ Draw pre-rendered background (1 drawImage vs 60+ operations!)
+        ctx.drawImage(bgCanvas, 0, 0);
+        
+        // Debug: Check if images loaded
+        if (!loaded) {
+          ctx.fillStyle = 'white';
+          ctx.font = '20px monospace';
+          ctx.fillText('Loading rocket...', 50, 50);
+        }
+        if (rocksLoaded < 3) {
+          ctx.fillStyle = 'white';
+          ctx.font = '20px monospace';
+          ctx.fillText(`Loading rocks... ${rocksLoaded}/3`, 50, 80);
+        }
+        
+        rocket.update();
+        rocket.draw();
+        
+        spawn();
+        
+        // ✅ Optimize: Loop backward for safe splice
+        for (let i = pipes.length - 1; i >= 0; i--) {
+          pipes[i].update();
+          pipes[i].draw();
+          if (pipes[i].x + pipes[i].w < 0) pipes.splice(i, 1);
+        }
+        
+        // Update & draw coins (backward loop)
+        for (let i = coins.length - 1; i >= 0; i--) {
+          coins[i].update();
+          coins[i].draw();
+          if (coins[i].x < -50 || coins[i].collected) coins.splice(i, 1);
+        }
+        
+        frames++;
+        requestAnimationFrame(loop);
+      } catch (err) {
+        console.error('💥 GAME LOOP ERROR:', err);
+        ctx.fillStyle = 'red';
+        ctx.font = '16px monospace';
+        ctx.fillText('ERROR: ' + err.message, 50, 100);
+      }
+    }
+
+    function end() {
+      if (gameOver) return;
+      gameOver = true;
+      document.getElementById('finalScore').textContent = score;
+      
+      // Random token: coin or dog
+      const tokenType = Math.random() < 0.5 ? 'coin' : 'dog';
+      const logoSrc = tokenType === 'coin' ? 'assets/coin-logo.webp' : 'assets/dog-binance.webp';
+      
+      // Random 1/3 story
+      const stories = tokenStories[tokenType];
+      const randomStory = stories[Math.floor(Math.random() * stories.length)];
+      
+      // Update UI
+      const logoEl = document.getElementById('tokenLogo');
+      logoEl.src = logoSrc;
+      
+      // ✅ Coin = BIG (140px), Dog = normal (70px)
+      if (tokenType === 'coin') {
+        logoEl.style.width = '140px';
+        logoEl.style.height = '140px';
+        logoEl.style.padding = '2px';
+        logoEl.style.border = '2px solid #F3BA2F';
+      } else {
+        logoEl.style.width = '70px';
+        logoEl.style.height = '70px';
+        logoEl.style.padding = '5px';
+        logoEl.style.border = '3px solid #F3BA2F';
+      }
+      
+      document.getElementById('tokenStory').textContent = randomStory;
+      document.getElementById('gameOver').classList.add('show');
+      
+      beep(800, 0.5);
+    }
+
+    function restart() {
+      gameOver = false;
+      started = false;
+      score = 0;
+      frames = 0;
+      pipes.length = 0;
+      coins.length = 0;  // Clear coins
+      rocket.y = canvas.height / 2;
+      rocket.vy = 0;
+      document.getElementById('score').textContent = '0';
+      document.getElementById('gameOver').classList.remove('show');
+    }
+
+    canvas.addEventListener('click', () => rocket.jump());
+    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); rocket.jump(); });
+    document.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); rocket.jump(); }});
+
+    loop();
+    console.log('🚀 BNB Rocket - OPTIMIZED FOR IFRAME!');
+    console.log('🪙 Collectibles: 80×80px CIRCULAR (clipped!)');
+    console.log('🎯 Game over logo: 140×140px (desktop)');
+    console.log('💰 Value: +5 points each');
+    console.log('✨ Stars: 5 only (max performance!)');
+    console.log('⚡ Pre-rendered background');
+    console.log('📱 Canvas: 720×1000px');
+    console.log('🎮 Mode:', isMobile ? 'MOBILE' : 'DESKTOP');
+  </script>
+</body>
+</html>
+

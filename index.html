@@ -1349,7 +1349,7 @@
           </div>
         </div>
       </div>
-      <span class="logo-text">MEMEPLAY</span>
+      <span class="logo-text" id="memeplayLogo" style="cursor:pointer;">MEMEPLAY</span>
       <span id="headerEarnedFlash" class="header-flash"></span>
     </div>
     <div class="header-actions">
@@ -1562,7 +1562,8 @@
       'xstarship-flap': 'https://xstarship-flap.lovable.app',
       'pacman-memeplay': 'https://pacman-memeplay.lovable.app',
       'story-shape-studio': 'https://story-shape-studio.lovable.app',
-      'pixel-orb-escape': 'https://pixel-orb-escape.lovable.app'
+      'pixel-orb-escape': 'https://pixel-orb-escape.lovable.app',
+      'rocket-bnb': 'games/rocket-bnb/index.html'
     };
   
     function activateGame(gameId, isPreload = false) {
@@ -1817,6 +1818,43 @@
       // STEP 2: Init observers
       initGameObserver()
       initSocialHandlers()
+      
+      // STEP 2.5: Handle hash navigation (from share links)
+      const hash = window.location.hash.slice(1); // Remove '#'
+      if (hash && allCards.some(c => c.id === hash)) {
+        console.log('🔗 Hash detected:', hash);
+        // Scroll to game after delay
+        setTimeout(() => {
+          const targetCard = document.getElementById(hash);
+          if (targetCard) {
+            gameContainer.style.scrollSnapType = 'none';
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            activateGame(hash);
+            console.log('✅ Scrolled to game:', hash);
+            setTimeout(() => {
+              gameContainer.style.scrollSnapType = 'y mandatory';
+            }, 1000);
+          }
+        }, 1000);
+      }
+      
+      // STEP 2.6: MEMEPLAY logo click → Home (Game #1)
+      const logoEl = document.getElementById('memeplayLogo');
+      if (logoEl) {
+        logoEl.addEventListener('click', () => {
+          console.log('🏠 MEMEPLAY logo clicked → Go to Game #1');
+          window.location.hash = '';  // Clear hash
+          if (firstCard && gameContainer) {
+            gameContainer.style.scrollSnapType = 'none';
+            gameContainer.scrollTop = 0;
+            firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            if (firstCard.id) activateGame(firstCard.id);
+            setTimeout(() => {
+              gameContainer.style.scrollSnapType = 'y mandatory';
+            }, 1000);
+          }
+        });
+      }
       
       // STEP 3: PRIORITY LOADING (mobile-optimized)
       const isMobile = window.innerWidth < 768
