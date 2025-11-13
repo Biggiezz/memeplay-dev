@@ -308,7 +308,19 @@
       
       jump() {
         if (gameOver) return;
-        if (!started) started = true;
+        
+        // ✅ Send GAME_START on first jump (for playtime tracking!)
+        if (!started) {
+          started = true;
+          if (window.parent && window.parent !== window) {
+            window.parent.postMessage({
+              type: 'GAME_START',
+              gameId: 'rocket-bnb'
+            }, '*');
+            console.log('📤 Sent GAME_START to parent');
+          }
+        }
+        
         // ✅ Jump force increased 32% on mobile! (1.15 × 1.15)
         const jumpForce = -5.76 * (isMobile ? 1.3225 : 1.0);  // Mobile: -7.618
         this.vy = jumpForce;
@@ -580,6 +592,16 @@
       if (gameOver) return;
       gameOver = true;
       document.getElementById('finalScore').textContent = score;
+      
+      // ✅ Send score to parent (MemePlay) for achievements & playtime rewards!
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'GAME_SCORE',
+          score: score,
+          gameId: 'rocket-bnb'
+        }, '*');
+        console.log('📤 Sent GAME_SCORE to parent:', score);
+      }
       
       // Random token: coin or dog
       const tokenType = Math.random() < 0.5 ? 'coin' : 'dog';
