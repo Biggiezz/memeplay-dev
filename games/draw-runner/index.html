@@ -222,7 +222,13 @@
       STAR_COUNT: 100,
       SCROLL_SPEED: 2,
       FPS_UPDATE_INTERVAL: 500,
-      DEBUG_HITBOXES: true
+      DEBUG_HITBOXES: true,
+      // Mana system
+      MAX_MANA: 720, // 5 viên bi x 144px
+      MANA_PER_ORB: 144, // Mỗi viên bi = 144px
+      MANA_REGEN_RATE: 144, // 144px/1s = 1 viên bi/s
+      MANA_ORB_SIZE: 20,
+      MANA_ORB_SPAWN_INTERVAL: 5000
     };
 
     // ==========================================
@@ -259,7 +265,9 @@
       coins: 0,
       distance: 0,
       lastCoinSpawn: 0,
-      scrollOffset: 0
+      scrollOffset: 0,
+      mana: 720, // Start with full mana (5 viên bi)
+      lastManaRegen: 0
     };
 
     // ==========================================
@@ -407,6 +415,64 @@
     }
 
     // ==========================================
+    // MANA ORBS (Blue orbs that restore mana)
+    // ==========================================
+    const manaOrbs = [];
+
+    class ManaOrb {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = CONFIG.MANA_ORB_SIZE;
+        this.collected = false;
+        this.rotation = 0;
+        this.pulse = 0;
+      }
+
+      update(deltaTime) {
+        this.rotation += 0.05 * deltaTime;
+        this.pulse += 0.1 * deltaTime;
+      }
+
+      draw(ctx, scrollOffset) {
+        if (this.collected) return;
+        
+        ctx.save();
+        ctx.translate(this.x - scrollOffset, this.y);
+        ctx.rotate(this.rotation);
+        
+        // Draw glow
+        const pulseSize = Math.sin(this.pulse) * 3;
+        ctx.fillStyle = 'rgba(0, 150, 255, 0.3)';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size / 2 + 8 + pulseSize, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Draw mana orb (cyan/blue)
+        ctx.fillStyle = '#00aaff';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Inner glow
+        ctx.fillStyle = '#99ddff';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size / 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+      }
+
+      checkCollision(px, py, psize) {
+        if (this.collected) return false;
+        const dx = this.x - px;
+        const dy = this.y - py;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < (this.size + psize) / 2;
+      }
+    }
+
+    // ==========================================
     // OBSTACLES
     // ==========================================
     const obstacles = [];
@@ -463,26 +529,29 @@
     class Pit {
       constructor(x, y) {
         this.x = x;
-        this.y = y;
+        this.y = CONFIG.HEIGHT - CONFIG.PIT_HEIGHT; // Always at bottom
         this.width = CONFIG.PIT_WIDTH;
         this.height = CONFIG.PIT_HEIGHT;
-        this.color = '#000000';
+        this.color = '#0a0a0a'; // Very dark, blends with background
       }
 
       draw(ctx, scrollOffset) {
         ctx.save();
         const screenX = this.x - scrollOffset;
         
-        // Draw black pit (rectangle at bottom)
+        // Draw very dark pit (barely visible, blends with ground)
         ctx.fillStyle = this.color;
         ctx.fillRect(screenX, this.y, this.width, this.height);
         
-        // Draw edge lines (darker outline)
-        ctx.strokeStyle = '#333333';
+        // Subtle edge indicator (thin red line at top)
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
         ctx.lineWidth = 2;
-        ctx.strokeRect(screenX, this.y, this.width, this.height);
+        ctx.beginPath();
+        ctx.moveTo(screenX, this.y);
+        ctx.lineTo(screenX + this.width, this.y);
+        ctx.stroke();
         
-        // Debug hitbox (blue)
+        // Debug hitbox (blue) - only in debug mode
         if (CONFIG.DEBUG_HITBOXES) {
           ctx.strokeStyle = '#00ffff';
           ctx.lineWidth = 2;
@@ -550,6 +619,12 @@
       const x = player.worldX + CONFIG.WIDTH + Math.random() * 400;
       const y = CONFIG.HEIGHT - CONFIG.PIT_HEIGHT; // At the bottom
       pits.push(new Pit(x, y));
+    }
+
+    function spawnManaOrb() {
+      const x = player.worldX + CONFIG.WIDTH + Math.random() * 300;
+      const y = Math.random() * (CONFIG.HEIGHT - 200) + 50;
+      manaOrbs.push(new ManaOrb(x, y));
     }
 
     // Find closest point on drawn lines ahead of player
