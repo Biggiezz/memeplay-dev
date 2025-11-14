@@ -257,46 +257,61 @@
         this.x += this.vx;
         this.y += this.vy;
 
-        // Wall collision
-        if (this.x <= 0 || this.x >= CONFIG.WIDTH) {
-          this.vx = -this.vx;
-          this.x = Math.max(0, Math.min(CONFIG.WIDTH, this.x));
+        // Wall collision (circular hitbox)
+        if (this.x - this.size / 2 <= 0) {
+          this.vx = Math.abs(this.vx);
+          this.x = this.size / 2;
+        }
+        if (this.x + this.size / 2 >= CONFIG.WIDTH) {
+          this.vx = -Math.abs(this.vx);
+          this.x = CONFIG.WIDTH - this.size / 2;
         }
 
         // Ceiling collision
-        if (this.y <= 0) {
-          this.vy = -this.vy;
-          this.y = 0;
+        if (this.y - this.size / 2 <= 0) {
+          this.vy = Math.abs(this.vy);
+          this.y = this.size / 2;
         }
 
-        // Paddle collision
-        if (this.y + this.size >= paddle.y &&
-            this.y <= paddle.y + paddle.height &&
-            this.x >= paddle.x &&
-            this.x <= paddle.x + paddle.width) {
+        // Paddle collision (circular ball vs rectangle paddle)
+        const ballBottom = this.y + this.size / 2;
+        const ballTop = this.y - this.size / 2;
+        const ballLeft = this.x - this.size / 2;
+        const ballRight = this.x + this.size / 2;
+        
+        if (ballBottom >= paddle.y &&
+            ballTop <= paddle.y + paddle.height &&
+            ballRight >= paddle.x &&
+            ballLeft <= paddle.x + paddle.width) {
+          // Bounce off paddle
           this.vy = -Math.abs(this.vy);
-          this.y = paddle.y - this.size;
+          this.y = paddle.y - this.size / 2;
           
-          // Add spin based on paddle movement
+          // Add spin based on hit position
           const paddleCenter = paddle.x + paddle.width / 2;
           const hitOffset = (this.x - paddleCenter) / (paddle.width / 2);
           this.vx += hitOffset * 2;
         }
 
-        // Ball falls off bottom
-        if (this.y > CONFIG.HEIGHT + 20) {
+        // Ball falls off bottom = GAME OVER (mark inactive)
+        if (this.y - this.size / 2 > CONFIG.HEIGHT) {
           this.active = false;
         }
       }
 
       draw() {
+        // Draw circular ball
         ctx.fillStyle = '#ff00ff';
-        ctx.fillRect(
-          Math.floor(this.x - this.size / 2),
-          Math.floor(this.y - this.size / 2),
-          this.size,
-          this.size
-        );
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Hitbox (cyan circle)
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+        ctx.stroke();
       }
     }
 
@@ -318,16 +333,22 @@
       checkCollision(ball) {
         if (!this.alive) return false;
 
-        if (ball.x + ball.size >= this.x &&
-            ball.x - ball.size <= this.x + this.width &&
-            ball.y + ball.size >= this.y &&
-            ball.y - ball.size <= this.y + this.height) {
+        const radius = ball.size / 2;
+        const ballLeft = ball.x - radius;
+        const ballRight = ball.x + radius;
+        const ballTop = ball.y - radius;
+        const ballBottom = ball.y + radius;
+
+        if (ballRight >= this.x &&
+            ballLeft <= this.x + this.width &&
+            ballBottom >= this.y &&
+            ballTop <= this.y + this.height) {
           
           // Determine collision side
-          const overlapLeft = (ball.x + ball.size) - this.x;
-          const overlapRight = (this.x + this.width) - (ball.x - ball.size);
-          const overlapTop = (ball.y + ball.size) - this.y;
-          const overlapBottom = (this.y + this.height) - (ball.y - ball.size);
+          const overlapLeft = ballRight - this.x;
+          const overlapRight = (this.x + this.width) - ballLeft;
+          const overlapTop = ballBottom - this.y;
+          const overlapBottom = (this.y + this.height) - ballTop;
 
           const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
 
@@ -510,9 +531,10 @@
         }
       }
 
-      // No balls left - spawn new one
+      // No balls left - GAME OVER (ball fell off paddle)
       if (balls.length === 0) {
-        spawnBall();
+        endGame();
+        return;
       }
 
       // Check level complete
@@ -560,6 +582,11 @@
       // Paddle highlight
       ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
       ctx.fillRect(paddle.x + 2, paddle.y + 2, paddle.width - 4, 4);
+      
+      // Paddle hitbox (cyan)
+      ctx.strokeStyle = '#00ffff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(paddle.x, paddle.y, paddle.width, paddle.height);
 
       // Draw UI
       ctx.fillStyle = 'white';
