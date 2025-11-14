@@ -1,0 +1,1580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Crypto Blocks 8×8</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    body {
+      font-family: 'Arial', sans-serif;
+      background: #0a0a0a;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    .game-wrapper {
+      width: 720px;
+      height: 1000px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    
+    #gameContainer {
+      width: 720px;
+      height: 1000px;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    /* Mobile: fixed 720x1000px container, all objects fit inside */
+    @media screen and (max-width: 720px) {
+      html {
+        overflow: hidden;
+      }
+      
+      body {
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        padding: 0;
+      }
+      
+      .game-wrapper {
+        width: 720px;
+        height: 1000px;
+      }
+      
+      #gameContainer {
+        width: 720px;
+        height: 1000px;
+        max-width: 720px;
+        max-height: 1000px;
+        overflow: hidden;
+      }
+    }
+    
+    canvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+    }
+    
+    #gameCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    
+    #uiCanvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 10;
+    }
+    
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      border: 4px solid #ffb642;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      z-index: 1000; /* Tăng z-index để đảm bảo trên cùng */
+      display: none;
+      pointer-events: all; /* Cho phép click/touch */
+      touch-action: manipulation; /* Tối ưu cho mobile */
+      transform-origin: center center; /* Đảm bảo scale từ center */
+    }
+    
+    .game-over.show {
+      display: block;
+      pointer-events: all; /* Đảm bảo có thể tương tác khi hiển thị */
+    }
+    
+    /* Desktop: Phóng to bảng game over 20% */
+    @media screen and (min-width: 721px) {
+      .game-over {
+        transform: translate(-50%, -50%) scale(1.2);
+      }
+    }
+    
+    /* Mobile: Thu nhỏ bảng game over 25% (còn 75%) */
+    @media screen and (max-width: 720px) {
+      .game-over {
+        transform: translate(-50%, -50%) scale(0.75);
+      }
+    }
+    
+    .game-over h2 {
+      color: #ffb642;
+      font-size: 48px;
+      margin-bottom: 20px;
+    }
+    
+    .game-over p {
+      color: #fff;
+      font-size: 24px;
+      margin-bottom: 30px;
+    }
+    
+    .restart-btn {
+      background: linear-gradient(135deg, #ffb642 0%, #ff8c00 100%);
+      border: none;
+      color: #000;
+      font-size: 24px;
+      font-weight: bold;
+      padding: 15px 40px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      pointer-events: all; /* Đảm bảo có thể click/touch */
+      touch-action: manipulation; /* Tối ưu cho mobile - tránh double-tap zoom */
+      -webkit-tap-highlight-color: rgba(255, 182, 66, 0.3); /* Highlight khi touch */
+      user-select: none; /* Tránh select text khi touch */
+      -webkit-user-select: none;
+      position: relative; /* Đảm bảo z-index hoạt động */
+      z-index: 1001; /* Cao hơn game-over */
+    }
+    
+    .restart-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .restart-btn:hover {
+      background: linear-gradient(135deg, #ffc862 0%, #ff9c20 100%);
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <div id="gameContainer">
+      <canvas id="gameCanvas" width="720" height="1000"></canvas>
+      <canvas id="uiCanvas" width="720" height="1000"></canvas>
+      
+      <div id="gameOver" class="game-over">
+        <h2>Game Over!</h2>
+        <p>Final Score: <span id="finalScore">0</span></p>
+        <button class="restart-btn" onclick="game.restart()">Restart</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== CONFIG =====
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    const CONFIG = {
+      GRID_SIZE: 8,
+      CELL_SIZE: 81,
+      GRID_WIDTH: 8 * 81, // 648px
+      GRID_HEIGHT: 8 * 81, // 648px
+      GRID_X: (720 - 648) / 2, // Centered: 36px
+      GRID_Y: 100, // Top margin
+      BLOCK_SIZE: 64, // Block sprite size
+      SHAPES_PER_TURN: 3,
+      MAX_COMBO: 999, // Không giới hạn combo (x5, x6, x7...)
+      COLORS: {
+        RED: '#ff4444',
+        GREEN: '#44ff44',
+        BLUE: '#4444ff',
+        PURPLE: '#aa44ff',
+        YELLOW: '#ffff44'
+      }
+    };
+    
+    // Mobile scale factor for game objects (50% smaller)
+    const MOBILE_SCALE = isMobile ? 0.5 : 1.0;
+    
+    if (isMobile) {
+      // Scale down game objects on mobile (50%)
+      CONFIG.CELL_SIZE = CONFIG.CELL_SIZE * MOBILE_SCALE;
+      CONFIG.GRID_WIDTH = CONFIG.GRID_WIDTH * MOBILE_SCALE;
+      CONFIG.GRID_HEIGHT = CONFIG.GRID_HEIGHT * MOBILE_SCALE;
+      CONFIG.BLOCK_SIZE = CONFIG.BLOCK_SIZE * MOBILE_SCALE;
+      
+      // Calculate positions to fit in 720x1000px screen
+      // Score/combo area: ~80px from top (top-left corner)
+      // Grid: centered horizontally, positioned higher (15px up)
+      // Preview grids: 20px below grid (revert to original)
+      const scoreAreaHeight = 80;
+      const previewCellSize = CONFIG.CELL_SIZE * 0.8; // Preview cells are 20% smaller
+      const previewGridHeight = 3 * previewCellSize; // 3x3 grid height
+      const spacing = 20; // Space between grid and preview
+      
+      // Calculate available space for grid
+      const availableHeight = 1000 - scoreAreaHeight - previewGridHeight - spacing;
+      // Center grid vertically in available space, then move up 15px
+      CONFIG.GRID_Y = scoreAreaHeight + (availableHeight - CONFIG.GRID_HEIGHT) / 2 - 15;
+      
+      // Center grid horizontally
+      CONFIG.GRID_X = (720 - CONFIG.GRID_WIDTH) / 2;
+    }
+    
+    // ===== SHAPE LIBRARY =====
+    // Each shape is an array of {x, y} offsets from center (0,0)
+    // Only simple, common shapes (1-5 blocks max)
+    const SHAPE_LIBRARY = [
+      // Single blocks (1)
+      [{x: 0, y: 0}],
+      
+      // Lines (2-3 blocks only, no 1x4)
+      [{x: -1, y: 0}, {x: 0, y: 0}], // Horizontal 2
+      [{x: 0, y: -1}, {x: 0, y: 0}], // Vertical 2
+      [{x: -1, y: 0}, {x: 0, y: 0}, {x: 1, y: 0}], // Horizontal 3
+      [{x: 0, y: -1}, {x: 0, y: 0}, {x: 0, y: 1}], // Vertical 3
+      
+      // L-shapes (3-4 blocks)
+      [{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}], // L (3 blocks)
+      [{x: 0, y: 0}, {x: -1, y: 0}, {x: 0, y: 1}], // Reverse L
+      [{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: -1}], // L up
+      [{x: 0, y: 0}, {x: -1, y: 0}, {x: 0, y: -1}], // Reverse L up
+      [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}], // Small L
+      [{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}, {x: 0, y: 2}], // Long L (4)
+      [{x: 0, y: 0}, {x: 1, y: 0}, {x: 1, y: 1}, {x: 1, y: 2}], // Long L variant
+      
+      // T-shapes (4 blocks)
+      [{x: -1, y: 0}, {x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}], // T down
+      [{x: 0, y: -1}, {x: -1, y: 0}, {x: 0, y: 0}, {x: 1, y: 0}], // T up
+      [{x: 0, y: -1}, {x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}], // T right
+      [{x: 0, y: -1}, {x: -1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}], // T left
+      
+      // Squares (4 blocks)
+      [{x: 0, y: 0}, {x: 1, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}], // 2x2 square
+      
+      // Z-shapes (4 blocks)
+      [{x: -1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: 1, y: 1}], // Z
+      [{x: 1, y: 0}, {x: 0, y: 0}, {x: 0, y: 1}, {x: -1, y: 1}], // Reverse Z
+      
+      // 3x2 rectangle (6 blocks)
+      [{x: -1, y: 0}, {x: 0, y: 0}, {x: 1, y: 0}, {x: -1, y: 1}, {x: 0, y: 1}, {x: 1, y: 1}], // 3x2 rectangle
+      
+      // 3x3 square (9 blocks)
+      [{x: -1, y: -1}, {x: 0, y: -1}, {x: 1, y: -1}, {x: -1, y: 0}, {x: 0, y: 0}, {x: 1, y: 0}, {x: -1, y: 1}, {x: 0, y: 1}, {x: 1, y: 1}], // 3x3 square
+    ];
+    
+    // ===== GAME STATE =====
+    const gameState = {
+      grid: [],
+      score: 0,
+      comboLevel: 1,
+      shapesPlacedThisTurn: 0,
+      currentShapes: [], // 3 shapes to place this turn [{shape, color}, ...]
+      gameOver: false,
+      isPaused: false,
+      consecutiveClears: 0, // Number of consecutive turns with clears (for combo multiplier)
+      consecutiveNoClears: 0, // Number of consecutive turns without clears (reset combo if >= 3)
+      consecutiveNoClearPlacements: 0, // Number of consecutive placements without clearing lines (reset combo to x0 if >= 3)
+      linesClearedThisTurn: 0, // Total lines cleared in current turn
+      hoveredShapeIndex: -1, // Currently hovered shape index (-1 = none)
+      previewShape: null, // Currently previewing shape at mouse position
+      previewGridX: -1,
+      previewGridY: -1,
+      isDragging: false, // Is mouse/touch being held down
+      diamondAnimation: {
+        active: false,
+        scale: 1,
+        rotation: 0,
+        alpha: 1
+      },
+      particles: [], // Particles for line clear effects
+      dragPointer: { x: CONFIG.GRID_X + CONFIG.GRID_WIDTH / 2, y: CONFIG.GRID_Y + CONFIG.GRID_HEIGHT / 2 }
+    };
+    
+    // ===== PARTICLE SYSTEM =====
+    class Particle {
+      constructor(x, y, color, comboLevel) {
+        this.x = x;
+        this.y = y;
+        this.vx = (Math.random() - 0.5) * (4 + comboLevel * 2); // Faster with higher combo
+        this.vy = (Math.random() - 0.5) * (4 + comboLevel * 2);
+        this.color = color;
+        this.size = 8 + comboLevel * 2; // Bigger with higher combo
+        this.life = 1.0;
+        this.decay = 0.02 + comboLevel * 0.01; // Slower decay with higher combo
+        this.rotation = Math.random() * Math.PI * 2;
+        this.rotationSpeed = (Math.random() - 0.5) * 0.2;
+      }
+      
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+        this.vy += 0.3; // Gravity
+        this.life -= this.decay;
+        this.rotation += this.rotationSpeed;
+        return this.life > 0;
+      }
+      
+      draw(ctx) {
+        ctx.save();
+        ctx.globalAlpha = this.life;
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+        ctx.fillStyle = this.color;
+        ctx.fillRect(-this.size / 2, -this.size / 2, this.size, this.size);
+        ctx.restore();
+      }
+    }
+    
+    // ===== CANVAS SETUP =====
+    const gameCanvas = document.getElementById('gameCanvas');
+    const uiCanvas = document.getElementById('uiCanvas');
+    const gameCtx = gameCanvas.getContext('2d', { alpha: false, desynchronized: true });
+    const uiCtx = uiCanvas.getContext('2d', { alpha: true });
+    
+    gameCtx.imageSmoothingEnabled = false;
+    uiCtx.imageSmoothingEnabled = false;
+    
+    // ===== INITIALIZE GRID =====
+    function initGrid() {
+      gameState.grid = [];
+      for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+        gameState.grid[y] = [];
+        for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+          gameState.grid[y][x] = null; // null = empty, string = color
+        }
+      }
+    }
+    
+    // ===== BLOCK RENDERING =====
+    function drawBlock(ctx, x, y, color, size = CONFIG.BLOCK_SIZE) {
+      const centerX = x + size / 2;
+      const centerY = y + size / 2;
+      
+      // Glow effect
+      const gradient = ctx.createRadialGradient(centerX, centerY, 0, centerX, centerY, size / 2);
+      gradient.addColorStop(0, color);
+      gradient.addColorStop(0.7, color);
+      gradient.addColorStop(1, 'rgba(0,0,0,0)');
+      
+      // Main block
+      ctx.fillStyle = color;
+      ctx.fillRect(x + 2, y + 2, size - 4, size - 4);
+      
+      // Glossy highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+      ctx.fillRect(x + 4, y + 4, size / 2 - 4, size / 3);
+      
+      // Glow edges
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x + 2, y + 2, size - 4, size - 4);
+      
+      // Drop shadow
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
+      ctx.fillRect(x + 4, y + size - 2, size - 4, 2);
+    }
+    
+    // ===== GRID RENDERING =====
+    function drawGrid() {
+      // Clear canvas
+      gameCtx.fillStyle = '#0a0a0a';
+      gameCtx.fillRect(0, 0, 720, 1000);
+      
+      // Draw grid background
+      gameCtx.fillStyle = '#1a1a2e';
+      gameCtx.fillRect(CONFIG.GRID_X, CONFIG.GRID_Y, CONFIG.GRID_WIDTH, CONFIG.GRID_HEIGHT);
+      
+      // Draw grid lines
+      gameCtx.strokeStyle = '#2a2a3e';
+      gameCtx.lineWidth = 1;
+      
+      for (let i = 0; i <= CONFIG.GRID_SIZE; i++) {
+        const pos = CONFIG.GRID_X + i * CONFIG.CELL_SIZE;
+        // Vertical lines
+        gameCtx.beginPath();
+        gameCtx.moveTo(pos, CONFIG.GRID_Y);
+        gameCtx.lineTo(pos, CONFIG.GRID_Y + CONFIG.GRID_HEIGHT);
+        gameCtx.stroke();
+        
+        // Horizontal lines
+        gameCtx.beginPath();
+        gameCtx.moveTo(CONFIG.GRID_X, CONFIG.GRID_Y + i * CONFIG.CELL_SIZE);
+        gameCtx.lineTo(CONFIG.GRID_X + CONFIG.GRID_WIDTH, CONFIG.GRID_Y + i * CONFIG.CELL_SIZE);
+        gameCtx.stroke();
+      }
+      
+      // Draw placed blocks
+      for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+        for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+          const color = gameState.grid[y][x];
+          if (color) {
+            const blockX = CONFIG.GRID_X + x * CONFIG.CELL_SIZE + (CONFIG.CELL_SIZE - CONFIG.BLOCK_SIZE) / 2;
+            const blockY = CONFIG.GRID_Y + y * CONFIG.CELL_SIZE + (CONFIG.CELL_SIZE - CONFIG.BLOCK_SIZE) / 2;
+            drawBlock(gameCtx, blockX, blockY, color);
+          }
+        }
+      }
+      
+      // Draw particles
+      gameState.particles = gameState.particles.filter(particle => {
+        particle.update();
+        particle.draw(gameCtx);
+        return particle.life > 0;
+      });
+    }
+    
+    // ===== UI RENDERING =====
+    function drawUI() {
+      uiCtx.clearRect(0, 0, 720, 1000);
+      
+      // Score and Combo - positioned relative to grid 8x8 top-left corner
+      // Mobile: 15px from left edge of grid 8x8, above grid
+      // Desktop: top-left of screen
+      const scoreX = isMobile ? (CONFIG.GRID_X + 15) : 20;
+      const scoreY = isMobile ? (CONFIG.GRID_Y - 30) : 40; // Above grid 8x8
+      const comboY = isMobile ? (CONFIG.GRID_Y - 10) : 75; // Below score, above grid
+      
+      // Score - HD font on desktop: larger, sharper, with better shadow
+      uiCtx.fillStyle = '#ffffff';
+      uiCtx.font = isMobile ? 'bold 19px Arial' : 'bold 40px "Segoe UI", "Roboto", Arial, sans-serif';
+      uiCtx.textAlign = 'left';
+      uiCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      uiCtx.shadowBlur = 6;
+      uiCtx.shadowOffsetX = 2;
+      uiCtx.shadowOffsetY = 2;
+      uiCtx.fillText(`Score: ${gameState.score}`, scoreX, scoreY);
+      
+      // Combo - HD font on desktop: larger, sharper, with better shadow
+      // Hiển thị ×0 khi combo = 0 (ngắt chuỗi combo)
+      uiCtx.fillStyle = gameState.comboLevel === 0 ? '#ff6666' : '#ffb642'; // Đỏ khi combo = 0
+      uiCtx.font = isMobile ? 'bold 17px Arial' : 'bold 36px "Segoe UI", "Roboto", Arial, sans-serif';
+      uiCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      uiCtx.shadowBlur = 6;
+      uiCtx.shadowOffsetX = 2;
+      uiCtx.shadowOffsetY = 2;
+      uiCtx.fillText(`Combo: ×${gameState.comboLevel}`, scoreX, comboY);
+      
+      // Preview next shapes in 3x3 grids (20% smaller than main grid)
+      // Position: 20px below the bottom of 8x8 grid
+      const previewY = CONFIG.GRID_Y + CONFIG.GRID_HEIGHT + 20;
+      const previewCellSize = CONFIG.CELL_SIZE * 0.8; // 20% smaller than main grid
+      const previewBlockSize = CONFIG.BLOCK_SIZE * 0.8; // 20% smaller block size (maintain same ratio)
+      const previewGridSize = 3; // 3x3 grid
+      const previewGridWidth = previewGridSize * previewCellSize;
+      const previewGridHeight = previewGridSize * previewCellSize;
+      const previewSpacing = 20; // Spacing between preview grids
+      const totalPreviewWidth = 3 * previewGridWidth + 2 * previewSpacing;
+      const previewStartX = (720 - totalPreviewWidth) / 2; // Center all 3 grids
+      
+      // Draw 3 preview grids (3x3 each)
+      for (let i = 0; i < CONFIG.SHAPES_PER_TURN; i++) {
+        const gridX = previewStartX + i * (previewGridWidth + previewSpacing);
+        const gridY = previewY;
+        
+        // Draw preview grid background
+        uiCtx.fillStyle = 'rgba(30, 30, 50, 0.5)';
+        uiCtx.fillRect(gridX, gridY, previewGridWidth, previewGridHeight);
+        
+        // Draw preview grid lines
+        uiCtx.strokeStyle = 'rgba(100, 100, 150, 0.3)';
+        uiCtx.lineWidth = 1;
+        for (let j = 0; j <= previewGridSize; j++) {
+          const pos = gridX + j * previewCellSize;
+          // Vertical lines
+          uiCtx.beginPath();
+          uiCtx.moveTo(pos, gridY);
+          uiCtx.lineTo(pos, gridY + previewGridHeight);
+          uiCtx.stroke();
+          // Horizontal lines
+          uiCtx.beginPath();
+          uiCtx.moveTo(gridX, gridY + j * previewCellSize);
+          uiCtx.lineTo(gridX + previewGridWidth, gridY + j * previewCellSize);
+          uiCtx.stroke();
+        }
+        
+        // Draw shape inside preview grid - map shape to 3x3 matrix
+        if (gameState.currentShapes[i]) {
+          const { shape, color } = gameState.currentShapes[i];
+          const alpha = gameState.hoveredShapeIndex === i ? 1.0 : 0.7;
+          uiCtx.globalAlpha = alpha;
+          
+          // Convert shape (array of {x, y}) to 3x3 matrix
+          const matrix = Array(3).fill(null).map(() => Array(3).fill(0));
+          
+          // Find bounds to center shape in 3x3
+          let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+          for (const block of shape) {
+            minX = Math.min(minX, block.x);
+            maxX = Math.max(maxX, block.x);
+            minY = Math.min(minY, block.y);
+            maxY = Math.max(maxY, block.y);
+          }
+          
+          // Calculate offset to center in 3x3 grid
+          const offsetX = 1 - Math.round((minX + maxX) / 2); // Center at (1,1)
+          const offsetY = 1 - Math.round((minY + maxY) / 2);
+          
+          // Map shape blocks to matrix
+          for (const block of shape) {
+            const matrixX = block.x + offsetX;
+            const matrixY = block.y + offsetY;
+            // Only map if within 3x3 bounds
+            if (matrixX >= 0 && matrixX < 3 && matrixY >= 0 && matrixY < 3) {
+              matrix[matrixY][matrixX] = 1;
+            }
+          }
+          
+          // Render matrix by iterating row-col and drawing at exact grid cells
+          for (let row = 0; row < 3; row++) {
+            for (let col = 0; col < 3; col++) {
+              if (matrix[row][col] === 1) {
+                // Calculate block position: exact grid cell + padding
+                const blockX = gridX + col * previewCellSize + (previewCellSize - previewBlockSize) / 2;
+                const blockY = gridY + row * previewCellSize + (previewCellSize - previewBlockSize) / 2;
+                drawBlock(uiCtx, blockX, blockY, color, previewBlockSize);
+              }
+            }
+          }
+          uiCtx.globalAlpha = 1.0;
+        }
+      }
+      
+      // Preview shape on grid (ghost) - only show if can place
+      if (gameState.previewShape && gameState.previewGridX >= 0 && gameState.previewGridY >= 0) {
+        const { shape, color } = gameState.previewShape;
+        const canPlace = canPlaceShape(shape, gameState.previewGridX, gameState.previewGridY);
+        
+        // Only show preview if can place (no red preview for conflicts)
+        if (canPlace) {
+          uiCtx.globalAlpha = 0.5;
+          for (const block of shape) {
+            const gridX = gameState.previewGridX + block.x;
+            const gridY = gameState.previewGridY + block.y;
+            
+            if (gridX >= 0 && gridX < CONFIG.GRID_SIZE && gridY >= 0 && gridY < CONFIG.GRID_SIZE) {
+              const blockX = CONFIG.GRID_X + gridX * CONFIG.CELL_SIZE + (CONFIG.CELL_SIZE - CONFIG.BLOCK_SIZE) / 2;
+              const blockY = CONFIG.GRID_Y + gridY * CONFIG.CELL_SIZE + (CONFIG.CELL_SIZE - CONFIG.BLOCK_SIZE) / 2;
+              drawBlock(uiCtx, blockX, blockY, color);
+            }
+          }
+          uiCtx.globalAlpha = 1.0;
+        }
+      }
+      
+      // Draw dragging shape following pointer when dragging from bottom
+      if (gameState.isDragging && gameState.hoveredShapeIndex >= 0) {
+        const dragShapeData = gameState.currentShapes[gameState.hoveredShapeIndex];
+        if (dragShapeData) {
+          const { shape, color } = dragShapeData;
+          const pointerX = gameState.dragPointer.x;
+          const pointerY = gameState.dragPointer.y;
+          uiCtx.globalAlpha = 0.8;
+          for (const block of shape) {
+            const blockX = pointerX + block.x * CONFIG.BLOCK_SIZE - CONFIG.BLOCK_SIZE / 2;
+            const blockY = pointerY + block.y * CONFIG.BLOCK_SIZE - CONFIG.BLOCK_SIZE / 2;
+            drawBlock(uiCtx, blockX, blockY, color);
+          }
+          uiCtx.globalAlpha = 1.0;
+        }
+      }
+      
+      // Draw diamond combo indicator
+      if (gameState.comboLevel > 1) {
+        const diamondX = 600;
+        const diamondY = 50;
+        const size = 40;
+        const scale = gameState.diamondAnimation.scale;
+        const rotation = gameState.diamondAnimation.rotation;
+        const alpha = gameState.diamondAnimation.alpha;
+        
+        uiCtx.save();
+        uiCtx.translate(diamondX + size / 2, diamondY + size / 2);
+        uiCtx.rotate(rotation * Math.PI / 180);
+        uiCtx.scale(scale, scale);
+        uiCtx.globalAlpha = alpha;
+        
+        // Diamond shape
+        uiCtx.fillStyle = '#ffb642';
+        uiCtx.shadowColor = '#ffb642';
+        uiCtx.shadowBlur = 20;
+        uiCtx.beginPath();
+        uiCtx.moveTo(0, -size / 2);
+        uiCtx.lineTo(size / 2, 0);
+        uiCtx.lineTo(0, size / 2);
+        uiCtx.lineTo(-size / 2, 0);
+        uiCtx.closePath();
+        uiCtx.fill();
+        
+        uiCtx.restore();
+      }
+    }
+    
+    // ===== PERFORMANCE OPTIMIZATION =====
+    let lastPreviewUpdate = 0;
+    const PREVIEW_UPDATE_INTERVAL = 16; // ~60fps (16ms)
+    let rafPending = false;
+    
+    // ===== SOUND SYSTEM =====
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let audioUnlocked = false; // Track if audio has been unlocked by user interaction
+    
+    // Unlock audio on first user interaction (mobile requirement)
+    function unlockAudio() {
+      // Always try to resume if suspended (not just once)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          if (!audioUnlocked) {
+            audioUnlocked = true;
+            console.log('✅ Audio unlocked on mobile');
+          }
+          // Play a silent sound to fully unlock audio
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            gainNode.gain.value = 0.001; // Silent
+            oscillator.frequency.value = 1; // Very low frequency
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.01);
+          } catch (e) {
+            console.log('Silent unlock sound error:', e);
+          }
+        }).catch(e => {
+          console.log('Audio unlock error:', e);
+        });
+      } else if (audioContext.state === 'running' && !audioUnlocked) {
+        // Already running but not marked as unlocked
+        audioUnlocked = true;
+        console.log('✅ Audio already running');
+      }
+    }
+    
+    // Add event listeners to unlock audio on first interaction
+    // Note: gameCanvas will be defined later, so we'll add listeners after DOM is ready
+    document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+    document.addEventListener('touchend', unlockAudio, { once: true, passive: true });
+    document.addEventListener('click', unlockAudio, { once: true, passive: true });
+    
+    function playSound(type, frequency = 440, duration = 0.2, volume = 0.3) {
+      try {
+        // Always try to resume audio context if suspended (mobile requirement)
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(e => {
+            console.log('Audio resume error:', e);
+          });
+          // If still suspended, wait a bit and retry
+          if (audioContext.state === 'suspended') {
+            setTimeout(() => {
+              if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => {});
+              }
+            }, 100);
+          }
+        }
+        
+        // Wait for audio context to be ready (but don't block if it takes too long)
+        if (audioContext.state !== 'running') {
+          // Try to resume and play after a short delay
+          audioContext.resume().then(() => {
+            // Retry playing sound after resume
+            setTimeout(() => playSound(type, frequency, duration, volume), 50);
+          }).catch(e => {
+            console.log('Audio context not ready:', e);
+          });
+          return;
+        }
+        
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = frequency;
+        
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + duration);
+      } catch (e) {
+        console.log('Audio error:', e);
+      }
+    }
+    
+    function playPlaceBlock() {
+      // Tiếng "cạch nhẹ" khi đặt gạch - volume 150% (0.45 → 0.675)
+      playSound('place', 400, 0.15, 0.675);
+    }
+    
+    function playLineClear() {
+      // Volume 150% (1.0 → 1.5, to hơn 100%)
+      playSound('clear', 800, 0.35, 1.5);
+    }
+    
+    // Progressive combo sounds - càng cao combo càng kích thích
+    // Volume > 100% (1.5-2.0) để thực sự to
+    function playComboSound(comboLevel) {
+      if (comboLevel === 2) {
+        // Combo x2: Cool - nhẹ nhàng, khởi động (1.0→1.5, 0.9→1.35)
+        playSound('combo', 500, 0.3, 1.5);
+        setTimeout(() => playSound('combo', 700, 0.2, 1.35), 100);
+      } else if (comboLevel === 3) {
+        // Combo x3: Great - mạnh hơn, có nhịp điệu (1.0→1.5, 1.0→1.5, 0.9→1.35)
+        playSound('combo', 600, 0.25, 1.5);
+        setTimeout(() => playSound('combo', 800, 0.2, 1.5), 80);
+        setTimeout(() => playSound('combo', 1000, 0.15, 1.35), 160);
+      } else if (comboLevel === 4) {
+        // Combo x4: Awesome - rất mạnh, nhiều layers (1.0→1.5, 1.0→1.5, 1.0→1.5, 0.9→1.35)
+        playSound('combo', 700, 0.2, 1.5);
+        setTimeout(() => playSound('combo', 900, 0.18, 1.5), 60);
+        setTimeout(() => playSound('combo', 1100, 0.15, 1.5), 120);
+        setTimeout(() => playSound('combo', 1300, 0.12, 1.35), 180);
+      } else if (comboLevel >= 5) {
+        // Combo x5+: Perfect - cực kỳ kích thích, crescendo mạnh (tất cả → 1.5-2.0)
+        playSound('combo', 800, 0.18, 2.0);
+        setTimeout(() => playSound('combo', 1000, 0.15, 2.0), 50);
+        setTimeout(() => playSound('combo', 1200, 0.12, 1.8), 100);
+        setTimeout(() => playSound('combo', 1400, 0.1, 1.5), 150);
+        setTimeout(() => playSound('combo', 1600, 0.08, 1.35), 200);
+        // Thêm layer bass để tăng độ kích thích
+        setTimeout(() => playSound('combo', 400, 0.25, 2.0), 100);
+      }
+    }
+    
+    // Legacy functions (giữ lại để tương thích nếu cần)
+    function playComboCool() {
+      playComboSound(2);
+    }
+    
+    function playComboGreat() {
+      playComboSound(3);
+    }
+    
+    function playComboPerfect() {
+      playComboSound(5);
+    }
+    
+    function playGameOver() {
+      // Volume 150% (1.0 → 1.5, to hơn 100%)
+      playSound('over', 200, 0.5, 1.5);
+    }
+    
+    function playUIClick() {
+      // Volume 150% (0.6 → 0.9)
+      playSound('click', 800, 0.1, 0.9);
+    }
+    
+    // ===== GAME LOGIC =====
+    function getRandomColor() {
+      const colors = Object.values(CONFIG.COLORS);
+      return colors[Math.floor(Math.random() * colors.length)];
+    }
+    
+    function getRandomShape() {
+      return SHAPE_LIBRARY[Math.floor(Math.random() * SHAPE_LIBRARY.length)];
+    }
+    
+    function getRandomShapeWithWeight() {
+      // Reduced frequency of 3x2 and 3x3 shapes (60% reduction: 30% -> 12%)
+      const rand = Math.random();
+      
+      // Find 3x2 and 3x3 indices (last 2 shapes in library)
+      const shape3x2Index = SHAPE_LIBRARY.length - 2; // 3x2 rectangle
+      const shape3x3Index = SHAPE_LIBRARY.length - 1; // 3x3 square
+      
+      // 12% chance for 3x2 rectangle (reduced from 30%)
+      if (rand < 0.12) {
+        return SHAPE_LIBRARY[shape3x2Index]; // 3x2 rectangle
+      }
+      // 12% chance for 3x3 square (reduced from 30%)
+      else if (rand < 0.24) {
+        return SHAPE_LIBRARY[shape3x3Index]; // 3x3 square
+      }
+      // 76% chance for other shapes
+      else {
+        // Exclude 3x2 and 3x3 from random pool
+        const otherShapes = SHAPE_LIBRARY.slice(0, shape3x2Index);
+        return otherShapes[Math.floor(Math.random() * otherShapes.length)];
+      }
+    }
+    
+    function generateNewTurn() {
+      gameState.currentShapes = [];
+      for (let i = 0; i < CONFIG.SHAPES_PER_TURN; i++) {
+        const shape = getRandomShapeWithWeight();
+        const color = getRandomColor();
+        gameState.currentShapes.push({ shape, color });
+      }
+      gameState.shapesPlacedThisTurn = 0;
+      gameState.hoveredShapeIndex = -1; // Reset hover
+      gameState.isDragging = false;
+      gameState.dragPointer = { x: CONFIG.GRID_X + CONFIG.GRID_WIDTH / 2, y: CONFIG.GRID_Y + CONFIG.GRID_HEIGHT / 2 };
+    }
+    
+    function canPlaceShape(shape, gridX, gridY) {
+      for (const block of shape) {
+        const x = gridX + block.x;
+        const y = gridY + block.y;
+        
+        // Check bounds
+        if (x < 0 || x >= CONFIG.GRID_SIZE || y < 0 || y >= CONFIG.GRID_SIZE) {
+          return false;
+        }
+        
+        // Check if cell is empty
+        if (gameState.grid[y][x] !== null) {
+          return false;
+        }
+      }
+      return true;
+    }
+    
+    function placeShape(shape, gridX, gridY) {
+      if (!canPlaceShape(shape, gridX, gridY)) {
+        return false;
+      }
+      
+      // Send GAME_START message on first block placement
+      if (!gameState.gameStarted) {
+        gameState.gameStarted = true;
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'GAME_START',
+            gameId: 'crypto-blocks'
+          }, '*');
+        }
+      }
+      
+      // Get color from hovered shape (the one being placed)
+      const hoveredShapeData = gameState.currentShapes[gameState.hoveredShapeIndex];
+      const color = hoveredShapeData ? hoveredShapeData.color : '#ff0000'; // Fallback to red
+      
+      // Place all blocks of the shape
+      for (const block of shape) {
+        const x = gridX + block.x;
+        const y = gridY + block.y;
+        gameState.grid[y][x] = color;
+      }
+      
+      gameState.shapesPlacedThisTurn++;
+      playPlaceBlock();
+      
+      // Check and clear lines immediately after placing shape
+      const linesToClear = checkLines();
+      const totalLines = linesToClear.rows.length + linesToClear.cols.length;
+      
+      if (totalLines > 0) {
+        // Clear lines immediately
+        clearLines(linesToClear);
+        playLineClear();
+        
+        // Reset consecutive no-clear placements counter (phá được hàng rồi)
+        gameState.consecutiveNoClearPlacements = 0;
+        
+        // Update combo: combo = số hàng phá được trong lượt này
+        // Nếu trong 3 lượt liên tiếp đều phá được → combo tăng dần
+        gameState.consecutiveClears++;
+        gameState.consecutiveNoClears = 0;
+        
+        // Combo base = số hàng phá được
+        let baseCombo = totalLines;
+        
+        // Nếu đã phá liên tiếp trong nhiều lượt → combo tăng dần (không giới hạn)
+        if (gameState.consecutiveClears >= 2) {
+          // Lượt thứ 2: combo +1
+          // Lượt thứ 3: combo +2
+          // Lượt thứ 4: combo +3
+          // Lượt thứ 5+: combo tiếp tục tăng (không giới hạn)
+          const bonus = gameState.consecutiveClears - 1; // Không cap bonus nữa
+          baseCombo += bonus;
+        }
+        
+        gameState.comboLevel = baseCombo;
+        
+        // Không cap combo nữa - cho phép combo lên x5, x6, x7... không giới hạn
+        
+        // Play progressive combo sound - càng cao combo càng kích thích
+        // Phát âm thanh cho mọi combo level (x2, x3, x4, x5+)
+        if (gameState.comboLevel >= 2) {
+          playComboSound(gameState.comboLevel);
+        }
+        
+        // Animate diamond
+        animateDiamond();
+        
+        // Track lines cleared this turn (score will be calculated at endTurn with combo)
+        gameState.linesClearedThisTurn += totalLines;
+        
+        // Update UI immediately to show new combo
+        drawUI();
+      } else {
+        // Không phá được hàng → tăng counter
+        gameState.consecutiveNoClearPlacements++;
+        
+        // Nếu đạt 3 lần đặt gạch liên tiếp không phá được → combo về x0
+        if (gameState.consecutiveNoClearPlacements >= 3) {
+          gameState.comboLevel = 0;
+          gameState.consecutiveNoClearPlacements = 0; // Reset counter
+          gameState.consecutiveClears = 0; // Reset consecutive clears
+          drawUI(); // Update UI to show combo x0
+        }
+      }
+      
+      // Check game over immediately after placing shape (if no more shapes can be placed)
+      // Check if all shapes are used (turn complete)
+      const remainingShapes = gameState.currentShapes.filter(s => s !== null).length;
+      if (remainingShapes === 0 || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
+        endTurn();
+      } else {
+        // Check game over immediately after placing shape (if still have shapes but can't place any)
+        if (isGameOver()) {
+          gameState.gameOver = true;
+          playGameOver();
+          showGameOver();
+        }
+      }
+      
+      return true;
+    }
+    
+    function getGridCell(mouseX, mouseY) {
+      const x = mouseX - CONFIG.GRID_X;
+      const y = mouseY - CONFIG.GRID_Y;
+      
+      if (x < 0 || y < 0 || x >= CONFIG.GRID_WIDTH || y >= CONFIG.GRID_HEIGHT) {
+        return null;
+      }
+      
+      const gridX = Math.floor(x / CONFIG.CELL_SIZE);
+      const gridY = Math.floor(y / CONFIG.CELL_SIZE);
+      
+      if (gridX < 0 || gridX >= CONFIG.GRID_SIZE || gridY < 0 || gridY >= CONFIG.GRID_SIZE) {
+        return null;
+      }
+      
+      return { x: gridX, y: gridY };
+    }
+    
+    function checkLines() {
+      const linesToClear = { rows: [], cols: [] };
+      
+      // Check rows
+      for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+        let full = true;
+        for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+          if (gameState.grid[y][x] === null) {
+            full = false;
+            break;
+          }
+        }
+        if (full) {
+          linesToClear.rows.push(y);
+        }
+      }
+      
+      // Check columns
+      for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+        let full = true;
+        for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+          if (gameState.grid[y][x] === null) {
+            full = false;
+            break;
+          }
+        }
+        if (full) {
+          linesToClear.cols.push(x);
+        }
+      }
+      
+      return linesToClear;
+    }
+    
+    function clearLines(linesToClear) {
+      const comboLevel = gameState.comboLevel;
+      
+      // Create particles for rows
+      for (const row of linesToClear.rows) {
+        for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+          const color = gameState.grid[row][x];
+          if (color) {
+            // Create particles at block position
+            const blockX = CONFIG.GRID_X + x * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
+            const blockY = CONFIG.GRID_Y + row * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
+            
+            // More particles with higher combo
+            const particleCount = 3 + comboLevel * 2;
+            for (let i = 0; i < particleCount; i++) {
+              gameState.particles.push(new Particle(blockX, blockY, color, comboLevel));
+            }
+          }
+          gameState.grid[row][x] = null;
+        }
+      }
+      
+      // Create particles for columns
+      for (const col of linesToClear.cols) {
+        for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+          const color = gameState.grid[y][col];
+          if (color) {
+            // Create particles at block position
+            const blockX = CONFIG.GRID_X + col * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
+            const blockY = CONFIG.GRID_Y + y * CONFIG.CELL_SIZE + CONFIG.CELL_SIZE / 2;
+            
+            // More particles with higher combo
+            const particleCount = 3 + comboLevel * 2;
+            for (let i = 0; i < particleCount; i++) {
+              gameState.particles.push(new Particle(blockX, blockY, color, comboLevel));
+            }
+          }
+          gameState.grid[y][col] = null;
+        }
+      }
+    }
+    
+    function endTurn() {
+      // Calculate score based on lines cleared this turn
+      if (gameState.linesClearedThisTurn > 0) {
+        // Calculate score with combo multiplier (combo đã được update trong placeShape)
+        const multiplier = gameState.comboLevel;
+        const points = gameState.linesClearedThisTurn * multiplier;
+        gameState.score += points;
+      } else {
+        // No lines cleared this turn
+        gameState.consecutiveNoClears++;
+        gameState.consecutiveClears = 0; // Reset consecutive clears counter
+        
+        // If 3 consecutive turns without clearing → reset combo về 0 (báo hiệu mất lượt nâng combo)
+        if (gameState.consecutiveNoClears >= 3) {
+          gameState.comboLevel = 0;
+          gameState.consecutiveNoClears = 0;
+        }
+      }
+      
+      // Reset lines cleared counter for next turn
+      gameState.linesClearedThisTurn = 0;
+      
+      // Check game over
+      if (isGameOver()) {
+        gameState.gameOver = true;
+        playGameOver();
+        showGameOver();
+        return;
+      }
+      
+      // Generate new turn
+      generateNewTurn();
+    }
+    
+    function canPlaceAnyShape() {
+      // Check if any of the current shapes can be placed anywhere on the grid
+      for (const shapeData of gameState.currentShapes) {
+        if (!shapeData) continue; // Skip used shapes
+        
+        const { shape } = shapeData;
+        
+        // Try placing this shape at every possible position
+        for (let y = 0; y < CONFIG.GRID_SIZE; y++) {
+          for (let x = 0; x < CONFIG.GRID_SIZE; x++) {
+            if (canPlaceShape(shape, x, y)) {
+              return true; // Found at least one valid placement
+            }
+          }
+        }
+      }
+      return false; // No shapes can be placed
+    }
+    
+    function isGameOver() {
+      // Game over if no shapes can be placed
+      return !canPlaceAnyShape();
+    }
+    
+    function animateDiamond() {
+      gameState.diamondAnimation.active = true;
+      gameState.diamondAnimation.scale = 1;
+      gameState.diamondAnimation.rotation = 0;
+      gameState.diamondAnimation.alpha = 1;
+      
+      const startTime = performance.now();
+      const duration = 500; // 0.5s
+      
+      function animate() {
+        const elapsed = performance.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Ease out
+        const ease = 1 - Math.pow(1 - progress, 3);
+        
+        gameState.diamondAnimation.scale = 1 + ease * 0.3; // Scale up 30%
+        gameState.diamondAnimation.rotation = ease * 20; // Rotate 20 degrees
+        gameState.diamondAnimation.alpha = 1 - ease * 0.3; // Fade slightly
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        } else {
+          gameState.diamondAnimation.active = false;
+          gameState.diamondAnimation.scale = 1;
+          gameState.diamondAnimation.rotation = 0;
+          gameState.diamondAnimation.alpha = 1;
+        }
+      }
+      
+      animate();
+    }
+    
+    // ===== INPUT HANDLING =====
+    function getPreviewShapeArea(mouseX, mouseY) {
+      // Position: 20px below the bottom of 8x8 grid
+      const previewY = CONFIG.GRID_Y + CONFIG.GRID_HEIGHT + 20;
+      const previewCellSize = CONFIG.CELL_SIZE * 0.8; // 20% smaller than main grid
+      const previewGridSize = 3; // 3x3 grid
+      const previewGridWidth = previewGridSize * previewCellSize;
+      const previewGridHeight = previewGridSize * previewCellSize;
+      const previewSpacing = 20; // Spacing between preview grids
+      const totalPreviewWidth = 3 * previewGridWidth + 2 * previewSpacing;
+      const previewStartX = (720 - totalPreviewWidth) / 2; // Center all 3 grids
+      
+      if (mouseY < previewY || mouseY > previewY + previewGridHeight) {
+        return -1;
+      }
+      
+      for (let i = 0; i < CONFIG.SHAPES_PER_TURN; i++) {
+        const gridX = previewStartX + i * (previewGridWidth + previewSpacing);
+        if (mouseX >= gridX && mouseX < gridX + previewGridWidth) {
+          return i;
+        }
+      }
+      return -1;
+    }
+    
+    function updatePreview(mouseX, mouseY) {
+      if (gameState.isDragging) {
+        gameState.dragPointer.x = mouseX;
+        gameState.dragPointer.y = mouseY;
+      }
+      
+      // Check if hovering over preview area
+      const previewIndex = getPreviewShapeArea(mouseX, mouseY);
+      if (previewIndex >= 0 && gameState.currentShapes[previewIndex]) {
+        // Hovering over a shape in preview
+        gameState.hoveredShapeIndex = previewIndex;
+      } else {
+        // Not hovering over preview - check if we have a hovered shape to drag
+        if (gameState.hoveredShapeIndex >= 0 && gameState.isDragging) {
+          // Keep the hovered shape active while dragging
+        } else {
+          gameState.hoveredShapeIndex = -1;
+        }
+      }
+      
+      // Preview on grid (if hovering over a shape or dragging)
+      const cell = getGridCell(mouseX, mouseY);
+      if (cell && gameState.hoveredShapeIndex >= 0) {
+        const hoveredShapeData = gameState.currentShapes[gameState.hoveredShapeIndex];
+        if (hoveredShapeData) {
+          gameState.previewShape = hoveredShapeData;
+          gameState.previewGridX = cell.x;
+          gameState.previewGridY = cell.y;
+        } else {
+          gameState.previewShape = null;
+        }
+      } else {
+        gameState.previewShape = null;
+      }
+    }
+    
+    function handleMouseDown(event) {
+      if (gameState.gameOver || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
+        return;
+      }
+      
+      const rect = gameCanvas.getBoundingClientRect();
+      // Use canvas coordinates if provided (from touch events), otherwise calculate
+      const mouseX = event.canvasX !== undefined ? event.canvasX : (event.clientX - rect.left);
+      const mouseY = event.canvasY !== undefined ? event.canvasY : (event.clientY - rect.top);
+      
+      // Check if clicking on preview area (start drag)
+      const previewIndex = getPreviewShapeArea(mouseX, mouseY);
+      if (previewIndex >= 0 && gameState.currentShapes[previewIndex]) {
+        gameState.hoveredShapeIndex = previewIndex;
+        gameState.isDragging = true;
+        gameState.dragPointer.x = mouseX;
+        gameState.dragPointer.y = mouseY;
+        playUIClick();
+        return;
+      }
+      
+      // If already hovering a shape, start dragging
+      if (gameState.hoveredShapeIndex >= 0) {
+        gameState.isDragging = true;
+        gameState.dragPointer.x = mouseX;
+        gameState.dragPointer.y = mouseY;
+      }
+    }
+    
+    function handleMouseUp(event) {
+      if (gameState.gameOver || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
+        gameState.isDragging = false;
+        return;
+      }
+      
+      const rect = gameCanvas.getBoundingClientRect();
+      // Use canvas coordinates if provided (from touch events), otherwise calculate
+      const mouseX = event.canvasX !== undefined ? event.canvasX : (event.clientX - rect.left);
+      const mouseY = event.canvasY !== undefined ? event.canvasY : (event.clientY - rect.top);
+      
+      let placed = false;
+      // Check if releasing on grid (place shape)
+      const cell = getGridCell(mouseX, mouseY);
+      if (cell && gameState.hoveredShapeIndex >= 0 && gameState.isDragging) {
+        const hoveredShapeData = gameState.currentShapes[gameState.hoveredShapeIndex];
+        if (hoveredShapeData) {
+          const { shape } = hoveredShapeData;
+          if (placeShape(shape, cell.x, cell.y)) {
+            // Remove used shape
+            gameState.currentShapes[gameState.hoveredShapeIndex] = null;
+            gameState.hoveredShapeIndex = -1;
+            gameState.previewShape = null;
+            drawGrid();
+            drawUI();
+            placed = true;
+          }
+        }
+      }
+      
+      gameState.isDragging = false;
+      if (!placed) {
+        gameState.previewShape = null;
+        gameState.hoveredShapeIndex = -1;
+      }
+    }
+    
+    function handleClick(event) {
+      // Click is handled by mouseDown + mouseUp
+      // This is kept for touch devices
+      handleMouseDown(event);
+      setTimeout(() => handleMouseUp(event), 10);
+    }
+    
+    function handleMouseMove(event) {
+      if (gameState.gameOver || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
+        gameState.previewShape = null;
+        gameState.hoveredShapeIndex = -1;
+        return;
+      }
+      
+      const rect = gameCanvas.getBoundingClientRect();
+      const mouseX = event.clientX - rect.left;
+      const mouseY = event.clientY - rect.top;
+      
+      const oldHovered = gameState.hoveredShapeIndex;
+      const oldPreviewX = gameState.previewGridX;
+      const oldPreviewY = gameState.previewGridY;
+      
+      updatePreview(mouseX, mouseY);
+      
+      // Only redraw if preview changed (optimization)
+      // Sử dụng requestAnimationFrame để batch updates
+      if (oldHovered !== gameState.hoveredShapeIndex || 
+          oldPreviewX !== gameState.previewGridX || 
+          oldPreviewY !== gameState.previewGridY) {
+        if (!rafPending) {
+          rafPending = true;
+          requestAnimationFrame(() => {
+            drawUI();
+            rafPending = false;
+          });
+        }
+      }
+    }
+    
+    // ===== GAME OVER UI =====
+    function showGameOver() {
+      document.getElementById('finalScore').textContent = gameState.score;
+      document.getElementById('gameOver').classList.add('show');
+      
+      // Send GAME_SCORE message when game over (only once)
+      if (!gameState.scoreSent && gameState.gameStarted) {
+        gameState.scoreSent = true;
+        if (window.parent && window.parent !== window) {
+          window.parent.postMessage({
+            type: 'GAME_SCORE',
+            gameId: 'crypto-blocks',
+            score: gameState.score
+          }, '*');
+        }
+      }
+    }
+    
+    // ===== GAME CONTROL =====
+    const game = {
+      start() {
+        initGrid();
+        gameState.score = 0;
+        gameState.comboLevel = 1;
+        gameState.gameOver = false;
+        gameState.shapesPlacedThisTurn = 0;
+        gameState.consecutiveClears = 0;
+        gameState.consecutiveNoClears = 0;
+        gameState.consecutiveNoClearPlacements = 0;
+        gameState.linesClearedThisTurn = 0;
+        gameState.hoveredShapeIndex = -1;
+        gameState.previewShape = null;
+        gameState.isDragging = false;
+        gameState.dragPointer = { x: CONFIG.GRID_X + CONFIG.GRID_WIDTH / 2, y: CONFIG.GRID_Y + CONFIG.GRID_HEIGHT / 2 };
+        gameState.particles = []; // Clear particles
+        gameState.gameStarted = false; // Reset game started flag
+        gameState.scoreSent = false; // Reset score sent flag
+        generateNewTurn();
+        drawGrid();
+        drawUI();
+        
+        // Resume audio context (browser autoplay policy)
+        // Also unlock audio on mobile
+        unlockAudio();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(e => {
+            console.log('Audio resume error on start:', e);
+          });
+        }
+      },
+      
+      restart() {
+        playUIClick();
+        document.getElementById('gameOver').classList.remove('show');
+        this.start();
+      }
+    };
+    
+    // ===== EVENT LISTENERS =====
+    // Unlock audio on canvas interaction (mobile requirement)
+    gameCanvas.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
+    gameCanvas.addEventListener('touchend', unlockAudio, { once: true, passive: true });
+    gameCanvas.addEventListener('mousedown', (e) => {
+      unlockAudio();
+      handleMouseDown(e);
+    });
+    gameCanvas.addEventListener('mouseup', handleMouseUp);
+    gameCanvas.addEventListener('mousemove', (e) => {
+      // Throttle mousemove để tối ưu performance
+      const now = performance.now();
+      if (now - lastPreviewUpdate < PREVIEW_UPDATE_INTERVAL) {
+        return;
+      }
+      lastPreviewUpdate = now;
+      
+      if (!rafPending) {
+        rafPending = true;
+        requestAnimationFrame(() => {
+          handleMouseMove(e);
+          rafPending = false;
+        });
+      }
+    });
+    gameCanvas.addEventListener('mouseleave', () => {
+      gameState.isDragging = false;
+      gameState.hoveredShapeIndex = -1;
+      gameState.previewShape = null;
+    });
+    
+    // Touch events - Add to gameContainer to handle drag from preview area
+    const gameContainer = document.getElementById('gameContainer');
+    
+    function getCanvasCoordinates(clientX, clientY) {
+      const rect = gameCanvas.getBoundingClientRect();
+      // Canvas is 720x1000, so coordinates are 1:1 with rect
+      return {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+    }
+    
+    gameContainer.addEventListener('touchstart', (e) => {
+      // Không preventDefault nếu game over (để nút restart hoạt động)
+      if (gameState.gameOver) {
+        return;
+      }
+      unlockAudio(); // Unlock audio on first touch
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touch) {
+        const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+        const fakeEvent = { 
+          clientX: touch.clientX, 
+          clientY: touch.clientY,
+          canvasX: coords.x,
+          canvasY: coords.y
+        };
+        handleMouseDown(fakeEvent);
+      }
+    }, { passive: false });
+    
+    gameContainer.addEventListener('touchend', (e) => {
+      // Không preventDefault nếu game over (để nút restart hoạt động)
+      if (gameState.gameOver) {
+        return;
+      }
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      if (touch) {
+        const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+        const fakeEvent = { 
+          clientX: touch.clientX, 
+          clientY: touch.clientY,
+          canvasX: coords.x,
+          canvasY: coords.y
+        };
+        handleMouseUp(fakeEvent);
+      }
+    }, { passive: false });
+    
+    gameContainer.addEventListener('touchmove', (e) => {
+      // Không preventDefault nếu game over (để nút restart hoạt động)
+      if (gameState.gameOver) {
+        return;
+      }
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touch) {
+        const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
+        
+        // Throttle updates để giảm lag (chỉ update mỗi 16ms = 60fps)
+        const now = performance.now();
+        if (now - lastPreviewUpdate < PREVIEW_UPDATE_INTERVAL) {
+          return; // Skip frame nếu quá nhanh
+        }
+        lastPreviewUpdate = now;
+        
+        // Batch updates với requestAnimationFrame
+        if (!rafPending) {
+          rafPending = true;
+          requestAnimationFrame(() => {
+            updatePreview(coords.x, coords.y);
+            drawUI(); // Chỉ redraw UI (không redraw grid)
+            rafPending = false;
+          });
+        }
+      }
+    }, { passive: false });
+    
+    // Also keep gameCanvas touch events for compatibility
+    gameCanvas.addEventListener('touchstart', (e) => {
+      // Không preventDefault nếu game over (để nút restart hoạt động)
+      if (gameState.gameOver) {
+        return;
+      }
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touch) {
+        const rect = gameCanvas.getBoundingClientRect();
+        const mouseX = touch.clientX - rect.left;
+        const mouseY = touch.clientY - rect.top;
+        const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+        handleMouseDown(fakeEvent);
+      }
+    }, { passive: false });
+    
+    gameCanvas.addEventListener('touchend', (e) => {
+      // Không preventDefault nếu game over (để nút restart hoạt động)
+      if (gameState.gameOver) {
+        return;
+      }
+      e.preventDefault();
+      const touch = e.changedTouches[0];
+      if (touch) {
+        const rect = gameCanvas.getBoundingClientRect();
+        const mouseX = touch.clientX - rect.left;
+        const mouseY = touch.clientY - rect.top;
+        const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
+        handleMouseUp(fakeEvent);
+      }
+    }, { passive: false });
+    
+    gameCanvas.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touch) {
+        const rect = gameCanvas.getBoundingClientRect();
+        const mouseX = touch.clientX - rect.left;
+        const mouseY = touch.clientY - rect.top;
+        
+        // Throttle updates để giảm lag (chỉ update mỗi 16ms = 60fps)
+        const now = performance.now();
+        if (now - lastPreviewUpdate < PREVIEW_UPDATE_INTERVAL) {
+          return; // Skip frame nếu quá nhanh
+        }
+        lastPreviewUpdate = now;
+        
+        // Batch updates với requestAnimationFrame
+        if (!rafPending) {
+          rafPending = true;
+          requestAnimationFrame(() => {
+            updatePreview(mouseX, mouseY);
+            drawUI(); // Chỉ redraw UI (không redraw grid)
+            rafPending = false;
+          });
+        }
+      }
+    }, { passive: false });
+    
+    // ===== GAME LOOP =====
+    function gameLoop() {
+      if (!gameState.gameOver) {
+        // Check game over continuously
+        if (isGameOver()) {
+          gameState.gameOver = true;
+          playGameOver();
+          showGameOver();
+        } else {
+          drawGrid();
+          drawUI();
+        }
+      }
+      requestAnimationFrame(gameLoop);
+    }
+    
+    // ===== INITIALIZE =====
+    game.start();
+    gameLoop();
+    
+    // Post message integration (for MemePlay platform)
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'GAME_START', gameId: 'crypto-blocks' }, '*');
+    }
+  </script>
+</body>
+</html>
+
