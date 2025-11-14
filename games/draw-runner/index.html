@@ -307,7 +307,7 @@
       lastCoinSpawn: 0,
       scrollOffset: 0,
       mana: 720, // Start with full mana (5 viên bi)
-      lastManaRegen: 0,
+      manaLastUsed: 0, // Timestamp when mana was last used
       nextLogoTime: 0 // Track when next flying logo should spawn
     };
 
@@ -865,9 +865,10 @@
           totalLength += Math.sqrt(dx * dx + dy * dy);
         }
         
-        // Consume mana: 144px = 1 mana (1 viên bi)
-        const manaUsed = totalLength / CONFIG.MANA_PER_ORB;
+        // Consume mana: 1px = 1 mana, 144px = 144 mana = 1 viên bi
+        const manaUsed = totalLength;
         gameState.mana = Math.max(0, gameState.mana - manaUsed);
+        gameState.manaLastUsed = currentTime;
         
         drawnLines.push(currentLine);
       }
@@ -1119,11 +1120,22 @@
         }
       }
 
-      // Mana regeneration (144px/s = 1 viên bi/s)
-      if (!gameState.lastManaRegen) gameState.lastManaRegen = currentTime;
-      const manaRegenDelta = (currentTime - gameState.lastManaRegen) / 1000; // Convert to seconds
-      gameState.mana = Math.min(CONFIG.MAX_MANA, gameState.mana + CONFIG.MANA_REGEN_RATE * manaRegenDelta);
-      gameState.lastManaRegen = currentTime;
+      // Mana regeneration: 1 viên bi (144 mana) mỗi 1 giây
+      // Hồi TỪNG VIÊN (không hồi liên tục!)
+      if (gameState.mana < CONFIG.MAX_MANA) {
+        if (!gameState.manaLastUsed) gameState.manaLastUsed = currentTime;
+        
+        const timeSinceLastUse = currentTime - gameState.manaLastUsed;
+        const ballsToRecover = Math.floor(timeSinceLastUse / 1000); // 1000ms per ball
+        
+        if (ballsToRecover > 0) {
+          // Recover full balls only (snap to 144 intervals)
+          const recoveredMana = ballsToRecover * CONFIG.MANA_PER_ORB;
+          const currentBalls = Math.floor(gameState.mana / CONFIG.MANA_PER_ORB);
+          gameState.mana = Math.min(CONFIG.MAX_MANA, (currentBalls + ballsToRecover) * CONFIG.MANA_PER_ORB);
+          gameState.manaLastUsed = currentTime - (timeSinceLastUse % 1000);
+        }
+      }
 
       // Spawn mana orbs
       if (!gameState.lastManaOrbSpawn) gameState.lastManaOrbSpawn = currentTime;
@@ -1280,7 +1292,8 @@
         lastCoinSpawn: performance.now(),
         scrollOffset: 0,
         mana: CONFIG.MAX_MANA, // Start with full mana (5 viên bi)
-        lastManaRegen: performance.now()
+        manaLastUsed: performance.now(), // For regeneration tracking
+        nextLogoTime: performance.now() + 2000 // First logo after 2s
       };
 
       // Reset player
