@@ -304,7 +304,8 @@
       consecutiveNoClears: 0, // Number of consecutive turns without clears (reset combo if >= 3)
       consecutiveNoClearPlacements: 0, // Number of consecutive placements without clearing lines (reset combo to x0 if >= 3)
       linesClearedThisTurn: 0, // Total lines cleared in current turn
-      hoveredShapeIndex: -1, // Currently hovered shape index (-1 = none)
+      hoveredShapeIndex: -1, // Currently hovered shape index (-1 = none) - for visual hover only
+      selectedShapeIndex: -1, // Locked selected block index (-1 = none) - chỉ thay đổi khi click, không thay đổi khi drag
       previewShape: null, // Currently previewing shape at mouse position
       previewGridX: -1,
       previewGridY: -1,
@@ -524,7 +525,8 @@
         // Draw shape inside preview grid - map shape to 3x3 matrix
         if (gameState.currentShapes[i]) {
           const { shape, color } = gameState.currentShapes[i];
-          const alpha = gameState.hoveredShapeIndex === i ? 1.0 : 0.7;
+          // Highlight selected block (alpha 1.0) hoặc hovered block (alpha 0.85), còn lại 0.7
+          const alpha = gameState.selectedShapeIndex === i ? 1.0 : (gameState.hoveredShapeIndex === i ? 0.85 : 0.7);
           uiCtx.globalAlpha = alpha;
           
           // Convert shape (array of {x, y}) to 3x3 matrix
@@ -591,8 +593,9 @@
       }
       
       // Draw dragging shape following pointer when dragging from bottom
-      if (gameState.isDragging && gameState.hoveredShapeIndex >= 0) {
-        const dragShapeData = gameState.currentShapes[gameState.hoveredShapeIndex];
+      // Sử dụng selectedShapeIndex (đã bị khóa) thay vì hoveredShapeIndex
+      if (gameState.isDragging && gameState.selectedShapeIndex >= 0) {
+        const dragShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
         if (dragShapeData) {
           const { shape, color } = dragShapeData;
           const pointerX = gameState.dragPointer.x;
@@ -861,6 +864,7 @@
       }
       gameState.shapesPlacedThisTurn = 0;
       gameState.hoveredShapeIndex = -1; // Reset hover
+      gameState.selectedShapeIndex = -1; // Reset selected block
       gameState.isDragging = false;
       gameState.dragPointer = { x: CONFIG.GRID_X + CONFIG.GRID_WIDTH / 2, y: CONFIG.GRID_Y + CONFIG.GRID_HEIGHT / 2 };
     }
@@ -899,9 +903,9 @@
         }
       }
       
-      // Get color from hovered shape (the one being placed)
-      const hoveredShapeData = gameState.currentShapes[gameState.hoveredShapeIndex];
-      const color = hoveredShapeData ? hoveredShapeData.color : '#ff0000'; // Fallback to red
+      // Get color from selected shape (đã bị khóa khi click)
+      const selectedShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
+      const color = selectedShapeData ? selectedShapeData.color : '#ff0000'; // Fallback to red
       
       // Place all blocks of the shape
       for (const block of shape) {
@@ -1207,26 +1211,25 @@
         gameState.dragPointer.y = mouseY;
       }
       
-      // Check if hovering over preview area
-      const previewIndex = getPreviewShapeArea(mouseX, mouseY);
-      if (previewIndex >= 0 && gameState.currentShapes[previewIndex]) {
-        // Hovering over a shape in preview
-        gameState.hoveredShapeIndex = previewIndex;
-      } else {
-        // Not hovering over preview - check if we have a hovered shape to drag
-        if (gameState.hoveredShapeIndex >= 0 && gameState.isDragging) {
-          // Keep the hovered shape active while dragging
+      // Nếu đang drag → KHÔNG thay đổi selectedShapeIndex (đã bị khóa)
+      // Chỉ update hover cho visual feedback
+      if (!gameState.isDragging) {
+        // Check if hovering over preview area (chỉ để hiển thị hover, không select)
+        const previewIndex = getPreviewShapeArea(mouseX, mouseY);
+        if (previewIndex >= 0 && gameState.currentShapes[previewIndex]) {
+          // Hovering over a shape in preview (visual only)
+          gameState.hoveredShapeIndex = previewIndex;
         } else {
           gameState.hoveredShapeIndex = -1;
         }
       }
       
-      // Preview on grid (if hovering over a shape or dragging)
+      // Preview on grid - sử dụng selectedShapeIndex (đã bị khóa) thay vì hoveredShapeIndex
       const cell = getGridCell(mouseX, mouseY);
-      if (cell && gameState.hoveredShapeIndex >= 0) {
-        const hoveredShapeData = gameState.currentShapes[gameState.hoveredShapeIndex];
-        if (hoveredShapeData) {
-          gameState.previewShape = hoveredShapeData;
+      if (cell && gameState.selectedShapeIndex >= 0) {
+        const selectedShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
+        if (selectedShapeData) {
+          gameState.previewShape = selectedShapeData;
           gameState.previewGridX = cell.x;
           gameState.previewGridY = cell.y;
         } else {
@@ -1247,10 +1250,12 @@
       const mouseX = event.canvasX !== undefined ? event.canvasX : (event.clientX - rect.left);
       const mouseY = event.canvasY !== undefined ? event.canvasY : (event.clientY - rect.top);
       
-      // Check if clicking on preview area (start drag)
+      // Check if clicking on preview area (KHÓA selectedBlock)
       const previewIndex = getPreviewShapeArea(mouseX, mouseY);
       if (previewIndex >= 0 && gameState.currentShapes[previewIndex]) {
-        gameState.hoveredShapeIndex = previewIndex;
+        // KHÓA block này thành selectedBlock - không thay đổi trong lúc drag
+        gameState.selectedShapeIndex = previewIndex;
+        gameState.hoveredShapeIndex = previewIndex; // Visual feedback
         gameState.isDragging = true;
         gameState.dragPointer.x = mouseX;
         gameState.dragPointer.y = mouseY;
@@ -1258,8 +1263,10 @@
         return;
       }
       
-      // If already hovering a shape, start dragging
+      // If already hovering a shape, lock it as selected and start dragging
       if (gameState.hoveredShapeIndex >= 0) {
+        // KHÓA block này thành selectedBlock
+        gameState.selectedShapeIndex = gameState.hoveredShapeIndex;
         gameState.isDragging = true;
         gameState.dragPointer.x = mouseX;
         gameState.dragPointer.y = mouseY;
@@ -1278,15 +1285,16 @@
       const mouseY = event.canvasY !== undefined ? event.canvasY : (event.clientY - rect.top);
       
       let placed = false;
-      // Check if releasing on grid (place shape)
+      // Check if releasing on grid (place shape) - sử dụng selectedShapeIndex (đã bị khóa)
       const cell = getGridCell(mouseX, mouseY);
-      if (cell && gameState.hoveredShapeIndex >= 0 && gameState.isDragging) {
-        const hoveredShapeData = gameState.currentShapes[gameState.hoveredShapeIndex];
-        if (hoveredShapeData) {
-          const { shape } = hoveredShapeData;
+      if (cell && gameState.selectedShapeIndex >= 0 && gameState.isDragging) {
+        const selectedShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
+        if (selectedShapeData) {
+          const { shape } = selectedShapeData;
           if (placeShape(shape, cell.x, cell.y)) {
             // Remove used shape
-            gameState.currentShapes[gameState.hoveredShapeIndex] = null;
+            gameState.currentShapes[gameState.selectedShapeIndex] = null;
+            gameState.selectedShapeIndex = -1; // Reset selected block
             gameState.hoveredShapeIndex = -1;
             gameState.previewShape = null;
             drawGrid();
@@ -1298,6 +1306,8 @@
       
       gameState.isDragging = false;
       if (!placed) {
+        // Nếu không đặt được → reset selected block để có thể chọn block khác
+        gameState.selectedShapeIndex = -1;
         gameState.previewShape = null;
         gameState.hoveredShapeIndex = -1;
       }
@@ -1373,6 +1383,7 @@
         gameState.consecutiveNoClearPlacements = 0;
         gameState.linesClearedThisTurn = 0;
         gameState.hoveredShapeIndex = -1;
+        gameState.selectedShapeIndex = -1; // Reset selected block
         gameState.previewShape = null;
         gameState.isDragging = false;
         gameState.dragPointer = { x: CONFIG.GRID_X + CONFIG.GRID_WIDTH / 2, y: CONFIG.GRID_Y + CONFIG.GRID_HEIGHT / 2 };
