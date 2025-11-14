@@ -539,17 +539,14 @@
         ctx.save();
         const screenX = this.x - scrollOffset;
         
-        // Draw very dark pit (barely visible, blends with ground)
-        ctx.fillStyle = this.color;
+        // Draw black hole (cut out from ground)
+        ctx.fillStyle = '#000000';
         ctx.fillRect(screenX, this.y, this.width, this.height);
         
-        // Subtle edge indicator (thin red line at top)
-        ctx.strokeStyle = 'rgba(255, 0, 0, 0.3)';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.moveTo(screenX, this.y);
-        ctx.lineTo(screenX + this.width, this.y);
-        ctx.stroke();
+        // Draw darker edges to create depth
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.lineWidth = 4;
+        ctx.strokeRect(screenX + 2, this.y + 2, this.width - 4, this.height - 4);
         
         // Debug hitbox (blue) - only in debug mode
         if (CONFIG.DEBUG_HITBOXES) {
@@ -947,7 +944,11 @@
       // Draw mana orbs (cyan/blue orbs)
       manaOrbs.forEach(orb => orb.draw(ctx, gameState.scrollOffset));
 
-      // Draw pits (holes)
+      // Draw ground line first
+      ctx.fillStyle = '#1a3a52';
+      ctx.fillRect(0, CONFIG.HEIGHT - 100, CONFIG.WIDTH, 100);
+      
+      // Draw pits (holes) UNDER the ground
       pits.forEach(pit => pit.draw(ctx, gameState.scrollOffset));
 
       // Draw obstacles
@@ -999,12 +1000,11 @@
       
       ctx.restore();
 
-      // Draw Mana UI (5 orbs at bottom)
+      // Draw Mana UI (5 orbs at TOP-LEFT)
       const orbSize = 16;
-      const orbSpacing = 4;
-      const totalWidth = (orbSize * 5) + (orbSpacing * 4);
-      const startX = (CONFIG.WIDTH - totalWidth) / 2;
-      const orbY = CONFIG.HEIGHT - 30;
+      const orbSpacing = 6;
+      const startX = 15;
+      const orbY = 20;
       
       for (let i = 0; i < 5; i++) {
         const orbX = startX + (i * (orbSize + orbSpacing));
