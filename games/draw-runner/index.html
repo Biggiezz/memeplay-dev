@@ -1044,6 +1044,8 @@
     // GAME FLOW
     // ==========================================
     function startGame() {
+      console.log('🎮 START GAME - Resetting mana to', CONFIG.MAX_MANA);
+      
       // Send GAME_START message
       window.parent.postMessage({ 
         type: 'GAME_START', 
@@ -1061,6 +1063,12 @@
         mana: CONFIG.MAX_MANA, // Start with full mana (5 viên bi)
         lastManaRegen: Date.now()
       };
+      
+      console.log('✅ Game state after reset:', {
+        isRunning: gameState.isRunning,
+        mana: gameState.mana,
+        MAX_MANA: CONFIG.MAX_MANA
+      });
 
       // Reset player
       player.x = 50; // Fixed screen position
