@@ -673,10 +673,19 @@
         ctx.fillStyle = '#000000';
         ctx.fillRect(screenX, this.y, this.width, this.height);
         
-        // Draw darker edges to create depth
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
-        ctx.lineWidth = 4;
+        // Draw DASHED YELLOW BORDER (warning indicator like Lovable!)
+        ctx.strokeStyle = '#ffd700'; // Yellow
+        ctx.lineWidth = 3;
+        ctx.setLineDash([8, 4]); // Dashed pattern: 8px dash, 4px gap
         ctx.strokeRect(screenX + 2, this.y + 2, this.width - 4, this.height - 4);
+        ctx.setLineDash([]); // Reset to solid
+        
+        // Add warning stripes on sides (like Lovable)
+        ctx.fillStyle = '#ffd700';
+        for (let i = 0; i < 5; i++) {
+          ctx.fillRect(screenX + 2, this.y + i * 20, 4, 10);
+          ctx.fillRect(screenX + this.width - 6, this.y + i * 20 + 10, 4, 10);
+        }
         
         // Debug hitbox (blue) - only in debug mode
         if (CONFIG.DEBUG_HITBOXES) {
