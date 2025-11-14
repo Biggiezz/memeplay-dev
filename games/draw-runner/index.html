@@ -516,11 +516,11 @@
         lastFpsUpdate = currentTime;
       }
 
-      update(deltaTime);
+      update(deltaTime, currentTime);
       render();
     }
 
-    function update(deltaTime) {
+    function update(deltaTime, currentTime) {
       // Update distance
       gameState.distance += CONFIG.SCROLL_SPEED * deltaTime * 0.1;
       gameState.scrollOffset += CONFIG.SCROLL_SPEED * deltaTime;
