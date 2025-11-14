@@ -656,10 +656,7 @@
       // Always try to resume if suspended (not just once)
       if (audioContext.state === 'suspended') {
         audioContext.resume().then(() => {
-          if (!audioUnlocked) {
-            audioUnlocked = true;
-            console.log('✅ Audio unlocked on mobile');
-          }
+          audioUnlocked = true;
           // Play a silent sound to fully unlock audio (required for iOS Safari)
           try {
             const oscillator = audioContext.createOscillator();
@@ -671,43 +668,51 @@
             oscillator.start();
             oscillator.stop(audioContext.currentTime + 0.01);
           } catch (e) {
-            console.log('Silent unlock sound error:', e);
+            // Ignore errors
           }
         }).catch(e => {
-          console.log('Audio unlock error:', e);
+          // Retry after short delay
+          setTimeout(() => {
+            if (audioContext.state === 'suspended') {
+              audioContext.resume().then(() => {
+                audioUnlocked = true;
+              }).catch(() => {});
+            }
+          }, 100);
         });
-      } else if (audioContext.state === 'running' && !audioUnlocked) {
-        // Already running but not marked as unlocked
-        audioUnlocked = true;
-        console.log('✅ Audio already running');
-        // Still play silent sound to ensure full unlock (iOS requirement)
-        try {
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          gainNode.gain.value = 0.001;
-          oscillator.frequency.value = 1;
-          oscillator.start();
-          oscillator.stop(audioContext.currentTime + 0.01);
-        } catch (e) {
-          // Ignore errors
+      } else if (audioContext.state === 'running') {
+        // Đã running - vẫn play silent sound để đảm bảo unlock (iOS requirement)
+        if (!audioUnlocked) {
+          audioUnlocked = true;
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            gainNode.gain.value = 0.001;
+            oscillator.frequency.value = 1;
+            oscillator.start();
+            oscillator.stop(audioContext.currentTime + 0.01);
+          } catch (e) {
+            // Ignore errors
+          }
         }
       }
     }
     
-    // Add event listeners to unlock audio on first interaction
+    // Add event listeners to unlock audio on user interaction
+    // KHÔNG dùng once: true - cần unlock nhiều lần để đảm bảo audio hoạt động trên mobile
     // Multiple listeners to ensure unlock works in iframe on mobile
-    // Note: gameCanvas will be defined later, so we'll add listeners after DOM is ready
-    document.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
-    document.addEventListener('touchend', unlockAudio, { once: true, passive: true });
-    document.addEventListener('touchmove', unlockAudio, { once: true, passive: true });
-    document.addEventListener('click', unlockAudio, { once: true, passive: true });
-    document.addEventListener('mousedown', unlockAudio, { once: true, passive: true });
+    document.addEventListener('touchstart', unlockAudio, { passive: true });
+    document.addEventListener('touchend', unlockAudio, { passive: true });
+    document.addEventListener('touchmove', unlockAudio, { passive: true });
+    document.addEventListener('click', unlockAudio, { passive: true });
+    document.addEventListener('mousedown', unlockAudio, { passive: true });
     
     // Also listen on window for iframe scenarios
-    window.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
-    window.addEventListener('touchend', unlockAudio, { once: true, passive: true });
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('touchend', unlockAudio, { passive: true });
+    window.addEventListener('touchmove', unlockAudio, { passive: true });
     
     function playSound(type, frequency = 440, duration = 0.2, volume = 0.3) {
       try {
@@ -727,15 +732,30 @@
         }
         
         // Wait for audio context to be ready (but don't block if it takes too long)
-        if (audioContext.state !== 'running') {
-          // Try to resume and play after a short delay
+        // Nếu suspended → unlock và retry
+        if (audioContext.state === 'suspended') {
+          unlockAudio();
           audioContext.resume().then(() => {
             // Retry playing sound after resume
             setTimeout(() => playSound(type, frequency, duration, volume), 50);
           }).catch(e => {
-            console.log('Audio context not ready:', e);
+            // Retry unlock và play
+            setTimeout(() => {
+              unlockAudio();
+              playSound(type, frequency, duration, volume);
+            }, 100);
           });
           return;
+        } else if (audioContext.state !== 'running') {
+          // Nếu không phải running → unlock và retry
+          unlockAudio();
+          setTimeout(() => playSound(type, frequency, duration, volume), 50);
+          return;
+        }
+        
+        // Đảm bảo audio đã unlock trước khi play
+        if (!audioUnlocked) {
+          unlockAudio();
         }
         
         const oscillator = audioContext.createOscillator();
@@ -1395,12 +1415,21 @@
         drawUI();
         
         // Resume audio context (browser autoplay policy)
-        // Also unlock audio on mobile
+        // Unlock audio ngay khi start game (CRITICAL for mobile)
         unlockAudio();
         if (audioContext.state === 'suspended') {
-          audioContext.resume().catch(e => {
-            console.log('Audio resume error on start:', e);
+          audioContext.resume().then(() => {
+            unlockAudio(); // Unlock lại sau khi resume
+          }).catch(e => {
+            // Retry after short delay
+            setTimeout(() => {
+              if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => unlockAudio()).catch(() => {});
+              }
+            }, 200);
           });
+        } else {
+          unlockAudio(); // Vẫn unlock nếu đã running
         }
       },
       
@@ -1413,8 +1442,10 @@
     
     // ===== EVENT LISTENERS =====
     // Unlock audio on canvas interaction (mobile requirement)
-    gameCanvas.addEventListener('touchstart', unlockAudio, { once: true, passive: true });
-    gameCanvas.addEventListener('touchend', unlockAudio, { once: true, passive: true });
+    // KHÔNG dùng once: true - cần unlock nhiều lần
+    gameCanvas.addEventListener('touchstart', unlockAudio, { passive: true });
+    gameCanvas.addEventListener('touchend', unlockAudio, { passive: true });
+    gameCanvas.addEventListener('touchmove', unlockAudio, { passive: true });
     gameCanvas.addEventListener('mousedown', (e) => {
       unlockAudio();
       handleMouseDown(e);
