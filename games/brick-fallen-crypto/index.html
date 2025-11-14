@@ -498,9 +498,9 @@
       let brickWidth = Math.floor((availableWidth - (cols + 1) * CONFIG.BRICK_PADDING) / cols);
       let brickHeight = Math.floor((availableHeight - (rows + 1) * CONFIG.BRICK_PADDING) / rows);
       
-      // Thu nhỏ gạch xuống 25% (giảm 75%)
-      brickWidth = Math.floor(brickWidth * 0.25);
-      brickHeight = Math.floor(brickHeight * 0.25);
+      // Thu nhỏ gạch 25% (còn 75%)
+      brickWidth = Math.floor(brickWidth * 0.75);
+      brickHeight = Math.floor(brickHeight * 0.75);
       
       // Center the brick field
       const totalWidth = cols * brickWidth + (cols + 1) * CONFIG.BRICK_PADDING;
