@@ -273,7 +273,8 @@
     // PLAYER
     // ==========================================
     const player = {
-      x: 150,
+      x: 50, // Fixed screen position (50px from left)
+      worldX: 50, // World position (increases as player runs)
       y: CONFIG.HEIGHT - 150,
       vx: CONFIG.PLAYER_SPEED,
       vy: 0,
@@ -521,31 +522,28 @@
     }
 
     function update(deltaTime, currentTime) {
-      // Update distance
-      gameState.distance += CONFIG.SCROLL_SPEED * deltaTime * 0.1;
-      gameState.scrollOffset += CONFIG.SCROLL_SPEED * deltaTime;
+      // Player physics - update world position
+      player.vy += CONFIG.GRAVITY * deltaTime;
+      player.worldX += player.vx * deltaTime; // Move forward in world space
+      player.y += player.vy * deltaTime;
+
+      // Camera follows player (player stays at x=50 on screen)
+      gameState.scrollOffset = player.worldX - player.x;
       
-      // Update stars
+      // Update distance based on world position
+      gameState.distance = player.worldX * 0.1;
+      
+      // Update stars (parallax effect)
       stars.forEach(star => {
         star.x -= star.speed * deltaTime;
         if (star.x < 0) star.x = CONFIG.WIDTH;
       });
 
-      // Player physics
-      player.vy += CONFIG.GRAVITY * deltaTime;
-      player.x += player.vx * deltaTime;
-      player.y += player.vy * deltaTime;
-
-      // Keep player in horizontal bounds
-      if (player.x < 50) player.x = 50;
-      if (player.x > CONFIG.WIDTH - 50) player.x = CONFIG.WIDTH - 50;
-
       // Check collision with drawn lines
       player.grounded = false;
-      const playerWorldX = player.x + gameState.scrollOffset;
       
       for (let line of drawnLines) {
-        if (line.checkCollision(playerWorldX, player.y, player.size)) {
+        if (line.checkCollision(player.worldX, player.y, player.size)) {
           // Player is on a line
           player.grounded = true;
           player.vy = Math.max(0, player.vy); // Stop falling
@@ -589,7 +587,7 @@
         coin.update();
         
         // Check collision
-        if (coin.checkCollision(playerWorldX, player.y, player.size)) {
+        if (coin.checkCollision(player.worldX, player.y, player.size)) {
           coin.collected = true;
           gameState.coins++;
           gameState.score += 10;
@@ -675,7 +673,8 @@
       };
 
       // Reset player
-      player.x = 150;
+      player.x = 50; // Fixed screen position
+      player.worldX = 50; // World position
       player.y = CONFIG.HEIGHT - 150;
       player.vx = CONFIG.PLAYER_SPEED;
       player.vy = 0;
