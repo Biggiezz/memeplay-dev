@@ -675,6 +675,12 @@
 
     function startDrawing(e) {
       if (!gameState.isRunning) return;
+      
+      // Check if has mana to start drawing
+      if (gameState.mana <= 0) {
+        return; // Cannot start drawing without mana
+      }
+      
       e.preventDefault();
       isDrawing = true;
       currentLine = new DrawnLine();
@@ -685,12 +691,6 @@
     function continueDrawing(e) {
       if (!isDrawing || !currentLine) return;
       e.preventDefault();
-      
-      // Check mana before drawing
-      if (gameState.mana <= 0) {
-        stopDrawing(e);
-        return;
-      }
       
       const pos = getMousePos(e);
       currentLine.addPoint(pos.x, pos.y);
