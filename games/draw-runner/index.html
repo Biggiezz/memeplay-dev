@@ -199,14 +199,22 @@
 
   <script>
     // ==========================================
+    // MOBILE DETECTION & SPEED MULTIPLIER
+    // ==========================================
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const speedMultiplier = isMobile ? 1.625 : 1.0; // 62.5% faster on mobile
+    
+    console.log('📱 Device:', isMobile ? 'Mobile' : 'Desktop', '| Speed:', speedMultiplier + 'x');
+
+    // ==========================================
     // GAME CONFIGURATION
     // ==========================================
     const CONFIG = {
       WIDTH: 800,
       HEIGHT: 600,
       PLAYER_SIZE: 32,
-      PLAYER_SPEED: 3,
-      GRAVITY: 0.5,
+      get PLAYER_SPEED() { return 3 * speedMultiplier; },
+      get GRAVITY() { return 0.5 * speedMultiplier; },
       JUMP_FORCE: -8,
       COIN_SIZE: 24,
       COIN_SPAWN_INTERVAL: 1500,
