@@ -1623,25 +1623,6 @@
       unlockAudio(); // Continuous unlock
       // KHÔNG preventDefault - để event bubble
     }, { passive: true });
-        
-        // Throttle updates để giảm lag (chỉ update mỗi 16ms = 60fps)
-        const now = performance.now();
-        if (now - lastPreviewUpdate < PREVIEW_UPDATE_INTERVAL) {
-          return; // Skip frame nếu quá nhanh
-        }
-        lastPreviewUpdate = now;
-        
-        // Batch updates với requestAnimationFrame
-        if (!rafPending) {
-          rafPending = true;
-          requestAnimationFrame(() => {
-            updatePreview(mouseX, mouseY);
-            drawUI(); // Chỉ redraw UI (không redraw grid)
-            rafPending = false;
-          });
-        }
-      }
-    }, { passive: false });
     
     // ===== GAME LOOP =====
     function gameLoop() {
