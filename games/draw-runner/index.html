@@ -626,9 +626,10 @@
 
     // Find closest point on drawn lines ahead of player
     // Only returns point if distance <= 3px (must be very close!)
-    function findPathAhead(playerX, playerY, lookAhead = 30, maxDistance = 3) {
+    function findPathAhead(playerX, playerY, lookAhead = 30, maxDistance = 30) {
       let closestPoint = null;
       let closestDist = Infinity;
+      let segmentInfo = null;
 
       for (let line of drawnLines) {
         for (let i = 0; i < line.points.length - 1; i++) {
@@ -642,15 +643,21 @@
             
             if (dist < closestDist) {
               closestDist = dist;
+              const dx = p2.x - p1.x;
+              const dy = p2.y - p1.y;
+              const angle = Math.atan2(dy, dx);
+              const slope = dx !== 0 ? dy / dx : 999;
+              
               closestPoint = { x: p1.x, y: p1.y, distance: dist };
+              segmentInfo = { p1, p2, angle, slope, dx, dy };
             }
           }
         }
       }
 
-      // Only return if close enough (within 3px)
-      if (closestPoint && closestPoint.distance <= maxDistance) {
-        return closestPoint;
+      // Only return if close enough (within 30px)
+      if (closestPoint && closestPoint.distance <= maxDistance && segmentInfo) {
+        return { ...closestPoint, ...segmentInfo };
       }
 
       return null;
@@ -781,11 +788,26 @@
         // ✅ Path is close enough (≤30px) - follow it!
         player.worldX += player.vx * deltaTime;
         
-        // Smoothly move towards path Y position
-        const targetY = pathPoint.y;
-        const diffY = targetY - player.y;
-        player.y += diffY * 0.2 * deltaTime; // Smooth interpolation
-        player.vy = 0; // Cancel gravity when on path
+        // Check if steep slope (angle > 45°)
+        const absAngle = Math.abs(pathPoint.angle);
+        if (absAngle > Math.PI / 4) {
+          // STEEP SLOPE: Adjust Y velocity to climb along the slope
+          player.vy = player.vx * pathPoint.slope;
+          
+          // Ensure we're climbing (negative Y for upward)
+          if (pathPoint.dy < 0 && player.vy > 0) {
+            player.vy = -Math.abs(player.vy);
+          }
+          
+          player.y += player.vy * deltaTime;
+        } else {
+          // SHALLOW SLOPE: Smoothly move towards path Y position
+          const targetY = pathPoint.y;
+          const diffY = targetY - player.y;
+          player.y += diffY * 0.2 * deltaTime;
+          player.vy = 0;
+        }
+        
         player.grounded = true;
       } else {
         // ❌ No path OR path too far (>30px) - fall!
