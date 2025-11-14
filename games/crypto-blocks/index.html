@@ -1479,8 +1479,8 @@
     // ===== EVENT LISTENERS =====
     // Unlock audio on canvas interaction (mobile requirement)
     // KHÔNG dùng once: true - cần unlock nhiều lần
-    // Note: Touch events are handled in gameContainer, but we also add here for direct canvas touches
-    gameCanvas.addEventListener('touchmove', unlockAudio, { passive: true });
+    // Note: Touch events are handled in gameContainer (main handler)
+    // gameCanvas listeners are for direct canvas touches (backup)
     gameCanvas.addEventListener('mousedown', (e) => {
       unlockAudio();
       handleMouseDown(e);
@@ -1522,12 +1522,15 @@
     
     gameContainer.addEventListener('touchstart', (e) => {
       // CRITICAL: Unlock audio FIRST before any other logic
+      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble lên document/window
       unlockAudio();
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return;
+        return; // Return sớm - không preventDefault để event bubble
       }
+      
+      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
@@ -1544,12 +1547,15 @@
     
     gameContainer.addEventListener('touchend', (e) => {
       // CRITICAL: Unlock audio on touchend too
+      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble
       unlockAudio();
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return;
+        return; // Return sớm - không preventDefault để event bubble
       }
+      
+      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.changedTouches[0];
       if (touch) {
@@ -1566,12 +1572,15 @@
     
     gameContainer.addEventListener('touchmove', (e) => {
       // CRITICAL: Unlock audio on touchmove too (continuous unlock)
+      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble
       unlockAudio();
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return;
+        return; // Return sớm - không preventDefault để event bubble
       }
+      
+      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
@@ -1596,47 +1605,24 @@
       }
     }, { passive: false });
     
-    // Also keep gameCanvas touch events for compatibility
+    // XÓA duplicate gameCanvas touch listeners - đã handle trong gameContainer
+    // Giữ lại chỉ để backup nếu gameContainer không catch được
+    // NHƯNG: Không preventDefault để event có thể bubble lên document/window (cho unlockAudio)
     gameCanvas.addEventListener('touchstart', (e) => {
       unlockAudio(); // Unlock audio ngay khi touch canvas (CRITICAL for mobile iframe)
-      // Không preventDefault nếu game over (để nút restart hoạt động)
-      if (gameState.gameOver) {
-        return;
-      }
-      e.preventDefault();
-      const touch = e.touches[0];
-      if (touch) {
-        const rect = gameCanvas.getBoundingClientRect();
-        const mouseX = touch.clientX - rect.left;
-        const mouseY = touch.clientY - rect.top;
-        const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
-        handleMouseDown(fakeEvent);
-      }
-    }, { passive: false });
+      // KHÔNG preventDefault ở đây - để event bubble lên document/window cho unlockAudio
+      // gameContainer sẽ handle preventDefault
+    }, { passive: true }); // passive: true để không chặn event
     
     gameCanvas.addEventListener('touchend', (e) => {
-      // Không preventDefault nếu game over (để nút restart hoạt động)
-      if (gameState.gameOver) {
-        return;
-      }
-      e.preventDefault();
-      const touch = e.changedTouches[0];
-      if (touch) {
-        const rect = gameCanvas.getBoundingClientRect();
-        const mouseX = touch.clientX - rect.left;
-        const mouseY = touch.clientY - rect.top;
-        const fakeEvent = { clientX: touch.clientX, clientY: touch.clientY };
-        handleMouseUp(fakeEvent);
-      }
-    }, { passive: false });
+      unlockAudio(); // Unlock audio
+      // KHÔNG preventDefault - để event bubble
+    }, { passive: true });
     
     gameCanvas.addEventListener('touchmove', (e) => {
-      e.preventDefault();
-      const touch = e.touches[0];
-      if (touch) {
-        const rect = gameCanvas.getBoundingClientRect();
-        const mouseX = touch.clientX - rect.left;
-        const mouseY = touch.clientY - rect.top;
+      unlockAudio(); // Continuous unlock
+      // KHÔNG preventDefault - để event bubble
+    }, { passive: true });
         
         // Throttle updates để giảm lag (chỉ update mỗi 16ms = 60fps)
         const now = performance.now();
