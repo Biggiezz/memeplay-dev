@@ -974,19 +974,14 @@
         }
       }
       
-      // Check game over immediately after placing shape (if no more shapes can be placed)
       // Check if all shapes are used (turn complete)
       const remainingShapes = gameState.currentShapes.filter(s => s !== null).length;
       if (remainingShapes === 0 || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
+        // Turn complete → spawn new blocks first, then check game over
         endTurn();
-      } else {
-        // Check game over immediately after placing shape (if still have shapes but can't place any)
-        if (isGameOver()) {
-          gameState.gameOver = true;
-          playGameOver();
-          showGameOver();
-        }
       }
+      // KHÔNG check game over ngay sau khi đặt block
+      // Chỉ check game over sau khi 3 block mới đã được sinh ra đầy đủ (trong endTurn)
       
       return true;
     }
@@ -1107,16 +1102,21 @@
       // Reset lines cleared counter for next turn
       gameState.linesClearedThisTurn = 0;
       
-      // Check game over
-      if (isGameOver()) {
-        gameState.gameOver = true;
-        playGameOver();
-        showGameOver();
-        return;
-      }
-      
-      // Generate new turn
+      // Generate new turn FIRST (spawn new blocks)
       generateNewTurn();
+      
+      // Chỉ check game over SAU KHI 3 block mới đã được sinh ra đầy đủ
+      // Đảm bảo currentShapes.length === 3 trước khi check
+      if (gameState.currentShapes.length === CONFIG.SHAPES_PER_TURN) {
+        // Check game over với 3 blocks mới
+        if (isGameOver()) {
+          gameState.gameOver = true;
+          playGameOver();
+          showGameOver();
+          return;
+        }
+      }
+      // Nếu previewBlocks đang rỗng hoặc đang loading → KHÔNG check game over
     }
     
     function canPlaceAnyShape() {
@@ -1576,12 +1576,18 @@
     // ===== GAME LOOP =====
     function gameLoop() {
       if (!gameState.gameOver) {
-        // Check game over continuously
-        if (isGameOver()) {
-          gameState.gameOver = true;
-          playGameOver();
-          showGameOver();
+        // Chỉ check game over khi có đủ 3 blocks mới (không check khi previewBlocks đang rỗng)
+        if (gameState.currentShapes.length === CONFIG.SHAPES_PER_TURN) {
+          if (isGameOver()) {
+            gameState.gameOver = true;
+            playGameOver();
+            showGameOver();
+          } else {
+            drawGrid();
+            drawUI();
+          }
         } else {
+          // PreviewBlocks đang rỗng hoặc đang loading → chỉ render, không check game over
           drawGrid();
           drawUI();
         }
