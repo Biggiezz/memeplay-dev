@@ -166,11 +166,14 @@
       PADDLE_HEIGHT: 20,
       PADDLE_Y: 920,
       PADDLE_SPEED: 8,
-      BALL_SIZE: 8,
+      BALL_SIZE: 32, // x4 size (was 8)
       BALL_SPEED_BASE: 4,
-      BRICK_PADDING: 2,
+      BRICK_PADDING: 1, // Tight spacing
       LEVEL_TIME: 30000, // 30 seconds per level
-      MAX_LEVEL: 20
+      MAX_LEVEL: 20,
+      // Brick progression
+      LEVEL1_BRICKS: 30, // 5 rows x 6 cols
+      BRICKS_PER_LEVEL: 6 // +6 bricks each level
     };
 
     // Failed crypto projects
@@ -219,7 +222,8 @@
       score: 0,
       bricksDestroyed: 0,
       levelStartTime: 0,
-      timeRemaining: 30
+      timeRemaining: 30,
+      currentLogo: 'FTX'
     };
 
     // ==========================================
@@ -365,52 +369,49 @@
     function generateLevel(level) {
       bricks.length = 0;
       
-      const logoIndex = (level - 1) % CRYPTO_LOGOS.length;
-      const logo = CRYPTO_LOGOS[logoIndex];
+      // Calculate total bricks: 30 + (level-1) * 6
+      const totalBricks = CONFIG.LEVEL1_BRICKS + (level - 1) * CONFIG.BRICKS_PER_LEVEL;
       
-      // Increase difficulty with level
-      const rows = Math.min(logo.rows + Math.floor(level / 3), 12);
-      const cols = Math.min(logo.cols + Math.floor(level / 3), 24);
+      // Find best rows/cols for rectangle (prefer square)
+      let rows = Math.floor(Math.sqrt(totalBricks));
+      let cols = Math.ceil(totalBricks / rows);
       
-      const brickWidth = Math.floor((CONFIG.WIDTH - (cols + 1) * CONFIG.BRICK_PADDING) / cols);
-      const brickHeight = Math.floor(400 / rows);
+      // Adjust to fit exact count
+      while (rows * cols < totalBricks) {
+        cols++;
+      }
+      
+      // Calculate brick size to fit screen
+      const availableWidth = CONFIG.WIDTH - 40; // 20px margin each side
+      const availableHeight = 400; // Top area for bricks
+      
+      const brickWidth = Math.floor((availableWidth - (cols + 1) * CONFIG.BRICK_PADDING) / cols);
+      const brickHeight = Math.floor((availableHeight - (rows + 1) * CONFIG.BRICK_PADDING) / rows);
+      
+      // Center the brick field
+      const totalWidth = cols * brickWidth + (cols + 1) * CONFIG.BRICK_PADDING;
+      const startX = (CONFIG.WIDTH - totalWidth) / 2;
+      const startY = 80;
 
-      // Create crypto logo pattern
-      const patterns = {
-        'FTX': generateFTXPattern(rows, cols),
-        'LUNA': generateLUNAPattern(rows, cols),
-        'BITCONNECT': generateBitconnectPattern(rows, cols),
-        'MT.GOX': generateMtGoxPattern(rows, cols),
-        'CELSIUS': generateCelsiusPattern(rows, cols),
-        'VOYAGER': generateVoyagerPattern(rows, cols),
-        'THREE ARROWS': generateThreeArrowsPattern(rows, cols),
-        'BLOCKFI': generateBlockFiPattern(rows, cols),
-        'TERRA': generateTerraPattern(rows, cols),
-        'SAFEMOON': generateSafeMoonPattern(rows, cols),
-        'SQUID GAME': generateSquidGamePattern(rows, cols),
-        'ONECOIN': generateOneCoinPattern(rows, cols),
-        'QUADRIGA': generateQuadrigaPattern(rows, cols),
-        'THODEX': generateThodexPattern(rows, cols),
-        'AFRICRYPT': generateAfricryptPattern(rows, cols),
-        'TITANIUM': generateTitaniumPattern(rows, cols),
-        'CENTRA': generateCentraPattern(rows, cols),
-        'PLUSTOKEN': generatePlusTokenPattern(rows, cols),
-        'BITCLUB': generateBitClubPattern(rows, cols),
-        'PONZICOIN': generatePonziCoinPattern(rows, cols)
-      };
-
-      const pattern = patterns[logo.name] || generateDefaultPattern(rows, cols);
-
+      // Create solid rectangle of bricks (no pattern, all filled)
+      let brickCount = 0;
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
-          if (pattern[row] && pattern[row][col]) {
-            const x = col * (brickWidth + CONFIG.BRICK_PADDING) + CONFIG.BRICK_PADDING;
-            const y = row * (brickHeight + CONFIG.BRICK_PADDING) + CONFIG.BRICK_PADDING + 50;
-            const color = getBrickColor(row, rows);
-            bricks.push(new Brick(x, y, brickWidth, brickHeight, color));
-          }
+          if (brickCount >= totalBricks) break;
+          
+          const x = startX + col * (brickWidth + CONFIG.BRICK_PADDING) + CONFIG.BRICK_PADDING;
+          const y = startY + row * (brickHeight + CONFIG.BRICK_PADDING) + CONFIG.BRICK_PADDING;
+          const color = getBrickColor(row, rows);
+          
+          bricks.push(new Brick(x, y, brickWidth, brickHeight, color));
+          brickCount++;
         }
+        if (brickCount >= totalBricks) break;
       }
+      
+      // Get crypto name for display
+      const logoIndex = (level - 1) % CRYPTO_LOGOS.length;
+      gameState.currentLogo = CRYPTO_LOGOS[logoIndex].name;
     }
 
     function getBrickColor(row, totalRows) {
@@ -418,116 +419,6 @@
       const index = Math.floor((row / totalRows) * colors.length);
       return colors[Math.min(index, colors.length - 1)];
     }
-
-    // Simple FTX pattern (letter F, T, X shapes)
-    function generateFTXPattern(rows, cols) {
-      const pattern = Array(rows).fill(null).map(() => Array(cols).fill(0));
-      
-      // F shape
-      for (let r = 1; r < rows - 1; r++) {
-        pattern[r][2] = 1;
-      }
-      for (let c = 2; c < 5; c++) {
-        pattern[1][c] = 1;
-        pattern[Math.floor(rows / 2)][c] = 1;
-      }
-
-      // T shape (middle)
-      for (let c = Math.floor(cols / 2) - 2; c < Math.floor(cols / 2) + 2; c++) {
-        pattern[1][c] = 1;
-      }
-      for (let r = 1; r < rows - 1; r++) {
-        pattern[r][Math.floor(cols / 2)] = 1;
-      }
-
-      // X shape (right)
-      for (let r = 1; r < rows - 1; r++) {
-        const offset = r - 1;
-        pattern[r][cols - 6 + offset] = 1;
-        pattern[r][cols - 2 - offset] = 1;
-      }
-
-      return pattern;
-    }
-
-    function generateLUNAPattern(rows, cols) {
-      const pattern = Array(rows).fill(null).map(() => Array(cols).fill(0));
-      // Moon crescent shape
-      const centerX = Math.floor(cols / 2);
-      const centerY = Math.floor(rows / 2);
-      const radius = Math.min(rows, cols) / 3;
-
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const dx = c - centerX;
-          const dy = r - centerY;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          if (dist < radius && dx > -radius / 2) {
-            pattern[r][c] = 1;
-          }
-        }
-      }
-      return pattern;
-    }
-
-    function generateBitconnectPattern(rows, cols) {
-      const pattern = Array(rows).fill(null).map(() => Array(cols).fill(0));
-      // "B" letter pattern
-      for (let r = 1; r < rows - 1; r++) {
-        pattern[r][2] = 1;
-      }
-      for (let c = 2; c < 6; c++) {
-        pattern[1][c] = 1;
-        pattern[Math.floor(rows / 2)][c] = 1;
-        pattern[rows - 2][c] = 1;
-      }
-      pattern[2][6] = 1;
-      pattern[Math.floor(rows / 2) - 1][6] = 1;
-      pattern[Math.floor(rows / 2) + 1][6] = 1;
-      pattern[rows - 3][6] = 1;
-
-      // Add scattered "!" symbols
-      for (let c = 10; c < cols - 2; c += 4) {
-        for (let r = 2; r < rows - 3; r++) {
-          pattern[r][c] = 1;
-        }
-        pattern[rows - 2][c] = 1;
-      }
-
-      return pattern;
-    }
-
-    // Default pattern generator for other logos
-    function generateDefaultPattern(rows, cols) {
-      const pattern = Array(rows).fill(null).map(() => Array(cols).fill(0));
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          if (Math.random() > 0.3) {
-            pattern[r][c] = 1;
-          }
-        }
-      }
-      return pattern;
-    }
-
-    // Aliases for missing pattern functions
-    const generateMtGoxPattern = generateDefaultPattern;
-    const generateCelsiusPattern = generateDefaultPattern;
-    const generateVoyagerPattern = generateDefaultPattern;
-    const generateThreeArrowsPattern = generateDefaultPattern;
-    const generateBlockFiPattern = generateDefaultPattern;
-    const generateTerraPattern = generateLUNAPattern;
-    const generateSafeMoonPattern = generateDefaultPattern;
-    const generateSquidGamePattern = generateDefaultPattern;
-    const generateOneCoinPattern = generateDefaultPattern;
-    const generateQuadrigaPattern = generateDefaultPattern;
-    const generateThodexPattern = generateDefaultPattern;
-    const generateAfricryptPattern = generateDefaultPattern;
-    const generateTitaniumPattern = generateDefaultPattern;
-    const generateCentraPattern = generateDefaultPattern;
-    const generatePlusTokenPattern = generateDefaultPattern;
-    const generateBitClubPattern = generateDefaultPattern;
-    const generatePonziCoinPattern = generateDefaultPattern;
 
     // ==========================================
     // CONTROLS
@@ -681,11 +572,10 @@
       ctx.fillText(`${gameState.score}`, CONFIG.WIDTH - 10, 30);
       
       // Draw level name
-      const logoIndex = (gameState.level - 1) % CRYPTO_LOGOS.length;
       ctx.textAlign = 'center';
       ctx.font = '20px Courier New';
       ctx.fillStyle = '#ff0000';
-      ctx.fillText(CRYPTO_LOGOS[logoIndex].name, CONFIG.WIDTH / 2, 30);
+      ctx.fillText(gameState.currentLogo, CONFIG.WIDTH / 2, 30);
     }
 
     // ==========================================
@@ -797,4 +687,3 @@
   </script>
 </body>
 </html>
-
