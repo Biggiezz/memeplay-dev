@@ -1058,10 +1058,10 @@
         score: 0,
         coins: 0,
         distance: 0,
-        lastCoinSpawn: Date.now(),
+        lastCoinSpawn: performance.now(),
         scrollOffset: 0,
         mana: CONFIG.MAX_MANA, // Start with full mana (5 viên bi)
-        lastManaRegen: Date.now()
+        lastManaRegen: performance.now()
       };
       
       console.log('✅ Game state after reset:', {
