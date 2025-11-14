@@ -182,6 +182,64 @@
     .restart-btn:hover {
       background: linear-gradient(135deg, #ffc862 0%, #ff9c20 100%);
     }
+    
+    /* Tap to Start Overlay - bán trong suốt phủ lên game */
+    .tap-to-start-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.05); /* Rất sáng để thấy rõ 3 viên gạch preview phía dưới */
+      z-index: 1999;
+      pointer-events: all;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .tap-to-start-overlay.hidden {
+      display: none;
+    }
+    
+    /* Tap to Start Text */
+    .tap-to-start {
+      color: #ffb642;
+      font-size: 48px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 2000;
+      pointer-events: all;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      text-align: center;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 1), 0 0 10px rgba(255, 182, 66, 0.5); /* Đậm hơn để nổi bật trên nền sáng */
+      animation: pulseText 1.5s ease-in-out infinite;
+    }
+    
+    .tap-to-start:active {
+      opacity: 0.8;
+    }
+    
+    @keyframes pulseText {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.6;
+        transform: scale(1.1);
+      }
+    }
+    
+    /* Mobile: Smaller text */
+    @media screen and (max-width: 720px) {
+      .tap-to-start {
+        font-size: 36px;
+      }
+    }
   </style>
 </head>
 <body>
@@ -194,6 +252,10 @@
         <h2>Game Over!</h2>
         <p>Final Score: <span id="finalScore">0</span></p>
         <button class="restart-btn" onclick="game.restart()">Restart</button>
+      </div>
+      
+      <div id="tapToStartOverlay" class="tap-to-start-overlay">
+        <div id="tapToStart" class="tap-to-start">Tap to Start</div>
       </div>
     </div>
   </div>
@@ -410,6 +472,13 @@
       gameCtx.fillStyle = '#0a0a0a';
       gameCtx.fillRect(0, 0, 720, 1000);
       
+      // Check if tap to start overlay is showing - if yes, make grid mờ 90% (opacity 0.1)
+      const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+      const isShowingTapToStart = tapToStartOverlay && !tapToStartOverlay.classList.contains('hidden');
+      if (isShowingTapToStart) {
+        gameCtx.globalAlpha = 0.1; // Mờ 90% (chỉ còn 10% visible)
+      }
+      
       // Draw grid background
       gameCtx.fillStyle = '#1a1a2e';
       gameCtx.fillRect(CONFIG.GRID_X, CONFIG.GRID_Y, CONFIG.GRID_WIDTH, CONFIG.GRID_HEIGHT);
@@ -451,11 +520,20 @@
         particle.draw(gameCtx);
         return particle.life > 0;
       });
+      
+      // Reset alpha sau khi vẽ grid
+      if (isShowingTapToStart) {
+        gameCtx.globalAlpha = 1.0;
+      }
     }
     
     // ===== UI RENDERING =====
     function drawUI() {
       uiCtx.clearRect(0, 0, 720, 1000);
+      
+      // Check if tap to start overlay is showing - if yes, make everything mờ 90% (opacity 0.1)
+      const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+      const isShowingTapToStart = tapToStartOverlay && !tapToStartOverlay.classList.contains('hidden');
       
       // Score and Combo - positioned relative to grid 8x8 top-left corner
       // Mobile: 15px from left edge of grid 8x8, above grid
@@ -501,11 +579,12 @@
         const gridX = previewStartX + i * (previewGridWidth + previewSpacing);
         const gridY = previewY;
         
-        // Draw preview grid background
+        // Draw preview grid background (mờ 85% = opacity 0.15)
+        uiCtx.globalAlpha = 0.15; // Mờ 85% (chỉ còn 15% visible)
         uiCtx.fillStyle = 'rgba(30, 30, 50, 0.5)';
         uiCtx.fillRect(gridX, gridY, previewGridWidth, previewGridHeight);
         
-        // Draw preview grid lines
+        // Draw preview grid lines (mờ 85% = opacity 0.15)
         uiCtx.strokeStyle = 'rgba(100, 100, 150, 0.3)';
         uiCtx.lineWidth = 1;
         for (let j = 0; j <= previewGridSize; j++) {
@@ -521,11 +600,15 @@
           uiCtx.lineTo(gridX + previewGridWidth, gridY + j * previewCellSize);
           uiCtx.stroke();
         }
+        // Reset alpha sau khi vẽ grid (blocks KHÔNG mờ - giữ nguyên alpha)
+        uiCtx.globalAlpha = 1.0;
         
         // Draw shape inside preview grid - map shape to 3x3 matrix
+        // QUAN TRỌNG: Blocks KHÔNG mờ - giữ nguyên alpha như cũ
         if (gameState.currentShapes[i]) {
           const { shape, color } = gameState.currentShapes[i];
           // Highlight selected block (alpha 1.0) hoặc hovered block (alpha 0.85), còn lại 0.7
+          // Blocks KHÔNG mờ - giữ nguyên độ sáng
           const alpha = gameState.selectedShapeIndex === i ? 1.0 : (gameState.hoveredShapeIndex === i ? 0.85 : 0.7);
           uiCtx.globalAlpha = alpha;
           
@@ -647,39 +730,170 @@
     let rafPending = false;
     
     // ===== SOUND SYSTEM =====
-    // GIỐNG HỆT ROCKET-BNB: tạo audioContext và play sound trực tiếp, KHÔNG check state
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let audioUnlocked = false; // Track if audio has been unlocked by user interaction
     
-    // QUAN TRỌNG: Đảm bảo audio context được resume ngay khi có user interaction
-    // Trên mobile iframe, audio context bị suspended và cần được resume trong user gesture
-    let audioContextResumed = false;
+    // Unlock audio on first user interaction (mobile requirement)
+    // Critical for iframe on mobile - must be called on ANY user interaction
+    function unlockAudio() {
+      // Always try to resume if suspended (not just once)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          audioUnlocked = true;
+          // Play a silent sound to fully unlock audio (required for iOS Safari)
+          // CRITICAL: Must use audioContext.currentTime for timing
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            gainNode.gain.setValueAtTime(0.001, audioContext.currentTime); // Silent
+            oscillator.frequency.setValueAtTime(1, audioContext.currentTime); // Very low frequency
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.01);
+          } catch (e) {
+            console.log('Silent unlock sound error:', e);
+          }
+        }).catch(e => {
+          console.log('Audio resume error:', e);
+          // Retry after short delay
+          setTimeout(() => {
+            if (audioContext.state === 'suspended') {
+              audioContext.resume().then(() => {
+                audioUnlocked = true;
+                // Play silent sound after retry
+                try {
+                  const oscillator = audioContext.createOscillator();
+                  const gainNode = audioContext.createGain();
+                  oscillator.connect(gainNode);
+                  gainNode.connect(audioContext.destination);
+                  gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+                  oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+                  oscillator.start(audioContext.currentTime);
+                  oscillator.stop(audioContext.currentTime + 0.01);
+                } catch (e) {}
+              }).catch(() => {});
+            }
+          }, 100);
+        });
+      } else if (audioContext.state === 'running') {
+        // Đã running - vẫn play silent sound để đảm bảo unlock (iOS requirement)
+        if (!audioUnlocked) {
+          audioUnlocked = true;
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.01);
+          } catch (e) {
+            // Ignore errors
+          }
+        }
+      }
+    }
+    
+    // Add event listeners to unlock audio on user interaction
+    // KHÔNG dùng once: true - cần unlock nhiều lần để đảm bảo audio hoạt động trên mobile
+    // Multiple listeners to ensure unlock works in iframe on mobile
+    document.addEventListener('touchstart', unlockAudio, { passive: true });
+    document.addEventListener('touchend', unlockAudio, { passive: true });
+    document.addEventListener('touchmove', unlockAudio, { passive: true });
+    document.addEventListener('click', unlockAudio, { passive: true });
+    document.addEventListener('mousedown', unlockAudio, { passive: true });
+    
+    // Also listen on window for iframe scenarios
+    window.addEventListener('touchstart', unlockAudio, { passive: true });
+    window.addEventListener('touchend', unlockAudio, { passive: true });
+    window.addEventListener('touchmove', unlockAudio, { passive: true });
     
     function playSound(type, frequency = 440, duration = 0.2, volume = 0.3) {
       try {
-        // QUAN TRỌNG: Resume audio context nếu suspended (cần cho mobile iframe trên production)
-        // Trên production, iframe có thể load khác local → cần resume mỗi lần play
+        // Always try to resume audio context if suspended (mobile requirement)
         if (audioContext.state === 'suspended') {
-          audioContext.resume().catch(() => {});
+          audioContext.resume().catch(e => {
+            console.log('Audio resume error:', e);
+          });
+          // If still suspended, wait a bit and retry
+          if (audioContext.state === 'suspended') {
+            setTimeout(() => {
+              if (audioContext.state === 'suspended') {
+                audioContext.resume().catch(() => {});
+              }
+            }, 100);
+          }
         }
         
-        // Play sound trực tiếp như rocket-bnb
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        // Wait for audio context to be ready (but don't block if it takes too long)
+        // Nếu suspended → unlock và retry
+        if (audioContext.state === 'suspended') {
+          unlockAudio();
+          audioContext.resume().then(() => {
+            // Retry playing sound after resume
+            setTimeout(() => playSound(type, frequency, duration, volume), 50);
+          }).catch(e => {
+            // Retry unlock và play
+            setTimeout(() => {
+              unlockAudio();
+              playSound(type, frequency, duration, volume);
+            }, 100);
+          });
+          return;
+        } else if (audioContext.state !== 'running') {
+          // Nếu không phải running → unlock và retry
+          unlockAudio();
+          setTimeout(() => playSound(type, frequency, duration, volume), 50);
+          return;
+        }
         
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
+        // Đảm bảo audio đã unlock trước khi play
+        if (!audioUnlocked || audioContext.state !== 'running') {
+          unlockAudio();
+          // Nếu vẫn suspended, đợi một chút rồi retry
+          if (audioContext.state === 'suspended') {
+            setTimeout(() => playSound(type, frequency, duration, volume), 100);
+            return;
+          }
+          // Nếu chưa running, đợi một chút
+          if (audioContext.state !== 'running') {
+            setTimeout(() => playSound(type, frequency, duration, volume), 100);
+            return;
+          }
+        }
         
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        // Đảm bảo audio context đang running trước khi tạo oscillator
+        if (audioContext.state !== 'running') {
+          setTimeout(() => playSound(type, frequency, duration, volume), 100);
+          return;
+        }
         
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + duration);
+        try {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+          
+          gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+          gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + duration);
+        } catch (e) {
+          console.log('Play sound error:', e);
+          // Retry after unlock
+          unlockAudio();
+          setTimeout(() => playSound(type, frequency, duration, volume), 100);
+        }
       } catch (e) {
-        // Ignore errors - sound không quan trọng bằng gameplay
+        console.log('Audio error:', e);
       }
     }
     
@@ -1165,49 +1379,7 @@
       }
     }
     
-    // Track if audio has been unlocked (first user gesture)
-    let audioUnlocked = false;
-    
     function handleMouseDown(event) {
-      // QUAN TRỌNG: Resume audio context NGAY trong user gesture (critical cho mobile iframe trên production)
-      // Trên production, iframe load khác local → cần resume mỗi lần user touch
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-          audioContextResumed = true;
-        }).catch(() => {});
-      }
-      
-      // Play sound unlock ngay trong user gesture đầu tiên (giống rocket-bnb beep)
-      if (!audioUnlocked) {
-        audioUnlocked = true;
-        try {
-          const osc = audioContext.createOscillator();
-          const gain = audioContext.createGain();
-          osc.connect(gain);
-          gain.connect(audioContext.destination);
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(400, audioContext.currentTime);
-          gain.gain.setValueAtTime(0.1, audioContext.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-          osc.start(audioContext.currentTime);
-          osc.stop(audioContext.currentTime + 0.1);
-        } catch (e) {}
-      }
-      
-      // Play sound ngay khi touch để activate audio context (critical cho production)
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(200, audioContext.currentTime); // Low freq, silent
-        gain.gain.setValueAtTime(0.01, audioContext.currentTime); // Very quiet
-        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.05);
-      } catch (e) {}
-      
       if (gameState.gameOver || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
         return;
       }
@@ -1241,14 +1413,6 @@
     }
     
     function handleMouseUp(event) {
-      // QUAN TRỌNG: Resume audio context NGAY trong user gesture (touchend/mouseup)
-      // Khi user drag từ preview area lên grid và thả → cần resume ngay đây!
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-          audioContextResumed = true;
-        }).catch(() => {});
-      }
-      
       if (gameState.gameOver || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
         gameState.isDragging = false;
         return;
@@ -1266,21 +1430,6 @@
         const selectedShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
         if (selectedShapeData) {
           const { shape } = selectedShapeData;
-          // QUAN TRỌNG: Play sound NGAY trong user gesture (touchend/mouseup) trước khi placeShape()
-          // Để đảm bảo audio context được activate trong user gesture!
-          try {
-            const osc = audioContext.createOscillator();
-            const gain = audioContext.createGain();
-            osc.connect(gain);
-            gain.connect(audioContext.destination);
-            osc.type = 'square';
-            osc.frequency.setValueAtTime(200, audioContext.currentTime); // Low freq, silent
-            gain.gain.setValueAtTime(0.01, audioContext.currentTime); // Very quiet
-            gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
-            osc.start(audioContext.currentTime);
-            osc.stop(audioContext.currentTime + 0.05);
-          } catch (e) {}
-          
           if (placeShape(shape, cell.x, cell.y)) {
             // Remove used shape
             gameState.currentShapes[gameState.selectedShapeIndex] = null;
@@ -1380,20 +1529,107 @@
         gameState.particles = []; // Clear particles
         gameState.gameStarted = false; // Reset game started flag
         gameState.scoreSent = false; // Reset score sent flag
-        audioUnlocked = false; // Reset audio unlock để unlock lại khi user touch lần đầu
         generateNewTurn();
         drawGrid();
         drawUI();
         
-        // Audio sẽ tự unlock khi user tương tác (touch/click) - giống rocket-bnb
+        // Resume audio context (browser autoplay policy)
+        // Unlock audio ngay khi start game (CRITICAL for mobile)
+        unlockAudio();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().then(() => {
+            unlockAudio(); // Unlock lại sau khi resume
+          }).catch(e => {
+            // Retry after short delay
+            setTimeout(() => {
+              if (audioContext.state === 'suspended') {
+                audioContext.resume().then(() => unlockAudio()).catch(() => {});
+              }
+            }, 200);
+          });
+        } else {
+          unlockAudio(); // Vẫn unlock nếu đã running
+        }
       },
       
       restart() {
         playUIClick();
         document.getElementById('gameOver').classList.remove('show');
+        
+        // KHÔNG show tap to start overlay - start game luôn
+        // User đã chơi rồi nên không cần tap to start nữa
+        
+        // Reset game state và start lại
         this.start();
+        
+        // Unlock audio (user đã có interaction với restart button)
+        unlockAudio();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().then(() => {
+            audioUnlocked = true;
+          }).catch(() => {});
+        } else {
+          audioUnlocked = true;
+        }
       }
     };
+    
+    // ===== TAP TO START HANDLER =====
+    const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+    const tapToStartBtn = document.getElementById('tapToStart');
+    let gameStarted = false;
+    
+    function handleTapToStart() {
+      if (gameStarted) return; // Prevent multiple taps
+      gameStarted = true;
+      
+      // CRITICAL: Unlock audio FIRST (user gesture hợp lệ - tap)
+      // Đây là user gesture hợp lệ → Safari sẽ cho phép audio
+      unlockAudio();
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          audioUnlocked = true;
+          console.log('✅ Audio unlocked via Tap to Start');
+          // Play a tiny sound to fully unlock (iOS Safari requirement)
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(400, audioContext.currentTime);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.01);
+          } catch (e) {
+            // Ignore
+          }
+        }).catch(() => {});
+      } else {
+        audioUnlocked = true;
+      }
+      
+      // Ẩn overlay và chữ "TAP TO START"
+      tapToStartOverlay.classList.add('hidden');
+      
+      // Trả opacity game về 100% (redraw với opacity 1.0)
+      drawGrid();
+      drawUI();
+      
+      // Bắt đầu game (KHÔNG reset, chỉ đánh dấu là đã start)
+      // Game đã được init và generate shapes rồi, chỉ cần đánh dấu là đã start
+      gameState.gameStarted = true;
+      
+      // Post message integration (for MemePlay platform)
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'GAME_START', gameId: 'crypto-blocks' }, '*');
+      }
+    }
+    
+    // Add event listeners for tap to start (on overlay)
+    if (tapToStartOverlay) {
+      tapToStartOverlay.addEventListener('click', handleTapToStart);
+      tapToStartOverlay.addEventListener('touchstart', handleTapToStart, { passive: true });
+    }
     
     // ===== EVENT LISTENERS =====
     // Unlock audio on canvas interaction (mobile requirement)
@@ -1401,6 +1637,7 @@
     // Note: Touch events are handled in gameContainer (main handler)
     // gameCanvas listeners are for direct canvas touches (backup)
     gameCanvas.addEventListener('mousedown', (e) => {
+      unlockAudio();
       handleMouseDown(e);
     });
     gameCanvas.addEventListener('mouseup', handleMouseUp);
@@ -1439,50 +1676,16 @@
     }
     
     gameContainer.addEventListener('touchstart', (e) => {
-      // QUAN TRỌNG: Resume audio context NGAY trong touchstart (critical cho mobile iframe trên production)
-      // Trên production, iframe load khác local → cần resume mỗi lần user touch
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-          audioContextResumed = true;
-        }).catch(() => {});
-      }
-      
-      // Play sound unlock ngay trong user gesture đầu tiên
-      if (!audioUnlocked) {
-        audioUnlocked = true;
-        try {
-          const osc = audioContext.createOscillator();
-          const gain = audioContext.createGain();
-          osc.connect(gain);
-          gain.connect(audioContext.destination);
-          osc.type = 'square';
-          osc.frequency.setValueAtTime(400, audioContext.currentTime);
-          gain.gain.setValueAtTime(0.1, audioContext.currentTime);
-          gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-          osc.start(audioContext.currentTime);
-          osc.stop(audioContext.currentTime + 0.1);
-        } catch (e) {}
-      }
-      
-      // Play sound ngay khi touch để activate audio context (critical cho production)
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(200, audioContext.currentTime); // Low freq, silent
-        gain.gain.setValueAtTime(0.01, audioContext.currentTime); // Very quiet
-        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.05);
-      } catch (e) {}
+      // CRITICAL: Unlock audio FIRST before any other logic
+      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble lên document/window
+      unlockAudio();
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return;
+        return; // Return sớm - không preventDefault để event bubble
       }
       
+      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
@@ -1498,33 +1701,16 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchend', (e) => {
-      // QUAN TRỌNG: Resume audio context NGAY trong touchend (critical cho drag & drop)
-      // Khi user drag từ preview area lên grid và thả → cần resume ngay đây!
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-          audioContextResumed = true;
-        }).catch(() => {});
-      }
-      
-      // Play sound ngay khi thả để activate audio context (critical cho drag & drop)
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(200, audioContext.currentTime); // Low freq, silent
-        gain.gain.setValueAtTime(0.01, audioContext.currentTime); // Very quiet
-        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.05);
-      } catch (e) {}
+      // CRITICAL: Unlock audio on touchend too
+      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble
+      unlockAudio();
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return;
+        return; // Return sớm - không preventDefault để event bubble
       }
       
+      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.changedTouches[0];
       if (touch) {
@@ -1540,11 +1726,16 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchmove', (e) => {
+      // CRITICAL: Unlock audio on touchmove too (continuous unlock)
+      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble
+      unlockAudio();
+      
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return;
+        return; // Return sớm - không preventDefault để event bubble
       }
       
+      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
@@ -1569,17 +1760,23 @@
       }
     }, { passive: false });
     
-    // gameCanvas touch events - backup (gameContainer đã handle unlock audio)
+    // XÓA duplicate gameCanvas touch listeners - đã handle trong gameContainer
+    // Giữ lại chỉ để backup nếu gameContainer không catch được
+    // NHƯNG: Không preventDefault để event có thể bubble lên document/window (cho unlockAudio)
     gameCanvas.addEventListener('touchstart', (e) => {
-      // Audio unlock đã được handle trong gameContainer touchstart
-    }, { passive: true });
+      unlockAudio(); // Unlock audio ngay khi touch canvas (CRITICAL for mobile iframe)
+      // KHÔNG preventDefault ở đây - để event bubble lên document/window cho unlockAudio
+      // gameContainer sẽ handle preventDefault
+    }, { passive: true }); // passive: true để không chặn event
     
     gameCanvas.addEventListener('touchend', (e) => {
-      // Audio unlock đã được handle trong gameContainer touchstart
+      unlockAudio(); // Unlock audio
+      // KHÔNG preventDefault - để event bubble
     }, { passive: true });
     
     gameCanvas.addEventListener('touchmove', (e) => {
-      // Audio unlock đã được handle trong gameContainer touchstart
+      unlockAudio(); // Continuous unlock
+      // KHÔNG preventDefault - để event bubble
     }, { passive: true });
     
     // ===== GAME LOOP =====
@@ -1605,13 +1802,19 @@
     }
     
     // ===== INITIALIZE =====
-    game.start();
+    // KHÔNG start game tự động - đợi user tap "Tap to Start"
+    // Nhưng vẫn init grid và generate shapes để hiển thị mờ phía sau
+    initGrid();
+    generateNewTurn();
+    drawGrid();
+    drawUI();
     gameLoop();
     
     // Post message integration (for MemePlay platform)
-    if (window.parent !== window) {
-      window.parent.postMessage({ type: 'GAME_START', gameId: 'crypto-blocks' }, '*');
-    }
+    // Moved to handleTapToStart() - only send when user actually starts
+    // if (window.parent !== window) {
+    //   window.parent.postMessage({ type: 'GAME_START', gameId: 'crypto-blocks' }, '*');
+    // }
   </script>
 </body>
 </html>
