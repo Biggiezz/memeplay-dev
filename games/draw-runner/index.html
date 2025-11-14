@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Draw Runner - MemePlay</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background: #1a1a2e;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Arial', sans-serif;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #gameCanvas {
+      display: block;
+      max-width: 100vw;
+      max-height: 100vh;
+      background: #0f3460;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      cursor: crosshair;
+      touch-action: none;
+      will-change: transform;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+    }
+    .ui-overlay {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      right: 10px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+      z-index: 10;
+      color: white;
+      font-weight: bold;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    .ui-left, .ui-right {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      font-size: 20px;
+    }
+    .ui-icon {
+      font-size: 24px;
+    }
+    .game-over-screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.95);
+      border: 4px solid #ffd700;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      color: white;
+      display: none;
+      z-index: 100;
+      min-width: 300px;
+    }
+    .game-over-screen.show {
+      display: block;
+      animation: popIn 0.3s ease-out;
+    }
+    .game-over-title {
+      font-size: 48px;
+      color: #ffd700;
+      margin-bottom: 20px;
+      text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+    }
+    .game-over-stats {
+      font-size: 24px;
+      margin-bottom: 30px;
+      line-height: 1.8;
+    }
+    .restart-btn {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #1a1a2e;
+      border: none;
+      border-radius: 10px;
+      padding: 15px 40px;
+      font-size: 24px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s;
+      pointer-events: all;
+    }
+    .restart-btn:hover {
+      transform: scale(1.05);
+    }
+    .restart-btn:active {
+      transform: scale(0.95);
+    }
+    .start-screen {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      text-align: center;
+      color: white;
+      z-index: 50;
+    }
+    .start-screen.hide {
+      display: none;
+    }
+    .start-title {
+      font-size: 56px;
+      color: #ffd700;
+      margin-bottom: 20px;
+      text-shadow: 4px 4px 8px rgba(0,0,0,0.8);
+    }
+    .start-instructions {
+      font-size: 20px;
+      margin-bottom: 30px;
+      line-height: 1.6;
+      max-width: 400px;
+      text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+    }
+    .start-btn {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #1a1a2e;
+      border: none;
+      border-radius: 10px;
+      padding: 15px 50px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s;
+      animation: pulse 2s ease-in-out infinite;
+    }
+    .start-btn:hover {
+      transform: scale(1.05);
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); }
+      50% { transform: scale(1.05); }
+    }
+    @keyframes popIn {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    @media (max-width: 768px) {
+      .ui-left, .ui-right { font-size: 16px; gap: 10px; }
+      .ui-icon { font-size: 20px; }
+      .start-title { font-size: 40px; }
+      .start-instructions { font-size: 16px; }
+      .start-btn { font-size: 24px; padding: 12px 40px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <div class="ui-overlay">
+    <div class="ui-left">
+      <span class="ui-icon">🪙</span>
+      <span id="coinCount">0</span>
+    </div>
+    <div class="ui-right">
+      <span id="distanceCount">0m</span>
+    </div>
+  </div>
+
+  <div class="start-screen" id="startScreen">
+    <div class="start-title">DRAW RUNNER</div>
+    <div class="start-instructions">
+      ✏️ Draw lines with your finger/mouse<br>
+      🏃 Character runs automatically<br>
+      🪙 Collect coins, avoid falling!
+    </div>
+    <button class="start-btn" id="startBtn">START GAME</button>
+  </div>
+
+  <div class="game-over-screen" id="gameOverScreen">
+    <div class="game-over-title">GAME OVER</div>
+    <div class="game-over-stats">
+      <div>🪙 Coins: <span id="finalCoins">0</span></div>
+      <div>📏 Distance: <span id="finalDistance">0</span>m</div>
+      <div>⭐ Score: <span id="finalScore">0</span></div>
+    </div>
+    <button class="restart-btn" id="restartBtn">PLAY AGAIN</button>
+  </div>
+
+  <script>
+    // ==========================================
+    // GAME CONFIGURATION
+    // ==========================================
+    const CONFIG = {
+      WIDTH: 800,
+      HEIGHT: 600,
+      PLAYER_SIZE: 32,
+      PLAYER_SPEED: 3,
+      GRAVITY: 0.5,
+      JUMP_FORCE: -8,
+      COIN_SIZE: 24,
+      COIN_SPAWN_INTERVAL: 1500,
+      LINE_WIDTH: 8,
+      LINE_LIFETIME: 3000,
+      LINE_FADE_START: 2000,
+      MAX_LINE_SEGMENTS: 500,
+      STAR_COUNT: 100,
+      SCROLL_SPEED: 2,
+      FPS_UPDATE_INTERVAL: 500
+    };
+
+    // ==========================================
+    // CANVAS SETUP
+    // ==========================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { 
+      alpha: false, 
+      desynchronized: true 
+    });
+    ctx.imageSmoothingEnabled = false;
+
+    // Responsive canvas
+    function resizeCanvas() {
+      const scale = Math.min(
+        window.innerWidth / CONFIG.WIDTH,
+        window.innerHeight / CONFIG.HEIGHT
+      );
+      canvas.width = CONFIG.WIDTH;
+      canvas.height = CONFIG.HEIGHT;
+      canvas.style.width = CONFIG.WIDTH * scale + 'px';
+      canvas.style.height = CONFIG.HEIGHT * scale + 'px';
+    }
+    resizeCanvas();
+    window.addEventListener('resize', resizeCanvas);
+
+    // ==========================================
+    // GAME STATE
+    // ==========================================
+    let gameState = {
+      isRunning: false,
+      gameStarted: false,
+      score: 0,
+      coins: 0,
+      distance: 0,
+      lastCoinSpawn: 0,
+      scrollOffset: 0
+    };
+
+    // ==========================================
+    // STARS (BACKGROUND)
+    // ==========================================
+    const stars = [];
+    for (let i = 0; i < CONFIG.STAR_COUNT; i++) {
+      stars.push({
+        x: Math.random() * CONFIG.WIDTH,
+        y: Math.random() * CONFIG.HEIGHT,
+        size: Math.random() * 2 + 1,
+        speed: Math.random() * 0.5 + 0.2
+      });
+    }
+
+    // ==========================================
+    // PLAYER
+    // ==========================================
+    const player = {
+      x: 150,
+      y: CONFIG.HEIGHT - 150,
+      vx: CONFIG.PLAYER_SPEED,
+      vy: 0,
+      size: CONFIG.PLAYER_SIZE,
+      grounded: false,
+      color: '#4ecdc4'
+    };
+
+    // ==========================================
+    // DRAWN LINES
+    // ==========================================
+    const drawnLines = [];
+    let currentLine = null;
+    let isDrawing = false;
+
+    class DrawnLine {
+      constructor() {
+        this.points = [];
+        this.createdAt = Date.now();
+        this.alpha = 1;
+      }
+
+      addPoint(x, y) {
+        // Offset by scroll for world coordinates
+        this.points.push({ x: x + gameState.scrollOffset, y });
+        if (this.points.length > CONFIG.MAX_LINE_SEGMENTS) {
+          this.points.shift();
+        }
+      }
+
+      update() {
+        const age = Date.now() - this.createdAt;
+        if (age > CONFIG.LINE_FADE_START) {
+          this.alpha = Math.max(0, 1 - (age - CONFIG.LINE_FADE_START) / (CONFIG.LINE_LIFETIME - CONFIG.LINE_FADE_START));
+        }
+        return age < CONFIG.LINE_LIFETIME;
+      }
+
+      draw(ctx, scrollOffset) {
+        if (this.points.length < 2) return;
+        
+        ctx.save();
+        ctx.strokeStyle = `rgba(255, 215, 0, ${this.alpha})`;
+        ctx.lineWidth = CONFIG.LINE_WIDTH;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        
+        ctx.beginPath();
+        const firstPoint = this.points[0];
+        ctx.moveTo(firstPoint.x - scrollOffset, firstPoint.y);
+        
+        for (let i = 1; i < this.points.length; i++) {
+          const point = this.points[i];
+          ctx.lineTo(point.x - scrollOffset, point.y);
+        }
+        
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      checkCollision(px, py, size) {
+        // Check if player collides with any line segment
+        for (let i = 0; i < this.points.length - 1; i++) {
+          const p1 = this.points[i];
+          const p2 = this.points[i + 1];
+          
+          // Distance from point to line segment
+          const dist = distanceToSegment(px, py, p1.x, p1.y, p2.x, p2.y);
+          if (dist < size / 2 + CONFIG.LINE_WIDTH / 2) {
+            return true;
+          }
+        }
+        return false;
+      }
+    }
+
+    // ==========================================
+    // COINS
+    // ==========================================
+    const coins = [];
+
+    class Coin {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = CONFIG.COIN_SIZE;
+        this.collected = false;
+        this.rotation = 0;
+      }
+
+      update() {
+        this.rotation += 0.1;
+      }
+
+      draw(ctx, scrollOffset) {
+        if (this.collected) return;
+        
+        ctx.save();
+        ctx.translate(this.x - scrollOffset, this.y);
+        ctx.rotate(this.rotation);
+        
+        // Draw coin
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Inner circle
+        ctx.fillStyle = '#ffed4e';
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size / 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        ctx.restore();
+      }
+
+      checkCollision(px, py, psize) {
+        if (this.collected) return false;
+        const dx = this.x - px;
+        const dy = this.y - py;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < (this.size + psize) / 2;
+      }
+    }
+
+    // ==========================================
+    // UTILITY FUNCTIONS
+    // ==========================================
+    function distanceToSegment(px, py, x1, y1, x2, y2) {
+      const A = px - x1;
+      const B = py - y1;
+      const C = x2 - x1;
+      const D = y2 - y1;
+
+      const dot = A * C + B * D;
+      const lenSq = C * C + D * D;
+      let param = -1;
+      
+      if (lenSq !== 0) param = dot / lenSq;
+
+      let xx, yy;
+      if (param < 0) {
+        xx = x1;
+        yy = y1;
+      } else if (param > 1) {
+        xx = x2;
+        yy = y2;
+      } else {
+        xx = x1 + param * C;
+        yy = y1 + param * D;
+      }
+
+      const dx = px - xx;
+      const dy = py - yy;
+      return Math.sqrt(dx * dx + dy * dy);
+    }
+
+    function spawnCoin() {
+      const x = gameState.scrollOffset + CONFIG.WIDTH + Math.random() * 200;
+      const y = Math.random() * (CONFIG.HEIGHT - 200) + 50;
+      coins.push(new Coin(x, y));
+    }
+
+    // ==========================================
+    // INPUT HANDLING
+    // ==========================================
+    function getMousePos(e) {
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;
+      const scaleY = canvas.height / rect.height;
+      
+      const clientX = e.clientX || (e.touches && e.touches[0]?.clientX);
+      const clientY = e.clientY || (e.touches && e.touches[0]?.clientY);
+      
+      return {
+        x: (clientX - rect.left) * scaleX,
+        y: (clientY - rect.top) * scaleY
+      };
+    }
+
+    function startDrawing(e) {
+      if (!gameState.isRunning) return;
+      e.preventDefault();
+      isDrawing = true;
+      currentLine = new DrawnLine();
+      const pos = getMousePos(e);
+      currentLine.addPoint(pos.x, pos.y);
+    }
+
+    function continueDrawing(e) {
+      if (!isDrawing || !currentLine) return;
+      e.preventDefault();
+      const pos = getMousePos(e);
+      currentLine.addPoint(pos.x, pos.y);
+    }
+
+    function stopDrawing(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      isDrawing = false;
+      if (currentLine && currentLine.points.length > 1) {
+        drawnLines.push(currentLine);
+      }
+      currentLine = null;
+    }
+
+    // Mouse events
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', continueDrawing);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+
+    // Touch events
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', continueDrawing, { passive: false });
+    canvas.addEventListener('touchend', stopDrawing, { passive: false });
+    canvas.addEventListener('touchcancel', stopDrawing, { passive: false });
+
+    // ==========================================
+    // GAME LOOP
+    // ==========================================
+    let lastTime = 0;
+    let frameCount = 0;
+    let fps = 60;
+    let lastFpsUpdate = 0;
+
+    function gameLoop(currentTime) {
+      requestAnimationFrame(gameLoop);
+      
+      if (!gameState.isRunning) return;
+      
+      const deltaTime = Math.min((currentTime - lastTime) / 16.67, 2);
+      lastTime = currentTime;
+
+      // FPS counter
+      frameCount++;
+      if (currentTime - lastFpsUpdate > CONFIG.FPS_UPDATE_INTERVAL) {
+        fps = Math.round(frameCount / ((currentTime - lastFpsUpdate) / 1000));
+        frameCount = 0;
+        lastFpsUpdate = currentTime;
+      }
+
+      update(deltaTime);
+      render();
+    }
+
+    function update(deltaTime) {
+      // Update distance
+      gameState.distance += CONFIG.SCROLL_SPEED * deltaTime * 0.1;
+      gameState.scrollOffset += CONFIG.SCROLL_SPEED * deltaTime;
+      
+      // Update stars
+      stars.forEach(star => {
+        star.x -= star.speed * deltaTime;
+        if (star.x < 0) star.x = CONFIG.WIDTH;
+      });
+
+      // Player physics
+      player.vy += CONFIG.GRAVITY * deltaTime;
+      player.x += player.vx * deltaTime;
+      player.y += player.vy * deltaTime;
+
+      // Keep player in horizontal bounds
+      if (player.x < 50) player.x = 50;
+      if (player.x > CONFIG.WIDTH - 50) player.x = CONFIG.WIDTH - 50;
+
+      // Check collision with drawn lines
+      player.grounded = false;
+      const playerWorldX = player.x + gameState.scrollOffset;
+      
+      for (let line of drawnLines) {
+        if (line.checkCollision(playerWorldX, player.y, player.size)) {
+          // Player is on a line
+          player.grounded = true;
+          player.vy = Math.max(0, player.vy); // Stop falling
+          break;
+        }
+      }
+
+      // Check ground collision (bottom of screen)
+      if (player.y > CONFIG.HEIGHT - player.size / 2) {
+        player.y = CONFIG.HEIGHT - player.size / 2;
+        player.grounded = true;
+        player.vy = 0;
+      }
+
+      // Game over if fall off screen
+      if (player.y > CONFIG.HEIGHT + 100) {
+        endGame();
+        return;
+      }
+
+      // Update drawn lines
+      for (let i = drawnLines.length - 1; i >= 0; i--) {
+        if (!drawnLines[i].update()) {
+          drawnLines.splice(i, 1);
+        }
+      }
+
+      // Update current line being drawn
+      if (currentLine) {
+        currentLine.update();
+      }
+
+      // Spawn coins
+      if (currentTime - gameState.lastCoinSpawn > CONFIG.COIN_SPAWN_INTERVAL) {
+        spawnCoin();
+        gameState.lastCoinSpawn = currentTime;
+      }
+
+      // Update coins
+      coins.forEach(coin => {
+        coin.update();
+        
+        // Check collision
+        if (coin.checkCollision(playerWorldX, player.y, player.size)) {
+          coin.collected = true;
+          gameState.coins++;
+          gameState.score += 10;
+        }
+      });
+
+      // Remove collected coins that are off-screen
+      for (let i = coins.length - 1; i >= 0; i--) {
+        if (coins[i].collected || coins[i].x < gameState.scrollOffset - 100) {
+          coins.splice(i, 1);
+        }
+      }
+
+      // Update UI
+      document.getElementById('coinCount').textContent = gameState.coins;
+      document.getElementById('distanceCount').textContent = Math.floor(gameState.distance) + 'm';
+    }
+
+    function render() {
+      // Clear canvas
+      ctx.fillStyle = '#0f3460';
+      ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+
+      // Draw stars
+      ctx.fillStyle = 'white';
+      stars.forEach(star => {
+        ctx.fillRect(star.x, star.y, star.size, star.size);
+      });
+
+      // Draw coins
+      coins.forEach(coin => coin.draw(ctx, gameState.scrollOffset));
+
+      // Draw all lines
+      drawnLines.forEach(line => line.draw(ctx, gameState.scrollOffset));
+      if (currentLine) {
+        currentLine.draw(ctx, gameState.scrollOffset);
+      }
+
+      // Draw player
+      ctx.save();
+      ctx.fillStyle = player.color;
+      ctx.fillRect(
+        player.x - player.size / 2,
+        player.y - player.size / 2,
+        player.size,
+        player.size
+      );
+      
+      // Draw eyes
+      ctx.fillStyle = 'white';
+      ctx.fillRect(player.x - 8, player.y - 8, 6, 6);
+      ctx.fillRect(player.x + 2, player.y - 8, 6, 6);
+      ctx.fillStyle = 'black';
+      ctx.fillRect(player.x - 6, player.y - 6, 3, 3);
+      ctx.fillRect(player.x + 4, player.y - 6, 3, 3);
+      
+      ctx.restore();
+
+      // Draw FPS (development only)
+      // ctx.fillStyle = 'white';
+      // ctx.font = '16px Arial';
+      // ctx.fillText(`FPS: ${fps}`, 10, 20);
+    }
+
+    // ==========================================
+    // GAME FLOW
+    // ==========================================
+    function startGame() {
+      // Send GAME_START message
+      window.parent.postMessage({ 
+        type: 'GAME_START', 
+        gameId: 'draw-runner' 
+      }, '*');
+
+      gameState = {
+        isRunning: true,
+        gameStarted: true,
+        score: 0,
+        coins: 0,
+        distance: 0,
+        lastCoinSpawn: Date.now(),
+        scrollOffset: 0
+      };
+
+      // Reset player
+      player.x = 150;
+      player.y = CONFIG.HEIGHT - 150;
+      player.vx = CONFIG.PLAYER_SPEED;
+      player.vy = 0;
+      player.grounded = false;
+
+      // Clear arrays
+      drawnLines.length = 0;
+      coins.length = 0;
+      currentLine = null;
+      isDrawing = false;
+
+      // Hide start screen
+      document.getElementById('startScreen').classList.add('hide');
+      
+      lastTime = performance.now();
+      lastFpsUpdate = lastTime;
+    }
+
+    function endGame() {
+      if (!gameState.isRunning) return;
+      
+      gameState.isRunning = false;
+
+      // Send GAME_SCORE message
+      window.parent.postMessage({ 
+        type: 'GAME_SCORE', 
+        gameId: 'draw-runner',
+        score: gameState.score 
+      }, '*');
+
+      // Show game over screen
+      document.getElementById('finalCoins').textContent = gameState.coins;
+      document.getElementById('finalDistance').textContent = Math.floor(gameState.distance);
+      document.getElementById('finalScore').textContent = gameState.score;
+      document.getElementById('gameOverScreen').classList.add('show');
+    }
+
+    function restartGame() {
+      document.getElementById('gameOverScreen').classList.remove('show');
+      startGame();
+    }
+
+    // ==========================================
+    // EVENT LISTENERS
+    // ==========================================
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+    // ==========================================
+    // START GAME LOOP
+    // ==========================================
+    requestAnimationFrame(gameLoop);
+
+    console.log('🎮 Draw Runner initialized!');
+    console.log('📊 Target: 60 FPS on mobile');
+  </script>
+</body>
+</html>
+
