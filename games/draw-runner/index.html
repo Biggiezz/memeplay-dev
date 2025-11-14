@@ -688,7 +688,27 @@
     function continueDrawing(e) {
       if (!isDrawing || !currentLine) return;
       e.preventDefault();
+      
+      // Check mana before drawing
+      if (gameState.mana <= 0) {
+        stopDrawing(e);
+        return;
+      }
+      
       const pos = getMousePos(e);
+      
+      // Calculate distance from last point
+      if (currentLine.points.length > 0) {
+        const lastPoint = currentLine.points[currentLine.points.length - 1];
+        const worldX = pos.x + gameState.scrollOffset;
+        const dx = worldX - lastPoint.x;
+        const dy = pos.y - lastPoint.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        // Consume mana (1px = 1 mana)
+        gameState.mana = Math.max(0, gameState.mana - distance);
+      }
+      
       currentLine.addPoint(pos.x, pos.y);
     }
 
