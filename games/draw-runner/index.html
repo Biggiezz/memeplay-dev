@@ -210,13 +210,16 @@
       JUMP_FORCE: -8,
       COIN_SIZE: 24,
       COIN_SPAWN_INTERVAL: 1500,
+      OBSTACLE_SIZE: 40,
+      OBSTACLE_SPAWN_INTERVAL: 2000,
       LINE_WIDTH: 8,
       LINE_LIFETIME: 3000,
       LINE_FADE_START: 2000,
       MAX_LINE_SEGMENTS: 500,
       STAR_COUNT: 100,
       SCROLL_SPEED: 2,
-      FPS_UPDATE_INTERVAL: 500
+      FPS_UPDATE_INTERVAL: 500,
+      DEBUG_HITBOXES: true
     };
 
     // ==========================================
@@ -401,6 +404,55 @@
     }
 
     // ==========================================
+    // OBSTACLES
+    // ==========================================
+    const obstacles = [];
+
+    class Obstacle {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = CONFIG.OBSTACLE_SIZE;
+        this.color = '#ff4444';
+      }
+
+      draw(ctx, scrollOffset) {
+        ctx.save();
+        const screenX = this.x - scrollOffset;
+        
+        // Draw spike (triangle)
+        ctx.fillStyle = this.color;
+        ctx.beginPath();
+        ctx.moveTo(screenX, this.y + this.size / 2); // bottom left
+        ctx.lineTo(screenX + this.size / 2, this.y - this.size / 2); // top
+        ctx.lineTo(screenX + this.size, this.y + this.size / 2); // bottom right
+        ctx.closePath();
+        ctx.fill();
+        
+        // Debug hitbox (blue)
+        if (CONFIG.DEBUG_HITBOXES) {
+          ctx.strokeStyle = '#00ffff';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(
+            screenX - this.size / 2,
+            this.y - this.size / 2,
+            this.size,
+            this.size
+          );
+        }
+        
+        ctx.restore();
+      }
+
+      checkCollision(px, py, psize) {
+        const dx = this.x - px;
+        const dy = this.y - py;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        return distance < (this.size + psize) / 2;
+      }
+    }
+
+    // ==========================================
     // UTILITY FUNCTIONS
     // ==========================================
     function distanceToSegment(px, py, x1, y1, x2, y2) {
@@ -433,9 +485,39 @@
     }
 
     function spawnCoin() {
-      const x = gameState.scrollOffset + CONFIG.WIDTH + Math.random() * 200;
+      const x = player.worldX + CONFIG.WIDTH + Math.random() * 200;
       const y = Math.random() * (CONFIG.HEIGHT - 200) + 50;
       coins.push(new Coin(x, y));
+    }
+
+    function spawnObstacle() {
+      const x = player.worldX + CONFIG.WIDTH + Math.random() * 300;
+      const y = Math.random() * (CONFIG.HEIGHT - 150) + 100;
+      obstacles.push(new Obstacle(x, y));
+    }
+
+    // Find closest point on drawn lines ahead of player
+    function findPathAhead(playerX, playerY, lookAhead = 30) {
+      let closestPoint = null;
+      let closestDist = Infinity;
+
+      for (let line of drawnLines) {
+        for (let i = 0; i < line.points.length - 1; i++) {
+          const p1 = line.points[i];
+          const p2 = line.points[i + 1];
+
+          // Only consider points ahead of player
+          if (p1.x > playerX && p1.x < playerX + lookAhead) {
+            const dist = Math.abs(p1.y - playerY);
+            if (dist < closestDist) {
+              closestDist = dist;
+              closestPoint = { x: p1.x, y: p1.y };
+            }
+          }
+        }
+      }
+
+      return closestPoint;
     }
 
     // ==========================================
@@ -522,10 +604,27 @@
     }
 
     function update(deltaTime, currentTime) {
-      // Player physics - update world position
-      player.vy += CONFIG.GRAVITY * deltaTime;
-      player.worldX += player.vx * deltaTime; // Move forward in world space
-      player.y += player.vy * deltaTime;
+      // Find path ahead
+      const pathPoint = findPathAhead(player.worldX, player.y, 50);
+      
+      // Player movement - follow drawn path
+      if (pathPoint) {
+        // Move towards the path point
+        player.worldX += player.vx * deltaTime;
+        
+        // Smoothly move towards path Y position
+        const targetY = pathPoint.y;
+        const diffY = targetY - player.y;
+        player.y += diffY * 0.2 * deltaTime; // Smooth interpolation
+        player.vy = 0; // Cancel gravity when on path
+        player.grounded = true;
+      } else {
+        // No path ahead - apply gravity and fall
+        player.worldX += player.vx * deltaTime;
+        player.vy += CONFIG.GRAVITY * deltaTime;
+        player.y += player.vy * deltaTime;
+        player.grounded = false;
+      }
 
       // Camera follows player (player stays at x=50 on screen)
       gameState.scrollOffset = player.worldX - player.x;
@@ -538,18 +637,6 @@
         star.x -= star.speed * deltaTime;
         if (star.x < 0) star.x = CONFIG.WIDTH;
       });
-
-      // Check collision with drawn lines
-      player.grounded = false;
-      
-      for (let line of drawnLines) {
-        if (line.checkCollision(player.worldX, player.y, player.size)) {
-          // Player is on a line
-          player.grounded = true;
-          player.vy = Math.max(0, player.vy); // Stop falling
-          break;
-        }
-      }
 
       // Check ground collision (bottom of screen)
       if (player.y > CONFIG.HEIGHT - player.size / 2) {
@@ -601,6 +688,28 @@
         }
       }
 
+      // Spawn obstacles
+      if (!gameState.lastObstacleSpawn) gameState.lastObstacleSpawn = currentTime;
+      if (currentTime - gameState.lastObstacleSpawn > CONFIG.OBSTACLE_SPAWN_INTERVAL) {
+        spawnObstacle();
+        gameState.lastObstacleSpawn = currentTime;
+      }
+
+      // Check obstacle collisions
+      for (let obstacle of obstacles) {
+        if (obstacle.checkCollision(player.worldX, player.y, player.size)) {
+          endGame();
+          return;
+        }
+      }
+
+      // Remove off-screen obstacles
+      for (let i = obstacles.length - 1; i >= 0; i--) {
+        if (obstacles[i].x < gameState.scrollOffset - 100) {
+          obstacles.splice(i, 1);
+        }
+      }
+
       // Update UI
       document.getElementById('coinCount').textContent = gameState.coins;
       document.getElementById('distanceCount').textContent = Math.floor(gameState.distance) + 'm';
@@ -619,6 +728,9 @@
 
       // Draw coins
       coins.forEach(coin => coin.draw(ctx, gameState.scrollOffset));
+
+      // Draw obstacles
+      obstacles.forEach(obstacle => obstacle.draw(ctx, gameState.scrollOffset));
 
       // Draw all lines
       drawnLines.forEach(line => line.draw(ctx, gameState.scrollOffset));
@@ -643,6 +755,18 @@
       ctx.fillStyle = 'black';
       ctx.fillRect(player.x - 6, player.y - 6, 3, 3);
       ctx.fillRect(player.x + 4, player.y - 6, 3, 3);
+      
+      // Debug hitbox for player (blue)
+      if (CONFIG.DEBUG_HITBOXES) {
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(
+          player.x - player.size / 2,
+          player.y - player.size / 2,
+          player.size,
+          player.size
+        );
+      }
       
       ctx.restore();
 
@@ -683,6 +807,7 @@
       // Clear arrays
       drawnLines.length = 0;
       coins.length = 0;
+      obstacles.length = 0;
       currentLine = null;
       isDrawing = false;
 
