@@ -795,8 +795,28 @@
         player.grounded = false;
       }
 
+      // Limit Y axis to 700px (relative to screen)
+      if (player.y < 0) {
+        player.y = 0;
+        player.vy = 0;
+      } else if (player.y > 700) {
+        player.y = 700;
+        player.vy = 0;
+      }
+
       // Camera follows player (player stays at x=50 on screen)
       gameState.scrollOffset = player.worldX - player.x;
+      
+      // Limit X axis to 700px (relative to camera position)
+      const minWorldX = gameState.scrollOffset;
+      const maxWorldX = gameState.scrollOffset + 700;
+      if (player.worldX < minWorldX) {
+        player.worldX = minWorldX;
+        player.vx = 0;
+      } else if (player.worldX > maxWorldX) {
+        player.worldX = maxWorldX;
+        player.vx = 0;
+      }
       
       // Update distance based on world position
       gameState.distance = player.worldX * 0.1;
