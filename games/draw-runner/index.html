@@ -827,20 +827,10 @@
     }
 
     function startDrawing(e) {
-      console.log('🖱️ startDrawing called', {
-        isRunning: gameState.isRunning,
-        mana: gameState.mana,
-        event: e.type
-      });
-      
-      if (!gameState.isRunning) {
-        console.log('❌ Game not running!');
-        return;
-      }
+      if (!gameState.isRunning) return;
       
       // Check if has mana to start drawing
       if (gameState.mana <= 0) {
-        console.log('❌ No mana to draw!');
         return; // Cannot start drawing without mana
       }
       
@@ -849,7 +839,6 @@
       currentLine = new DrawnLine();
       const pos = getMousePos(e);
       currentLine.addPoint(pos.x, pos.y);
-      console.log('✅ Drawing started at', pos);
     }
 
     function continueDrawing(e) {
@@ -1273,8 +1262,6 @@
     // GAME FLOW
     // ==========================================
     function startGame() {
-      console.log('🎮 START GAME - Resetting mana to', CONFIG.MAX_MANA);
-      
       // Initialize audio context (user gesture required)
       initAudio();
       
@@ -1295,12 +1282,6 @@
         mana: CONFIG.MAX_MANA, // Start with full mana (5 viên bi)
         lastManaRegen: performance.now()
       };
-      
-      console.log('✅ Game state after reset:', {
-        isRunning: gameState.isRunning,
-        mana: gameState.mana,
-        MAX_MANA: CONFIG.MAX_MANA
-      });
 
       // Reset player
       player.x = 50; // Fixed screen position
@@ -1361,9 +1342,6 @@
     // START GAME LOOP
     // ==========================================
     requestAnimationFrame(gameLoop);
-
-    console.log('🎮 Draw Runner initialized!');
-    console.log('📊 Target: 60 FPS on mobile');
   </script>
 </body>
 </html>
