@@ -2211,14 +2211,30 @@
     const toast = document.getElementById('achievementToast')
     
     if (closeBtn && toast) {
-      closeBtn.addEventListener('click', () => {
+      closeBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        console.log('✅ Close button clicked!');
+        
         // Cancel auto-hide timeout
         if (toast.dataset.autoHideTimeout) {
           clearTimeout(parseInt(toast.dataset.autoHideTimeout))
         }
         // Hide immediately
         toast.classList.remove('show')
-      })
+      }, { capture: true });
+      
+      // Also add touchend for mobile
+      closeBtn.addEventListener('touchend', (e) => {
+        e.stopPropagation();
+        e.preventDefault();
+        console.log('✅ Close button touched!');
+        
+        if (toast.dataset.autoHideTimeout) {
+          clearTimeout(parseInt(toast.dataset.autoHideTimeout))
+        }
+        toast.classList.remove('show')
+      }, { capture: true, passive: false });
     }
   })
 
