@@ -658,24 +658,37 @@
         audioContext.resume().then(() => {
           audioUnlocked = true;
           // Play a silent sound to fully unlock audio (required for iOS Safari)
+          // CRITICAL: Must use audioContext.currentTime for timing
           try {
             const oscillator = audioContext.createOscillator();
             const gainNode = audioContext.createGain();
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
-            gainNode.gain.value = 0.001; // Silent
-            oscillator.frequency.value = 1; // Very low frequency
-            oscillator.start();
+            gainNode.gain.setValueAtTime(0.001, audioContext.currentTime); // Silent
+            oscillator.frequency.setValueAtTime(1, audioContext.currentTime); // Very low frequency
+            oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.01);
           } catch (e) {
-            // Ignore errors
+            console.log('Silent unlock sound error:', e);
           }
         }).catch(e => {
+          console.log('Audio resume error:', e);
           // Retry after short delay
           setTimeout(() => {
             if (audioContext.state === 'suspended') {
               audioContext.resume().then(() => {
                 audioUnlocked = true;
+                // Play silent sound after retry
+                try {
+                  const oscillator = audioContext.createOscillator();
+                  const gainNode = audioContext.createGain();
+                  oscillator.connect(gainNode);
+                  gainNode.connect(audioContext.destination);
+                  gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+                  oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+                  oscillator.start(audioContext.currentTime);
+                  oscillator.stop(audioContext.currentTime + 0.01);
+                } catch (e) {}
               }).catch(() => {});
             }
           }, 100);
@@ -689,9 +702,9 @@
             const gainNode = audioContext.createGain();
             oscillator.connect(gainNode);
             gainNode.connect(audioContext.destination);
-            gainNode.gain.value = 0.001;
-            oscillator.frequency.value = 1;
-            oscillator.start();
+            gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+            oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.01);
           } catch (e) {
             // Ignore errors
@@ -754,25 +767,48 @@
         }
         
         // Đảm bảo audio đã unlock trước khi play
-        if (!audioUnlocked) {
+        if (!audioUnlocked || audioContext.state !== 'running') {
           unlockAudio();
+          // Nếu vẫn suspended, đợi một chút rồi retry
+          if (audioContext.state === 'suspended') {
+            setTimeout(() => playSound(type, frequency, duration, volume), 100);
+            return;
+          }
+          // Nếu chưa running, đợi một chút
+          if (audioContext.state !== 'running') {
+            setTimeout(() => playSound(type, frequency, duration, volume), 100);
+            return;
+          }
         }
         
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+        // Đảm bảo audio context đang running trước khi tạo oscillator
+        if (audioContext.state !== 'running') {
+          setTimeout(() => playSound(type, frequency, duration, volume), 100);
+          return;
+        }
         
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-        
-        oscillator.type = 'sine';
-        oscillator.frequency.value = frequency;
-        
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-        gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
-        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + duration);
+        try {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          
+          oscillator.type = 'sine';
+          oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+          
+          gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+          gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+          
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + duration);
+        } catch (e) {
+          console.log('Play sound error:', e);
+          // Retry after unlock
+          unlockAudio();
+          setTimeout(() => playSound(type, frequency, duration, volume), 100);
+        }
       } catch (e) {
         console.log('Audio error:', e);
       }
@@ -1443,8 +1479,7 @@
     // ===== EVENT LISTENERS =====
     // Unlock audio on canvas interaction (mobile requirement)
     // KHÔNG dùng once: true - cần unlock nhiều lần
-    gameCanvas.addEventListener('touchstart', unlockAudio, { passive: true });
-    gameCanvas.addEventListener('touchend', unlockAudio, { passive: true });
+    // Note: Touch events are handled in gameContainer, but we also add here for direct canvas touches
     gameCanvas.addEventListener('touchmove', unlockAudio, { passive: true });
     gameCanvas.addEventListener('mousedown', (e) => {
       unlockAudio();
@@ -1486,12 +1521,13 @@
     }
     
     gameContainer.addEventListener('touchstart', (e) => {
+      // CRITICAL: Unlock audio FIRST before any other logic
+      unlockAudio();
+      
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        unlockAudio(); // Vẫn unlock audio ngay cả khi game over
         return;
       }
-      unlockAudio(); // Unlock audio on first touch (CRITICAL for mobile iframe)
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
@@ -1507,6 +1543,9 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchend', (e) => {
+      // CRITICAL: Unlock audio on touchend too
+      unlockAudio();
+      
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
         return;
@@ -1526,6 +1565,9 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchmove', (e) => {
+      // CRITICAL: Unlock audio on touchmove too (continuous unlock)
+      unlockAudio();
+      
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
         return;
