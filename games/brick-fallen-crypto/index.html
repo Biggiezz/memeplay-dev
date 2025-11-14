@@ -525,44 +525,6 @@
         this.alive = true;
       }
 
-      checkCollision(ball) {
-        if (!this.alive) return false;
-
-        const radius = ball.size / 2;
-        const ballLeft = ball.x - radius;
-        const ballRight = ball.x + radius;
-        const ballTop = ball.y - radius;
-        const ballBottom = ball.y + radius;
-
-        if (ballRight >= this.x &&
-            ballLeft <= this.x + this.width &&
-            ballBottom >= this.y &&
-            ballTop <= this.y + this.height) {
-          
-          // Determine collision side
-          const overlapLeft = ballRight - this.x;
-          const overlapRight = (this.x + this.width) - ballLeft;
-          const overlapTop = ballBottom - this.y;
-          const overlapBottom = (this.y + this.height) - ballTop;
-
-          const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
-
-          if (minOverlap === overlapLeft || minOverlap === overlapRight) {
-            ball.vx = -ball.vx;
-          } else {
-            ball.vy = -ball.vy;
-          }
-
-          playBrickHit(); // Sound: bi chạm gạch
-          this.alive = false;
-          playBrickBreak(); // Sound: phá gạch
-          gameState.score += 10;
-          gameState.bricksDestroyed++;
-          return true;
-        }
-        return false;
-      }
-
       draw() {
         if (!this.alive) return;
 
@@ -716,21 +678,71 @@
           ball.update();
 
           // Check brick collisions (max 2 bricks per ball per frame)
-          let bricksHit = 0;
+          // Collect collisions first, then apply ONE bounce
+          const hitBricks = [];
+          
           for (let brick of bricks) {
-            if (brick.alive && bricksHit < 2) {
-              if (brick.checkCollision(ball)) {
-                bricksHit++;
-                
-                // Random powerup drop (15% chance x2, 5% chance x3)
-                const rand = Math.random();
-                if (rand < 0.05) {
-                  powerups.push(new Powerup(brick.x + brick.width / 2, brick.y + brick.height / 2, 'x3'));
-                } else if (rand < 0.20) {
-                  powerups.push(new Powerup(brick.x + brick.width / 2, brick.y + brick.height / 2, 'x2'));
-                }
+            if (brick.alive && hitBricks.length < 2) {
+              const radius = ball.size / 2;
+              const ballLeft = ball.x - radius;
+              const ballRight = ball.x + radius;
+              const ballTop = ball.y - radius;
+              const ballBottom = ball.y + radius;
+
+              if (ballRight >= brick.x &&
+                  ballLeft <= brick.x + brick.width &&
+                  ballBottom >= brick.y &&
+                  ballTop <= brick.y + brick.height) {
+                hitBricks.push(brick);
               }
             }
+          }
+          
+          // If hit bricks, destroy them and bounce ONCE
+          if (hitBricks.length > 0) {
+            playBrickHit(); // Sound: bi chạm gạch
+            
+            let bounceX = false;
+            let bounceY = false;
+            
+            hitBricks.forEach(brick => {
+              // Determine collision side
+              const radius = ball.size / 2;
+              const ballLeft = ball.x - radius;
+              const ballRight = ball.x + radius;
+              const ballTop = ball.y - radius;
+              const ballBottom = ball.y + radius;
+              
+              const overlapLeft = ballRight - brick.x;
+              const overlapRight = (brick.x + brick.width) - ballLeft;
+              const overlapTop = ballBottom - brick.y;
+              const overlapBottom = (brick.y + brick.height) - ballTop;
+              
+              const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+              
+              if (minOverlap === overlapLeft || minOverlap === overlapRight) {
+                bounceX = true;
+              } else {
+                bounceY = true;
+              }
+              
+              brick.alive = false;
+              playBrickBreak(); // Sound: phá gạch
+              gameState.score += 10;
+              gameState.bricksDestroyed++;
+              
+              // Random powerup drop
+              const rand = Math.random();
+              if (rand < 0.05) {
+                powerups.push(new Powerup(brick.x + brick.width / 2, brick.y + brick.height / 2, 'x3'));
+              } else if (rand < 0.20) {
+                powerups.push(new Powerup(brick.x + brick.width / 2, brick.y + brick.height / 2, 'x2'));
+              }
+            });
+            
+            // Apply bounce ONCE based on all hits
+            if (bounceX) ball.vx = -ball.vx;
+            if (bounceY) ball.vy = -ball.vy;
           }
         }
       });
