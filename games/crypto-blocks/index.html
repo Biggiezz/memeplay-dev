@@ -647,170 +647,35 @@
     let rafPending = false;
     
     // ===== SOUND SYSTEM =====
+    // Đơn giản như rocket-bnb: tạo audioContext và play sound trực tiếp
+    // Rocket-bnb không có unlock logic phức tạp mà vẫn hoạt động trong iframe!
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-    let audioUnlocked = false; // Track if audio has been unlocked by user interaction
-    
-    // Unlock audio on first user interaction (mobile requirement)
-    // Critical for iframe on mobile - must be called on ANY user interaction
-    function unlockAudio() {
-      // Always try to resume if suspended (not just once)
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().then(() => {
-          audioUnlocked = true;
-          // Play a silent sound to fully unlock audio (required for iOS Safari)
-          // CRITICAL: Must use audioContext.currentTime for timing
-          try {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            gainNode.gain.setValueAtTime(0.001, audioContext.currentTime); // Silent
-            oscillator.frequency.setValueAtTime(1, audioContext.currentTime); // Very low frequency
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.01);
-          } catch (e) {
-            console.log('Silent unlock sound error:', e);
-          }
-        }).catch(e => {
-          console.log('Audio resume error:', e);
-          // Retry after short delay
-          setTimeout(() => {
-            if (audioContext.state === 'suspended') {
-              audioContext.resume().then(() => {
-                audioUnlocked = true;
-                // Play silent sound after retry
-                try {
-                  const oscillator = audioContext.createOscillator();
-                  const gainNode = audioContext.createGain();
-                  oscillator.connect(gainNode);
-                  gainNode.connect(audioContext.destination);
-                  gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
-                  oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
-                  oscillator.start(audioContext.currentTime);
-                  oscillator.stop(audioContext.currentTime + 0.01);
-                } catch (e) {}
-              }).catch(() => {});
-            }
-          }, 100);
-        });
-      } else if (audioContext.state === 'running') {
-        // Đã running - vẫn play silent sound để đảm bảo unlock (iOS requirement)
-        if (!audioUnlocked) {
-          audioUnlocked = true;
-          try {
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
-            oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.01);
-          } catch (e) {
-            // Ignore errors
-          }
-        }
-      }
-    }
-    
-    // Add event listeners to unlock audio on user interaction
-    // KHÔNG dùng once: true - cần unlock nhiều lần để đảm bảo audio hoạt động trên mobile
-    // Multiple listeners to ensure unlock works in iframe on mobile
-    document.addEventListener('touchstart', unlockAudio, { passive: true });
-    document.addEventListener('touchend', unlockAudio, { passive: true });
-    document.addEventListener('touchmove', unlockAudio, { passive: true });
-    document.addEventListener('click', unlockAudio, { passive: true });
-    document.addEventListener('mousedown', unlockAudio, { passive: true });
-    
-    // Also listen on window for iframe scenarios
-    window.addEventListener('touchstart', unlockAudio, { passive: true });
-    window.addEventListener('touchend', unlockAudio, { passive: true });
-    window.addEventListener('touchmove', unlockAudio, { passive: true });
     
     function playSound(type, frequency = 440, duration = 0.2, volume = 0.3) {
       try {
-        // Always try to resume audio context if suspended (mobile requirement)
+        // Resume nếu suspended (giống rocket-bnb - đơn giản)
         if (audioContext.state === 'suspended') {
-          audioContext.resume().catch(e => {
-            console.log('Audio resume error:', e);
-          });
-          // If still suspended, wait a bit and retry
-          if (audioContext.state === 'suspended') {
-            setTimeout(() => {
-              if (audioContext.state === 'suspended') {
-                audioContext.resume().catch(() => {});
-              }
-            }, 100);
-          }
+          audioContext.resume();
         }
         
-        // Wait for audio context to be ready (but don't block if it takes too long)
-        // Nếu suspended → unlock và retry
-        if (audioContext.state === 'suspended') {
-          unlockAudio();
-          audioContext.resume().then(() => {
-            // Retry playing sound after resume
-            setTimeout(() => playSound(type, frequency, duration, volume), 50);
-          }).catch(e => {
-            // Retry unlock và play
-            setTimeout(() => {
-              unlockAudio();
-              playSound(type, frequency, duration, volume);
-            }, 100);
-          });
-          return;
-        } else if (audioContext.state !== 'running') {
-          // Nếu không phải running → unlock và retry
-          unlockAudio();
-          setTimeout(() => playSound(type, frequency, duration, volume), 50);
-          return;
-        }
+        // Play sound trực tiếp (không check state phức tạp)
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
         
-        // Đảm bảo audio đã unlock trước khi play
-        if (!audioUnlocked || audioContext.state !== 'running') {
-          unlockAudio();
-          // Nếu vẫn suspended, đợi một chút rồi retry
-          if (audioContext.state === 'suspended') {
-            setTimeout(() => playSound(type, frequency, duration, volume), 100);
-            return;
-          }
-          // Nếu chưa running, đợi một chút
-          if (audioContext.state !== 'running') {
-            setTimeout(() => playSound(type, frequency, duration, volume), 100);
-            return;
-          }
-        }
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
         
-        // Đảm bảo audio context đang running trước khi tạo oscillator
-        if (audioContext.state !== 'running') {
-          setTimeout(() => playSound(type, frequency, duration, volume), 100);
-          return;
-        }
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
         
-        try {
-          const oscillator = audioContext.createOscillator();
-          const gainNode = audioContext.createGain();
-          
-          oscillator.connect(gainNode);
-          gainNode.connect(audioContext.destination);
-          
-          oscillator.type = 'sine';
-          oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-          
-          gainNode.gain.setValueAtTime(0, audioContext.currentTime);
-          gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
-          
-          oscillator.start(audioContext.currentTime);
-          oscillator.stop(audioContext.currentTime + duration);
-        } catch (e) {
-          console.log('Play sound error:', e);
-          // Retry after unlock
-          unlockAudio();
-          setTimeout(() => playSound(type, frequency, duration, volume), 100);
-        }
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + duration);
       } catch (e) {
-        console.log('Audio error:', e);
+        // Ignore errors - sound không quan trọng bằng gameplay
       }
     }
     
@@ -1450,23 +1315,8 @@
         drawGrid();
         drawUI();
         
-        // Resume audio context (browser autoplay policy)
-        // Unlock audio ngay khi start game (CRITICAL for mobile)
-        unlockAudio();
-        if (audioContext.state === 'suspended') {
-          audioContext.resume().then(() => {
-            unlockAudio(); // Unlock lại sau khi resume
-          }).catch(e => {
-            // Retry after short delay
-            setTimeout(() => {
-              if (audioContext.state === 'suspended') {
-                audioContext.resume().then(() => unlockAudio()).catch(() => {});
-              }
-            }, 200);
-          });
-        } else {
-          unlockAudio(); // Vẫn unlock nếu đã running
-        }
+        // Audio sẽ tự unlock khi user tương tác (touch/click)
+        // Không cần unlock ở đây - giống rocket-bnb
       },
       
       restart() {
@@ -1482,7 +1332,10 @@
     // Note: Touch events are handled in gameContainer (main handler)
     // gameCanvas listeners are for direct canvas touches (backup)
     gameCanvas.addEventListener('mousedown', (e) => {
-      unlockAudio();
+      // Resume audio context khi user click (desktop - giống rocket-bnb)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
       handleMouseDown(e);
     });
     gameCanvas.addEventListener('mouseup', handleMouseUp);
@@ -1521,16 +1374,16 @@
     }
     
     gameContainer.addEventListener('touchstart', (e) => {
-      // CRITICAL: Unlock audio FIRST before any other logic
-      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble lên document/window
-      unlockAudio();
+      // Resume audio context khi user touch (giống rocket-bnb - đơn giản)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return; // Return sớm - không preventDefault để event bubble
+        return;
       }
       
-      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
@@ -1546,16 +1399,16 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchend', (e) => {
-      // CRITICAL: Unlock audio on touchend too
-      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble
-      unlockAudio();
+      // Resume audio context khi user touch (giống rocket-bnb - đơn giản)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return; // Return sớm - không preventDefault để event bubble
+        return;
       }
       
-      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.changedTouches[0];
       if (touch) {
@@ -1571,16 +1424,16 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchmove', (e) => {
-      // CRITICAL: Unlock audio on touchmove too (continuous unlock)
-      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble
-      unlockAudio();
+      // Resume audio context khi user drag (giống rocket-bnb - đơn giản)
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
-        return; // Return sớm - không preventDefault để event bubble
+        return;
       }
       
-      // Chỉ preventDefault sau khi đã unlock audio
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
@@ -1605,23 +1458,23 @@
       }
     }, { passive: false });
     
-    // XÓA duplicate gameCanvas touch listeners - đã handle trong gameContainer
-    // Giữ lại chỉ để backup nếu gameContainer không catch được
-    // NHƯNG: Không preventDefault để event có thể bubble lên document/window (cho unlockAudio)
+    // gameCanvas touch events - resume audio khi user touch (giống rocket-bnb)
     gameCanvas.addEventListener('touchstart', (e) => {
-      unlockAudio(); // Unlock audio ngay khi touch canvas (CRITICAL for mobile iframe)
-      // KHÔNG preventDefault ở đây - để event bubble lên document/window cho unlockAudio
-      // gameContainer sẽ handle preventDefault
-    }, { passive: true }); // passive: true để không chặn event
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
+    }, { passive: true });
     
     gameCanvas.addEventListener('touchend', (e) => {
-      unlockAudio(); // Unlock audio
-      // KHÔNG preventDefault - để event bubble
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
     }, { passive: true });
     
     gameCanvas.addEventListener('touchmove', (e) => {
-      unlockAudio(); // Continuous unlock
-      // KHÔNG preventDefault - để event bubble
+      if (audioContext.state === 'suspended') {
+        audioContext.resume();
+      }
     }, { passive: true });
     
     // ===== GAME LOOP =====
