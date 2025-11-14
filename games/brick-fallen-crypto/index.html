@@ -1,0 +1,800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Brick - Fallen Crypto</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+    body {
+      background: #0a0a0a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      font-family: 'Courier New', monospace;
+      overflow: hidden;
+      touch-action: none;
+    }
+    #gameCanvas {
+      display: block;
+      max-width: 100vw;
+      max-height: 100vh;
+      background: #000;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: -webkit-crisp-edges;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+      will-change: transform;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      touch-action: none;
+    }
+    .control-btn {
+      position: fixed;
+      bottom: 20px;
+      width: 120px;
+      height: 120px;
+      background: rgba(255, 255, 255, 0.15);
+      border: 4px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      font-size: 48px;
+      font-weight: bold;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      user-select: none;
+      touch-action: none;
+      z-index: 100;
+      transition: all 0.1s;
+    }
+    .control-btn:active {
+      background: rgba(255, 255, 255, 0.3);
+      transform: scale(0.95);
+    }
+    .control-btn.left {
+      left: 20px;
+    }
+    .control-btn.right {
+      right: 20px;
+    }
+    .start-screen, .level-screen, .game-over-screen {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.95);
+      border: 4px solid #ffd700;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      color: white;
+      z-index: 200;
+      display: none;
+    }
+    .start-screen.show, .level-screen.show, .game-over-screen.show {
+      display: block;
+      animation: popIn 0.3s ease-out;
+    }
+    .screen-title {
+      font-size: 48px;
+      color: #ffd700;
+      margin-bottom: 20px;
+      text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
+    }
+    .screen-subtitle {
+      font-size: 24px;
+      margin-bottom: 30px;
+      line-height: 1.6;
+    }
+    .screen-btn {
+      background: linear-gradient(135deg, #ffd700, #ffed4e);
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      padding: 15px 40px;
+      font-size: 28px;
+      font-weight: bold;
+      cursor: pointer;
+      transition: transform 0.2s;
+      font-family: 'Courier New', monospace;
+    }
+    .screen-btn:hover {
+      transform: scale(1.05);
+    }
+    .screen-btn:active {
+      transform: scale(0.95);
+    }
+    @keyframes popIn {
+      0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    @media (max-width: 768px) {
+      .control-btn { width: 100px; height: 100px; font-size: 40px; }
+      .screen-title { font-size: 36px; }
+      .screen-subtitle { font-size: 20px; }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <div class="control-btn left" id="btnLeft">◀</div>
+  <div class="control-btn right" id="btnRight">▶</div>
+
+  <div class="start-screen show" id="startScreen">
+    <div class="screen-title">BRICK</div>
+    <div class="screen-subtitle">
+      Fallen Crypto<br>
+      <small style="font-size: 18px; opacity: 0.8;">
+        Break the logos of failed projects
+      </small>
+    </div>
+    <button class="screen-btn" id="startBtn">START GAME</button>
+  </div>
+
+  <div class="level-screen" id="levelScreen">
+    <div class="screen-title" id="levelTitle">LEVEL 1</div>
+    <div class="screen-subtitle" id="levelSubtitle">FTX</div>
+    <button class="screen-btn" id="levelStartBtn">START</button>
+  </div>
+
+  <div class="game-over-screen" id="gameOverScreen">
+    <div class="screen-title">GAME OVER</div>
+    <div class="screen-subtitle">
+      Level: <span id="finalLevel">1</span><br>
+      Score: <span id="finalScore">0</span><br>
+      Bricks: <span id="finalBricks">0</span>
+    </div>
+    <button class="screen-btn" id="restartBtn">PLAY AGAIN</button>
+  </div>
+
+  <script>
+    // ==========================================
+    // GAME CONFIGURATION
+    // ==========================================
+    const CONFIG = {
+      WIDTH: 720,
+      HEIGHT: 1000,
+      PADDLE_WIDTH: 120,
+      PADDLE_HEIGHT: 20,
+      PADDLE_Y: 920,
+      PADDLE_SPEED: 8,
+      BALL_SIZE: 8,
+      BALL_SPEED_BASE: 4,
+      BRICK_PADDING: 2,
+      LEVEL_TIME: 30000, // 30 seconds per level
+      MAX_LEVEL: 20
+    };
+
+    // Failed crypto projects
+    const CRYPTO_LOGOS = [
+      { name: 'FTX', rows: 8, cols: 16 },
+      { name: 'LUNA', rows: 8, cols: 16 },
+      { name: 'BITCONNECT', rows: 8, cols: 20 },
+      { name: 'MT.GOX', rows: 8, cols: 16 },
+      { name: 'CELSIUS', rows: 8, cols: 18 },
+      { name: 'VOYAGER', rows: 8, cols: 18 },
+      { name: 'THREE ARROWS', rows: 9, cols: 20 },
+      { name: 'BLOCKFI', rows: 8, cols: 18 },
+      { name: 'TERRA', rows: 8, cols: 14 },
+      { name: 'SAFEMOON', rows: 8, cols: 18 },
+      { name: 'SQUID GAME', rows: 9, cols: 20 },
+      { name: 'ONECOIN', rows: 8, cols: 18 },
+      { name: 'QUADRIGA', rows: 9, cols: 20 },
+      { name: 'THODEX', rows: 8, cols: 16 },
+      { name: 'AFRICRYPT', rows: 9, cols: 20 },
+      { name: 'TITANIUM', rows: 9, cols: 20 },
+      { name: 'CENTRA', rows: 8, cols: 16 },
+      { name: 'PLUSTOKEN', rows: 9, cols: 20 },
+      { name: 'BITCLUB', rows: 8, cols: 18 },
+      { name: 'PONZICOIN', rows: 9, cols: 20 }
+    ];
+
+    // ==========================================
+    // CANVAS SETUP
+    // ==========================================
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { 
+      alpha: false, 
+      desynchronized: true 
+    });
+    ctx.imageSmoothingEnabled = false;
+
+    canvas.width = CONFIG.WIDTH;
+    canvas.height = CONFIG.HEIGHT;
+
+    // ==========================================
+    // GAME STATE
+    // ==========================================
+    let gameState = {
+      isRunning: false,
+      level: 1,
+      score: 0,
+      bricksDestroyed: 0,
+      levelStartTime: 0,
+      timeRemaining: 30
+    };
+
+    // ==========================================
+    // PADDLE
+    // ==========================================
+    const paddle = {
+      x: CONFIG.WIDTH / 2 - CONFIG.PADDLE_WIDTH / 2,
+      y: CONFIG.PADDLE_Y,
+      width: CONFIG.PADDLE_WIDTH,
+      height: CONFIG.PADDLE_HEIGHT,
+      vx: 0,
+      color: '#00ff00'
+    };
+
+    // ==========================================
+    // BALLS
+    // ==========================================
+    const balls = [];
+
+    class Ball {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.size = CONFIG.BALL_SIZE;
+        this.vx = (Math.random() - 0.5) * 2;
+        this.vy = -CONFIG.BALL_SPEED_BASE;
+        this.active = true;
+      }
+
+      update() {
+        this.x += this.vx;
+        this.y += this.vy;
+
+        // Wall collision
+        if (this.x <= 0 || this.x >= CONFIG.WIDTH) {
+          this.vx = -this.vx;
+          this.x = Math.max(0, Math.min(CONFIG.WIDTH, this.x));
+        }
+
+        // Ceiling collision
+        if (this.y <= 0) {
+          this.vy = -this.vy;
+          this.y = 0;
+        }
+
+        // Paddle collision
+        if (this.y + this.size >= paddle.y &&
+            this.y <= paddle.y + paddle.height &&
+            this.x >= paddle.x &&
+            this.x <= paddle.x + paddle.width) {
+          this.vy = -Math.abs(this.vy);
+          this.y = paddle.y - this.size;
+          
+          // Add spin based on paddle movement
+          const paddleCenter = paddle.x + paddle.width / 2;
+          const hitOffset = (this.x - paddleCenter) / (paddle.width / 2);
+          this.vx += hitOffset * 2;
+        }
+
+        // Ball falls off bottom
+        if (this.y > CONFIG.HEIGHT + 20) {
+          this.active = false;
+        }
+      }
+
+      draw() {
+        ctx.fillStyle = '#ff00ff';
+        ctx.fillRect(
+          Math.floor(this.x - this.size / 2),
+          Math.floor(this.y - this.size / 2),
+          this.size,
+          this.size
+        );
+      }
+    }
+
+    // ==========================================
+    // BRICKS
+    // ==========================================
+    const bricks = [];
+
+    class Brick {
+      constructor(x, y, width, height, color) {
+        this.x = x;
+        this.y = y;
+        this.width = width;
+        this.height = height;
+        this.color = color;
+        this.alive = true;
+      }
+
+      checkCollision(ball) {
+        if (!this.alive) return false;
+
+        if (ball.x + ball.size >= this.x &&
+            ball.x - ball.size <= this.x + this.width &&
+            ball.y + ball.size >= this.y &&
+            ball.y - ball.size <= this.y + this.height) {
+          
+          // Determine collision side
+          const overlapLeft = (ball.x + ball.size) - this.x;
+          const overlapRight = (this.x + this.width) - (ball.x - ball.size);
+          const overlapTop = (ball.y + ball.size) - this.y;
+          const overlapBottom = (this.y + this.height) - (ball.y - ball.size);
+
+          const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+
+          if (minOverlap === overlapLeft || minOverlap === overlapRight) {
+            ball.vx = -ball.vx;
+          } else {
+            ball.vy = -ball.vy;
+          }
+
+          this.alive = false;
+          gameState.score += 10;
+          gameState.bricksDestroyed++;
+          return true;
+        }
+        return false;
+      }
+
+      draw() {
+        if (!this.alive) return;
+
+        // Brick body
+        ctx.fillStyle = this.color;
+        ctx.fillRect(this.x, this.y, this.width, this.height);
+
+        // Brick highlight
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+        ctx.fillRect(this.x + 1, this.y + 1, this.width - 2, 2);
+
+        // Brick border
+        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(this.x, this.y, this.width, this.height);
+      }
+    }
+
+    // ==========================================
+    // LEVEL GENERATION
+    // ==========================================
+    function generateLevel(level) {
+      bricks.length = 0;
+      
+      const logoIndex = (level - 1) % CRYPTO_LOGOS.length;
+      const logo = CRYPTO_LOGOS[logoIndex];
+      
+      // Increase difficulty with level
+      const rows = Math.min(logo.rows + Math.floor(level / 3), 12);
+      const cols = Math.min(logo.cols + Math.floor(level / 3), 24);
+      
+      const brickWidth = Math.floor((CONFIG.WIDTH - (cols + 1) * CONFIG.BRICK_PADDING) / cols);
+      const brickHeight = Math.floor(400 / rows);
+
+      // Create crypto logo pattern
+      const patterns = {
+        'FTX': generateFTXPattern(rows, cols),
+        'LUNA': generateLUNAPattern(rows, cols),
+        'BITCONNECT': generateBitconnectPattern(rows, cols),
+        'MT.GOX': generateMtGoxPattern(rows, cols),
+        'CELSIUS': generateCelsiusPattern(rows, cols),
+        'VOYAGER': generateVoyagerPattern(rows, cols),
+        'THREE ARROWS': generateThreeArrowsPattern(rows, cols),
+        'BLOCKFI': generateBlockFiPattern(rows, cols),
+        'TERRA': generateTerraPattern(rows, cols),
+        'SAFEMOON': generateSafeMoonPattern(rows, cols),
+        'SQUID GAME': generateSquidGamePattern(rows, cols),
+        'ONECOIN': generateOneCoinPattern(rows, cols),
+        'QUADRIGA': generateQuadrigaPattern(rows, cols),
+        'THODEX': generateThodexPattern(rows, cols),
+        'AFRICRYPT': generateAfricryptPattern(rows, cols),
+        'TITANIUM': generateTitaniumPattern(rows, cols),
+        'CENTRA': generateCentraPattern(rows, cols),
+        'PLUSTOKEN': generatePlusTokenPattern(rows, cols),
+        'BITCLUB': generateBitClubPattern(rows, cols),
+        'PONZICOIN': generatePonziCoinPattern(rows, cols)
+      };
+
+      const pattern = patterns[logo.name] || generateDefaultPattern(rows, cols);
+
+      for (let row = 0; row < rows; row++) {
+        for (let col = 0; col < cols; col++) {
+          if (pattern[row] && pattern[row][col]) {
+            const x = col * (brickWidth + CONFIG.BRICK_PADDING) + CONFIG.BRICK_PADDING;
+            const y = row * (brickHeight + CONFIG.BRICK_PADDING) + CONFIG.BRICK_PADDING + 50;
+            const color = getBrickColor(row, rows);
+            bricks.push(new Brick(x, y, brickWidth, brickHeight, color));
+          }
+        }
+      }
+    }
+
+    function getBrickColor(row, totalRows) {
+      const colors = ['#ff0000', '#ff4400', '#ff8800', '#ffcc00', '#ffff00', '#88ff00'];
+      const index = Math.floor((row / totalRows) * colors.length);
+      return colors[Math.min(index, colors.length - 1)];
+    }
+
+    // Simple FTX pattern (letter F, T, X shapes)
+    function generateFTXPattern(rows, cols) {
+      const pattern = Array(rows).fill(null).map(() => Array(cols).fill(0));
+      
+      // F shape
+      for (let r = 1; r < rows - 1; r++) {
+        pattern[r][2] = 1;
+      }
+      for (let c = 2; c < 5; c++) {
+        pattern[1][c] = 1;
+        pattern[Math.floor(rows / 2)][c] = 1;
+      }
+
+      // T shape (middle)
+      for (let c = Math.floor(cols / 2) - 2; c < Math.floor(cols / 2) + 2; c++) {
+        pattern[1][c] = 1;
+      }
+      for (let r = 1; r < rows - 1; r++) {
+        pattern[r][Math.floor(cols / 2)] = 1;
+      }
+
+      // X shape (right)
+      for (let r = 1; r < rows - 1; r++) {
+        const offset = r - 1;
+        pattern[r][cols - 6 + offset] = 1;
+        pattern[r][cols - 2 - offset] = 1;
+      }
+
+      return pattern;
+    }
+
+    function generateLUNAPattern(rows, cols) {
+      const pattern = Array(rows).fill(null).map(() => Array(cols).fill(0));
+      // Moon crescent shape
+      const centerX = Math.floor(cols / 2);
+      const centerY = Math.floor(rows / 2);
+      const radius = Math.min(rows, cols) / 3;
+
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const dx = c - centerX;
+          const dy = r - centerY;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist < radius && dx > -radius / 2) {
+            pattern[r][c] = 1;
+          }
+        }
+      }
+      return pattern;
+    }
+
+    function generateBitconnectPattern(rows, cols) {
+      const pattern = Array(rows).fill(null).map(() => Array(cols).fill(0));
+      // "B" letter pattern
+      for (let r = 1; r < rows - 1; r++) {
+        pattern[r][2] = 1;
+      }
+      for (let c = 2; c < 6; c++) {
+        pattern[1][c] = 1;
+        pattern[Math.floor(rows / 2)][c] = 1;
+        pattern[rows - 2][c] = 1;
+      }
+      pattern[2][6] = 1;
+      pattern[Math.floor(rows / 2) - 1][6] = 1;
+      pattern[Math.floor(rows / 2) + 1][6] = 1;
+      pattern[rows - 3][6] = 1;
+
+      // Add scattered "!" symbols
+      for (let c = 10; c < cols - 2; c += 4) {
+        for (let r = 2; r < rows - 3; r++) {
+          pattern[r][c] = 1;
+        }
+        pattern[rows - 2][c] = 1;
+      }
+
+      return pattern;
+    }
+
+    // Default pattern generator for other logos
+    function generateDefaultPattern(rows, cols) {
+      const pattern = Array(rows).fill(null).map(() => Array(cols).fill(0));
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          if (Math.random() > 0.3) {
+            pattern[r][c] = 1;
+          }
+        }
+      }
+      return pattern;
+    }
+
+    // Aliases for missing pattern functions
+    const generateMtGoxPattern = generateDefaultPattern;
+    const generateCelsiusPattern = generateDefaultPattern;
+    const generateVoyagerPattern = generateDefaultPattern;
+    const generateThreeArrowsPattern = generateDefaultPattern;
+    const generateBlockFiPattern = generateDefaultPattern;
+    const generateTerraPattern = generateLUNAPattern;
+    const generateSafeMoonPattern = generateDefaultPattern;
+    const generateSquidGamePattern = generateDefaultPattern;
+    const generateOneCoinPattern = generateDefaultPattern;
+    const generateQuadrigaPattern = generateDefaultPattern;
+    const generateThodexPattern = generateDefaultPattern;
+    const generateAfricryptPattern = generateDefaultPattern;
+    const generateTitaniumPattern = generateDefaultPattern;
+    const generateCentraPattern = generateDefaultPattern;
+    const generatePlusTokenPattern = generateDefaultPattern;
+    const generateBitClubPattern = generateDefaultPattern;
+    const generatePonziCoinPattern = generateDefaultPattern;
+
+    // ==========================================
+    // CONTROLS
+    // ==========================================
+    let leftPressed = false;
+    let rightPressed = false;
+
+    const btnLeft = document.getElementById('btnLeft');
+    const btnRight = document.getElementById('btnRight');
+
+    btnLeft.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      leftPressed = true;
+    });
+    btnLeft.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      leftPressed = false;
+    });
+    btnLeft.addEventListener('mousedown', () => leftPressed = true);
+    btnLeft.addEventListener('mouseup', () => leftPressed = false);
+    btnLeft.addEventListener('mouseleave', () => leftPressed = false);
+
+    btnRight.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      rightPressed = true;
+    });
+    btnRight.addEventListener('touchend', (e) => {
+      e.preventDefault();
+      rightPressed = false;
+    });
+    btnRight.addEventListener('mousedown', () => rightPressed = true);
+    btnRight.addEventListener('mouseup', () => rightPressed = false);
+    btnRight.addEventListener('mouseleave', () => rightPressed = false);
+
+    // Keyboard controls
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') leftPressed = true;
+      if (e.key === 'ArrowRight' || e.key === 'd') rightPressed = true;
+    });
+    document.addEventListener('keyup', (e) => {
+      if (e.key === 'ArrowLeft' || e.key === 'a') leftPressed = false;
+      if (e.key === 'ArrowRight' || e.key === 'd') rightPressed = false;
+    });
+
+    // ==========================================
+    // GAME LOOP
+    // ==========================================
+    let lastTime = 0;
+
+    function gameLoop(currentTime) {
+      requestAnimationFrame(gameLoop);
+      
+      if (!gameState.isRunning) return;
+      
+      const deltaTime = Math.min((currentTime - lastTime) / 16.67, 2);
+      lastTime = currentTime;
+
+      update(deltaTime, currentTime);
+      render();
+    }
+
+    function update(deltaTime, currentTime) {
+      // Update paddle
+      paddle.vx = 0;
+      if (leftPressed) paddle.vx = -CONFIG.PADDLE_SPEED;
+      if (rightPressed) paddle.vx = CONFIG.PADDLE_SPEED;
+      
+      paddle.x += paddle.vx * deltaTime;
+      paddle.x = Math.max(0, Math.min(CONFIG.WIDTH - paddle.width, paddle.x));
+
+      // Update balls
+      balls.forEach(ball => {
+        if (ball.active) {
+          ball.update();
+
+          // Check brick collisions
+          bricks.forEach(brick => {
+            if (brick.alive) {
+              brick.checkCollision(ball);
+            }
+          });
+        }
+      });
+
+      // Remove inactive balls
+      for (let i = balls.length - 1; i >= 0; i--) {
+        if (!balls[i].active) {
+          balls.splice(i, 1);
+        }
+      }
+
+      // No balls left - spawn new one
+      if (balls.length === 0) {
+        spawnBall();
+      }
+
+      // Check level complete
+      const aliveBricks = bricks.filter(b => b.alive).length;
+      if (aliveBricks === 0) {
+        nextLevel();
+        return;
+      }
+
+      // Update timer
+      const elapsed = currentTime - gameState.levelStartTime;
+      gameState.timeRemaining = Math.max(0, CONFIG.LEVEL_TIME - elapsed) / 1000;
+
+      // Time's up - game over
+      if (gameState.timeRemaining <= 0) {
+        endGame();
+      }
+    }
+
+    function render() {
+      // Clear canvas
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+
+      // Draw stars background
+      ctx.fillStyle = 'white';
+      for (let i = 0; i < 100; i++) {
+        const x = (i * 73) % CONFIG.WIDTH;
+        const y = (i * 97) % CONFIG.HEIGHT;
+        ctx.fillRect(x, y, 2, 2);
+      }
+
+      // Draw bricks
+      bricks.forEach(brick => brick.draw());
+
+      // Draw balls
+      balls.forEach(ball => {
+        if (ball.active) ball.draw();
+      });
+
+      // Draw paddle
+      ctx.fillStyle = paddle.color;
+      ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
+      
+      // Paddle highlight
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
+      ctx.fillRect(paddle.x + 2, paddle.y + 2, paddle.width - 4, 4);
+
+      // Draw UI
+      ctx.fillStyle = 'white';
+      ctx.font = '24px Courier New';
+      ctx.textAlign = 'left';
+      ctx.fillText(`L${gameState.level}`, 10, 30);
+      ctx.fillText(`${Math.ceil(gameState.timeRemaining)}s`, 10, 60);
+      
+      ctx.textAlign = 'right';
+      ctx.fillText(`${gameState.score}`, CONFIG.WIDTH - 10, 30);
+      
+      // Draw level name
+      const logoIndex = (gameState.level - 1) % CRYPTO_LOGOS.length;
+      ctx.textAlign = 'center';
+      ctx.font = '20px Courier New';
+      ctx.fillStyle = '#ff0000';
+      ctx.fillText(CRYPTO_LOGOS[logoIndex].name, CONFIG.WIDTH / 2, 30);
+    }
+
+    // ==========================================
+    // GAME FLOW
+    // ==========================================
+    function startGame() {
+      window.parent.postMessage({ 
+        type: 'GAME_START', 
+        gameId: 'brick-fallen-crypto' 
+      }, '*');
+
+      gameState = {
+        isRunning: true,
+        level: 1,
+        score: 0,
+        bricksDestroyed: 0,
+        levelStartTime: performance.now(),
+        timeRemaining: 30
+      };
+
+      paddle.x = CONFIG.WIDTH / 2 - CONFIG.PADDLE_WIDTH / 2;
+      balls.length = 0;
+      
+      generateLevel(1);
+      spawnBall();
+
+      document.getElementById('startScreen').classList.remove('show');
+      lastTime = performance.now();
+    }
+
+    function nextLevel() {
+      if (gameState.level >= CONFIG.MAX_LEVEL) {
+        // Won all 20 levels!
+        endGame(true);
+        return;
+      }
+
+      gameState.level++;
+      gameState.levelStartTime = performance.now();
+      gameState.timeRemaining = 30;
+      
+      // Show level screen
+      gameState.isRunning = false;
+      const logoIndex = (gameState.level - 1) % CRYPTO_LOGOS.length;
+      document.getElementById('levelTitle').textContent = `LEVEL ${gameState.level}`;
+      document.getElementById('levelSubtitle').textContent = CRYPTO_LOGOS[logoIndex].name;
+      document.getElementById('levelScreen').classList.add('show');
+    }
+
+    function startLevel() {
+      document.getElementById('levelScreen').classList.remove('show');
+      generateLevel(gameState.level);
+      balls.length = 0;
+      spawnBall();
+      gameState.isRunning = true;
+      gameState.levelStartTime = performance.now();
+    }
+
+    function spawnBall() {
+      const ball = new Ball(
+        paddle.x + paddle.width / 2,
+        paddle.y - 20
+      );
+      // Increase ball speed with level
+      const speedBoost = 1 + (gameState.level - 1) * 0.1;
+      ball.vx *= speedBoost;
+      ball.vy *= speedBoost;
+      balls.push(ball);
+    }
+
+    function endGame(won = false) {
+      gameState.isRunning = false;
+
+      window.parent.postMessage({ 
+        type: 'GAME_SCORE', 
+        gameId: 'brick-fallen-crypto',
+        score: gameState.score 
+      }, '*');
+
+      document.getElementById('finalLevel').textContent = gameState.level;
+      document.getElementById('finalScore').textContent = gameState.score;
+      document.getElementById('finalBricks').textContent = gameState.bricksDestroyed;
+      
+      if (won) {
+        document.querySelector('.game-over-screen .screen-title').textContent = 'YOU WON!';
+      } else {
+        document.querySelector('.game-over-screen .screen-title').textContent = 'GAME OVER';
+      }
+      
+      document.getElementById('gameOverScreen').classList.add('show');
+    }
+
+    function restartGame() {
+      document.getElementById('gameOverScreen').classList.remove('show');
+      startGame();
+    }
+
+    // ==========================================
+    // EVENT LISTENERS
+    // ==========================================
+    document.getElementById('startBtn').addEventListener('click', startGame);
+    document.getElementById('levelStartBtn').addEventListener('click', startLevel);
+    document.getElementById('restartBtn').addEventListener('click', restartGame);
+
+    // ==========================================
+    // START GAME LOOP
+    // ==========================================
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
+
