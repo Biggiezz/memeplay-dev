@@ -868,7 +868,7 @@
         // Consume mana: 1px = 1 mana, 144px = 144 mana = 1 viên bi
         const manaUsed = totalLength;
         gameState.mana = Math.max(0, gameState.mana - manaUsed);
-        gameState.manaLastUsed = currentTime;
+        gameState.manaLastUsed = performance.now();
         
         drawnLines.push(currentLine);
       }
