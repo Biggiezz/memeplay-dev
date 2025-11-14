@@ -650,10 +650,19 @@
     // GIỐNG HỆT ROCKET-BNB: tạo audioContext và play sound trực tiếp, KHÔNG check state
     const audioContext = new (window.AudioContext || window.webkitAudioContext)();
     
+    // QUAN TRỌNG: Đảm bảo audio context được resume ngay khi có user interaction
+    // Trên mobile iframe, audio context bị suspended và cần được resume trong user gesture
+    let audioContextResumed = false;
+    
     function playSound(type, frequency = 440, duration = 0.2, volume = 0.3) {
       try {
-        // GIỐNG HỆT ROCKET-BNB: KHÔNG check state, KHÔNG resume - chỉ play trực tiếp
-        // Rocket-bnb beep() không có resume() mà vẫn work!
+        // QUAN TRỌNG: Resume audio context nếu suspended (cần cho mobile iframe trên production)
+        // Trên production, iframe có thể load khác local → cần resume mỗi lần play
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(() => {});
+        }
+        
+        // Play sound trực tiếp như rocket-bnb
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         
@@ -1160,12 +1169,17 @@
     let audioUnlocked = false;
     
     function handleMouseDown(event) {
-      // QUAN TRỌNG: Play sound NGAY trong user gesture để unlock audio (giống rocket-bnb)
-      // Rocket-bnb: touchstart → jump() → beep() - TẤT CẢ trong cùng user gesture!
-      // Crypto-blocks: touchstart → handleMouseDown() → play sound NGAY ĐÂY!
+      // QUAN TRỌNG: Resume audio context NGAY trong user gesture (critical cho mobile iframe trên production)
+      // Trên production, iframe load khác local → cần resume mỗi lần user touch
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          audioContextResumed = true;
+        }).catch(() => {});
+      }
+      
+      // Play sound unlock ngay trong user gesture đầu tiên (giống rocket-bnb beep)
       if (!audioUnlocked) {
         audioUnlocked = true;
-        // Play sound unlock ngay trong user gesture đầu tiên (giống rocket-bnb beep)
         try {
           const osc = audioContext.createOscillator();
           const gain = audioContext.createGain();
@@ -1180,8 +1194,7 @@
         } catch (e) {}
       }
       
-      // THỬ NGHIỆM: Play sound ngay khi touch (không đợi đến placeShape)
-      // Để đảm bảo audio context được activate trong user gesture
+      // Play sound ngay khi touch để activate audio context (critical cho production)
       try {
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
@@ -1228,6 +1241,14 @@
     }
     
     function handleMouseUp(event) {
+      // QUAN TRỌNG: Resume audio context NGAY trong user gesture (touchend/mouseup)
+      // Khi user drag từ preview area lên grid và thả → cần resume ngay đây!
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          audioContextResumed = true;
+        }).catch(() => {});
+      }
+      
       if (gameState.gameOver || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
         gameState.isDragging = false;
         return;
@@ -1245,6 +1266,21 @@
         const selectedShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
         if (selectedShapeData) {
           const { shape } = selectedShapeData;
+          // QUAN TRỌNG: Play sound NGAY trong user gesture (touchend/mouseup) trước khi placeShape()
+          // Để đảm bảo audio context được activate trong user gesture!
+          try {
+            const osc = audioContext.createOscillator();
+            const gain = audioContext.createGain();
+            osc.connect(gain);
+            gain.connect(audioContext.destination);
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(200, audioContext.currentTime); // Low freq, silent
+            gain.gain.setValueAtTime(0.01, audioContext.currentTime); // Very quiet
+            gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+            osc.start(audioContext.currentTime);
+            osc.stop(audioContext.currentTime + 0.05);
+          } catch (e) {}
+          
           if (placeShape(shape, cell.x, cell.y)) {
             // Remove used shape
             gameState.currentShapes[gameState.selectedShapeIndex] = null;
@@ -1403,11 +1439,17 @@
     }
     
     gameContainer.addEventListener('touchstart', (e) => {
-      // QUAN TRỌNG: Play sound NGAY trong touchstart để unlock audio (giống rocket-bnb)
-      // Rocket-bnb: touchstart → jump() → beep() - TẤT CẢ trong cùng user gesture!
+      // QUAN TRỌNG: Resume audio context NGAY trong touchstart (critical cho mobile iframe trên production)
+      // Trên production, iframe load khác local → cần resume mỗi lần user touch
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          audioContextResumed = true;
+        }).catch(() => {});
+      }
+      
+      // Play sound unlock ngay trong user gesture đầu tiên
       if (!audioUnlocked) {
         audioUnlocked = true;
-        // Play sound unlock ngay trong user gesture đầu tiên
         try {
           const osc = audioContext.createOscillator();
           const gain = audioContext.createGain();
@@ -1422,8 +1464,7 @@
         } catch (e) {}
       }
       
-      // THỬ NGHIỆM: Play sound ngay khi touch (không đợi đến placeShape)
-      // Để đảm bảo audio context được activate trong user gesture
+      // Play sound ngay khi touch để activate audio context (critical cho production)
       try {
         const osc = audioContext.createOscillator();
         const gain = audioContext.createGain();
@@ -1457,6 +1498,28 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchend', (e) => {
+      // QUAN TRỌNG: Resume audio context NGAY trong touchend (critical cho drag & drop)
+      // Khi user drag từ preview area lên grid và thả → cần resume ngay đây!
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          audioContextResumed = true;
+        }).catch(() => {});
+      }
+      
+      // Play sound ngay khi thả để activate audio context (critical cho drag & drop)
+      try {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(200, audioContext.currentTime); // Low freq, silent
+        gain.gain.setValueAtTime(0.01, audioContext.currentTime); // Very quiet
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+        osc.start(audioContext.currentTime);
+        osc.stop(audioContext.currentTime + 0.05);
+      } catch (e) {}
+      
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
         return;
