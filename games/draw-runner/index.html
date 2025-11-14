@@ -212,6 +212,9 @@
       COIN_SPAWN_INTERVAL: 1500,
       OBSTACLE_SIZE: 40,
       OBSTACLE_SPAWN_INTERVAL: 2000,
+      PIT_WIDTH: 80,
+      PIT_HEIGHT: 60,
+      PIT_SPAWN_INTERVAL: 3000,
       LINE_WIDTH: 8,
       LINE_LIFETIME: 3000,
       LINE_FADE_START: 2000,
@@ -453,6 +456,53 @@
     }
 
     // ==========================================
+    // PITS (HOLES)
+    // ==========================================
+    const pits = [];
+
+    class Pit {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.width = CONFIG.PIT_WIDTH;
+        this.height = CONFIG.PIT_HEIGHT;
+        this.color = '#000000';
+      }
+
+      draw(ctx, scrollOffset) {
+        ctx.save();
+        const screenX = this.x - scrollOffset;
+        
+        // Draw black pit (rectangle at bottom)
+        ctx.fillStyle = this.color;
+        ctx.fillRect(screenX, this.y, this.width, this.height);
+        
+        // Draw edge lines (darker outline)
+        ctx.strokeStyle = '#333333';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(screenX, this.y, this.width, this.height);
+        
+        // Debug hitbox (blue)
+        if (CONFIG.DEBUG_HITBOXES) {
+          ctx.strokeStyle = '#00ffff';
+          ctx.lineWidth = 2;
+          ctx.strokeRect(screenX, this.y, this.width, this.height);
+        }
+        
+        ctx.restore();
+      }
+
+      checkCollision(px, py, psize) {
+        // Check if player center is inside pit area
+        return (
+          px > this.x &&
+          px < this.x + this.width &&
+          py + psize / 2 > this.y
+        );
+      }
+    }
+
+    // ==========================================
     // UTILITY FUNCTIONS
     // ==========================================
     function distanceToSegment(px, py, x1, y1, x2, y2) {
@@ -494,6 +544,12 @@
       const x = player.worldX + CONFIG.WIDTH + Math.random() * 300;
       const y = Math.random() * (CONFIG.HEIGHT - 150) + 100;
       obstacles.push(new Obstacle(x, y));
+    }
+
+    function spawnPit() {
+      const x = player.worldX + CONFIG.WIDTH + Math.random() * 400;
+      const y = CONFIG.HEIGHT - CONFIG.PIT_HEIGHT; // At the bottom
+      pits.push(new Pit(x, y));
     }
 
     // Find closest point on drawn lines ahead of player
@@ -612,12 +668,12 @@
     }
 
     function update(deltaTime, currentTime) {
-      // Find path ahead (must be within 3px to follow!)
-      const pathPoint = findPathAhead(player.worldX, player.y, 50, 3);
+      // Find path ahead (must be within 30px to follow!)
+      const pathPoint = findPathAhead(player.worldX, player.y, 50, 30);
       
-      // Player movement - follow drawn path ONLY if close enough (≤3px)
+      // Player movement - follow drawn path ONLY if close enough (≤30px)
       if (pathPoint) {
-        // ✅ Path is close enough (≤3px) - follow it!
+        // ✅ Path is close enough (≤30px) - follow it!
         player.worldX += player.vx * deltaTime;
         
         // Smoothly move towards path Y position
@@ -627,7 +683,7 @@
         player.vy = 0; // Cancel gravity when on path
         player.grounded = true;
       } else {
-        // ❌ No path OR path too far (>3px) - fall!
+        // ❌ No path OR path too far (>30px) - fall!
         player.worldX += player.vx * deltaTime;
         player.vy += CONFIG.GRAVITY * deltaTime;
         player.y += player.vy * deltaTime;
@@ -718,6 +774,28 @@
         }
       }
 
+      // Spawn pits
+      if (!gameState.lastPitSpawn) gameState.lastPitSpawn = currentTime;
+      if (currentTime - gameState.lastPitSpawn > CONFIG.PIT_SPAWN_INTERVAL) {
+        spawnPit();
+        gameState.lastPitSpawn = currentTime;
+      }
+
+      // Check pit collisions
+      for (let pit of pits) {
+        if (pit.checkCollision(player.worldX, player.y, player.size)) {
+          endGame();
+          return;
+        }
+      }
+
+      // Remove off-screen pits
+      for (let i = pits.length - 1; i >= 0; i--) {
+        if (pits[i].x < gameState.scrollOffset - 100) {
+          pits.splice(i, 1);
+        }
+      }
+
       // Update UI
       document.getElementById('coinCount').textContent = gameState.coins;
       document.getElementById('distanceCount').textContent = Math.floor(gameState.distance) + 'm';
@@ -736,6 +814,9 @@
 
       // Draw coins
       coins.forEach(coin => coin.draw(ctx, gameState.scrollOffset));
+
+      // Draw pits (holes)
+      pits.forEach(pit => pit.draw(ctx, gameState.scrollOffset));
 
       // Draw obstacles
       obstacles.forEach(obstacle => obstacle.draw(ctx, gameState.scrollOffset));
@@ -824,6 +905,7 @@
       drawnLines.length = 0;
       coins.length = 0;
       obstacles.length = 0;
+      pits.length = 0;
       currentLine = null;
       isDrawing = false;
 
