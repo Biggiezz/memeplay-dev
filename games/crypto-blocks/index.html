@@ -652,12 +652,8 @@
     
     function playSound(type, frequency = 440, duration = 0.2, volume = 0.3) {
       try {
-        // Đảm bảo audio context được resume nếu suspended (cần cho mobile iframe)
-        if (audioContext.state === 'suspended') {
-          audioContext.resume().catch(() => {});
-        }
-        
-        // Play sound trực tiếp như rocket-bnb
+        // GIỐNG HỆT ROCKET-BNB: KHÔNG check state, KHÔNG resume - chỉ play trực tiếp
+        // Rocket-bnb beep() không có resume() mà vẫn work!
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         
@@ -1164,16 +1160,12 @@
     let audioUnlocked = false;
     
     function handleMouseDown(event) {
-      // QUAN TRỌNG: Resume audio context ngay trong user gesture (touchstart/mousedown)
-      // Rocket-bnb play beep() ngay trong jump() - cùng user gesture!
-      // Crypto-blocks cần resume ngay đây, không đợi đến placeShape()
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().catch(() => {});
-      }
-      
-      // Play sound unlock ngay trong user gesture đầu tiên (giống rocket-bnb)
+      // QUAN TRỌNG: Play sound NGAY trong user gesture để unlock audio (giống rocket-bnb)
+      // Rocket-bnb: touchstart → jump() → beep() - TẤT CẢ trong cùng user gesture!
+      // Crypto-blocks: touchstart → handleMouseDown() → play sound NGAY ĐÂY!
       if (!audioUnlocked) {
         audioUnlocked = true;
+        // Play sound unlock ngay trong user gesture đầu tiên (giống rocket-bnb beep)
         try {
           const osc = audioContext.createOscillator();
           const gain = audioContext.createGain();
@@ -1187,6 +1179,21 @@
           osc.stop(audioContext.currentTime + 0.1);
         } catch (e) {}
       }
+      
+      // THỬ NGHIỆM: Play sound ngay khi touch (không đợi đến placeShape)
+      // Để đảm bảo audio context được activate trong user gesture
+      try {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(200, audioContext.currentTime); // Low freq, silent
+        gain.gain.setValueAtTime(0.01, audioContext.currentTime); // Very quiet
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+        osc.start(audioContext.currentTime);
+        osc.stop(audioContext.currentTime + 0.05);
+      } catch (e) {}
       
       if (gameState.gameOver || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
         return;
@@ -1396,15 +1403,11 @@
     }
     
     gameContainer.addEventListener('touchstart', (e) => {
-      // QUAN TRỌNG: Resume audio context ngay trong user gesture (touchstart)
-      // Đây là nơi duy nhất có thể unlock audio trên mobile iframe!
-      if (audioContext.state === 'suspended') {
-        audioContext.resume().catch(() => {});
-      }
-      
-      // Play sound unlock ngay trong user gesture đầu tiên (giống rocket-bnb)
+      // QUAN TRỌNG: Play sound NGAY trong touchstart để unlock audio (giống rocket-bnb)
+      // Rocket-bnb: touchstart → jump() → beep() - TẤT CẢ trong cùng user gesture!
       if (!audioUnlocked) {
         audioUnlocked = true;
+        // Play sound unlock ngay trong user gesture đầu tiên
         try {
           const osc = audioContext.createOscillator();
           const gain = audioContext.createGain();
@@ -1418,6 +1421,21 @@
           osc.stop(audioContext.currentTime + 0.1);
         } catch (e) {}
       }
+      
+      // THỬ NGHIỆM: Play sound ngay khi touch (không đợi đến placeShape)
+      // Để đảm bảo audio context được activate trong user gesture
+      try {
+        const osc = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc.connect(gain);
+        gain.connect(audioContext.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(200, audioContext.currentTime); // Low freq, silent
+        gain.gain.setValueAtTime(0.01, audioContext.currentTime); // Very quiet
+        gain.gain.exponentialRampToValueAtTime(0.001, audioContext.currentTime + 0.05);
+        osc.start(audioContext.currentTime);
+        osc.stop(audioContext.currentTime + 0.05);
+      } catch (e) {}
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
