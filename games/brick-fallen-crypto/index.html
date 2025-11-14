@@ -159,7 +159,7 @@
       PADDLE_WIDTH: 120,
       PADDLE_HEIGHT: 20,
       PADDLE_Y: 920,
-      PADDLE_SPEED: 8,
+      get PADDLE_SPEED() { return 8 * (isMobile ? 1.15 : 1.0); }, // +15% on mobile
       BALL_SIZE: 32, // x4 size (was 8)
       get BALL_SPEED_BASE() { return 4 * speedMultiplier; },
       BRICK_PADDING: 1, // Tight spacing
@@ -221,7 +221,7 @@
       }
     }
     
-    // Bi chạm gạch (high pitch beep)
+    // Bi chạm gạch (high pitch beep - giảm volume)
     function playBrickHit() {
       if (!audioContext) return;
       const osc = audioContext.createOscillator();
@@ -230,7 +230,7 @@
       gain.connect(audioContext.destination);
       osc.type = 'square';
       osc.frequency.setValueAtTime(800, audioContext.currentTime);
-      gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+      gain.gain.setValueAtTime(0.03, audioContext.currentTime); // Giảm từ 0.1 → 0.03
       gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
       osc.start(audioContext.currentTime);
       osc.stop(audioContext.currentTime + 0.05);
@@ -780,17 +780,9 @@
     }
 
     function render() {
-      // Clear canvas
+      // Clear canvas (pure black background, no stars)
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
-
-      // Draw stars background
-      ctx.fillStyle = 'white';
-      for (let i = 0; i < 100; i++) {
-        const x = (i * 73) % CONFIG.WIDTH;
-        const y = (i * 97) % CONFIG.HEIGHT;
-        ctx.fillRect(x, y, 2, 2);
-      }
 
       // Draw bricks
       bricks.forEach(brick => brick.draw());
