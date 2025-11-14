@@ -1155,18 +1155,27 @@
       }
     }
     
+    // Track if audio has been unlocked (first user gesture)
+    let audioUnlocked = false;
+    
     function handleMouseDown(event) {
-      // Play silent sound trong user gesture để unlock audio (khi user click/touch)
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.setValueAtTime(1, audioContext.currentTime);
-        gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.01);
-      } catch (e) {}
+      // Play sound THẬT ngay trong user gesture đầu tiên để unlock audio (giống rocket-bnb)
+      // Rocket-bnb play beep(400, 0.1) ngay trong jump() - sound thật, không silent!
+      if (!audioUnlocked) {
+        audioUnlocked = true;
+        try {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(400, audioContext.currentTime); // Giống rocket-bnb
+          gain.gain.setValueAtTime(0.1, audioContext.currentTime); // Volume nhỏ nhưng nghe được
+          gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+          osc.start(audioContext.currentTime);
+          osc.stop(audioContext.currentTime + 0.1);
+        } catch (e) {}
+      }
       
       if (gameState.gameOver || gameState.shapesPlacedThisTurn >= CONFIG.SHAPES_PER_TURN) {
         return;
@@ -1317,12 +1326,12 @@
         gameState.particles = []; // Clear particles
         gameState.gameStarted = false; // Reset game started flag
         gameState.scoreSent = false; // Reset score sent flag
+        audioUnlocked = false; // Reset audio unlock để unlock lại khi user touch lần đầu
         generateNewTurn();
         drawGrid();
         drawUI();
         
-        // Audio sẽ tự unlock khi user tương tác (touch/click)
-        // Không cần unlock ở đây - giống rocket-bnb
+        // Audio sẽ tự unlock khi user tương tác (touch/click) - giống rocket-bnb
       },
       
       restart() {
@@ -1338,17 +1347,6 @@
     // Note: Touch events are handled in gameContainer (main handler)
     // gameCanvas listeners are for direct canvas touches (backup)
     gameCanvas.addEventListener('mousedown', (e) => {
-      // Play silent sound trong user gesture để unlock audio (desktop)
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.setValueAtTime(1, audioContext.currentTime);
-        gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.01);
-      } catch (e) {}
       handleMouseDown(e);
     });
     gameCanvas.addEventListener('mouseup', handleMouseUp);
@@ -1387,18 +1385,22 @@
     }
     
     gameContainer.addEventListener('touchstart', (e) => {
-      // Play một sound nhỏ ngay trong user gesture để unlock audio (giống rocket-bnb)
-      // Rocket-bnb play beep() ngay trong jump() - user gesture!
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.setValueAtTime(1, audioContext.currentTime); // Silent
-        gain.gain.setValueAtTime(0.001, audioContext.currentTime); // Silent
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.01);
-      } catch (e) {}
+      // Play sound THẬT ngay trong user gesture đầu tiên để unlock audio (giống rocket-bnb)
+      if (!audioUnlocked) {
+        audioUnlocked = true;
+        try {
+          const osc = audioContext.createOscillator();
+          const gain = audioContext.createGain();
+          osc.connect(gain);
+          gain.connect(audioContext.destination);
+          osc.type = 'square';
+          osc.frequency.setValueAtTime(400, audioContext.currentTime);
+          gain.gain.setValueAtTime(0.1, audioContext.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+          osc.start(audioContext.currentTime);
+          osc.stop(audioContext.currentTime + 0.1);
+        } catch (e) {}
+      }
       
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
@@ -1420,18 +1422,6 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchend', (e) => {
-      // Play một sound nhỏ ngay trong user gesture để unlock audio
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.setValueAtTime(1, audioContext.currentTime);
-        gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.01);
-      } catch (e) {}
-      
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
         return;
@@ -1452,18 +1442,6 @@
     }, { passive: false });
     
     gameContainer.addEventListener('touchmove', (e) => {
-      // Play một sound nhỏ ngay trong user gesture để unlock audio (continuous)
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.setValueAtTime(1, audioContext.currentTime);
-        gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.01);
-      } catch (e) {}
-      
       // Không preventDefault nếu game over (để nút restart hoạt động)
       if (gameState.gameOver) {
         return;
@@ -1493,44 +1471,17 @@
       }
     }, { passive: false });
     
-    // gameCanvas touch events - play silent sound trong user gesture (giống rocket-bnb)
+    // gameCanvas touch events - backup (gameContainer đã handle unlock audio)
     gameCanvas.addEventListener('touchstart', (e) => {
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.setValueAtTime(1, audioContext.currentTime);
-        gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.01);
-      } catch (e) {}
+      // Audio unlock đã được handle trong gameContainer touchstart
     }, { passive: true });
     
     gameCanvas.addEventListener('touchend', (e) => {
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.setValueAtTime(1, audioContext.currentTime);
-        gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.01);
-      } catch (e) {}
+      // Audio unlock đã được handle trong gameContainer touchstart
     }, { passive: true });
     
     gameCanvas.addEventListener('touchmove', (e) => {
-      try {
-        const osc = audioContext.createOscillator();
-        const gain = audioContext.createGain();
-        osc.connect(gain);
-        gain.connect(audioContext.destination);
-        osc.frequency.setValueAtTime(1, audioContext.currentTime);
-        gain.gain.setValueAtTime(0.001, audioContext.currentTime);
-        osc.start(audioContext.currentTime);
-        osc.stop(audioContext.currentTime + 0.01);
-      } catch (e) {}
+      // Audio unlock đã được handle trong gameContainer touchstart
     }, { passive: true });
     
     // ===== GAME LOOP =====
