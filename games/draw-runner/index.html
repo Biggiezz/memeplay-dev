@@ -241,6 +241,38 @@
     });
     ctx.imageSmoothingEnabled = false;
 
+    // ==========================================
+    // AUDIO SETUP (8-bit Footsteps)
+    // ==========================================
+    let audioContext = null;
+    
+    function initAudio() {
+      if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+    
+    function playFootstep() {
+      if (!audioContext) return;
+      
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // 8-bit style square wave
+      oscillator.type = 'square';
+      oscillator.frequency.setValueAtTime(120, audioContext.currentTime);
+      
+      // Quick decay envelope
+      gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.08);
+    }
+
     // Responsive canvas
     function resizeCanvas() {
       const scale = Math.min(
@@ -295,7 +327,8 @@
       vy: 0,
       size: CONFIG.PLAYER_SIZE,
       grounded: false,
-      color: '#4ecdc4'
+      color: '#4ecdc4',
+      footstepTimer: 0 // For footstep sound timing (300ms interval)
     };
 
     // ==========================================
@@ -954,6 +987,18 @@
         if (star.x < 0) star.x = CONFIG.WIDTH;
       });
 
+      // Play footstep sounds when grounded (every 300ms)
+      if (player.grounded) {
+        player.footstepTimer += deltaTime * 16.67; // Convert to ms
+        if (player.footstepTimer >= 300) {
+          playFootstep();
+          player.footstepTimer = 0;
+        }
+      } else {
+        // Reset timer when in air
+        player.footstepTimer = 0;
+      }
+
       // Check ground collision (bottom of screen)
       if (player.y > CONFIG.HEIGHT - player.size / 2) {
         player.y = CONFIG.HEIGHT - player.size / 2;
@@ -1222,6 +1267,9 @@
     function startGame() {
       console.log('🎮 START GAME - Resetting mana to', CONFIG.MAX_MANA);
       
+      // Initialize audio context (user gesture required)
+      initAudio();
+      
       // Send GAME_START message
       window.parent.postMessage({ 
         type: 'GAME_START', 
@@ -1253,6 +1301,7 @@
       player.vx = CONFIG.PLAYER_SPEED;
       player.vy = 0;
       player.grounded = false;
+      player.footstepTimer = 0;
 
       // Clear arrays
       drawnLines.length = 0;
