@@ -627,11 +627,10 @@
     // Find closest point on drawn lines ahead of player
     // Only returns point if distance <= 3px (must be very close!)
     function findPathAhead(playerX, playerY, lookAhead = 30, maxDistance = 30) {
-      let closestPoint = null;
-      let closestDist = Infinity;
-      let segmentInfo = null;
+      const collisions = [];
 
-      for (let line of drawnLines) {
+      // Collect all potential collisions with path indices
+      drawnLines.forEach((line, pathIndex) => {
         for (let i = 0; i < line.points.length - 1; i++) {
           const p1 = line.points[i];
           const p2 = line.points[i + 1];
@@ -641,23 +640,35 @@
             // Calculate distance from player to line segment
             const dist = distanceToSegment(playerX, playerY, p1.x, p1.y, p2.x, p2.y);
             
-            if (dist < closestDist) {
-              closestDist = dist;
+            if (dist <= maxDistance) {
               const dx = p2.x - p1.x;
               const dy = p2.y - p1.y;
               const angle = Math.atan2(dy, dx);
               const slope = dx !== 0 ? dy / dx : 999;
               
-              closestPoint = { x: p1.x, y: p1.y, distance: dist };
-              segmentInfo = { p1, p2, angle, slope, dx, dy };
+              collisions.push({
+                pathIndex,
+                x: p1.x,
+                y: p1.y,
+                distance: dist,
+                p1, p2, angle, slope, dx, dy
+              });
             }
           }
         }
-      }
+      });
 
-      // Only return if close enough (within 30px)
-      if (closestPoint && closestPoint.distance <= maxDistance && segmentInfo) {
-        return { ...closestPoint, ...segmentInfo };
+      // If we have collisions, pick the NEWEST one (highest pathIndex)
+      if (collisions.length > 0) {
+        // Sort by pathIndex descending (newest first), then by distance
+        collisions.sort((a, b) => {
+          if (b.pathIndex !== a.pathIndex) {
+            return b.pathIndex - a.pathIndex;
+          }
+          return a.distance - b.distance;
+        });
+        
+        return collisions[0];
       }
 
       return null;
