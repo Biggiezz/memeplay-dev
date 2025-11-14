@@ -674,10 +674,20 @@
     }
 
     function startDrawing(e) {
-      if (!gameState.isRunning) return;
+      console.log('🖱️ startDrawing called', {
+        isRunning: gameState.isRunning,
+        mana: gameState.mana,
+        event: e.type
+      });
+      
+      if (!gameState.isRunning) {
+        console.log('❌ Game not running!');
+        return;
+      }
       
       // Check if has mana to start drawing
       if (gameState.mana <= 0) {
+        console.log('❌ No mana to draw!');
         return; // Cannot start drawing without mana
       }
       
@@ -686,6 +696,7 @@
       currentLine = new DrawnLine();
       const pos = getMousePos(e);
       currentLine.addPoint(pos.x, pos.y);
+      console.log('✅ Drawing started at', pos);
     }
 
     function continueDrawing(e) {
