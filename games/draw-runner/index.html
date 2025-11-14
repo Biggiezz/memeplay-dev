@@ -371,38 +371,90 @@
     const coins = [];
 
     class Coin {
-      constructor(x, y) {
+      constructor(x, y, type = 'coin') {
         this.x = x;
         this.y = y;
         this.size = CONFIG.COIN_SIZE;
         this.collected = false;
         this.rotation = 0;
+        this.type = type; // 'coin', 'star', 'gem'
+        this.pulse = 0;
       }
 
-      update() {
-        this.rotation += 0.1;
+      update(deltaTime) {
+        this.rotation += 0.05 * deltaTime;
+        this.pulse += 0.1 * deltaTime;
       }
 
       draw(ctx, scrollOffset) {
         if (this.collected) return;
         
-        ctx.save();
-        ctx.translate(this.x - scrollOffset, this.y);
-        ctx.rotate(this.rotation);
+        const screenX = this.x - scrollOffset;
+        const bounce = Math.sin(this.pulse) * 5;
         
-        // Draw coin
-        ctx.fillStyle = '#ffd700';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Inner circle
-        ctx.fillStyle = '#ffed4e';
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size / 3, 0, Math.PI * 2);
-        ctx.fill();
-        
-        ctx.restore();
+        if (this.type === 'gem') {
+          // Yellow gem that restores mana (like Lovable)
+          const gemY = this.y + bounce;
+          
+          ctx.save();
+          // Gem glow
+          ctx.shadowBlur = 20;
+          ctx.shadowColor = 'hsl(50, 100%, 60%)';
+          
+          // Main gem body (diamond shape)
+          ctx.fillStyle = 'hsl(50, 100%, 60%)';
+          ctx.beginPath();
+          ctx.moveTo(screenX, gemY - 12);
+          ctx.lineTo(screenX + 8, gemY);
+          ctx.lineTo(screenX, gemY + 12);
+          ctx.lineTo(screenX - 8, gemY);
+          ctx.closePath();
+          ctx.fill();
+          
+          // Gem highlights
+          ctx.fillStyle = 'hsl(55, 100%, 85%)';
+          ctx.fillRect(screenX - 4, gemY - 6, 4, 4);
+          
+          // Center sparkle
+          ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+          ctx.fillRect(screenX - 1, gemY - 1, 2, 2);
+          
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        } else if (this.type === 'star') {
+          // Star (5 points bonus)
+          const starY = this.y + bounce;
+          ctx.save();
+          ctx.shadowBlur = 15;
+          ctx.shadowColor = '#ff6b35';
+          
+          ctx.fillStyle = '#ff6b35';
+          ctx.fillRect(screenX - 3, starY - 3, 6, 6);
+          ctx.fillRect(screenX - 2, starY - 10, 4, 6);
+          ctx.fillRect(screenX - 2, starY + 4, 4, 6);
+          ctx.fillRect(screenX - 10, starY - 2, 6, 4);
+          ctx.fillRect(screenX + 4, starY - 2, 6, 4);
+          
+          ctx.shadowBlur = 0;
+          ctx.restore();
+        } else {
+          // Regular coin
+          ctx.save();
+          ctx.translate(screenX, this.y + bounce);
+          ctx.rotate(this.rotation);
+          
+          ctx.fillStyle = '#ffd700';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.fillStyle = '#ffed4e';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size / 3, 0, Math.PI * 2);
+          ctx.fill();
+          
+          ctx.restore();
+        }
       }
 
       checkCollision(px, py, psize) {
@@ -603,7 +655,12 @@
     function spawnCoin() {
       const x = player.worldX + CONFIG.WIDTH + Math.random() * 200;
       const y = Math.random() * (CONFIG.HEIGHT - 200) + 50;
-      coins.push(new Coin(x, y));
+      
+      // 9% gem, 21% star, 70% coin (like Lovable)
+      const rand = Math.random();
+      const type = rand > 0.91 ? 'gem' : rand > 0.7 ? 'star' : 'coin';
+      
+      coins.push(new Coin(x, y, type));
     }
 
     function spawnObstacle() {
@@ -893,13 +950,25 @@
 
       // Update coins
       coins.forEach(coin => {
-        coin.update();
+        coin.update(deltaTime);
         
         // Check collision
         if (coin.checkCollision(player.worldX, player.y, player.size)) {
           coin.collected = true;
-          gameState.coins++;
-          gameState.score += 10;
+          
+          if (coin.type === 'gem') {
+            // Gem restores FULL mana!
+            gameState.mana = CONFIG.MAX_MANA;
+            gameState.score += 50;
+          } else if (coin.type === 'star') {
+            // Star gives 5 points
+            gameState.coins += 5;
+            gameState.score += 5;
+          } else {
+            // Regular coin gives 1 point
+            gameState.coins++;
+            gameState.score += 1;
+          }
         }
       });
 
