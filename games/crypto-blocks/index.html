@@ -652,7 +652,12 @@
     
     function playSound(type, frequency = 440, duration = 0.2, volume = 0.3) {
       try {
-        // KHÔNG check state, KHÔNG resume - chỉ play trực tiếp như rocket-bnb
+        // Đảm bảo audio context được resume nếu suspended (cần cho mobile iframe)
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(() => {});
+        }
+        
+        // Play sound trực tiếp như rocket-bnb
         const oscillator = audioContext.createOscillator();
         const gainNode = audioContext.createGain();
         
@@ -1159,8 +1164,14 @@
     let audioUnlocked = false;
     
     function handleMouseDown(event) {
-      // Play sound THẬT ngay trong user gesture đầu tiên để unlock audio (giống rocket-bnb)
-      // Rocket-bnb play beep(400, 0.1) ngay trong jump() - sound thật, không silent!
+      // QUAN TRỌNG: Resume audio context ngay trong user gesture (touchstart/mousedown)
+      // Rocket-bnb play beep() ngay trong jump() - cùng user gesture!
+      // Crypto-blocks cần resume ngay đây, không đợi đến placeShape()
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+      
+      // Play sound unlock ngay trong user gesture đầu tiên (giống rocket-bnb)
       if (!audioUnlocked) {
         audioUnlocked = true;
         try {
@@ -1169,8 +1180,8 @@
           osc.connect(gain);
           gain.connect(audioContext.destination);
           osc.type = 'square';
-          osc.frequency.setValueAtTime(400, audioContext.currentTime); // Giống rocket-bnb
-          gain.gain.setValueAtTime(0.1, audioContext.currentTime); // Volume nhỏ nhưng nghe được
+          osc.frequency.setValueAtTime(400, audioContext.currentTime);
+          gain.gain.setValueAtTime(0.1, audioContext.currentTime);
           gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
           osc.start(audioContext.currentTime);
           osc.stop(audioContext.currentTime + 0.1);
@@ -1385,7 +1396,13 @@
     }
     
     gameContainer.addEventListener('touchstart', (e) => {
-      // Play sound THẬT ngay trong user gesture đầu tiên để unlock audio (giống rocket-bnb)
+      // QUAN TRỌNG: Resume audio context ngay trong user gesture (touchstart)
+      // Đây là nơi duy nhất có thể unlock audio trên mobile iframe!
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+      
+      // Play sound unlock ngay trong user gesture đầu tiên (giống rocket-bnb)
       if (!audioUnlocked) {
         audioUnlocked = true;
         try {
