@@ -273,7 +273,7 @@
       GRID_Y: 100, // Top margin
       BLOCK_SIZE: 64, // Block sprite size
       SHAPES_PER_TURN: 3,
-      MAX_COMBO: 999, // Không giới hạn combo (x5, x6, x7...)
+      MAX_COMBO: 999, // No combo limit (x5, x6, x7...)
       COLORS: {
         RED: '#ff4444',
         GREEN: '#44ff44',
@@ -357,7 +357,7 @@
     const gameState = {
       grid: [],
       score: 0,
-      comboLevel: 0, // ✅ Combo bắt đầu từ 0, cộng dồn theo số hàng phá được
+      comboLevel: 0, // ✅ Combo starts from 0, accumulates based on lines cleared
       shapesPlacedThisTurn: 0,
       currentShapes: [], // 3 shapes to place this turn [{shape, color}, ...]
       gameOver: false,
@@ -367,7 +367,7 @@
       consecutiveNoClearPlacements: 0, // Number of consecutive placements without clearing lines (reset combo to x0 if >= 3)
       linesClearedThisTurn: 0, // Total lines cleared in current turn
       hoveredShapeIndex: -1, // Currently hovered shape index (-1 = none) - for visual hover only
-      selectedShapeIndex: -1, // Locked selected block index (-1 = none) - chỉ thay đổi khi click, không thay đổi khi drag
+      selectedShapeIndex: -1, // Locked selected block index (-1 = none) - only changes on click, not on drag
       previewShape: null, // Currently previewing shape at mouse position
       previewGridX: -1,
       previewGridY: -1,
@@ -472,11 +472,11 @@
       gameCtx.fillStyle = '#0a0a0a';
       gameCtx.fillRect(0, 0, 720, 1000);
       
-      // Check if tap to start overlay is showing - if yes, make grid mờ 90% (opacity 0.1)
+      // Check if tap to start overlay is showing - if yes, make grid 90% transparent (opacity 0.1)
       const tapToStartOverlay = document.getElementById('tapToStartOverlay');
       const isShowingTapToStart = tapToStartOverlay && !tapToStartOverlay.classList.contains('hidden');
       if (isShowingTapToStart) {
-        gameCtx.globalAlpha = 0.1; // Mờ 90% (chỉ còn 10% visible)
+        gameCtx.globalAlpha = 0.1; // 90% transparent (only 10% visible)
       }
       
       // Draw grid background
@@ -521,7 +521,7 @@
         return particle.life > 0;
       });
       
-      // Reset alpha sau khi vẽ grid
+      // Reset alpha after drawing grid
       if (isShowingTapToStart) {
         gameCtx.globalAlpha = 1.0;
       }
@@ -531,7 +531,7 @@
     function drawUI() {
       uiCtx.clearRect(0, 0, 720, 1000);
       
-      // Check if tap to start overlay is showing - if yes, make everything mờ 90% (opacity 0.1)
+      // Check if tap to start overlay is showing - if yes, make everything 90% transparent (opacity 0.1)
       const tapToStartOverlay = document.getElementById('tapToStartOverlay');
       const isShowingTapToStart = tapToStartOverlay && !tapToStartOverlay.classList.contains('hidden');
       
@@ -553,8 +553,8 @@
       uiCtx.fillText(`Score: ${gameState.score}`, scoreX, scoreY);
       
       // Combo - HD font on desktop: larger, sharper, with better shadow
-      // Hiển thị ×0 khi combo = 0 (ngắt chuỗi combo)
-      uiCtx.fillStyle = gameState.comboLevel === 0 ? '#ff6666' : '#ffb642'; // Đỏ khi combo = 0
+      // Show ×0 when combo = 0 (combo chain broken)
+      uiCtx.fillStyle = gameState.comboLevel === 0 ? '#ff6666' : '#ffb642'; // Red when combo = 0
       uiCtx.font = isMobile ? 'bold 17px Arial' : 'bold 36px "Segoe UI", "Roboto", Arial, sans-serif';
       uiCtx.shadowColor = 'rgba(0, 0, 0, 0.8)';
       uiCtx.shadowBlur = 6;
@@ -579,12 +579,12 @@
         const gridX = previewStartX + i * (previewGridWidth + previewSpacing);
         const gridY = previewY;
         
-        // Draw preview grid background (mờ 85% = opacity 0.15)
-        uiCtx.globalAlpha = 0.15; // Mờ 85% (chỉ còn 15% visible)
+        // Draw preview grid background (85% transparent = opacity 0.15)
+        uiCtx.globalAlpha = 0.15; // 85% transparent (only 15% visible)
         uiCtx.fillStyle = 'rgba(30, 30, 50, 0.5)';
         uiCtx.fillRect(gridX, gridY, previewGridWidth, previewGridHeight);
         
-        // Draw preview grid lines (mờ 85% = opacity 0.15)
+        // Draw preview grid lines (85% transparent = opacity 0.15)
         uiCtx.strokeStyle = 'rgba(100, 100, 150, 0.3)';
         uiCtx.lineWidth = 1;
         for (let j = 0; j <= previewGridSize; j++) {
@@ -600,15 +600,15 @@
           uiCtx.lineTo(gridX + previewGridWidth, gridY + j * previewCellSize);
           uiCtx.stroke();
         }
-        // Reset alpha sau khi vẽ grid (blocks KHÔNG mờ - giữ nguyên alpha)
+        // Reset alpha after drawing grid (blocks NOT transparent - keep original alpha)
         uiCtx.globalAlpha = 1.0;
         
         // Draw shape inside preview grid - map shape to 3x3 matrix
-        // QUAN TRỌNG: Blocks KHÔNG mờ - giữ nguyên alpha như cũ
+        // IMPORTANT: Blocks NOT transparent - keep original alpha
         if (gameState.currentShapes[i]) {
           const { shape, color } = gameState.currentShapes[i];
-          // Highlight selected block (alpha 1.0) hoặc hovered block (alpha 0.85), còn lại 0.7
-          // Blocks KHÔNG mờ - giữ nguyên độ sáng
+          // Highlight selected block (alpha 1.0) or hovered block (alpha 0.85), others 0.7
+          // Blocks NOT transparent - keep original brightness
           const alpha = gameState.selectedShapeIndex === i ? 1.0 : (gameState.hoveredShapeIndex === i ? 0.85 : 0.7);
           uiCtx.globalAlpha = alpha;
           
@@ -676,7 +676,7 @@
       }
       
       // Draw dragging shape following pointer when dragging from bottom
-      // Sử dụng selectedShapeIndex (đã bị khóa) thay vì hoveredShapeIndex
+      // Use selectedShapeIndex (locked) instead of hoveredShapeIndex
       if (gameState.isDragging && gameState.selectedShapeIndex >= 0) {
         const dragShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
         if (dragShapeData) {
@@ -777,7 +777,7 @@
           }, 100);
         });
       } else if (audioContext.state === 'running') {
-        // Đã running - vẫn play silent sound để đảm bảo unlock (iOS requirement)
+        // Already running - still play silent sound to ensure unlock (iOS requirement)
         if (!audioUnlocked) {
           audioUnlocked = true;
           try {
@@ -797,7 +797,7 @@
     }
     
     // Add event listeners to unlock audio on user interaction
-    // KHÔNG dùng once: true - cần unlock nhiều lần để đảm bảo audio hoạt động trên mobile
+    // DON'T use once: true - need to unlock multiple times to ensure audio works on mobile
     // Multiple listeners to ensure unlock works in iframe on mobile
     document.addEventListener('touchstart', unlockAudio, { passive: true });
     document.addEventListener('touchend', unlockAudio, { passive: true });
@@ -828,14 +828,14 @@
         }
         
         // Wait for audio context to be ready (but don't block if it takes too long)
-        // Nếu suspended → unlock và retry
+        // If suspended → unlock and retry
         if (audioContext.state === 'suspended') {
           unlockAudio();
           audioContext.resume().then(() => {
             // Retry playing sound after resume
             setTimeout(() => playSound(type, frequency, duration, volume), 50);
           }).catch(e => {
-            // Retry unlock và play
+            // Retry unlock and play
             setTimeout(() => {
               unlockAudio();
               playSound(type, frequency, duration, volume);
@@ -843,28 +843,28 @@
           });
           return;
         } else if (audioContext.state !== 'running') {
-          // Nếu không phải running → unlock và retry
+          // If not running → unlock and retry
           unlockAudio();
           setTimeout(() => playSound(type, frequency, duration, volume), 50);
           return;
         }
         
-        // Đảm bảo audio đã unlock trước khi play
+        // Ensure audio is unlocked before playing
         if (!audioUnlocked || audioContext.state !== 'running') {
           unlockAudio();
-          // Nếu vẫn suspended, đợi một chút rồi retry
+          // If still suspended, wait a bit then retry
           if (audioContext.state === 'suspended') {
             setTimeout(() => playSound(type, frequency, duration, volume), 100);
             return;
           }
-          // Nếu chưa running, đợi một chút
+          // If not running yet, wait a bit
           if (audioContext.state !== 'running') {
             setTimeout(() => playSound(type, frequency, duration, volume), 100);
             return;
           }
         }
         
-        // Đảm bảo audio context đang running trước khi tạo oscillator
+        // Ensure audio context is running before creating oscillator
         if (audioContext.state !== 'running') {
           setTimeout(() => playSound(type, frequency, duration, volume), 100);
           return;
@@ -898,46 +898,46 @@
     }
     
     function playPlaceBlock() {
-      // Tiếng "cạch nhẹ" khi đặt gạch - volume 150% (0.45 → 0.675)
+      // Light "click" sound when placing block - volume 150% (0.45 → 0.675)
       playSound('place', 400, 0.15, 0.675);
     }
     
     function playLineClear() {
-      // Volume 150% (1.0 → 1.5, to hơn 100%)
+      // Volume 150% (1.0 → 1.5, louder than 100%)
       playSound('clear', 800, 0.35, 1.5);
     }
     
-    // Progressive combo sounds - càng cao combo càng kích thích
-    // Volume > 100% (1.5-2.0) để thực sự to
+    // Progressive combo sounds - higher combo = more exciting
+    // Volume > 100% (1.5-2.0) to be really loud
     function playComboSound(comboLevel) {
       if (comboLevel === 2) {
-        // Combo x2: Cool - nhẹ nhàng, khởi động (1.0→1.5, 0.9→1.35)
+        // Combo x2: Cool - light, startup (1.0→1.5, 0.9→1.35)
         playSound('combo', 500, 0.3, 1.5);
         setTimeout(() => playSound('combo', 700, 0.2, 1.35), 100);
       } else if (comboLevel === 3) {
-        // Combo x3: Great - mạnh hơn, có nhịp điệu (1.0→1.5, 1.0→1.5, 0.9→1.35)
+        // Combo x3: Great - stronger, with rhythm (1.0→1.5, 1.0→1.5, 0.9→1.35)
         playSound('combo', 600, 0.25, 1.5);
         setTimeout(() => playSound('combo', 800, 0.2, 1.5), 80);
         setTimeout(() => playSound('combo', 1000, 0.15, 1.35), 160);
       } else if (comboLevel === 4) {
-        // Combo x4: Awesome - rất mạnh, nhiều layers (1.0→1.5, 1.0→1.5, 1.0→1.5, 0.9→1.35)
+        // Combo x4: Awesome - very strong, many layers (1.0→1.5, 1.0→1.5, 1.0→1.5, 0.9→1.35)
         playSound('combo', 700, 0.2, 1.5);
         setTimeout(() => playSound('combo', 900, 0.18, 1.5), 60);
         setTimeout(() => playSound('combo', 1100, 0.15, 1.5), 120);
         setTimeout(() => playSound('combo', 1300, 0.12, 1.35), 180);
       } else if (comboLevel >= 5) {
-        // Combo x5+: Perfect - cực kỳ kích thích, crescendo mạnh (tất cả → 1.5-2.0)
+        // Combo x5+: Perfect - extremely exciting, strong crescendo (all → 1.5-2.0)
         playSound('combo', 800, 0.18, 2.0);
         setTimeout(() => playSound('combo', 1000, 0.15, 2.0), 50);
         setTimeout(() => playSound('combo', 1200, 0.12, 1.8), 100);
         setTimeout(() => playSound('combo', 1400, 0.1, 1.5), 150);
         setTimeout(() => playSound('combo', 1600, 0.08, 1.35), 200);
-        // Thêm layer bass để tăng độ kích thích
+        // Add bass layer to increase excitement
         setTimeout(() => playSound('combo', 400, 0.25, 2.0), 100);
       }
     }
     
-    // Legacy functions (giữ lại để tương thích nếu cần)
+    // Legacy functions (kept for compatibility if needed)
     function playComboCool() {
       playComboSound(2);
     }
@@ -951,7 +951,7 @@
     }
     
     function playGameOver() {
-      // Volume 150% (1.0 → 1.5, to hơn 100%)
+      // Volume 150% (1.0 → 1.5, louder than 100%)
       playSound('over', 200, 0.5, 1.5);
     }
     
@@ -1042,7 +1042,7 @@
         }
       }
       
-      // Get color from selected shape (đã bị khóa khi click)
+      // Get color from selected shape (locked when clicked)
       const selectedShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
       const color = selectedShapeData ? selectedShapeData.color : '#ff0000'; // Fallback to red
       
@@ -1065,20 +1065,20 @@
         clearLines(linesToClear);
         playLineClear();
         
-        // ✅ COMBO = TỔNG SỐ HÀNG GẠCH ĐƯỢC PHÁ (CỘNG DỒN)
-        // Combo tăng thêm bằng số hàng phá được trong lượt này
+        // ✅ COMBO = TOTAL NUMBER OF LINES CLEARED (ACCUMULATED)
+        // Combo increases by the number of lines cleared this turn
         gameState.comboLevel += totalLines;
         
-        // ✅ CỘNG ĐIỂM NGAY SAU MỖI LẦN PHÁ GẠCH
-        // Điểm = số hàng phá × combo (sau khi đã tăng combo)
+        // ✅ ADD SCORE IMMEDIATELY AFTER EACH LINE CLEAR
+        // Score = lines cleared × combo (after combo has been increased)
         const points = totalLines * gameState.comboLevel;
         gameState.score += points;
         
-        // ✅ Reset counter số lượt đặt gạch liên tiếp không phá được (phá được hàng rồi)
+        // ✅ Reset counter for consecutive placements without clearing (lines cleared now)
         gameState.consecutiveNoClearPlacements = 0;
         
-        // Play progressive combo sound - càng cao combo càng kích thích
-        // Phát âm thanh cho mọi combo level (x2, x3, x4, x5+)
+        // Play progressive combo sound - higher combo = more exciting
+        // Play sound for all combo levels (x2, x3, x4, x5+)
         if (gameState.comboLevel >= 2) {
           playComboSound(gameState.comboLevel);
         }
@@ -1092,10 +1092,10 @@
         // Update UI immediately to show new combo and score
         drawUI();
       } else {
-        // ✅ Không phá được hàng → tăng counter số lượt đặt gạch liên tiếp không phá được
+        // ✅ No lines cleared → increase counter for consecutive placements without clearing
         gameState.consecutiveNoClearPlacements++;
         
-        // ✅ Nếu đạt 3 lượt đặt gạch liên tiếp không phá được → reset combo về 0
+        // ✅ If 3 consecutive placements without clearing → reset combo to 0
         if (gameState.consecutiveNoClearPlacements >= 3) {
           gameState.comboLevel = 0;
           gameState.consecutiveNoClearPlacements = 0; // Reset counter
@@ -1109,8 +1109,8 @@
         // Turn complete → spawn new blocks first, then check game over
         endTurn();
       }
-      // KHÔNG check game over ngay sau khi đặt block
-      // Chỉ check game over sau khi 3 block mới đã được sinh ra đầy đủ (trong endTurn)
+      // DON'T check game over immediately after placing block
+      // Only check game over after 3 new blocks have been fully generated (in endTurn)
       
       return true;
     }
@@ -1210,18 +1210,18 @@
     }
     
     function endTurn() {
-      // ✅ Điểm đã được cộng ngay sau mỗi lần phá gạch (trong placeShape)
-      // ✅ Combo đã được xử lý trong placeShape (cộng dồn số hàng phá được, reset khi quá 3 lượt đặt gạch không phá được)
-      // Chỉ reset counter cho lượt tiếp theo
+      // ✅ Score already added immediately after each line clear (in placeShape)
+      // ✅ Combo already processed in placeShape (accumulates lines cleared, resets when 3+ consecutive placements without clearing)
+      // Only reset counter for next turn
       gameState.linesClearedThisTurn = 0;
       
       // Generate new turn FIRST (spawn new blocks)
       generateNewTurn();
       
-      // Chỉ check game over SAU KHI 3 block mới đã được sinh ra đầy đủ
-      // Đảm bảo currentShapes.length === 3 trước khi check
+      // Only check game over AFTER 3 new blocks have been fully generated
+      // Ensure currentShapes.length === 3 before checking
       if (gameState.currentShapes.length === CONFIG.SHAPES_PER_TURN) {
-        // Check game over với 3 blocks mới
+        // Check game over with 3 new blocks
         if (isGameOver()) {
           gameState.gameOver = true;
           playGameOver();
@@ -1229,7 +1229,7 @@
           return;
         }
       }
-      // Nếu previewBlocks đang rỗng hoặc đang loading → KHÔNG check game over
+      // If previewBlocks is empty or loading → DON'T check game over
     }
     
     function canPlaceAnyShape() {
@@ -1320,10 +1320,10 @@
         gameState.dragPointer.y = mouseY;
       }
       
-      // Nếu đang drag → KHÔNG thay đổi selectedShapeIndex (đã bị khóa)
-      // Chỉ update hover cho visual feedback
+      // If dragging → DON'T change selectedShapeIndex (locked)
+      // Only update hover for visual feedback
       if (!gameState.isDragging) {
-        // Check if hovering over preview area (chỉ để hiển thị hover, không select)
+        // Check if hovering over preview area (only for hover display, not select)
         const previewIndex = getPreviewShapeArea(mouseX, mouseY);
         if (previewIndex >= 0 && gameState.currentShapes[previewIndex]) {
           // Hovering over a shape in preview (visual only)
@@ -1333,7 +1333,7 @@
         }
       }
       
-      // Preview on grid - sử dụng selectedShapeIndex (đã bị khóa) thay vì hoveredShapeIndex
+      // Preview on grid - use selectedShapeIndex (locked) instead of hoveredShapeIndex
       const cell = getGridCell(mouseX, mouseY);
       if (cell && gameState.selectedShapeIndex >= 0) {
         const selectedShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
@@ -1359,10 +1359,10 @@
       const mouseX = event.canvasX !== undefined ? event.canvasX : (event.clientX - rect.left);
       const mouseY = event.canvasY !== undefined ? event.canvasY : (event.clientY - rect.top);
       
-      // Check if clicking on preview area (KHÓA selectedBlock)
+      // Check if clicking on preview area (LOCK selectedBlock)
       const previewIndex = getPreviewShapeArea(mouseX, mouseY);
       if (previewIndex >= 0 && gameState.currentShapes[previewIndex]) {
-        // KHÓA block này thành selectedBlock - không thay đổi trong lúc drag
+        // LOCK this block as selectedBlock - don't change during drag
         gameState.selectedShapeIndex = previewIndex;
         gameState.hoveredShapeIndex = previewIndex; // Visual feedback
         gameState.isDragging = true;
@@ -1374,7 +1374,7 @@
       
       // If already hovering a shape, lock it as selected and start dragging
       if (gameState.hoveredShapeIndex >= 0) {
-        // KHÓA block này thành selectedBlock
+        // LOCK this block as selectedBlock
         gameState.selectedShapeIndex = gameState.hoveredShapeIndex;
         gameState.isDragging = true;
         gameState.dragPointer.x = mouseX;
@@ -1394,7 +1394,7 @@
       const mouseY = event.canvasY !== undefined ? event.canvasY : (event.clientY - rect.top);
       
       let placed = false;
-      // Check if releasing on grid (place shape) - sử dụng selectedShapeIndex (đã bị khóa)
+      // Check if releasing on grid (place shape) - use selectedShapeIndex (locked)
       const cell = getGridCell(mouseX, mouseY);
       if (cell && gameState.selectedShapeIndex >= 0 && gameState.isDragging) {
         const selectedShapeData = gameState.currentShapes[gameState.selectedShapeIndex];
@@ -1415,7 +1415,7 @@
       
       gameState.isDragging = false;
       if (!placed) {
-        // Nếu không đặt được → reset selected block để có thể chọn block khác
+            // If cannot place → reset selected block to allow selecting another block
         gameState.selectedShapeIndex = -1;
         gameState.previewShape = null;
         gameState.hoveredShapeIndex = -1;
@@ -1447,7 +1447,7 @@
       updatePreview(mouseX, mouseY);
       
       // Only redraw if preview changed (optimization)
-      // Sử dụng requestAnimationFrame để batch updates
+      // Use requestAnimationFrame to batch updates
       if (oldHovered !== gameState.hoveredShapeIndex || 
           oldPreviewX !== gameState.previewGridX || 
           oldPreviewY !== gameState.previewGridY) {
@@ -1466,11 +1466,11 @@
       document.getElementById('finalScore').textContent = gameState.score;
       document.getElementById('gameOver').classList.add('show');
       
-      // ✅ Gửi điểm cuối cùng lên leaderboard khi game over
+      // ✅ Send final score to leaderboard when game over
       const isInIframe = window.parent && window.parent !== window;
       
       if (isInIframe) {
-        // ✅ Nếu chạy trong iframe → dùng postMessage (MemePlay platform)
+        // ✅ If running in iframe → use postMessage (MemePlay platform)
         window.parent.postMessage({
           type: 'GAME_SCORE',
           gameId: 'crypto-blocks',
@@ -1478,10 +1478,10 @@
         }, '*');
         console.log('📤 [CRYPTO-BLOCKS] Sent score via postMessage (iframe):', gameState.score);
       } else {
-        // ✅ Nếu KHÔNG chạy trong iframe → gửi trực tiếp đến Supabase (mobile direct access)
+        // ✅ If NOT running in iframe → send directly to Supabase (mobile direct access)
         console.warn('⚠️ [CRYPTO-BLOCKS] Not in iframe, sending score directly to Supabase');
         
-        // Lấy userId từ localStorage (giống như parent window)
+        // Get userId from localStorage (same as parent window)
         const getLocalUserId = () => {
           let id = localStorage.getItem('mp_user_id');
           if (!id) {
@@ -1502,7 +1502,7 @@
           return;
         }
         
-        // Gửi trực tiếp đến Supabase REST API
+        // Send directly to Supabase REST API
         const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co';
         const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ';
         
@@ -1584,13 +1584,13 @@
         playUIClick();
         document.getElementById('gameOver').classList.remove('show');
         
-        // KHÔNG show tap to start overlay - start game luôn
-        // User đã chơi rồi nên không cần tap to start nữa
+        // DON'T show tap to start overlay - start game immediately
+        // User has already played so no need for tap to start anymore
         
-        // Reset game state và start lại
+        // Reset game state and start again
         this.start();
         
-        // Unlock audio (user đã có interaction với restart button)
+        // Unlock audio (user has interacted with restart button)
         unlockAudio();
         if (audioContext.state === 'suspended') {
           audioContext.resume().then(() => {
@@ -1611,8 +1611,8 @@
       if (gameStarted) return; // Prevent multiple taps
       gameStarted = true;
       
-      // CRITICAL: Unlock audio FIRST (user gesture hợp lệ - tap)
-      // Đây là user gesture hợp lệ → Safari sẽ cho phép audio
+      // CRITICAL: Unlock audio FIRST (valid user gesture - tap)
+      // This is a valid user gesture → Safari will allow audio
       unlockAudio();
       if (audioContext.state === 'suspended') {
         audioContext.resume().then(() => {
@@ -1636,15 +1636,15 @@
         audioUnlocked = true;
       }
       
-      // Ẩn overlay và chữ "TAP TO START"
+      // Hide overlay and "TAP TO START" text
       tapToStartOverlay.classList.add('hidden');
       
-      // Trả opacity game về 100% (redraw với opacity 1.0)
+      // Restore game opacity to 100% (redraw with opacity 1.0)
       drawGrid();
       drawUI();
       
-      // Bắt đầu game (KHÔNG reset, chỉ đánh dấu là đã start)
-      // Game đã được init và generate shapes rồi, chỉ cần đánh dấu là đã start
+      // Start game (DON'T reset, just mark as started)
+      // Game already initialized and shapes generated, just mark as started
       gameState.gameStarted = true;
       
       // Post message integration (for MemePlay platform)
@@ -1661,7 +1661,7 @@
     
     // ===== EVENT LISTENERS =====
     // Unlock audio on canvas interaction (mobile requirement)
-    // KHÔNG dùng once: true - cần unlock nhiều lần
+    // DON'T use once: true - need to unlock multiple times
     // Note: Touch events are handled in gameContainer (main handler)
     // gameCanvas listeners are for direct canvas touches (backup)
     gameCanvas.addEventListener('mousedown', (e) => {
@@ -1670,7 +1670,7 @@
     });
     gameCanvas.addEventListener('mouseup', handleMouseUp);
     gameCanvas.addEventListener('mousemove', (e) => {
-      // Throttle mousemove để tối ưu performance
+      // Throttle mousemove to optimize performance
       const now = performance.now();
       if (now - lastPreviewUpdate < PREVIEW_UPDATE_INTERVAL) {
         return;
@@ -1705,15 +1705,15 @@
     
     gameContainer.addEventListener('touchstart', (e) => {
       // CRITICAL: Unlock audio FIRST before any other logic
-      // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble lên document/window
+      // Call unlockAudio() BEFORE preventDefault() to allow event to bubble to document/window
       unlockAudio();
       
-      // Không preventDefault nếu game over (để nút restart hoạt động)
+      // Don't preventDefault if game over (to allow restart button to work)
       if (gameState.gameOver) {
-        return; // Return sớm - không preventDefault để event bubble
+        return; // Return early - don't preventDefault to allow event to bubble
       }
       
-      // Chỉ preventDefault sau khi đã unlock audio
+      // Only preventDefault after audio has been unlocked
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
@@ -1733,12 +1733,12 @@
       // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble
       unlockAudio();
       
-      // Không preventDefault nếu game over (để nút restart hoạt động)
+      // Don't preventDefault if game over (to allow restart button to work)
       if (gameState.gameOver) {
-        return; // Return sớm - không preventDefault để event bubble
+        return; // Return early - don't preventDefault to allow event to bubble
       }
       
-      // Chỉ preventDefault sau khi đã unlock audio
+      // Only preventDefault after audio has been unlocked
       e.preventDefault();
       const touch = e.changedTouches[0];
       if (touch) {
@@ -1758,59 +1758,59 @@
       // Gọi unlockAudio() TRƯỚC preventDefault() để event có thể bubble
       unlockAudio();
       
-      // Không preventDefault nếu game over (để nút restart hoạt động)
+      // Don't preventDefault if game over (to allow restart button to work)
       if (gameState.gameOver) {
-        return; // Return sớm - không preventDefault để event bubble
+        return; // Return early - don't preventDefault to allow event to bubble
       }
       
-      // Chỉ preventDefault sau khi đã unlock audio
+      // Only preventDefault after audio has been unlocked
       e.preventDefault();
       const touch = e.touches[0];
       if (touch) {
         const coords = getCanvasCoordinates(touch.clientX, touch.clientY);
         
-        // Throttle updates để giảm lag (chỉ update mỗi 16ms = 60fps)
+        // Throttle updates to reduce lag (only update every 16ms = 60fps)
         const now = performance.now();
         if (now - lastPreviewUpdate < PREVIEW_UPDATE_INTERVAL) {
-          return; // Skip frame nếu quá nhanh
+          return; // Skip frame if too fast
         }
         lastPreviewUpdate = now;
         
-        // Batch updates với requestAnimationFrame
+        // Batch updates with requestAnimationFrame
         if (!rafPending) {
           rafPending = true;
           requestAnimationFrame(() => {
             updatePreview(coords.x, coords.y);
-            drawUI(); // Chỉ redraw UI (không redraw grid)
+            drawUI(); // Only redraw UI (don't redraw grid)
             rafPending = false;
           });
         }
       }
     }, { passive: false });
     
-    // XÓA duplicate gameCanvas touch listeners - đã handle trong gameContainer
-    // Giữ lại chỉ để backup nếu gameContainer không catch được
-    // NHƯNG: Không preventDefault để event có thể bubble lên document/window (cho unlockAudio)
+    // REMOVE duplicate gameCanvas touch listeners - already handled in gameContainer
+    // Keep only as backup if gameContainer doesn't catch
+    // BUT: Don't preventDefault to allow event to bubble to document/window (for unlockAudio)
     gameCanvas.addEventListener('touchstart', (e) => {
       unlockAudio(); // Unlock audio ngay khi touch canvas (CRITICAL for mobile iframe)
-      // KHÔNG preventDefault ở đây - để event bubble lên document/window cho unlockAudio
-      // gameContainer sẽ handle preventDefault
+      // DON'T preventDefault here - allow event to bubble to document/window for unlockAudio
+      // gameContainer will handle preventDefault
     }, { passive: true }); // passive: true để không chặn event
     
     gameCanvas.addEventListener('touchend', (e) => {
       unlockAudio(); // Unlock audio
-      // KHÔNG preventDefault - để event bubble
+      // DON'T preventDefault - allow event to bubble
     }, { passive: true });
     
     gameCanvas.addEventListener('touchmove', (e) => {
       unlockAudio(); // Continuous unlock
-      // KHÔNG preventDefault - để event bubble
+      // DON'T preventDefault - allow event to bubble
     }, { passive: true });
     
     // ===== GAME LOOP =====
     function gameLoop() {
       if (!gameState.gameOver) {
-        // Chỉ check game over khi có đủ 3 blocks mới (không check khi previewBlocks đang rỗng)
+        // Only check game over when there are 3 new blocks (don't check when previewBlocks is empty)
         if (gameState.currentShapes.length === CONFIG.SHAPES_PER_TURN) {
           if (isGameOver()) {
             gameState.gameOver = true;
@@ -1821,7 +1821,7 @@
             drawUI();
           }
         } else {
-          // PreviewBlocks đang rỗng hoặc đang loading → chỉ render, không check game over
+          // PreviewBlocks is empty or loading → only render, don't check game over
           drawGrid();
           drawUI();
         }
@@ -1830,8 +1830,8 @@
     }
     
     // ===== INITIALIZE =====
-    // KHÔNG start game tự động - đợi user tap "Tap to Start"
-    // Nhưng vẫn init grid và generate shapes để hiển thị mờ phía sau
+    // DON'T auto-start game - wait for user to tap "Tap to Start"
+    // But still init grid and generate shapes to display dimmed in background
     initGrid();
     generateNewTurn();
     drawGrid();

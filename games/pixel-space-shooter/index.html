@@ -1,0 +1,1101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pixel Space Shooter</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      touch-action: none;
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    .game-wrapper {
+      width: 720px;
+      height: 1000px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+    
+    #gameCanvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+      width: 720px;
+      height: 1000px;
+      background: #000;
+      will-change: transform;
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+    }
+    
+    /* Mobile: fixed 720x1000px container */
+    @media screen and (max-width: 720px) {
+      html, body {
+        overflow: hidden;
+      }
+      
+      .game-wrapper {
+        width: 720px;
+        height: 1000px;
+      }
+      
+      #gameCanvas {
+        width: 720px;
+        height: 1000px;
+        max-width: 720px;
+        max-height: 1000px;
+      }
+    }
+    
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      border: 4px solid #ffb642;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      z-index: 1000;
+      display: none;
+      pointer-events: all;
+      touch-action: manipulation;
+    }
+    
+    .game-over.show {
+      display: block;
+    }
+    
+    .game-over h2 {
+      color: #ffb642;
+      font-size: 48px;
+      margin-bottom: 20px;
+      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 10px rgba(255, 182, 66, 0.5);
+    }
+    
+    .game-over p {
+      color: #fff;
+      font-size: 24px;
+      margin-bottom: 30px;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .restart-btn {
+      background: linear-gradient(135deg, #ffb642 0%, #ff8c00 100%);
+      border: none;
+      color: #000;
+      font-size: 24px;
+      font-weight: bold;
+      padding: 15px 40px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      pointer-events: all;
+      touch-action: manipulation;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .restart-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .tap-to-start-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.05);
+      z-index: 1999;
+      pointer-events: all;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .tap-to-start-overlay.hidden {
+      display: none;
+    }
+    
+    .tap-to-start {
+      color: #ffb642;
+      font-size: 48px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 2000;
+      pointer-events: all;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      text-align: center;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 1), 0 0 10px rgba(255, 182, 66, 0.5);
+      animation: pulseText 1.5s ease-in-out infinite;
+      font-family: 'Courier New', monospace;
+    }
+    
+    @keyframes pulseText {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.6;
+        transform: scale(1.1);
+      }
+    }
+    
+    @media screen and (max-width: 720px) {
+      .tap-to-start {
+        font-size: 36px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="game-wrapper">
+    <canvas id="gameCanvas" width="720" height="1000"></canvas>
+    
+    <div id="gameOver" class="game-over">
+      <h2>GAME OVER</h2>
+      <p>Level: <span id="finalLevel">1</span></p>
+      <p>Score: <span id="finalScore">0</span></p>
+      <button class="restart-btn" onclick="game.restart()">Play Again</button>
+    </div>
+    
+    <div id="tapToStartOverlay" class="tap-to-start-overlay">
+      <div id="tapToStart" class="tap-to-start">Tap to Start</div>
+    </div>
+  </div>
+
+  <script>
+    // ===== CONFIG =====
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    
+    const CONFIG = {
+      CANVAS_WIDTH: 720,
+      CANVAS_HEIGHT: 1000,
+      MAX_OBJECTS: 20, // Maximum limit of 20 objects
+      INITIAL_ENERGY: 8, // 8 seconds of energy
+      ENERGY_PER_BLUE_GEM: 3, // +3 seconds per blue gem
+      MAX_LEVEL: 100
+    };
+    
+    // ===== CANVAS SETUP =====
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d', { 
+      alpha: false,
+      desynchronized: true,
+      willReadFrequently: false
+    });
+    
+    ctx.imageSmoothingEnabled = false;
+    
+    // ===== GAME STATE =====
+    const gameState = {
+      level: 1,
+      score: 0,
+      energy: CONFIG.INITIAL_ENERGY,
+      gemsCollected: 0,
+      gemsRequired: 3, // Lv1 = 3, Lv2 = 4, ...
+      gameOver: false,
+      gameStarted: false,
+      isPaused: false,
+      ship: {
+        x: 360,
+        y: 800,
+        width: 40,
+        height: 40,
+        targetX: 360,
+        targetY: 800,
+        speed: 20 // Increase speed by 4x (5 → 20)
+      },
+      gems: [], // {x, y, type: 'gold'|'blue', vx, vy}
+      enemies: [], // {x, y, width, height, vx, vy, type}
+      bullets: [], // Enemy bullets {x, y, width, height, vx, vy}
+      playerBullets: [], // Player bullets {x, y, width, height, vy}
+      matrixDrops: [], // Matrix background effect
+      particles: [], // Explosion particles
+      touchPosition: null, // Current touch position for hold control
+      lastTime: performance.now(),
+      deltaTime: 0,
+      shootCooldown: 0, // Player shoot cooldown
+      isHolding: false // Track if user is holding/dragging
+    };
+    
+    // ===== SOUND SYSTEM =====
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let audioUnlocked = false;
+    
+    function unlockAudio() {
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          audioUnlocked = true;
+          try {
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+            oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.01);
+          } catch (e) {}
+        }).catch(() => {});
+      } else if (audioContext.state === 'running' && !audioUnlocked) {
+        audioUnlocked = true;
+        try {
+          const oscillator = audioContext.createOscillator();
+          const gainNode = audioContext.createGain();
+          oscillator.connect(gainNode);
+          gainNode.connect(audioContext.destination);
+          gainNode.gain.setValueAtTime(0.001, audioContext.currentTime);
+          oscillator.frequency.setValueAtTime(1, audioContext.currentTime);
+          oscillator.start(audioContext.currentTime);
+          oscillator.stop(audioContext.currentTime + 0.01);
+        } catch (e) {}
+      }
+    }
+    
+    // ONLY attach listeners to canvas, DON'T use document/window to avoid triggering audio for other games
+    // Event listeners will be attached to canvas in control handlers section
+    
+    function playSound(type, frequency = 440, duration = 0.2, volume = 0.3) {
+      try {
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(() => {});
+          setTimeout(() => playSound(type, frequency, duration, volume), 50);
+          return;
+        }
+        
+        if (!audioUnlocked || audioContext.state !== 'running') {
+          unlockAudio();
+          setTimeout(() => playSound(type, frequency, duration, volume), 50);
+          return;
+        }
+        
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.type = 'square'; // 8-bit sound
+        oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
+        
+        gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+        gainNode.gain.linearRampToValueAtTime(volume, audioContext.currentTime + 0.01);
+        gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + duration);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + duration);
+      } catch (e) {
+        console.log('Audio error:', e);
+      }
+    }
+    
+    function playCollectSound() {
+      playSound('collect', 800, 0.15, 0.5);
+    }
+    
+    function playExplodeSound() {
+      playSound('explode', 200, 0.3, 0.8);
+    }
+    
+    // ===== MATRIX BACKGROUND =====
+    function initMatrixDrops() {
+      gameState.matrixDrops = [];
+      for (let i = 0; i < 30; i++) {
+        gameState.matrixDrops.push({
+          x: Math.random() * CONFIG.CANVAS_WIDTH,
+          y: Math.random() * CONFIG.CANVAS_HEIGHT,
+          speed: 2 + Math.random() * 3,
+          length: 10 + Math.random() * 20
+        });
+      }
+    }
+    
+    function updateMatrixDrops(deltaTime) {
+      for (let drop of gameState.matrixDrops) {
+        drop.y += drop.speed * (deltaTime / 16.67); // Normalize to 60fps
+        if (drop.y > CONFIG.CANVAS_HEIGHT) {
+          drop.y = -drop.length;
+          drop.x = Math.random() * CONFIG.CANVAS_WIDTH;
+        }
+      }
+    }
+    
+    function drawMatrixBackground() {
+      ctx.fillStyle = 'rgba(0, 255, 0, 0.1)';
+      ctx.font = '12px monospace';
+      for (let drop of gameState.matrixDrops) {
+        for (let i = 0; i < drop.length; i++) {
+          const alpha = 1 - (i / drop.length) * 0.8;
+          ctx.fillStyle = `rgba(0, 255, 0, ${alpha * 0.1})`;
+          ctx.fillText(String.fromCharCode(0x30A0 + Math.random() * 96), drop.x, drop.y + i * 12);
+        }
+      }
+    }
+    
+    // ===== SHIP CONTROL (HOLD) =====
+    // Optimization: Cache constants to avoid recalculating
+    const SHIP_MIN_X = 20;
+    const SHIP_MAX_X = CONFIG.CANVAS_WIDTH - 20;
+    const SHIP_MIN_Y = 20;
+    const SHIP_MAX_Y = CONFIG.CANVAS_HEIGHT - 20;
+    
+    // Optimization: Helper function to clamp position (faster than Math.max/min)
+    function clampShipPosition(x, y) {
+      // Fast clamp using ternary (faster than Math.max/min when simple)
+      const clampedX = x < SHIP_MIN_X ? SHIP_MIN_X : (x > SHIP_MAX_X ? SHIP_MAX_X : x);
+      const clampedY = y < SHIP_MIN_Y ? SHIP_MIN_Y : (y > SHIP_MAX_Y ? SHIP_MAX_Y : y);
+      return { x: clampedX, y: clampedY };
+    }
+    
+    // Optimization: Update ship position directly (called from event handlers)
+    function updateShipPositionDirect(clientX, clientY) {
+      const rect = canvas.getBoundingClientRect();
+      const coords = {
+        x: clientX - rect.left,
+        y: clientY - rect.top
+      };
+      const clamped = clampShipPosition(coords.x, coords.y);
+      // Update directly (don't wait for gameLoop)
+      gameState.ship.x = clamped.x;
+      gameState.ship.y = clamped.y;
+      gameState.ship.targetX = clamped.x;
+      gameState.ship.targetY = clamped.y;
+      gameState.touchPosition = clamped;
+    }
+    
+    function handleTouchStart(e) {
+      unlockAudio();
+      e.preventDefault();
+      const touch = e.touches[0];
+      if (touch) {
+        gameState.isHolding = true;
+        updateShipPositionDirect(touch.clientX, touch.clientY);
+      }
+    }
+    
+    function handleTouchMove(e) {
+      unlockAudio();
+      e.preventDefault();
+      // Only update when holding
+      if (!gameState.isHolding) return;
+      const touch = e.touches[0];
+      if (touch) {
+        updateShipPositionDirect(touch.clientX, touch.clientY);
+      }
+    }
+    
+    function handleTouchEnd(e) {
+      unlockAudio();
+      // Reset holding flag
+      gameState.isHolding = false;
+      // Keep last position (hold control - ship stays where released)
+    }
+    
+    function handleMouseDown(e) {
+      unlockAudio();
+      gameState.isHolding = true;
+      updateShipPositionDirect(e.clientX, e.clientY);
+    }
+    
+    function handleMouseMove(e) {
+      // Only update when holding
+      if (!gameState.isHolding) return;
+      updateShipPositionDirect(e.clientX, e.clientY);
+    }
+    
+    function handleMouseUp(e) {
+      // Reset holding flag
+      gameState.isHolding = false;
+      // Keep last position
+    }
+    
+    canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchend', handleTouchEnd, { passive: false });
+    canvas.addEventListener('mousedown', handleMouseDown);
+    canvas.addEventListener('mousemove', handleMouseMove);
+    canvas.addEventListener('mouseup', handleMouseUp);
+    
+    // ===== SHIP UPDATE =====
+    function updateShip(deltaTime) {
+      // Optimization: Skip position update when holding (already updated directly in event handlers)
+      if (!gameState.isHolding) {
+        // Smooth movement when not holding (for natural animation)
+        const dx = gameState.ship.targetX - gameState.ship.x;
+        const dy = gameState.ship.targetY - gameState.ship.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance > 1) {
+          const speed = gameState.ship.speed * (deltaTime / 16.67);
+          gameState.ship.x += (dx / distance) * speed;
+          gameState.ship.y += (dy / distance) * speed;
+        } else {
+          gameState.ship.x = gameState.ship.targetX;
+          gameState.ship.y = gameState.ship.targetY;
+        }
+        
+        // Keep ship in bounds (only when not holding)
+        gameState.ship.x = Math.max(20, Math.min(CONFIG.CANVAS_WIDTH - 20, gameState.ship.x));
+        gameState.ship.y = Math.max(20, Math.min(CONFIG.CANVAS_HEIGHT - 20, gameState.ship.y));
+      }
+      // When holding: position already updated directly in event handlers, skip this logic
+      
+      // Auto-shoot: Rocket always shoots bullets
+      const dt = deltaTime / 16.67;
+      gameState.shootCooldown -= dt;
+      if (gameState.shootCooldown <= 0) {
+        spawnPlayerBullet();
+        gameState.shootCooldown = Math.max(10, 30 - gameState.level * 0.5); // Faster shooting at higher levels
+      }
+    }
+    
+    function drawShip() {
+      // Fix flickering: Draw only once, no shadowBlur, no multiple strokes
+      ctx.save();
+      
+      // Disable shadow completely
+      ctx.shadowBlur = 0;
+      ctx.shadowColor = 'transparent';
+      
+      ctx.fillStyle = '#00ffff';
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      
+      // Simple pixel ship (triangle) - only draw once
+      ctx.beginPath();
+      ctx.moveTo(gameState.ship.x, gameState.ship.y - gameState.ship.height / 2);
+      ctx.lineTo(gameState.ship.x - gameState.ship.width / 2, gameState.ship.y + gameState.ship.height / 2);
+      ctx.lineTo(gameState.ship.x + gameState.ship.width / 2, gameState.ship.y + gameState.ship.height / 2);
+      ctx.closePath();
+      ctx.fill();
+      ctx.stroke();
+      
+      ctx.restore();
+    }
+    
+    // ===== GEMS SYSTEM =====
+    function spawnGoldGem() {
+      if (gameState.gems.length >= CONFIG.MAX_OBJECTS) return;
+      
+      const side = Math.random() < 0.5 ? 'left' : 'right';
+      const gem = {
+        x: side === 'left' ? -20 : CONFIG.CANVAS_WIDTH + 20,
+        y: 100 + Math.random() * (CONFIG.CANVAS_HEIGHT - 200),
+        type: 'gold',
+        width: 20,
+        height: 20,
+        // Increase speed by 300% (x3)
+        vx: side === 'left' ? (2 + gameState.level * 0.1) * 3 : -(2 + gameState.level * 0.1) * 3,
+        vy: (Math.random() - 0.5) * 2 * 3
+      };
+      gameState.gems.push(gem);
+    }
+    
+    function spawnBlueGem() {
+      if (gameState.gems.length >= CONFIG.MAX_OBJECTS) return;
+      
+      const side = Math.random() < 0.5 ? 'left' : 'right';
+      const gem = {
+        x: side === 'left' ? -20 : CONFIG.CANVAS_WIDTH + 20,
+        y: 100 + Math.random() * (CONFIG.CANVAS_HEIGHT - 200),
+        type: 'blue',
+        width: 20,
+        height: 20,
+        // Increase speed by 300% (x3)
+        vx: side === 'left' ? (1.5 + gameState.level * 0.08) * 3 : -(1.5 + gameState.level * 0.08) * 3,
+        vy: (Math.random() - 0.5) * 1.5 * 3
+      };
+      gameState.gems.push(gem);
+    }
+    
+    function updateGems(deltaTime) {
+      const dt = deltaTime / 16.67; // Normalize to 60fps
+      
+      for (let i = gameState.gems.length - 1; i >= 0; i--) {
+        const gem = gameState.gems[i];
+        gem.x += gem.vx * dt;
+        gem.y += gem.vy * dt;
+        
+        // Remove if out of bounds
+        if (gem.x < -30 || gem.x > CONFIG.CANVAS_WIDTH + 30 || 
+            gem.y < -30 || gem.y > CONFIG.CANVAS_HEIGHT + 30) {
+          gameState.gems.splice(i, 1);
+          continue;
+        }
+        
+        // Collision with ship
+        const dx = gem.x - gameState.ship.x;
+        const dy = gem.y - gameState.ship.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < (gem.width + gameState.ship.width) / 2) {
+          if (gem.type === 'gold') {
+            gameState.gemsCollected++;
+            gameState.score += 10 * gameState.level;
+            playCollectSound();
+            
+            // Check level complete
+            if (gameState.gemsCollected >= gameState.gemsRequired) {
+              nextLevel();
+            }
+          } else if (gem.type === 'blue') {
+            // Only +3s when energy < 8s, and cannot exceed 8s
+            if (gameState.energy < CONFIG.INITIAL_ENERGY) {
+              gameState.energy = Math.min(CONFIG.INITIAL_ENERGY, gameState.energy + CONFIG.ENERGY_PER_BLUE_GEM);
+            }
+            gameState.score += 5 * gameState.level;
+            playCollectSound();
+          }
+          
+          gameState.gems.splice(i, 1);
+        }
+      }
+    }
+    
+    function drawGems() {
+      for (let gem of gameState.gems) {
+        if (gem.type === 'gold') {
+          ctx.fillStyle = '#ffd700';
+          ctx.strokeStyle = '#ffaa00';
+        } else {
+          ctx.fillStyle = '#00ffff';
+          ctx.strokeStyle = '#0088ff';
+        }
+        
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(gem.x, gem.y, gem.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Glow
+        if (gem.type === 'gold') {
+          ctx.shadowColor = '#ffd700';
+        } else {
+          ctx.shadowColor = '#00ffff';
+        }
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+    
+    // ===== ENEMIES SYSTEM =====
+    function spawnEnemy() {
+      if (gameState.enemies.length + gameState.bullets.length >= CONFIG.MAX_OBJECTS) return;
+      
+      // Enemies only spawn from top down
+      const enemy = {
+        x: 50 + Math.random() * (CONFIG.CANVAS_WIDTH - 100), // Random x position
+        y: -30, // Spawn from top
+        width: 30,
+        height: 30,
+        vx: (Math.random() - 0.5) * 1, // Slight horizontal movement
+        // Increase speed by 500% (x5)
+        vy: (1 + gameState.level * 0.1) * 5, // Always moves down
+        type: 'basic',
+        shootCooldown: 0
+      };
+      
+      // Every 5 levels, add new enemy types
+      if (gameState.level >= 5 && Math.random() < 0.3) {
+        enemy.type = 'zigzag';
+        enemy.zigzagPhase = 0;
+      }
+      
+      gameState.enemies.push(enemy);
+    }
+    
+    function updateEnemies(deltaTime) {
+      const dt = deltaTime / 16.67;
+      
+      for (let i = gameState.enemies.length - 1; i >= 0; i--) {
+        const enemy = gameState.enemies[i];
+        
+        if (enemy.type === 'zigzag') {
+          enemy.zigzagPhase += dt * 0.1;
+          enemy.y += Math.sin(enemy.zigzagPhase) * 2 * dt;
+        }
+        
+        enemy.x += enemy.vx * dt;
+        enemy.y += enemy.vy * dt;
+        
+        // Remove if out of bounds (only check y since spawns from top)
+        if (enemy.y > CONFIG.CANVAS_HEIGHT + 50 || enemy.x < -50 || enemy.x > CONFIG.CANVAS_WIDTH + 50) {
+          gameState.enemies.splice(i, 1);
+          continue;
+        }
+        
+        // Shooting (every 5 levels)
+        if (gameState.level >= 5) {
+          enemy.shootCooldown -= dt;
+          if (enemy.shootCooldown <= 0) {
+            spawnEnemyBullet(enemy);
+            enemy.shootCooldown = 60 - gameState.level; // Faster shooting at higher levels
+          }
+        }
+        
+        // Collision with ship
+        const dx = enemy.x - gameState.ship.x;
+        const dy = enemy.y - gameState.ship.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < (enemy.width + gameState.ship.width) / 2) {
+          gameOver();
+          return;
+        }
+      }
+    }
+    
+    function drawEnemies() {
+      for (let enemy of gameState.enemies) {
+        ctx.fillStyle = '#ff4444';
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        
+        ctx.fillRect(enemy.x - enemy.width / 2, enemy.y - enemy.height / 2, enemy.width, enemy.height);
+        ctx.strokeRect(enemy.x - enemy.width / 2, enemy.y - enemy.height / 2, enemy.width, enemy.height);
+        
+        // Glow
+        ctx.shadowColor = '#ff4444';
+        ctx.shadowBlur = 8;
+        ctx.fillRect(enemy.x - enemy.width / 2, enemy.y - enemy.height / 2, enemy.width, enemy.height);
+        ctx.shadowBlur = 0;
+      }
+    }
+    
+    // ===== PLAYER BULLETS SYSTEM =====
+    function spawnPlayerBullet() {
+      if (gameState.playerBullets.length >= CONFIG.MAX_OBJECTS) return;
+      
+      // Rocket always shoots bullets vertically upward
+      const bullet = {
+        x: gameState.ship.x,
+        y: gameState.ship.y - gameState.ship.height / 2,
+        width: 6,
+        height: 12,
+        // Increase bullet speed by x2
+        vy: -(5 + gameState.level * 0.2) * 2 // Always moves up (negative)
+      };
+      
+      gameState.playerBullets.push(bullet);
+    }
+    
+    function updatePlayerBullets(deltaTime) {
+      const dt = deltaTime / 16.67;
+      
+      for (let i = gameState.playerBullets.length - 1; i >= 0; i--) {
+        const bullet = gameState.playerBullets[i];
+        bullet.y += bullet.vy * dt;
+        
+        // Remove if out of bounds (only check y since moves up)
+        if (bullet.y < -20) {
+          gameState.playerBullets.splice(i, 1);
+          continue;
+        }
+        
+        // Collision with enemies
+        for (let j = gameState.enemies.length - 1; j >= 0; j--) {
+          const enemy = gameState.enemies[j];
+          const dx = bullet.x - enemy.x;
+          const dy = bullet.y - enemy.y;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          
+          if (distance < (bullet.width + enemy.width) / 2) {
+            // Hit enemy
+            gameState.enemies.splice(j, 1);
+            gameState.playerBullets.splice(i, 1);
+            gameState.score += 20 * gameState.level;
+            playExplodeSound();
+            break;
+          }
+        }
+      }
+    }
+    
+    function drawPlayerBullets() {
+      for (let bullet of gameState.playerBullets) {
+        ctx.fillStyle = '#00ffff';
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, bullet.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Glow
+        ctx.shadowColor = '#00ffff';
+        ctx.shadowBlur = 8;
+        ctx.fill();
+        ctx.shadowBlur = 0;
+      }
+    }
+    
+    // ===== ENEMY BULLETS SYSTEM =====
+    function spawnEnemyBullet(enemy) {
+      if (gameState.bullets.length >= CONFIG.MAX_OBJECTS) return;
+      
+      const dx = gameState.ship.x - enemy.x;
+      const dy = gameState.ship.y - enemy.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      const bullet = {
+        x: enemy.x,
+        y: enemy.y,
+        width: 8,
+        height: 8,
+        // Increase bullet speed by x2
+        vx: (dx / distance) * (2 + gameState.level * 0.1) * 2,
+        vy: (dy / distance) * (2 + gameState.level * 0.1) * 2,
+        zigzag: gameState.level >= 10 && Math.random() < 0.3, // Zigzag bullets every 10 levels
+        zigzagPhase: 0
+      };
+      
+      gameState.bullets.push(bullet);
+    }
+    
+    function updateBullets(deltaTime) {
+      const dt = deltaTime / 16.67;
+      
+      for (let i = gameState.bullets.length - 1; i >= 0; i--) {
+        const bullet = gameState.bullets[i];
+        
+        if (bullet.zigzag) {
+          bullet.zigzagPhase += dt * 0.2;
+          bullet.x += Math.sin(bullet.zigzagPhase) * 3 * dt;
+        }
+        
+        bullet.x += bullet.vx * dt;
+        bullet.y += bullet.vy * dt;
+        
+        // Remove if out of bounds
+        if (bullet.x < -20 || bullet.x > CONFIG.CANVAS_WIDTH + 20 ||
+            bullet.y < -20 || bullet.y > CONFIG.CANVAS_HEIGHT + 20) {
+          gameState.bullets.splice(i, 1);
+          continue;
+        }
+        
+        // Collision with ship
+        const dx = bullet.x - gameState.ship.x;
+        const dy = bullet.y - gameState.ship.y;
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        
+        if (distance < (bullet.width + gameState.ship.width) / 2) {
+          gameOver();
+          return;
+        }
+      }
+    }
+    
+    function drawBullets() {
+      for (let bullet of gameState.bullets) {
+        ctx.fillStyle = '#ff6666';
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 1;
+        
+        ctx.beginPath();
+        ctx.arc(bullet.x, bullet.y, bullet.width / 2, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+      }
+    }
+    
+    // ===== LEVEL SYSTEM =====
+    function nextLevel() {
+      gameState.level++;
+      gameState.gemsCollected = 0;
+      gameState.gemsRequired = 3 + (gameState.level - 1); // Lv1=3, Lv2=4, Lv3=5...
+      gameState.energy = CONFIG.INITIAL_ENERGY; // Reset energy on level up
+      
+      // Clear all objects
+      gameState.gems = [];
+      gameState.enemies = [];
+      gameState.bullets = [];
+      
+      if (gameState.level > CONFIG.MAX_LEVEL) {
+        // Win game
+        gameOver();
+      }
+    }
+    
+    // ===== ENERGY SYSTEM =====
+    function updateEnergy(deltaTime) {
+      if (gameState.gameOver || !gameState.gameStarted) return;
+      
+      const dt = deltaTime / 16.67; // Normalize to 60fps
+      gameState.energy -= dt / 60; // Decrease by 1 second per 60 frames
+      
+      if (gameState.energy <= 0) {
+        gameState.energy = 0;
+        gameOver();
+      }
+    }
+    
+    function drawEnergyBar() {
+      const barWidth = 200;
+      const barHeight = 20;
+      const barX = CONFIG.CANVAS_WIDTH - barWidth - 20;
+      const barY = 20;
+      
+      // Background
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(barX, barY, barWidth, barHeight);
+      
+      // Energy bar (orange to red)
+      const energyPercent = gameState.energy / CONFIG.INITIAL_ENERGY;
+      const r = energyPercent < 0.5 ? 255 : 255;
+      const g = energyPercent < 0.5 ? Math.floor(energyPercent * 2 * 165) : Math.floor((1 - energyPercent) * 2 * 165);
+      const b = 0;
+      
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(barX, barY, barWidth * energyPercent, barHeight);
+      
+      // Border
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(barX, barY, barWidth, barHeight);
+      
+      // Text
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 16px monospace';
+      ctx.textAlign = 'left';
+      ctx.fillText(`ENERGY: ${Math.max(0, Math.ceil(gameState.energy))}s`, barX, barY - 5);
+    }
+    
+    // ===== SPAWNING SYSTEM =====
+    let spawnTimer = 0;
+    let gemSpawnTimer = 0;
+    
+    function updateSpawning(deltaTime) {
+      if (gameState.gameOver || !gameState.gameStarted) return;
+      
+      const dt = deltaTime / 16.67;
+      spawnTimer += dt;
+      gemSpawnTimer += dt;
+      
+      // Spawn gold gems (increase frequency by 100%: reduce rate by 2x)
+      const goldGemRate = (Math.max(30, 60 - gameState.level * 0.5) * 20) / 2;
+      if (gemSpawnTimer >= goldGemRate) {
+        spawnGoldGem();
+        gemSpawnTimer = 0;
+      }
+      
+      // Spawn blue gems (increase frequency by 100%: from 0.006 to 0.012)
+      if (Math.random() < 0.012 && gameState.energy < CONFIG.INITIAL_ENERGY * 0.5) {
+        spawnBlueGem();
+      }
+      
+      // Spawn enemies (more frequent at higher levels)
+      const enemyRate = Math.max(40, 120 - gameState.level);
+      if (spawnTimer >= enemyRate) {
+        spawnEnemy();
+        spawnTimer = 0;
+      }
+    }
+    
+    // ===== UI DRAWING =====
+    function drawUI() {
+      // Score
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 24px monospace';
+      ctx.textAlign = 'left';
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.8)';
+      ctx.shadowBlur = 4;
+      ctx.fillText(`SCORE: ${gameState.score}`, 20, 40);
+      
+      // Level
+      ctx.fillText(`LV: ${gameState.level}`, 20, 70);
+      
+      // Gems collected
+      ctx.fillText(`GEMS: ${gameState.gemsCollected}/${gameState.gemsRequired}`, 20, 100);
+      
+      ctx.shadowBlur = 0;
+      
+      // Energy bar
+      drawEnergyBar();
+    }
+    
+    // ===== GAME OVER =====
+    function gameOver() {
+      if (gameState.gameOver) return;
+      
+      gameState.gameOver = true;
+      playExplodeSound();
+      
+      document.getElementById('finalLevel').textContent = gameState.level;
+      document.getElementById('finalScore').textContent = gameState.score;
+      document.getElementById('gameOver').classList.add('show');
+      
+      // Send score to leaderboard
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'GAME_SCORE',
+          gameId: 'pixel-space-shooter',
+          score: gameState.score
+        }, '*');
+      }
+    }
+    
+    function showGameOver() {
+      gameOver();
+    }
+    
+    // ===== MAIN GAME LOOP =====
+    function gameLoop(currentTime) {
+      // Calculate deltaTime for frame-rate independent movement
+      if (!gameState.lastTime) gameState.lastTime = currentTime;
+      gameState.deltaTime = currentTime - gameState.lastTime;
+      gameState.lastTime = currentTime;
+      
+      // Cap deltaTime to prevent large jumps
+      if (gameState.deltaTime > 100) gameState.deltaTime = 100;
+      
+      // Clear canvas only once per frame
+      ctx.fillStyle = '#000000';
+      ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+      
+      if (!gameState.gameOver && gameState.gameStarted) {
+        // Update game (DO NOT draw here)
+        updateMatrixDrops(gameState.deltaTime);
+        updateShip(gameState.deltaTime); // Only update position, do not draw
+        updateGems(gameState.deltaTime);
+        updateEnemies(gameState.deltaTime);
+        updateBullets(gameState.deltaTime);
+        updatePlayerBullets(gameState.deltaTime);
+        updateEnergy(gameState.deltaTime);
+        updateSpawning(gameState.deltaTime);
+      }
+      
+      // Draw everything only once, in correct order
+      drawMatrixBackground();
+      drawGems();
+      drawEnemies();
+      drawBullets();
+      drawPlayerBullets();
+      if (gameState.gameStarted) {
+        drawShip(); // Draw rocket only once here
+      }
+      drawUI();
+      
+      requestAnimationFrame(gameLoop);
+    }
+    
+    // ===== TAP TO START =====
+    const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+    const tapToStartBtn = document.getElementById('tapToStart');
+    let gameStarted = false;
+    
+    function handleTapToStart() {
+      if (gameStarted) return;
+      gameStarted = true;
+      
+      unlockAudio();
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().then(() => {
+          audioUnlocked = true;
+        }).catch(() => {});
+      } else {
+        audioUnlocked = true;
+      }
+      
+      tapToStartOverlay.classList.add('hidden');
+      gameState.gameStarted = true;
+      gameState.lastTime = performance.now();
+      
+      // Post message
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'GAME_START', gameId: 'pixel-space-shooter' }, '*');
+      }
+    }
+    
+    if (tapToStartOverlay) {
+      tapToStartOverlay.addEventListener('click', handleTapToStart);
+      tapToStartOverlay.addEventListener('touchstart', handleTapToStart, { passive: true });
+    }
+    
+    // ===== GAME CONTROL =====
+    const game = {
+      start() {
+        gameState.level = 1;
+        gameState.score = 0;
+        gameState.energy = CONFIG.INITIAL_ENERGY;
+        gameState.gemsCollected = 0;
+        gameState.gemsRequired = 3;
+        gameState.gameOver = false;
+        gameState.gameStarted = false;
+        gameState.ship.x = 360;
+        gameState.ship.y = 800;
+        gameState.ship.targetX = 360;
+        gameState.ship.targetY = 800;
+        gameState.gems = [];
+        gameState.enemies = [];
+        gameState.bullets = [];
+        gameState.playerBullets = [];
+        gameState.touchPosition = null;
+        gameState.isHolding = false; // Reset holding flag
+        gameState.shootCooldown = 0;
+        gameState.lastTime = performance.now();
+        
+        spawnTimer = 0;
+        gemSpawnTimer = 0;
+        
+        initMatrixDrops();
+        
+        unlockAudio();
+      },
+      
+      restart() {
+        document.getElementById('gameOver').classList.remove('show');
+        tapToStartOverlay.classList.remove('hidden');
+        gameStarted = false;
+        this.start();
+      }
+    };
+    
+    // ===== INITIALIZE =====
+    initMatrixDrops();
+    game.start();
+    gameLoop(performance.now());
+  </script>
+</body>
+</html>
+

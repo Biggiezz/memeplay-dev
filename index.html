@@ -3205,11 +3205,11 @@ window.addEventListener("beforeunload", stopGame);
       const finalScore = Math.floor(Number(score))
       console.log('🎮 [TIMER DEBUG] Processing game:', gameId, 'score:', finalScore)
       
-      // ✅ LUÔN submit score trước, sau đó mới xử lý timer logic
-      // ✅ Đảm bảo score được gửi lên leaderboard dù có "Play Again" hay không
+      // ✅ ALWAYS submit score first, then process timer logic
+      // ✅ Ensure score is sent to leaderboard even if "Play Again" is detected
       console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
       
-      // Submit score ngay lập tức (không đợi timer logic)
+      // Submit score immediately (don't wait for timer logic)
       try {
         console.log('📤 [SCORE] Submitting score immediately:', { gameId, score: finalScore, userId })
         const { data, error } = await supabase.rpc('submit_game_score', {
@@ -3234,7 +3234,7 @@ window.addEventListener("beforeunload", stopGame);
       const hasScore = score > 0  // Score > 0 = game is being played
       const timerNotRunningForThisGame = !activeStartTime || (activeGame && activeGame !== gameId)
       
-      const isPlayAgain = hasScore && timerNotRunningForThisGame && finalScore < 15  // ✅ Chỉ detect Play Again nếu score < 15
+      const isPlayAgain = hasScore && timerNotRunningForThisGame && finalScore < 15  // ✅ Only detect Play Again if score < 15
       console.log('🎮 [TIMER DEBUG] isPlayAgain check:', { hasScore, timerNotRunningForThisGame, activeStartTime, activeGame, isPlayAgain })
       
       if (isPlayAgain) {
@@ -4016,7 +4016,7 @@ window.addEventListener("beforeunload", stopGame);
     const mcCache = {}
     const mcLoading = {}
     
-    // Lazy load MC khi game visible VÀ iframe loaded
+    // Lazy load MC when game visible AND iframe loaded
     const mcObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting && entry.intersectionRatio > 0.5) {
