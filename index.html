@@ -487,7 +487,8 @@
       letter-spacing: 0.5px;
       line-height: 1;
       color: #ffffff;
-      display: none !important; /* Hide MC number temporarily to avoid user confusion */
+      display: inline !important; /* Show MC number after "MC" text */
+      margin-left: 4px; /* Add space between "MC" and number */
     }
     .icon-wrapper[data-role="donate"] svg {
       stroke: #ffffff;
@@ -509,7 +510,8 @@
       .icon-wrapper[data-role="marketcap"] button span {
         font-size: 8.5px;
         letter-spacing: 0.1px;
-        display: none !important; /* Hide MC number on mobile */
+        display: inline !important; /* Show MC number on mobile */
+        margin-left: 2px; /* Add space between "MC" and number on mobile */
       }
       .game-footer {
         padding: 4px 14px 6px 14px !important;
@@ -1149,6 +1151,22 @@
     }
 
     @media (max-width: 800px) {
+      /* MOBILE: pixel-space-shooter handles its own scaling internally */
+      /* Override common CSS to allow game 14 to control its own iframe */
+      .game-card[data-game-id="pixel-space-shooter"] .game-stage {
+        /* Keep aspect-ratio but allow game to scale internally */
+        aspect-ratio: 720 / 1000 !important;
+        width: min(100vw, 720px) !important;
+        max-width: 720px !important;
+      }
+      .game-card[data-game-id="pixel-space-shooter"] .game-stage iframe {
+        /* Keep absolute positioning but let game scale internally */
+        position: absolute !important;
+        inset: 0 !important;
+        width: 100% !important;
+        height: 100% !important;
+      }
+      
       /* HEADER - Reduce by 25% */
       :root { --header-h: 39px; } /* Reduced from 52px */
       .main-header {
@@ -1286,6 +1304,33 @@
     .wallet-actions button{background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:10px;padding:10px 18px;font-size:15px;font-weight:600;cursor:pointer}
     .wallet-actions button.secondary{background:none;border:1px solid #2a2f38;color:#bbb}
     @media (min-width: 1024px) {
+      /* DESKTOP: Ensure all games maintain 720px width (original size) */
+      .game-card {
+        width: 720px !important;
+        max-width: 720px !important;
+      }
+      .game-card .game-stage {
+        width: 100% !important;
+        aspect-ratio: 720 / 1000 !important;
+      }
+      .game-card .game-stage iframe {
+        width: 100% !important;
+        height: 100% !important;
+      }
+      
+      /* DESKTOP: pixel-space-shooter handles its own scaling */
+      .game-card[data-game-id="pixel-space-shooter"] .game-stage {
+        aspect-ratio: none !important;
+        width: auto !important;
+        height: auto !important;
+      }
+      .game-card[data-game-id="pixel-space-shooter"] .game-stage iframe {
+        position: relative !important;
+        inset: auto !important;
+        width: 720px !important;
+        height: 1000px !important;
+      }
+      
       .game-footer {
         gap: 10px;
         padding: 8px 16px 12px;
@@ -1564,7 +1609,7 @@
       'brick-fallen-crypto': 'games/brick-fallen-crypto/index.html',
       'pacman-memeplay': 'https://pacman-memeplay.lovable.app',
       'story-shape-studio': 'https://story-shape-studio.lovable.app',
-      'pixel-orb-escape': 'https://pixel-orb-escape.lovable.app',
+      'pixel-space-shooter': 'games/pixel-space-shooter/index.html',
       'rocket-bnb': 'games/rocket-bnb/index.html',
       'crypto-blocks': 'games/crypto-blocks/index.html'
     };
@@ -1948,6 +1993,17 @@
       requestAnimationFrame(scrollActiveGameIntoView)
     }
     updateFocusButtons()
+    
+    // Notify iframes about focus mode change
+    const isFocus = document.body.classList.contains('focus-mode');
+    document.querySelectorAll('iframe[data-game-url*="pixel-space-shooter"]').forEach(iframe => {
+      if (iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+          type: 'FOCUS_MODE_CHANGED',
+          isFocus: isFocus
+        }, '*');
+      }
+    });
   }
 
   function initFocusControls() {
@@ -2578,6 +2634,7 @@
   }
   async function loadPlayCount(gameId) {
     try {
+      console.log('📥 [PLAYS] loadPlayCount →', gameId)
       const { data, error } = await supabase.rpc('get_game_play_count', { p_game_id: gameId })
       if (error) { console.error('get_game_play_count error:', error.message); return }
       const val = (data && typeof data.total_plays === 'number') ? data.total_plays : 0
@@ -2772,12 +2829,31 @@ function forceStart(gameId) {
   startGame(gameId);
 }
 
-// Stop timer + send data to Supabase
+  // Stop timer + send data to Supabase
 async function stopGame() {
   if (!activeGame || !activeStartTime) return;
 
   const seconds = Math.floor((Date.now() - activeStartTime) / 1000);
   if (seconds > 0) {
+      // Optimistic UI bump (visible immediately), will be corrected after server refresh
+      try {
+        if (seconds >= 3) {
+          const card = document.querySelector(`.game-card[data-game-id="${activeGame}"]`) || document.getElementById(activeGame)
+          const creator = card?.querySelector('.creator-text')
+          if (creator) {
+            const span = creator.querySelector('[data-plays-count]')
+            if (span && /\d+/.test(span.textContent || '')) {
+              const cur = parseInt((span.textContent || '0').replace(/\D/g, ''), 10) || 0
+              span.textContent = `${cur + 1} plays`
+            }
+          }
+          const statsCount = card?.querySelector('.icon-wrapper[data-role="stats"] .icon-count')
+          if (statsCount && /\d+/.test(statsCount.textContent || '')) {
+            const cur = parseInt((statsCount.textContent || '0').replace(/\D/g, ''), 10) || 0
+            statsCount.textContent = String(cur + 1)
+          }
+        }
+      } catch {}
     console.log(`⏱ Played ${seconds}s on ${activeGame}`);
 
     // Calculate per-game accumulated time and threshold rewards
@@ -2824,26 +2900,58 @@ async function stopGame() {
       console.error('Playtime tracking error:', err.message);
     }
 
-    // Increment real play count if eligible (>=5s) with keepalive
-    if (seconds >= 5) {
+    // Increment real play count if eligible (>=3s) with keepalive
+    if (seconds >= 3) {
       try {
-        const { data, error } = await rpcWithKeepalive('increment_play_count', {
+        const payload = {
           p_user_id: userId,
           p_game_id: activeGame,
           p_seconds: seconds
-        });
+        };
+        console.log('📈 [PLAYS] increment_play_count (stopGame) →', payload);
+        let { data, error } = await rpcWithKeepalive('increment_play_count', payload);
         if (error) throw error;
         
         // Update UI after server confirms (accurate count)
         if (data && typeof data.total_plays === 'number') {
           setPlaysLabelForCard(activeGame, data.total_plays)
           console.log(`📊 [plays +1] ${activeGame}: ${data.total_plays}`)
+          try { loadPlayCount(activeGame) } catch {}
         }
       } catch (err) {
         console.error('Play count increment error:', err.message);
+        // If backend already counted (409 Conflict), just refresh UI from server
+        const msg = String(err?.message || '');
+        if (msg.includes('409') || msg.toLowerCase().includes('conflict')) {
+          try { await loadPlayCount(activeGame) } catch {}
+        } else {
+          // Retry once after a short delay
+          try {
+            await new Promise(r => setTimeout(r, 800));
+            const retryPayload = {
+              p_user_id: userId,
+              p_game_id: activeGame,
+              p_seconds: seconds
+            };
+            console.log('📈 [PLAYS] increment_play_count RETRY →', retryPayload);
+            const { data, error } = await rpcWithKeepalive('increment_play_count', retryPayload);
+            if (!error && data && typeof data.total_plays === 'number') {
+              setPlaysLabelForCard(activeGame, data.total_plays)
+              console.log(`📊 [plays +1 retry] ${activeGame}: ${data.total_plays}`)
+              try { loadPlayCount(activeGame) } catch {}
+            } else {
+              try { await loadPlayCount(activeGame) } catch {}
+            }
+          } catch (e2) {
+            console.error('Play count retry failed:', e2.message);
+            try { await loadPlayCount(activeGame) } catch {}
+          }
+        }
       }
     }
   }
+
+  // Remove any stray global refresh (handled inside stopGame now)
 
   // Remove is-playing class to re-enable animations
   document.querySelectorAll('.game-card').forEach(card => card.classList.remove('is-playing'));
@@ -3139,11 +3247,11 @@ window.addEventListener("beforeunload", stopGame);
         }
       })
       commentBtn.addEventListener('click', () => openPanel(gameId))
+      // Market cap click handler is set by updateMC() function
+      // Don't add handler here to avoid conflicts
       if (marketcapBtn) {
-        marketcapBtn.addEventListener('click', () => {
-          console.log('Market Cap clicked for', gameId)
-          // TODO: Show market cap overlay/link for game token
-        })
+        // Handler will be set when MC is loaded via updateMC()
+        console.log('Market Cap button found for', gameId)
       }
       if (shareBtn) {
         shareBtn.addEventListener('click', () => {
@@ -3163,6 +3271,38 @@ window.addEventListener("beforeunload", stopGame);
   // This was causing duplicate event listeners → like button flickering!
 
   // Listen for game scores via postMessage
+  // Handle TOGGLE_FOCUS_MODE message from iframe (pixel-space-shooter)
+  window.addEventListener('message', (event) => {
+    if (event.data?.type === 'TOGGLE_FOCUS_MODE') {
+      const { gameId } = event.data;
+      console.log('📥 Received TOGGLE_FOCUS_MODE from iframe:', gameId);
+      
+      // Set active game
+      if (gameId) {
+        try { window.__memeplayActiveGame = gameId } catch {}
+        focusState.gameId = gameId;
+        const card = document.querySelector(`[data-game-id="${gameId}"]`) || document.getElementById(gameId);
+        if (card) {
+          applyFocusActiveCard(gameId);
+        }
+      }
+      
+      // Toggle focus mode
+      toggleFocusMode();
+      
+      // Send FOCUS_MODE_CHANGED back to iframe
+      const iframes = document.querySelectorAll('iframe[data-game-url*="pixel-space-shooter"]');
+      iframes.forEach(iframe => {
+        if (iframe.contentWindow) {
+          iframe.contentWindow.postMessage({
+            type: 'FOCUS_MODE_CHANGED',
+            isFocus: document.body.classList.contains('focus-mode')
+          }, '*');
+        }
+      });
+    }
+  });
+  
   window.addEventListener('message', async (event) => {
     // DEBUG: Log ALL messages to see what's being received
     const msgType = event.data?.type
@@ -3181,12 +3321,28 @@ window.addEventListener("beforeunload", stopGame);
       }
     }
     
-    // ❌ REMOVED: GAME_START auto-handler (was causing timer to start on iframe load!)
-    // ✅ We already detect "Play Again" via GAME_SCORE with low score (<15)
-    // ✅ This prevents auto-starting timer for preloaded iframes
+    // Handle GAME_START message (start timer when user actually plays)
+    if (event.data?.type === 'GAME_START' && event.data?.gameId) {
+      const { gameId } = event.data;
+      console.log('🎮 [TIMER DEBUG] GAME_START received:', { gameId, origin: event.origin });
+      
+      // Only start timer if not already running for this game
+      if (!activeStartTime || (activeGame && activeGame !== gameId)) {
+        // Stop previous game if different
+        if (activeGame && activeGame !== gameId) {
+          console.log('   ⏹️ Stopping previous game:', activeGame);
+          await stopGame();
+        }
+        
+        console.log('   ▶️ Starting timer for', gameId);
+        startGame(gameId);
+      } else if (activeGame === gameId) {
+        console.log('   ℹ️ Timer already running for', gameId);
+      }
+    }
     
     if (event.data?.type === 'GAME_SCORE') {
-      const { gameId, score } = event.data
+      const { gameId, score, level } = event.data
       console.log('🎮 [TIMER DEBUG] GAME_SCORE received:', { gameId, score, origin: event.origin })
       
       // ✅ Clear fallback timer when receiving GAME_SCORE (game handles itself!)
@@ -3211,12 +3367,15 @@ window.addEventListener("beforeunload", stopGame);
       
       // Submit score immediately (don't wait for timer logic)
       try {
-        console.log('📤 [SCORE] Submitting score immediately:', { gameId, score: finalScore, userId })
-        const { data, error } = await supabase.rpc('submit_game_score', {
+        const payload = {
           p_user_id: userId,
           p_game_id: gameId,
           p_score: finalScore
-        })
+        }
+        if (Number.isFinite(Number(level))) payload.p_level = Math.max(1, Math.trunc(Number(level)))
+
+        console.log('📤 [SCORE] Submitting score immediately (keepalive):', payload)
+        const { data, error } = await rpcWithKeepalive('submit_game_score', payload)
         
         if (error) throw error
         
@@ -3228,6 +3387,33 @@ window.addEventListener("beforeunload", stopGame);
         }
       } catch (err) {
         console.error('❌ [SCORE] Submit score error:', err)
+      }
+
+      // Ensure a play is counted even if timer didn't start properly
+      try {
+        // Compute session seconds; if not available, fallback to 3s minimum
+        let secondsElapsed = 0
+        if (activeGame === gameId && activeStartTime) {
+          secondsElapsed = Math.max(0, Math.floor((Date.now() - activeStartTime) / 1000))
+        }
+        const secondsForPlay = Math.max(3, secondsElapsed)
+        console.log('⏱ [PLAYS SAFEGUARD] secondsForPlay =', secondsForPlay, 'gameId =', gameId)
+        const sgPayload = {
+          p_user_id: userId,
+          p_game_id: gameId,
+          p_seconds: secondsForPlay
+        };
+        console.log('📈 [PLAYS] increment_play_count (safeguard) →', sgPayload);
+        const { data: incData, error: incErr } = await rpcWithKeepalive('increment_play_count', sgPayload)
+        if (incErr) {
+          console.warn('⏱ [PLAYS SAFEGUARD] increment_play_count failed:', incErr.message)
+        } else if (incData && typeof incData.total_plays === 'number') {
+          setPlaysLabelForCard(gameId, incData.total_plays)
+          console.log(`📊 [plays safeguard +1] ${gameId}:`, incData.total_plays)
+        }
+      } catch (e) {
+        console.warn('⏱ [PLAYS SAFEGUARD] error:', e?.message || e)
+        try { await loadPlayCount(gameId) } catch {}
       }
       
       // DETECT PLAY AGAIN: User is playing (score > 0) but timer not running for this game
@@ -3932,7 +4118,15 @@ window.addEventListener("beforeunload", stopGame);
     if (!window.ethers) return console.error('❌ No ethers.js')
     console.log('✅ Ethers OK')
     
-    const TOKEN = '0x2685ba9d4c0386f9982169920435ddc97aa34444'
+    // Contract addresses for each game
+    // Game 1 (bird-squash) - contract address
+    const GAME_CONTRACTS = {
+      'bird-squash': '0xdb26dcc0cac3253a516398d60fd53e6f7c284444', // Game 1 - bird squash token
+      // Add other games here as needed
+      // 'wojak-btc-blast': '0x...',
+      // 'moonshot-bnb': '0x...',
+    }
+    
     const HELPER = '0xF251F83e40a78868FcfA3FA4599Dad6494E46034'
     
     function fmt(n) {
@@ -3958,8 +4152,21 @@ window.addEventListener("beforeunload", stopGame);
       const btn = document.querySelector(`#${id} [data-role="marketcap"] button span`)
       if (!btn) return console.log(`[MC] No span: ${id}`)
       
+      // Get contract address for this game - NO FALLBACK, must be in GAME_CONTRACTS
+      const TOKEN = GAME_CONTRACTS[id]
+      
+      if (!TOKEN) {
+        console.warn(`⚠️ [MC] No contract address configured for game: ${id}`)
+        btn.textContent = '--' // Only show number, MC comes from CSS ::before
+        return // Don't fetch MC if no contract configured
+      }
+      
+      console.log(`📝 [MC] Using contract for ${id}: ${TOKEN}`)
+      
       const wrap = document.querySelector(`#${id} [data-role="marketcap"] button`)
-      btn.textContent = 'MC ...'
+      if (!wrap) return console.log(`[MC] No button: ${id}`)
+      
+      btn.textContent = '...' // Only show loading number, MC comes from CSS ::before
       
       try {
         // Init provider & contract
@@ -3998,16 +4205,37 @@ window.addEventListener("beforeunload", stopGame);
           console.log(`✅ [MC] ${id}: $${fmt(mc)} (4meme contract)`)
         }
         
-        // Update UI
-        btn.textContent = `MC ${fmt(mc)}`
+        // Update UI - Show MC value after "MC" text (from ::before)
+        // Format: "MC 43.5K" (MC from CSS ::before, number from span)
+        btn.textContent = fmt(mc) // Show formatted number (e.g., "43.5K")
         wrap.style.cursor = 'pointer'
-        wrap.onclick = () => window.open(`https://four.meme/token/${TOKEN}`, '_blank')
-        wrap.title = `$${mc.toLocaleString()}`
+        
+        // Remove ALL existing click handlers by cloning and replacing
+        const newWrap = wrap.cloneNode(true)
+        wrap.parentNode.replaceChild(newWrap, wrap)
+        
+        // Update btn reference to new element after clone
+        const newBtn = newWrap.querySelector('span')
+        if (newBtn) {
+          // Update text content on new element
+          newBtn.textContent = fmt(mc)
+        }
+        
+        // Add click handler to open 4meme link
+        newWrap.addEventListener('click', (e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          console.log(`🔗 Opening 4meme link for ${id}:`, TOKEN)
+          window.open(`https://four.meme/token/${TOKEN}`, '_blank', 'noopener,noreferrer')
+        })
+        
+        newWrap.style.cursor = 'pointer'
+        newWrap.title = `Market Cap: $${mc.toLocaleString()} - Click to view on 4meme`
         mcCache[id] = mc // Cache result
         
       } catch (e) {
         console.error(`❌ [MC] ${id}:`, e)
-        btn.textContent = 'MC --'
+        btn.textContent = '--' // Only show number, MC comes from CSS ::before
         mcCache[id] = 'error' // Cache error to avoid retry
       }
     }
