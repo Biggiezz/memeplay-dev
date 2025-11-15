@@ -3205,12 +3205,37 @@ window.addEventListener("beforeunload", stopGame);
       const finalScore = Math.floor(Number(score))
       console.log('🎮 [TIMER DEBUG] Processing game:', gameId, 'score:', finalScore)
       
+      // ✅ LUÔN submit score trước, sau đó mới xử lý timer logic
+      // ✅ Đảm bảo score được gửi lên leaderboard dù có "Play Again" hay không
+      console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
+      
+      // Submit score ngay lập tức (không đợi timer logic)
+      try {
+        console.log('📤 [SCORE] Submitting score immediately:', { gameId, score: finalScore, userId })
+        const { data, error } = await supabase.rpc('submit_game_score', {
+          p_user_id: userId,
+          p_game_id: gameId,
+          p_score: finalScore
+        })
+        
+        if (error) throw error
+        
+        if (data?.is_new_best) {
+          console.log(`🏆 New high score! Rank #${data.user_rank}/${data.total_players}`)
+          // TODO: Show toast/animation "New Best!"
+        } else {
+          console.log(`✓ Score submitted. Best: ${data.best_score}, Rank: #${data.user_rank}`)
+        }
+      } catch (err) {
+        console.error('❌ [SCORE] Submit score error:', err)
+      }
+      
       // DETECT PLAY AGAIN: User is playing (score > 0) but timer not running for this game
       const hasScore = score > 0  // Score > 0 = game is being played
       const timerNotRunningForThisGame = !activeStartTime || (activeGame && activeGame !== gameId)
       
-      const isPlayAgain = hasScore && timerNotRunningForThisGame
-      console.log('🎮 [TIMER DEBUG] isPlayAgain check:', { hasScore, timerNotRunningForThisGame, activeStartTime, activeGame })
+      const isPlayAgain = hasScore && timerNotRunningForThisGame && finalScore < 15  // ✅ Chỉ detect Play Again nếu score < 15
+      console.log('🎮 [TIMER DEBUG] isPlayAgain check:', { hasScore, timerNotRunningForThisGame, activeStartTime, activeGame, isPlayAgain })
       
       if (isPlayAgain) {
         console.log('🔄 [TIMER DEBUG] ✅ Play Again detected! Starting timer for:', gameId)
@@ -3228,7 +3253,6 @@ window.addEventListener("beforeunload", stopGame);
       }
       
       // HIGH SCORE = GAME OVER
-      console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
       console.log('🎮 Game Over detected! Stopping game to finalize achievements...')
       
       // Stop game = finalize playtime + queue any remaining achievements
@@ -3257,25 +3281,6 @@ window.addEventListener("beforeunload", stopGame);
         }, 1000)
       } else {
         console.log('   ❌ NO pending achievements found after stopGame!')
-      }
-      
-      try {
-        const { data, error } = await supabase.rpc('submit_game_score', {
-          p_user_id: userId,
-          p_game_id: gameId,
-          p_score: finalScore
-        })
-        
-        if (error) throw error
-        
-        if (data?.is_new_best) {
-          console.log(`🏆 New high score! Rank #${data.user_rank}/${data.total_players}`)
-          // TODO: Show toast/animation "New Best!"
-        } else {
-          console.log(`✓ Score submitted. Best: ${data.best_score}, Rank: #${data.user_rank}`)
-        }
-      } catch (err) {
-        console.error('Submit score error:', err)
       }
     }
   })
