@@ -357,7 +357,7 @@
     const gameState = {
       grid: [],
       score: 0,
-      comboLevel: 1,
+      comboLevel: 0, // ✅ Combo bắt đầu từ 0, cộng dồn theo số hàng phá được
       shapesPlacedThisTurn: 0,
       currentShapes: [], // 3 shapes to place this turn [{shape, color}, ...]
       gameOver: false,
@@ -1065,30 +1065,17 @@
         clearLines(linesToClear);
         playLineClear();
         
-        // Reset consecutive no-clear placements counter (phá được hàng rồi)
+        // ✅ COMBO = TỔNG SỐ HÀNG GẠCH ĐƯỢC PHÁ (CỘNG DỒN)
+        // Combo tăng thêm bằng số hàng phá được trong lượt này
+        gameState.comboLevel += totalLines;
+        
+        // ✅ CỘNG ĐIỂM NGAY SAU MỖI LẦN PHÁ GẠCH
+        // Điểm = số hàng phá × combo (sau khi đã tăng combo)
+        const points = totalLines * gameState.comboLevel;
+        gameState.score += points;
+        
+        // ✅ Reset counter số lượt đặt gạch liên tiếp không phá được (phá được hàng rồi)
         gameState.consecutiveNoClearPlacements = 0;
-        
-        // Update combo: combo = số hàng phá được trong lượt này
-        // Nếu trong 3 lượt liên tiếp đều phá được → combo tăng dần
-        gameState.consecutiveClears++;
-        gameState.consecutiveNoClears = 0;
-        
-        // Combo base = số hàng phá được
-        let baseCombo = totalLines;
-        
-        // Nếu đã phá liên tiếp trong nhiều lượt → combo tăng dần (không giới hạn)
-        if (gameState.consecutiveClears >= 2) {
-          // Lượt thứ 2: combo +1
-          // Lượt thứ 3: combo +2
-          // Lượt thứ 4: combo +3
-          // Lượt thứ 5+: combo tiếp tục tăng (không giới hạn)
-          const bonus = gameState.consecutiveClears - 1; // Không cap bonus nữa
-          baseCombo += bonus;
-        }
-        
-        gameState.comboLevel = baseCombo;
-        
-        // Không cap combo nữa - cho phép combo lên x5, x6, x7... không giới hạn
         
         // Play progressive combo sound - càng cao combo càng kích thích
         // Phát âm thanh cho mọi combo level (x2, x3, x4, x5+)
@@ -1099,20 +1086,19 @@
         // Animate diamond
         animateDiamond();
         
-        // Track lines cleared this turn (score will be calculated at endTurn with combo)
+        // Track lines cleared this turn
         gameState.linesClearedThisTurn += totalLines;
         
-        // Update UI immediately to show new combo
+        // Update UI immediately to show new combo and score
         drawUI();
       } else {
-        // Không phá được hàng → tăng counter
+        // ✅ Không phá được hàng → tăng counter số lượt đặt gạch liên tiếp không phá được
         gameState.consecutiveNoClearPlacements++;
         
-        // Nếu đạt 3 lần đặt gạch liên tiếp không phá được → combo về x0
+        // ✅ Nếu đạt 3 lượt đặt gạch liên tiếp không phá được → reset combo về 0
         if (gameState.consecutiveNoClearPlacements >= 3) {
           gameState.comboLevel = 0;
           gameState.consecutiveNoClearPlacements = 0; // Reset counter
-          gameState.consecutiveClears = 0; // Reset consecutive clears
           drawUI(); // Update UI to show combo x0
         }
       }
@@ -1224,25 +1210,9 @@
     }
     
     function endTurn() {
-      // Calculate score based on lines cleared this turn
-      if (gameState.linesClearedThisTurn > 0) {
-        // Calculate score with combo multiplier (combo đã được update trong placeShape)
-        const multiplier = gameState.comboLevel;
-        const points = gameState.linesClearedThisTurn * multiplier;
-        gameState.score += points;
-      } else {
-        // No lines cleared this turn
-        gameState.consecutiveNoClears++;
-        gameState.consecutiveClears = 0; // Reset consecutive clears counter
-        
-        // If 3 consecutive turns without clearing → reset combo về 0 (báo hiệu mất lượt nâng combo)
-        if (gameState.consecutiveNoClears >= 3) {
-          gameState.comboLevel = 0;
-          gameState.consecutiveNoClears = 0;
-        }
-      }
-      
-      // Reset lines cleared counter for next turn
+      // ✅ Điểm đã được cộng ngay sau mỗi lần phá gạch (trong placeShape)
+      // ✅ Combo đã được xử lý trong placeShape (cộng dồn số hàng phá được, reset khi quá 3 lượt đặt gạch không phá được)
+      // Chỉ reset counter cho lượt tiếp theo
       gameState.linesClearedThisTurn = 0;
       
       // Generate new turn FIRST (spawn new blocks)
@@ -1496,16 +1466,14 @@
       document.getElementById('finalScore').textContent = gameState.score;
       document.getElementById('gameOver').classList.add('show');
       
-      // Send GAME_SCORE message when game over (only once)
-      if (!gameState.scoreSent && gameState.gameStarted) {
-        gameState.scoreSent = true;
-        if (window.parent && window.parent !== window) {
-          window.parent.postMessage({
-            type: 'GAME_SCORE',
-            gameId: 'crypto-blocks',
-            score: gameState.score
-          }, '*');
-        }
+      // ✅ Gửi điểm cuối cùng lên leaderboard khi game over
+      if (gameState.gameStarted && window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'GAME_SCORE',
+          gameId: 'crypto-blocks',
+          score: gameState.score
+        }, '*');
+        console.log('📤 Sent final score to leaderboard:', gameState.score);
       }
     }
     
@@ -1514,7 +1482,7 @@
       start() {
         initGrid();
         gameState.score = 0;
-        gameState.comboLevel = 1;
+        gameState.comboLevel = 0; // ✅ Combo bắt đầu từ 0, cộng dồn theo số hàng phá được
         gameState.gameOver = false;
         gameState.shapesPlacedThisTurn = 0;
         gameState.consecutiveClears = 0;
@@ -1528,7 +1496,6 @@
         gameState.dragPointer = { x: CONFIG.GRID_X + CONFIG.GRID_WIDTH / 2, y: CONFIG.GRID_Y + CONFIG.GRID_HEIGHT / 2 };
         gameState.particles = []; // Clear particles
         gameState.gameStarted = false; // Reset game started flag
-        gameState.scoreSent = false; // Reset score sent flag
         generateNewTurn();
         drawGrid();
         drawUI();
