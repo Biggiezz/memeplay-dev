@@ -1462,18 +1462,79 @@
     }
     
     // ===== GAME OVER UI =====
-    function showGameOver() {
+    async function showGameOver() {
       document.getElementById('finalScore').textContent = gameState.score;
       document.getElementById('gameOver').classList.add('show');
       
       // ✅ Gửi điểm cuối cùng lên leaderboard khi game over
-      if (gameState.gameStarted && window.parent && window.parent !== window) {
+      const isInIframe = window.parent && window.parent !== window;
+      
+      if (isInIframe) {
+        // ✅ Nếu chạy trong iframe → dùng postMessage (MemePlay platform)
         window.parent.postMessage({
           type: 'GAME_SCORE',
           gameId: 'crypto-blocks',
           score: gameState.score
         }, '*');
-        console.log('📤 Sent final score to leaderboard:', gameState.score);
+        console.log('📤 [CRYPTO-BLOCKS] Sent score via postMessage (iframe):', gameState.score);
+      } else {
+        // ✅ Nếu KHÔNG chạy trong iframe → gửi trực tiếp đến Supabase (mobile direct access)
+        console.warn('⚠️ [CRYPTO-BLOCKS] Not in iframe, sending score directly to Supabase');
+        
+        // Lấy userId từ localStorage (giống như parent window)
+        const getLocalUserId = () => {
+          let id = localStorage.getItem('mp_user_id');
+          if (!id) {
+            id = 'u_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            localStorage.setItem('mp_user_id', id);
+          }
+          return id;
+        };
+        
+        const getWalletAddress = () => {
+          return localStorage.getItem('mp_user_wallet') || '';
+        };
+        
+        const userId = getWalletAddress() || getLocalUserId();
+        
+        if (!userId) {
+          console.error('❌ [CRYPTO-BLOCKS] Cannot send score: No userId');
+          return;
+        }
+        
+        // Gửi trực tiếp đến Supabase REST API
+        const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co';
+        const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ';
+        
+        const endpoint = `${SUPABASE_URL}/rest/v1/rpc/submit_game_score`;
+        const scoreData = {
+          p_user_id: userId,
+          p_game_id: 'crypto-blocks',
+          p_score: gameState.score
+        };
+        
+        try {
+          const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'apikey': SUPABASE_ANON_KEY,
+              'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+              'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(scoreData),
+            keepalive: true  // Safari-safe
+          });
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+          }
+          
+          const data = await response.json();
+          console.log('✅ [CRYPTO-BLOCKS] Score sent directly to Supabase:', data);
+        } catch (err) {
+          console.error('❌ [CRYPTO-BLOCKS] Direct submit error:', err);
+        }
       }
     }
     
