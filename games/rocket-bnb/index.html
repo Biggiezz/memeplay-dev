@@ -245,20 +245,74 @@
     const dogImg = new Image();
     dogImg.src = 'assets/dog-binance.webp';  // ✅ Binance dog image!
     dogImg.onload = () => console.log('✅ Dog Binance image loaded!');
-
-    // Audio
+    
+    // ==========================================
+    // AUDIO (Mobile-safe unlock)
+    // ==========================================
     const ctx2 = new (window.AudioContext || window.webkitAudioContext)();
+    let audioUnlocked = false;
+    
+    // Unlock / resume audio on first real user gesture (required on mobile)
+    function unlockAudio() {
+      try {
+        if (ctx2.state === 'suspended') {
+          ctx2.resume().then(() => {
+            if (audioUnlocked) return;
+            audioUnlocked = true;
+            // Silent click to fully unlock audio on iOS/Safari
+            try {
+              const o = ctx2.createOscillator();
+              const g = ctx2.createGain();
+              o.connect(g);
+              g.connect(ctx2.destination);
+              g.gain.setValueAtTime(0.0001, ctx2.currentTime);
+              o.frequency.setValueAtTime(1, ctx2.currentTime);
+              o.start(ctx2.currentTime);
+              o.stop(ctx2.currentTime + 0.01);
+            } catch (err) {
+              console.log('Silent unlock error:', err);
+            }
+          }).catch(() => {});
+        } else if (ctx2.state === 'running' && !audioUnlocked) {
+          audioUnlocked = true;
+          try {
+            const o = ctx2.createOscillator();
+            const g = ctx2.createGain();
+            o.connect(g);
+            g.connect(ctx2.destination);
+            g.gain.setValueAtTime(0.0001, ctx2.currentTime);
+            o.frequency.setValueAtTime(1, ctx2.currentTime);
+            o.start(ctx2.currentTime);
+            o.stop(ctx2.currentTime + 0.01);
+          } catch (err) {}
+        }
+      } catch (e) {
+        console.log('unlockAudio error:', e);
+      }
+    }
+    
     function beep(freq, dur, type = 'square') {
-      const o = ctx2.createOscillator();
-      const g = ctx2.createGain();
-      o.connect(g);
-      g.connect(ctx2.destination);
-      o.type = type;
-      o.frequency.value = freq;
-      g.gain.setValueAtTime(0.3, ctx2.currentTime);
-      g.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + dur);
-      o.start();
-      o.stop(ctx2.currentTime + dur);
+      try {
+        // Ensure context is running before playing (mobile)
+        if (ctx2.state === 'suspended') {
+          unlockAudio();
+        }
+      } catch (e) {}
+      
+      try {
+        const o = ctx2.createOscillator();
+        const g = ctx2.createGain();
+        o.connect(g);
+        g.connect(ctx2.destination);
+        o.type = type;
+        o.frequency.value = freq;
+        g.gain.setValueAtTime(0.3, ctx2.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.01, ctx2.currentTime + dur);
+        o.start();
+        o.stop(ctx2.currentTime + dur);
+      } catch (e) {
+        console.log('beep error:', e);
+      }
     }
 
     // Game vars
@@ -650,9 +704,22 @@
       document.getElementById('gameOver').classList.remove('show');
     }
 
-    canvas.addEventListener('click', () => rocket.jump());
-    canvas.addEventListener('touchstart', (e) => { e.preventDefault(); rocket.jump(); });
-    document.addEventListener('keydown', (e) => { if (e.code === 'Space') { e.preventDefault(); rocket.jump(); }});
+    canvas.addEventListener('click', () => {
+      unlockAudio();
+      rocket.jump();
+    });
+    canvas.addEventListener('touchstart', (e) => { 
+      e.preventDefault(); 
+      unlockAudio();
+      rocket.jump(); 
+    });
+    document.addEventListener('keydown', (e) => { 
+      if (e.code === 'Space') { 
+        e.preventDefault(); 
+        unlockAudio();
+        rocket.jump(); 
+      }
+    });
 
     loop();
     console.log('🚀 BNB Rocket - OPTIMIZED FOR IFRAME!');

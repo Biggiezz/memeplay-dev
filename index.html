@@ -2833,7 +2833,7 @@ function forceStart(gameId) {
 async function stopGame() {
   if (!activeGame || !activeStartTime) return;
 
-  const seconds = Math.floor((Date.now() - activeStartTime) / 1000);
+    const seconds = Math.floor((Date.now() - activeStartTime) / 1000);
   if (seconds > 0) {
       // Optimistic UI bump (visible immediately), will be corrected after server refresh
       try {
@@ -2900,13 +2900,16 @@ async function stopGame() {
       console.error('Playtime tracking error:', err.message);
     }
 
-    // Increment real play count if eligible (>=3s) with keepalive
+    // Increment real play count if eligible with keepalive
     if (seconds >= 3) {
       try {
+        // 🔁 Legacy games: always send a fixed 3s to ensure exactly +1 play per full session
+        // (backend may derive plays from seconds, e.g. floor(seconds / 3))
+        const secondsForRpc = isLegacyGame(activeGame) ? 3 : seconds;
         const payload = {
           p_user_id: userId,
           p_game_id: activeGame,
-          p_seconds: seconds
+          p_seconds: secondsForRpc
         };
         console.log('📈 [PLAYS] increment_play_count (stopGame) →', payload);
         let { data, error } = await rpcWithKeepalive('increment_play_count', payload);
@@ -3303,6 +3306,17 @@ window.addEventListener("beforeunload", stopGame);
     }
   });
   
+  // Legacy games (hosted on Lovable, sử dụng protocol cũ)
+  const LEGACY_GAME_IDS = new Set([
+    'bird-squash',      // Game 1
+    'inverse-cramer',   // Jim Cramer
+    'moonshot-bnb'      // Game 2
+  ]);
+
+  function isLegacyGame(gameId) {
+    return !!gameId && LEGACY_GAME_IDS.has(gameId);
+  }
+
   window.addEventListener('message', async (event) => {
     // DEBUG: Log ALL messages to see what's being received
     const msgType = event.data?.type
@@ -3390,52 +3404,79 @@ window.addEventListener("beforeunload", stopGame);
       }
 
       // Ensure a play is counted even if timer didn't start properly
-      try {
-        // Compute session seconds; if not available, fallback to 3s minimum
-        let secondsElapsed = 0
-        if (activeGame === gameId && activeStartTime) {
-          secondsElapsed = Math.max(0, Math.floor((Date.now() - activeStartTime) / 1000))
+      // ❗ Legacy games: skip safeguard here để tránh double-count; stopGame() sẽ lo increment.
+      if (!isLegacyGame(gameId)) {
+        try {
+          // Compute session seconds; if not available, fallback to 3s minimum
+          let secondsElapsed = 0
+          if (activeGame === gameId && activeStartTime) {
+            secondsElapsed = Math.max(0, Math.floor((Date.now() - activeStartTime) / 1000))
+          }
+          const secondsForPlay = Math.max(3, secondsElapsed)
+          console.log('⏱ [PLAYS SAFEGUARD] secondsForPlay =', secondsForPlay, 'gameId =', gameId)
+          const sgPayload = {
+            p_user_id: userId,
+            p_game_id: gameId,
+            p_seconds: secondsForPlay
+          };
+          console.log('📈 [PLAYS] increment_play_count (safeguard) →', sgPayload);
+          const { data: incData, error: incErr } = await rpcWithKeepalive('increment_play_count', sgPayload)
+          if (incErr) {
+            console.warn('⏱ [PLAYS SAFEGUARD] increment_play_count failed:', incErr.message)
+          } else if (incData && typeof incData.total_plays === 'number') {
+            setPlaysLabelForCard(gameId, incData.total_plays)
+            console.log(`📊 [plays safeguard +1] ${gameId}:`, incData.total_plays)
+          }
+        } catch (e) {
+          console.warn('⏱ [PLAYS SAFEGUARD] error:', e?.message || e)
+          try { await loadPlayCount(gameId) } catch {}
         }
-        const secondsForPlay = Math.max(3, secondsElapsed)
-        console.log('⏱ [PLAYS SAFEGUARD] secondsForPlay =', secondsForPlay, 'gameId =', gameId)
-        const sgPayload = {
-          p_user_id: userId,
-          p_game_id: gameId,
-          p_seconds: secondsForPlay
-        };
-        console.log('📈 [PLAYS] increment_play_count (safeguard) →', sgPayload);
-        const { data: incData, error: incErr } = await rpcWithKeepalive('increment_play_count', sgPayload)
-        if (incErr) {
-          console.warn('⏱ [PLAYS SAFEGUARD] increment_play_count failed:', incErr.message)
-        } else if (incData && typeof incData.total_plays === 'number') {
-          setPlaysLabelForCard(gameId, incData.total_plays)
-          console.log(`📊 [plays safeguard +1] ${gameId}:`, incData.total_plays)
-        }
-      } catch (e) {
-        console.warn('⏱ [PLAYS SAFEGUARD] error:', e?.message || e)
-        try { await loadPlayCount(gameId) } catch {}
       }
       
-      // DETECT PLAY AGAIN: User is playing (score > 0) but timer not running for this game
-      const hasScore = score > 0  // Score > 0 = game is being played
-      const timerNotRunningForThisGame = !activeStartTime || (activeGame && activeGame !== gameId)
+      // LEGACY GAMES (Lovable): Always treat GAME_SCORE as full session end (old behavior)
+      if (isLegacyGame(gameId)) {
+        console.log('🕒 [LEGACY] Handling GAME_SCORE with legacy flow for', gameId);
       
-      const isPlayAgain = hasScore && timerNotRunningForThisGame && finalScore < 15  // ✅ Only detect Play Again if score < 15
-      console.log('🎮 [TIMER DEBUG] isPlayAgain check:', { hasScore, timerNotRunningForThisGame, activeStartTime, activeGame, isPlayAgain })
-      
-      if (isPlayAgain) {
-        console.log('🔄 [TIMER DEBUG] ✅ Play Again detected! Starting timer for:', gameId)
-        
-        // Stop previous session if exists (different game)
-        if (activeGame && activeStartTime && activeGame !== gameId) {
-          console.log('   ⏹️ Stopping previous game session:', activeGame)
-          await stopGame()
+        // Nếu timer chưa chạy hoặc đang chạy cho game khác, backfill start time tối thiểu
+        if (!activeGame || activeGame !== gameId || !activeStartTime) {
+          activeGame = gameId;
+          // Backdate 5s để đảm bảo có thời gian >0 cho reward (increment_play_count dùng 3s cố định)
+          activeStartTime = Date.now() - 5000;
+          console.log('🕒 [LEGACY] Backfilled start time for', gameId, 'at', new Date(activeStartTime).toISOString());
         }
+      
+        // Dừng game ngay để finalize playtime + achievements như cũ
+        try {
+          await stopGame();
+          console.log('✅ [LEGACY] stopGame() completed for', gameId);
+        } catch (e) {
+          console.error('❌ [LEGACY] stopGame error for', gameId, e);
+        }
+        // Không return; tiếp tục xuống logic GAME OVER chung để nổ toast giữa màn hình
+      }
+      
+      // DETECT PLAY AGAIN: chỉ áp dụng cho game mới, không áp dụng cho legacy games
+      if (!isLegacyGame(gameId)) {
+        const hasScore = score > 0  // Score > 0 = game is being played
+        const timerNotRunningForThisGame = !activeStartTime || (activeGame && activeGame !== gameId)
         
-        console.log('   ▶️ Starting timer for', gameId)
-        startGame(gameId)
-        // Return early, wait for higher score to process game over
-        return
+        const isPlayAgain = hasScore && timerNotRunningForThisGame && finalScore < 15  // ✅ Only detect Play Again if score < 15
+        console.log('🎮 [TIMER DEBUG] isPlayAgain check:', { hasScore, timerNotRunningForThisGame, activeStartTime, activeGame, isPlayAgain })
+        
+        if (isPlayAgain) {
+          console.log('🔄 [TIMER DEBUG] ✅ Play Again detected! Starting timer for:', gameId)
+          
+          // Stop previous session if exists (different game)
+          if (activeGame && activeStartTime && activeGame !== gameId) {
+            console.log('   ⏹️ Stopping previous game session:', activeGame)
+            await stopGame()
+          }
+          
+          console.log('   ▶️ Starting timer for', gameId)
+          startGame(gameId)
+          // Return early, wait for higher score to process game over
+          return
+        }
       }
       
       // HIGH SCORE = GAME OVER
