@@ -264,7 +264,7 @@
       BALL_SIZE: 32, // x4 size (was 8)
       // Tốc độ bi KHÔNG thay đổi theo level - chỉ phụ thuộc vào mobile/desktop
       get BALL_SPEED_BASE() { return 4 * speedMultiplier; }, // Không nhân với level!
-      BRICK_PADDING: 1, // Tight spacing
+      BRICK_PADDING: 3, // Spacing between bricks (tăng lên 3 để rõ ràng hơn, dễ thấy padding)
       LEVEL_TIME: 30000, // 30 seconds per level
       MAX_LEVEL: 20,
       MAX_BALLS: 15, // Tối đa 15 viên bi
@@ -769,13 +769,19 @@
       const startY = 90; // Moved down 10px
 
       // Create solid rectangle of bricks (no pattern, all filled)
+      // Tính padding đều cho tất cả các hàng (bao gồm cả hàng đầu và hàng sau)
       let brickCount = 0;
       for (let row = 0; row < rows; row++) {
         for (let col = 0; col < cols; col++) {
           if (brickCount >= totalBricks) break;
           
-          const x = startX + col * (brickWidth + CONFIG.BRICK_PADDING) + CONFIG.BRICK_PADDING;
-          const y = startY + row * (brickHeight + CONFIG.BRICK_PADDING) + CONFIG.BRICK_PADDING;
+          // Tính X: padding đầu + (col * (brickWidth + padding))
+          const x = startX + CONFIG.BRICK_PADDING + col * (brickWidth + CONFIG.BRICK_PADDING);
+          
+          // Tính Y: padding đầu + (row * (brickHeight + padding))
+          // Đảm bảo padding đều giữa TẤT CẢ các hàng (hàng 0-1, 1-2, 2-3)
+          const y = startY + CONFIG.BRICK_PADDING + row * (brickHeight + CONFIG.BRICK_PADDING);
+          
           const color = getBrickColor(row, rows);
           
           bricks.push(new Brick(x, y, brickWidth, brickHeight, color));
