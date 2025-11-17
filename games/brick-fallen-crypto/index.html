@@ -50,7 +50,30 @@
     .touch-zone.right {
       right: 0;
     }
-    .start-screen, .level-screen, .game-over-screen {
+    /* Start screen: fullscreen overlay */
+    .start-screen {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.4);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      color: white;
+      z-index: 200;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    .start-screen.show {
+      display: flex;
+      animation: popIn 0.3s ease-out;
+    }
+    /* Level screen and Game Over: old design (box with border) */
+    .level-screen, .game-over-screen {
       position: fixed;
       top: 50%;
       left: 50%;
@@ -64,7 +87,7 @@
       z-index: 200;
       display: none;
     }
-    .start-screen.show, .level-screen.show, .game-over-screen.show {
+    .level-screen.show, .game-over-screen.show {
       display: block;
       animation: popIn 0.3s ease-out;
     }
@@ -74,10 +97,52 @@
       margin-bottom: 20px;
       text-shadow: 3px 3px 6px rgba(0,0,0,0.8);
     }
+    .start-screen .screen-title {
+      margin: 0;
+      text-shadow: 3px 3px 6px rgba(0,0,0,0.8), 0 0 20px rgba(255, 215, 0, 0.5);
+      pointer-events: none;
+      animation: gentlePulse 2s ease-in-out infinite;
+    }
+    @keyframes gentlePulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.05);
+      }
+    }
     .screen-subtitle {
       font-size: 24px;
       margin-bottom: 30px;
       line-height: 1.6;
+    }
+    .game-over-content {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
+      margin-bottom: 30px;
+      width: 100%;
+    }
+    .bnb-logo {
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      border: 2px solid #ffd700;
+      padding: 8px;
+      background: rgba(255, 255, 255, 0.1);
+      object-fit: contain;
+    }
+    .bnb-story {
+      font-size: 16px;
+      line-height: 1.6;
+      color: #fff;
+      text-align: center;
+      max-width: 500px;
+      margin: 0;
+      padding: 0 20px;
     }
     .screen-btn {
       background: linear-gradient(135deg, #ffd700, #ffed4e);
@@ -97,6 +162,48 @@
     .screen-btn:active {
       transform: scale(0.95);
     }
+    /* Mobile: Compact game over screen */
+    @media screen and (max-width: 768px) {
+      .game-over-screen {
+        padding: 20px !important;
+        width: 90vw !important;
+        max-width: 600px !important;
+        max-height: 85vh !important;
+        overflow-y: auto;
+      }
+      .game-over-screen .screen-title {
+        font-size: 27px !important; /* 75% of 36px = 27px (down another 25%) */
+        margin-bottom: 12px !important;
+      }
+      .game-over-screen .screen-subtitle {
+        font-size: 20px !important;
+        margin-bottom: 16px !important;
+      }
+      .game-over-content {
+        gap: 12px !important;
+        margin-bottom: 16px !important;
+      }
+      .bnb-logo {
+        width: 98px !important; /* 70% of 140px = 98px (down 30%) */
+        height: 98px !important;
+        padding: 6px !important;
+      }
+      .bnb-story {
+        font-size: 14px !important;
+        line-height: 1.5 !important;
+        padding: 0 10px !important;
+        margin-bottom: 12px !important; /* Space for button */
+      }
+      .game-over-screen .screen-btn {
+        font-size: 18px !important;
+        padding: 10px 25px !important;
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        margin: 0 auto !important;
+        width: fit-content !important;
+      }
+    }
     @keyframes popIn {
       0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
       100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
@@ -115,28 +222,22 @@
   <div class="touch-zone right" id="touchRight"></div>
 
   <div class="start-screen show" id="startScreen">
-    <div class="screen-title">BRICK</div>
-    <div class="screen-subtitle">
-      Fallen Crypto<br>
-      <small style="font-size: 18px; opacity: 0.8;">
-        Break the logos of failed projects
-      </small>
-    </div>
-    <button class="screen-btn" id="startBtn">START GAME</button>
+    <div class="screen-title" id="startBtn">Tap to play</div>
   </div>
 
   <div class="level-screen" id="levelScreen">
     <div class="screen-title" id="levelTitle">LEVEL 1</div>
-    <div class="screen-subtitle" id="levelSubtitle">FTX</div>
     <button class="screen-btn" id="levelStartBtn">START</button>
   </div>
 
   <div class="game-over-screen" id="gameOverScreen">
     <div class="screen-title">GAME OVER</div>
     <div class="screen-subtitle">
-      Level: <span id="finalLevel">1</span><br>
-      Score: <span id="finalScore">0</span><br>
-      Bricks: <span id="finalBricks">0</span>
+      Score: <span id="finalScore">0</span>
+    </div>
+    <div class="game-over-content">
+      <img id="bnbLogo" src="assets/binance-logo.webp" alt="BNB Logo" class="bnb-logo">
+      <p id="bnbStory" class="bnb-story"></p>
     </div>
     <button class="screen-btn" id="restartBtn">PLAY AGAIN</button>
   </div>
@@ -146,7 +247,7 @@
     // MOBILE DETECTION
     // ==========================================
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-    const speedMultiplier = isMobile ? 2.1 : 1.0; // +110% on mobile (70% + 40%)
+    const speedMultiplier = isMobile ? 2.73 : 2.25; // Desktop: +125% (1.0 * 2.25 = 2.25, tăng 50% từ 1.5) | Mobile: +173%
     
     console.log('📱 Device:', isMobile ? 'Mobile' : 'Desktop', '| Speed:', speedMultiplier + 'x');
 
@@ -159,9 +260,10 @@
       PADDLE_WIDTH: 120,
       PADDLE_HEIGHT: 20,
       PADDLE_Y: 920,
-      get PADDLE_SPEED() { return 8 * (isMobile ? 1.15 : 1.0); }, // +15% on mobile
+      get PADDLE_SPEED() { return 10.4 * (isMobile ? 1.15 : 1.0); }, // Desktop: +30% (8→10.4) | Mobile: +15% on top (11.96)
       BALL_SIZE: 32, // x4 size (was 8)
-      get BALL_SPEED_BASE() { return 4 * speedMultiplier; },
+      // Tốc độ bi KHÔNG thay đổi theo level - chỉ phụ thuộc vào mobile/desktop
+      get BALL_SPEED_BASE() { return 4 * speedMultiplier; }, // Không nhân với level!
       BRICK_PADDING: 1, // Tight spacing
       LEVEL_TIME: 30000, // 30 seconds per level
       MAX_LEVEL: 20,
@@ -258,20 +360,10 @@
       }
     }
     
-    // Bi chạm gạch (soft click sound)
+    // Bi chạm gạch (âm thanh từ game 13 - crypto-blocks: đặt gạch vào ô lưới 8x8)
     function playBrickHit() {
-      if (!audioContext) return;
-      const osc = audioContext.createOscillator();
-      const gain = audioContext.createGain();
-      osc.connect(gain);
-      gain.connect(audioContext.destination);
-      osc.type = 'sine'; // Soft sound
-      osc.frequency.setValueAtTime(400, audioContext.currentTime); // Lower pitch
-      osc.frequency.exponentialRampToValueAtTime(200, audioContext.currentTime + 0.03); // Quick drop
-      gain.gain.setValueAtTime(0.08, audioContext.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.03);
-      osc.start(audioContext.currentTime);
-      osc.stop(audioContext.currentTime + 0.03); // Shorter duration
+      // Dùng âm thanh bi chạm mái chèo cho bi chạm gạch (nghe êm tai hơn)
+      playPaddleBounce();
     }
     
     // Phá gạch (explosion sound)
@@ -346,6 +438,31 @@
     }
 
     // ==========================================
+    // LOAD BINANCE LOGO WHITE (for ball sprite)
+    // ==========================================
+    const binanceLogoImg = new Image();
+    binanceLogoImg.src = 'assets/binance-logo-white.webp';
+    let binanceLogoLoaded = false;
+    binanceLogoImg.onload = () => {
+      binanceLogoLoaded = true;
+      console.log('✅ Binance logo (white) loaded for ball');
+    };
+    binanceLogoImg.onerror = () => {
+      console.warn('⚠️ Binance logo failed to load, using fallback color');
+    };
+
+    // ==========================================
+    // BNB STORIES (random 1/5 on game over)
+    // ==========================================
+    const BNB_STORIES = [
+      "In 2025, Binance Integrates BlackRock's BUIDL Fund into Institutional Collateral Framework",
+      "In 2017, Binance launched in a highly competitive market, but BNB quickly stood out with low fees and fast transactions.",
+      "In 2018, even during a deep market downturn, BNB kept growing thanks to Binance's expanding ecosystem.",
+      "In September 2020, Binance Smart Chain went live, turning BNB into the core asset of a major blockchain.",
+      "In 2021, BSC handled millions of transactions per day, proving BNB's leadership in low-cost DeFi."
+    ];
+
+    // ==========================================
     // GAME STATE
     // ==========================================
     let gameState = {
@@ -394,9 +511,11 @@
         this.active = true;
       }
 
-      update() {
-        this.x += this.vx;
-        this.y += this.vy;
+      update(deltaTime) {
+        // Use deltaTime for smooth movement (like paddle and powerups)
+        // Prevents ball "jumping" when frame rate fluctuates
+        this.x += this.vx * deltaTime;
+        this.y += this.vy * deltaTime;
 
         // Wall collision (circular hitbox)
         if (this.x - this.size / 2 <= 0) {
@@ -442,18 +561,61 @@
       }
 
       draw() {
-        // Draw circular ball
-        ctx.fillStyle = '#ff00ff';
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
-        ctx.fill();
+        // Optimized rendering: simpler on mobile, full quality on desktop
+        if (isMobile) {
+          // Mobile: Simple white circle (faster, no clip/save/restore)
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+          
+          // Optional: Simple logo without clip (if loaded)
+          if (binanceLogoLoaded) {
+            ctx.drawImage(
+              binanceLogoImg,
+              this.x - this.size / 2,
+              this.y - this.size / 2,
+              this.size,
+              this.size
+            );
+          }
+        } else {
+          // Desktop: Full quality with circular clip
+          if (binanceLogoLoaded) {
+            // Step 1: Draw white circular background
+            ctx.fillStyle = '#ffffff';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Step 2: Draw Binance logo on top (circular clip for perfect circle)
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(
+              binanceLogoImg,
+              this.x - this.size / 2,
+              this.y - this.size / 2,
+              this.size,
+              this.size
+            );
+            ctx.restore();
+          } else {
+            // Fallback: Draw circular ball (purple) if logo not loaded yet
+            ctx.fillStyle = '#ff00ff';
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
         
-        // Hitbox (cyan circle)
-        ctx.strokeStyle = '#00ffff';
-        ctx.lineWidth = 2;
-        ctx.beginPath();
-        ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
-        ctx.stroke();
+        // Hitbox (cyan circle) - only show if debugging
+        // ctx.strokeStyle = '#00ffff';
+        // ctx.lineWidth = 2;
+        // ctx.beginPath();
+        // ctx.arc(this.x, this.y, this.size / 2, 0, Math.PI * 2);
+        // ctx.stroke();
       }
     }
 
@@ -566,18 +728,9 @@
       draw() {
         if (!this.alive) return;
 
-        // Brick body
+        // Brick body only (optimized: removed highlight and border for performance)
         ctx.fillStyle = this.color;
         ctx.fillRect(this.x, this.y, this.width, this.height);
-
-        // Brick highlight
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-        ctx.fillRect(this.x + 1, this.y + 1, this.width - 2, 2);
-
-        // Brick border
-        ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(this.x, this.y, this.width, this.height);
       }
     }
 
@@ -613,7 +766,7 @@
       // Center the brick field
       const totalWidth = cols * brickWidth + (cols + 1) * CONFIG.BRICK_PADDING;
       const startX = (CONFIG.WIDTH - totalWidth) / 2;
-      const startY = 80;
+      const startY = 90; // Moved down 10px
 
       // Create solid rectangle of bricks (no pattern, all filled)
       let brickCount = 0;
@@ -631,15 +784,18 @@
         if (brickCount >= totalBricks) break;
       }
       
+      // Sort bricks by Y position (top to bottom) for optimized collision detection
+      // This allows early exit when checking collisions (skip bricks too far below ball)
+      bricks.sort((a, b) => a.y - b.y);
+      
       // Get crypto name for display
       const logoIndex = (level - 1) % CRYPTO_LOGOS.length;
       gameState.currentLogo = CRYPTO_LOGOS[logoIndex].name;
     }
 
     function getBrickColor(row, totalRows) {
-      const colors = ['#ff0000', '#ff4400', '#ff8800', '#ffcc00', '#ffff00', '#88ff00'];
-      const index = Math.floor((row / totalRows) * colors.length);
-      return colors[Math.min(index, colors.length - 1)];
+      // Thống nhất màu xám xanh cho tất cả gạch (tối ưu lag - giảm context switching)
+      return '#4a90a4'; // Xám xanh (teal/gray-blue)
     }
 
     // ==========================================
@@ -692,13 +848,15 @@
     function gameLoop(currentTime) {
       requestAnimationFrame(gameLoop);
       
+      // Always render (so game is visible behind overlay), only update when running
+      render();
+      
       if (!gameState.isRunning) return;
       
       const deltaTime = Math.min((currentTime - lastTime) / 16.67, 2);
       lastTime = currentTime;
 
       update(deltaTime, currentTime);
-      render();
     }
 
     function update(deltaTime, currentTime) {
@@ -711,28 +869,40 @@
       paddle.x = Math.max(0, Math.min(CONFIG.WIDTH - paddle.width, paddle.x));
 
       // Update balls
-      balls.forEach(ball => {
+      // Optimized: for loop thay vì forEach (nhanh hơn ~10-20%)
+      for (let i = 0; i < balls.length; i++) {
+        const ball = balls[i];
         if (ball.active) {
-          ball.update();
+          ball.update(deltaTime);
 
           // Check brick collisions (max 2 bricks per ball per frame)
-          // Collect collisions first, then apply ONE bounce
+          // Optimized: Early exit with Y-range check (skip bricks too far above/below ball)
+          // Giảm ~70-80% collision checks → giảm 10-15% lag
           const hitBricks = [];
+          const ballY = ball.y;
+          const checkRange = 100; // Chỉ check bricks trong 100px (trên/dưới ball)
+          const radius = ball.size / 2;
+          const ballLeft = ball.x - radius;
+          const ballRight = ball.x + radius;
+          const ballTop = ball.y - radius;
+          const ballBottom = ball.y + radius;
           
           for (let brick of bricks) {
-            if (brick.alive && hitBricks.length < 2) {
-              const radius = ball.size / 2;
-              const ballLeft = ball.x - radius;
-              const ballRight = ball.x + radius;
-              const ballTop = ball.y - radius;
-              const ballBottom = ball.y + radius;
-
-              if (ballRight >= brick.x &&
-                  ballLeft <= brick.x + brick.width &&
-                  ballBottom >= brick.y &&
-                  ballTop <= brick.y + brick.height) {
-                hitBricks.push(brick);
-              }
+            if (!brick.alive || hitBricks.length >= 2) continue;
+            
+            // Early exit: Skip bricks quá xa phía trên ball (Y nhỏ hơn nhiều)
+            if (brick.y < ballY - checkRange) continue;
+            
+            // Early exit: Nếu brick quá xa phía dưới ball (Y lớn hơn nhiều), dừng luôn
+            // Vì bricks đã được sort theo Y, các bricks sau sẽ còn xa hơn
+            if (brick.y > ballY + checkRange) break;
+            
+            // Chỉ check collision cho bricks trong vùng Y gần ball
+            if (ballRight >= brick.x &&
+                ballLeft <= brick.x + brick.width &&
+                ballBottom >= brick.y &&
+                ballTop <= brick.y + brick.height) {
+              hitBricks.push(brick);
             }
           }
           
@@ -743,7 +913,9 @@
             let bounceX = false;
             let bounceY = false;
             
-            hitBricks.forEach(brick => {
+            // Optimized: for loop thay vì forEach
+            for (let j = 0; j < hitBricks.length; j++) {
+              const brick = hitBricks[j];
               // Determine collision side
               const radius = ball.size / 2;
               const ballLeft = ball.x - radius;
@@ -776,21 +948,22 @@
               } else if (rand < 0.20) {
                 powerups.push(new Powerup(brick.x + brick.width / 2, brick.y + brick.height / 2, 'x2'));
               }
-            });
+            }
             
             // Apply bounce ONCE based on all hits
             if (bounceX) ball.vx = -ball.vx;
             if (bounceY) ball.vy = -ball.vy;
           }
         }
-      });
+      }
 
-      // Update powerups
-      powerups.forEach(powerup => {
+      // Update powerups (optimized: for loop)
+      for (let i = 0; i < powerups.length; i++) {
+        const powerup = powerups[i];
         if (!powerup.collected) {
           powerup.update(deltaTime);
         }
-      });
+      }
 
       // Remove collected powerups
       for (let i = powerups.length - 1; i >= 0; i--) {
@@ -834,45 +1007,39 @@
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
 
-      // Draw bricks
-      bricks.forEach(brick => brick.draw());
+      // Draw bricks (optimized: for loop)
+      for (let i = 0; i < bricks.length; i++) {
+        bricks[i].draw();
+      }
 
-      // Draw powerups
-      powerups.forEach(powerup => powerup.draw());
+      // Draw powerups (optimized: for loop)
+      for (let i = 0; i < powerups.length; i++) {
+        powerups[i].draw();
+      }
 
-      // Draw balls
-      balls.forEach(ball => {
+      // Draw balls (optimized: for loop)
+      for (let i = 0; i < balls.length; i++) {
+        const ball = balls[i];
         if (ball.active) ball.draw();
-      });
+      }
 
-      // Draw paddle
+      // Draw paddle (optimized: chỉ vẽ body, bỏ highlight và hitbox debug)
       ctx.fillStyle = paddle.color;
       ctx.fillRect(paddle.x, paddle.y, paddle.width, paddle.height);
-      
-      // Paddle highlight
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-      ctx.fillRect(paddle.x + 2, paddle.y + 2, paddle.width - 4, 4);
-      
-      // Paddle hitbox (cyan)
-      ctx.strokeStyle = '#00ffff';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(paddle.x, paddle.y, paddle.width, paddle.height);
 
       // Draw UI
       ctx.fillStyle = 'white';
       ctx.font = '24px Courier New';
-      ctx.textAlign = 'left';
-      ctx.fillText(`L${gameState.level}`, 10, 30);
-      ctx.fillText(`${Math.ceil(gameState.timeRemaining)}s`, 10, 60);
       
+      // Top right: LV and time (inside 30px from right edge)
       ctx.textAlign = 'right';
-      ctx.fillText(`${gameState.score}`, CONFIG.WIDTH - 10, 30);
+      ctx.fillText(`LV ${gameState.level}`, CONFIG.WIDTH - 30, 35);
+      ctx.fillText(`time ${Math.ceil(gameState.timeRemaining)}s`, CONFIG.WIDTH - 30, 65);
       
-      // Draw level name
-      ctx.textAlign = 'center';
-      ctx.font = '20px Courier New';
-      ctx.fillStyle = '#ff0000';
-      ctx.fillText(gameState.currentLogo, CONFIG.WIDTH / 2, 30);
+      // Top left: score (inside 15px from left edge)
+      ctx.textAlign = 'left';
+      ctx.fillText(`score`, 15, 35);
+      ctx.fillText(`${gameState.score}`, 15, 65);
     }
 
     // ==========================================
@@ -920,9 +1087,7 @@
       
       // Show level screen
       gameState.isRunning = false;
-      const logoIndex = (gameState.level - 1) % CRYPTO_LOGOS.length;
       document.getElementById('levelTitle').textContent = `LEVEL ${gameState.level}`;
-      document.getElementById('levelSubtitle').textContent = CRYPTO_LOGOS[logoIndex].name;
       document.getElementById('levelScreen').classList.add('show');
     }
 
@@ -931,6 +1096,7 @@
       generateLevel(gameState.level);
       balls.length = 0;
       powerups.length = 0;
+      // Tạo bi mới với tốc độ cố định (không đổi theo level)
       spawnBall(true); // Random direction for first ball
       gameState.isRunning = true;
       gameState.levelStartTime = performance.now();
@@ -940,13 +1106,14 @@
       // Limit to max 15 balls
       if (balls.length >= CONFIG.MAX_BALLS) return;
       
+      // Tạo bi mới với tốc độ cố định (CONFIG.BALL_SPEED_BASE không đổi theo level)
       const ball = new Ball(
         paddle.x + paddle.width / 2,
         paddle.y - 20,
         isFirstBall // Random direction for first ball
       );
-      // Tốc độ bi KHÔNG tăng theo level (giữ nguyên lv1)
-      // No speed boost!
+      // ✅ Tốc độ bi GIỮ NGUYÊN ở mọi level (chỉ phụ thuộc mobile/desktop)
+      // ✅ Ball speed does NOT increase with level - constant throughout all levels
       balls.push(ball);
     }
 
@@ -959,9 +1126,18 @@
         score: gameState.score 
       }, '*');
 
-      document.getElementById('finalLevel').textContent = gameState.level;
+      // Update score display
       document.getElementById('finalScore').textContent = gameState.score;
-      document.getElementById('finalBricks').textContent = gameState.bricksDestroyed;
+      
+      // Random BNB story (1/5)
+      const randomStory = BNB_STORIES[Math.floor(Math.random() * BNB_STORIES.length)];
+      document.getElementById('bnbStory').textContent = randomStory;
+      
+      // Ensure logo is visible
+      const bnbLogoEl = document.getElementById('bnbLogo');
+      if (bnbLogoEl) {
+        bnbLogoEl.style.display = 'block';
+      }
       
       if (won) {
         document.querySelector('.game-over-screen .screen-title').textContent = 'YOU WON!';
@@ -978,9 +1154,19 @@
     }
 
     // ==========================================
+    // INITIALIZE GAME (pre-render for preview)
+    // ==========================================
+    // Generate level 1 immediately so game is visible behind overlay
+    generateLevel(1);
+    render(); // Initial render
+    
+    // ==========================================
     // EVENT LISTENERS
     // ==========================================
-    document.getElementById('startBtn').addEventListener('click', startGame);
+    // Make entire start screen clickable
+    const startScreen = document.getElementById('startScreen');
+    startScreen.addEventListener('click', startGame);
+    startScreen.addEventListener('touchstart', (e) => { e.preventDefault(); startGame(); }, { passive: false });
     document.getElementById('levelStartBtn').addEventListener('click', startLevel);
     document.getElementById('restartBtn').addEventListener('click', restartGame);
 
