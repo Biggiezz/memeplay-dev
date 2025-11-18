@@ -311,6 +311,17 @@
       CONFIG.GRID_X = (720 - CONFIG.GRID_WIDTH) / 2;
     }
     
+    // ===== MC WATERMARK IMAGE =====
+    const mcImage = new Image();
+    let mcImageLoaded = false;
+    mcImage.onload = () => {
+      mcImageLoaded = true;
+    };
+    mcImage.onerror = (err) => {
+      console.warn('⚠️ [CRYPTO-BLOCKS] Failed to load mcImage:', err);
+    };
+    mcImage.src = 'assets/ui/mc_meme.png';
+    
     // ===== SHAPE LIBRARY =====
     // Each shape is an array of {x, y} offsets from center (0,0)
     // Only simple, common shapes (1-5 blocks max)
@@ -479,9 +490,25 @@
         gameCtx.globalAlpha = 0.1; // 90% transparent (only 10% visible)
       }
       
-      // Draw grid background
-      gameCtx.fillStyle = '#1a1a2e';
-      gameCtx.fillRect(CONFIG.GRID_X, CONFIG.GRID_Y, CONFIG.GRID_WIDTH, CONFIG.GRID_HEIGHT);
+      // Draw mc meme watermark inside grid (before grid lines and blocks)
+      if (mcImageLoaded) {
+        gameCtx.save();
+        const previousAlpha = gameCtx.globalAlpha;
+        gameCtx.globalAlpha = 0.12;
+        
+        const scale = Math.min(
+          CONFIG.GRID_WIDTH / mcImage.width,
+          CONFIG.GRID_HEIGHT / mcImage.height
+        );
+        const drawWidth = mcImage.width * scale;
+        const drawHeight = mcImage.height * scale;
+        const drawX = CONFIG.GRID_X + (CONFIG.GRID_WIDTH - drawWidth) / 2;
+        const drawY = CONFIG.GRID_Y + (CONFIG.GRID_HEIGHT - drawHeight) / 2;
+        
+        gameCtx.drawImage(mcImage, drawX, drawY, drawWidth, drawHeight);
+        gameCtx.globalAlpha = previousAlpha;
+        gameCtx.restore();
+      }
       
       // Draw grid lines
       gameCtx.strokeStyle = '#2a2a3e';

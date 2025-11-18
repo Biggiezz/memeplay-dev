@@ -1597,6 +1597,57 @@
     let currentActiveGame = null;
     const preloadedGames = new Set(); // Track preloaded games
     
+    // Centralized game states (foundation for active/wait/hidden slots)
+    const GAME_STATES = Object.freeze({
+      HIDDEN: 'hidden',
+      WAITING: 'waiting',
+      ACTIVE: 'active'
+    });
+    const gameStateStore = new Map();
+    window.MEMEPLAY_GAME_STATES = GAME_STATES;
+    
+    function getGameCardElement(gameId) {
+      if (!gameId) return null;
+      return document.getElementById(gameId) ||
+             document.querySelector(`.game-card[data-game-id="${gameId}"]`);
+    }
+    
+    function setGameState(gameId, nextState, cardRef = null) {
+      if (!gameId) return;
+      const validStates = GAME_STATES;
+      const normalizedState = Object.values(validStates).includes(nextState)
+        ? nextState
+        : validStates.HIDDEN;
+      const card = cardRef || getGameCardElement(gameId);
+      if (!card) return;
+      if (card.dataset.gameState === normalizedState) {
+        gameStateStore.set(gameId, normalizedState);
+        return;
+      }
+      card.dataset.gameState = normalizedState;
+      gameStateStore.set(gameId, normalizedState);
+      card.classList.toggle('state-active', normalizedState === validStates.ACTIVE);
+      card.classList.toggle('state-waiting', normalizedState === validStates.WAITING);
+      card.classList.toggle('state-hidden', normalizedState === validStates.HIDDEN);
+    }
+    
+    function getGameState(gameId) {
+      if (!gameId) return GAME_STATES.HIDDEN;
+      return gameStateStore.get(gameId) || GAME_STATES.HIDDEN;
+    }
+    
+    function initializeGameStates(cards = []) {
+      cards.forEach((card) => {
+        const gid = card?.id || card?.dataset?.gameId;
+        if (gid) {
+          setGameState(gid, GAME_STATES.HIDDEN, card);
+        }
+      });
+    }
+    window.setGameState = setGameState;
+    window.getGameState = getGameState;
+    window.initializeGameStates = initializeGameStates;
+    
     // Game URLs mapping (active games only)
     const gameUrls = {
       'bird-squash': 'https://bird-squash-dev.lovable.app',
@@ -1614,83 +1665,475 @@
       'crypto-blocks': 'games/crypto-blocks/index.html'
     };
   
-    function activateGame(gameId, isPreload = false) {
-      // If preloading, don't check currentActiveGame
-      if (!isPreload && currentActiveGame === gameId) return;
-      
-      // Only stop previous game if NOT preloading
-      if (!isPreload && currentActiveGame && !preloadedGames.has(currentActiveGame)) {
-        // Ensure previous session is stopped (module exposes on window)
-        try { window.memeplay && window.memeplay.stopGame && window.memeplay.stopGame(); } catch {}
-        // DON'T clear src - keep cached for reuse when scrolling back!
-        // const prevCard = document.getElementById(currentActiveGame);
-        // if (prevCard) {
-        //   const prevIframe = prevCard.querySelector('iframe');
-        //   if (prevIframe) prevIframe.src = 'about:blank';
-        // }
+    // Get all game cards in order
+    function getAllGameCards() {
+      const cards = Array.from(document.querySelectorAll('.game-card'))
+      if (cards.length === 0) {
+        console.warn('⚠️ No game cards found in DOM')
+        return []
       }
-  
-
-      const card = document.getElementById(gameId);
-      if (!card) return;
-      const iframe = card.querySelector('iframe');
-      if (!iframe) return;
+      return cards
+        .map(card => ({
+          id: card.id || card.dataset?.gameId,
+          element: card
+        }))
+        .filter(item => item.id)
+    }
+    
+    // Load game iframe (helper function) - simple and fast
+    function loadGameIframe(gameId) {
+      const card = getGameCardElement(gameId)
+      if (!card) {
+        console.warn(`⚠️ loadGameIframe: Card not found for ${gameId}`)
+        return false
+      }
+      const iframe = card.querySelector('iframe')
+      if (!iframe) {
+        console.warn(`⚠️ loadGameIframe: Iframe not found for ${gameId}`)
+        return false
+      }
       
-      // ✅ TRUE LAZY LOADING: Read data-game-url and only set src when needed
-      const targetUrl = iframe.getAttribute('data-game-url') || gameUrls[gameId];
+      const targetUrl = iframe.getAttribute('data-game-url') || gameUrls[gameId]
       if (!targetUrl) {
-        console.warn(`⚠️ No URL found for ${gameId}`);
-        return;
+        console.warn(`⚠️ loadGameIframe: No URL for ${gameId}`)
+        return false
       }
       
-      const currentSrc = iframe.src || '';
-      
-      // Load if: no src yet (empty), or different game URL
-      const needsLoad = !currentSrc || 
-                       currentSrc === '' || 
-                       currentSrc.includes('about:blank') ||
-                       (!currentSrc.includes(targetUrl.split('?')[0])); // Compare base URL without params
+      const currentSrc = iframe.src || ''
+      const baseUrl = targetUrl.split('?')[0]
+      const needsLoad = !currentSrc || currentSrc === '' || currentSrc.includes('about:blank') ||
+                       (!currentSrc.includes(baseUrl))
       
       if (needsLoad) {
-        // Bust cache to guarantee a load event
-        const sep = targetUrl.includes('?') ? '&' : '?';
-        iframe.src = targetUrl + sep + 'v=' + Date.now();
-        // Silently load game (logs removed for cleaner console)
+        const sep = targetUrl.includes('?') ? '&' : '?'
+        const newSrc = targetUrl + sep + 'v=' + Date.now()
+        iframe.src = newSrc
+        console.log(`✅ [loadGameIframe] Loading iframe for ${gameId} | URL: ${newSrc.substring(0, 80)}...`)
+        return true
+      } else {
+        // Game already loaded - this is OK, but log it for debugging
+        console.log(`ℹ️ [loadGameIframe] Game ${gameId} already loaded (src: ${currentSrc.substring(0, 60)}...)`)
+        return true
       }
-      // Game already loaded - no need to reload
-        
-        if (isPreload) {
-          preloadedGames.add(gameId);
-        } else {
-          currentActiveGame = gameId;
-        try { window.__memeplayActiveGame = gameId; } catch {}
-          document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }));
+    }
+    
+    // Unload game iframe
+    function unloadGameIframe(gameId) {
+      const card = getGameCardElement(gameId)
+      if (!card) return
+      const iframe = card.querySelector('iframe')
+      if (iframe) {
+        iframe.src = 'about:blank'
+        setGameState(gameId, GAME_STATES.HIDDEN, card)
+      }
+    }
+    
+    function activateGame(gameId, isPreload = false) {
+      console.log(`🚀 [activateGame] CALLED with gameId: ${gameId}, isPreload: ${isPreload}`)
+      if (!gameId) {
+        console.warn(`⚠️ [activateGame] gameId is null/undefined, returning early`)
+        return
+      }
+      
+      const allGames = getAllGameCards()
+      console.log(`📋 [activateGame] Found ${allGames.length} total games`)
+      const currentIndex = allGames.findIndex(g => g.id === gameId)
+      if (currentIndex === -1) {
+        console.error(`❌ [activateGame] Game ${gameId} not found in allGames (available: ${allGames.map(g => g.id).join(', ')})`)
+        return
+      }
+      
+      const totalGames = allGames.length
+      
+      // Calculate prev/next with circular logic
+      const prevIndex = currentIndex === 0 ? totalGames - 1 : currentIndex - 1
+      const nextIndex = currentIndex === totalGames - 1 ? 0 : currentIndex + 1
+      
+      const prevGameId = allGames[prevIndex]?.id
+      const nextGameId = allGames[nextIndex]?.id
+      
+      // If already active, just ensure prev/next are loaded (don't reload active game)
+      if (!isPreload && currentActiveGame === gameId) {
+        console.log(`🔄 Game ${gameId} already active (currentActiveGame: ${currentActiveGame}), ensuring prev/next are loaded...`)
+        // Ensure prev/next are loaded
+        if (prevGameId) {
+          const prevCard = getGameCardElement(prevGameId)
+          if (prevCard) {
+            setGameState(prevGameId, GAME_STATES.WAITING)
+            const prevLoaded = loadGameIframe(prevGameId)
+            console.log(`📦 [Already Active] Preloaded prev game: ${prevGameId} (WAITING) - Loading: ${prevLoaded}`)
+          } else {
+            console.error(`❌ [Already Active] Prev game card not found: ${prevGameId}`)
+          }
         }
-        
-      // ❌ REMOVED: Auto-start timer (was causing timer to run without user interaction!)
-      // ✅ Timer now ONLY starts when user plays (via GAME_SCORE/GAME_STARTED message)
+        if (nextGameId) {
+          const nextCard = getGameCardElement(nextGameId)
+          if (nextCard) {
+            setGameState(nextGameId, GAME_STATES.WAITING)
+            const nextLoaded = loadGameIframe(nextGameId)
+            console.log(`📦 [Already Active] Preloaded next game: ${nextGameId} (WAITING) - Loading: ${nextLoaded}`)
+          } else {
+            console.error(`❌ [Already Active] Next game card not found: ${nextGameId}`)
+          }
+        }
+        // Still log that this game is active
+        console.log(`🎮 [Already Active] Game ${gameId} is ACTIVE | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
+        return
+      }
+      
+      // If we reach here, this is a NEW game being activated (different from currentActiveGame)
+      if (currentActiveGame && currentActiveGame !== gameId) {
+        console.log(`🔄 Switching active game: ${currentActiveGame} → ${gameId}`)
+      }
+      
+      // Games to keep loaded: active + prev + next (always 3 games)
+      const gamesToKeep = [gameId, prevGameId, nextGameId].filter(Boolean)
+      console.log(`🔍 [activateGame] Game ${gameId} | Index: ${currentIndex}/${totalGames} | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
+      console.log(`🔍 Games to keep loaded: ${gamesToKeep.join(', ')}`)
+      
+      // CRITICAL: Load prev and next games IMMEDIATELY and set to WAITING state
+      // This ensures when user scrolls to them, they're already loaded and ready to play
+      
+      // Load prev game FIRST (user might scroll back)
+      if (prevGameId) {
+        const prevCard = getGameCardElement(prevGameId)
+        if (!prevCard) {
+          console.error(`❌ Prev game card not found: ${prevGameId}`)
+        } else {
+          // Set state FIRST, then load (so UI shows WAITING state immediately)
+          setGameState(prevGameId, GAME_STATES.WAITING)
+          const prevLoaded = loadGameIframe(prevGameId)
+          const prevState = getGameState(prevGameId)
+          console.log(`📦 [IMMEDIATE] Preloaded prev game: ${prevGameId} (WAITING state: ${prevState}) - Loading: ${prevLoaded}`)
+          
+          // Verify iframe is actually loading
+          const prevIframe = prevCard.querySelector('iframe')
+          if (prevIframe) {
+            const iframeSrc = prevIframe.src || 'not set'
+            console.log(`   → Prev game iframe src: ${iframeSrc.substring(0, 80)}...`)
+          }
+        }
+      } else {
+        console.warn(`⚠️ No prev game for ${gameId}`)
+      }
+      
+      // Load next game (user will scroll to it)
+      if (nextGameId) {
+        const nextCard = getGameCardElement(nextGameId)
+        if (!nextCard) {
+          console.error(`❌ Next game card not found: ${nextGameId}`)
+        } else {
+          // Set state FIRST, then load (so UI shows WAITING state immediately)
+          setGameState(nextGameId, GAME_STATES.WAITING)
+          const nextLoaded = loadGameIframe(nextGameId)
+          const nextState = getGameState(nextGameId)
+          console.log(`📦 [IMMEDIATE] Preloaded next game: ${nextGameId} (WAITING state: ${nextState}) - Loading: ${nextLoaded}`)
+          
+          // Verify iframe is actually loading
+          const nextIframe = nextCard.querySelector('iframe')
+          if (nextIframe) {
+            const iframeSrc = nextIframe.src || 'not set'
+            console.log(`   → Next game iframe src: ${iframeSrc.substring(0, 80)}...`)
+          }
+        }
+      } else {
+        console.warn(`⚠️ No next game for ${gameId}`)
+      }
+      
+      // Load active game
+      const activeLoaded = loadGameIframe(gameId)
+      setGameState(gameId, GAME_STATES.ACTIVE)
+      currentActiveGame = gameId
+      try { window.__memeplayActiveGame = gameId } catch {}
+      document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }))
+      console.log(`🎮 Activated game: ${gameId} (ACTIVE) | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
+      
+      // Unload all other games AFTER loading the 3 games (to prevent race condition)
+      // Double-check: only unload games NOT in gamesToKeep
+      // IMPORTANT: Use the same allGames array from the beginning of the function
+      const allGamesToCheck = getAllGameCards()
+      allGamesToCheck.forEach(game => {
+        if (game.id && !gamesToKeep.includes(game.id)) {
+          console.log(`🗑️ Unloading game: ${game.id} (not in keep list: ${gamesToKeep.join(', ')})`)
+          unloadGameIframe(game.id)
+        } else if (game.id && gamesToKeep.includes(game.id)) {
+          console.log(`✅ Keeping game loaded: ${game.id} (in keep list)`)
+        }
+      })
     }
 
     // Observe which game card is visible and activate early for snappier switching
   function initGameObserver() {
-    const thresholds = Array.from({ length: 10 }, (_, i) => (i + 1) / 10);
+    // Use more thresholds for better detection
+    const thresholds = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    const gameContainer = document.querySelector('.game-container');
     const observer = new IntersectionObserver((entries) => {
         const visible = entries.filter(e => e.isIntersecting);
-        if (!visible.length) return;
+        if (!visible.length) {
+          console.log('👁️ Observer: No visible games')
+          return
+        }
+        
+        // Deduplicate: Keep only the entry with highest intersection ratio for each game
+        const gameMap = new Map()
+        visible.forEach(entry => {
+          const gameId = entry.target.id
+          if (!gameId) return
+          
+          const existing = gameMap.get(gameId)
+          if (!existing || entry.intersectionRatio > existing.intersectionRatio) {
+            gameMap.set(gameId, entry)
+          }
+        })
+        
+        // Convert back to array (now deduplicated)
+        const visibleDeduped = Array.from(gameMap.values())
 
-        // Pick the entry with the greatest intersection; this favors the one you're scrolling to
-        const best = visible.reduce((a, b) => a.intersectionRatio >= b.intersectionRatio ? a : b);
+        // IMPROVED: Find the game card closest to the center of the viewport
+        // This is more accurate than just using intersection ratio
+        let best = null;
+        let minDistanceToCenter = Infinity;
+        let bestInViewport = false;
+        
+        // Calculate viewport center - use window center if no container
+        const viewportCenter = window.innerHeight / 2;
+        
+        // Log all visible games with their positions for debugging (use deduplicated list)
+        const visibleGamesDebug = visibleDeduped.map(e => {
+          const cardRect = e.target.getBoundingClientRect();
+          const cardTop = cardRect.top;
+          const cardBottom = cardRect.bottom;
+          const cardCenter = cardRect.top + cardRect.height / 2;
+          const distanceToCenter = Math.abs(cardCenter - viewportCenter);
+          const isInViewport = cardTop >= 0 && cardBottom <= window.innerHeight;
+          return {
+            id: e.target.id,
+            ratio: (e.intersectionRatio * 100).toFixed(1) + '%',
+            top: Math.round(cardTop),
+            bottom: Math.round(cardBottom),
+            center: Math.round(cardCenter),
+            viewportCenter: Math.round(viewportCenter),
+            distToCenter: Math.round(distanceToCenter) + 'px',
+            isInViewport: isInViewport
+          };
+        });
+        // Log each game on separate lines for easier reading
+        console.log(`👁️ [DEBUG] Viewport center: ${Math.round(viewportCenter)}px, Found ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`);
+        visibleGamesDebug.forEach((game, idx) => {
+          console.log(`   ${idx + 1}. ${game.id}: ratio=${game.ratio}, dist=${game.distToCenter}, inViewport=${game.isInViewport}, top=${game.top}, bottom=${game.bottom}`);
+        });
+        
+        visibleDeduped.forEach(entry => {
+          const cardRect = entry.target.getBoundingClientRect();
+          const cardTop = cardRect.top;
+          const cardBottom = cardRect.bottom;
+          const cardCenter = cardRect.top + cardRect.height / 2;
+          const distanceToCenter = Math.abs(cardCenter - viewportCenter);
+          
+          // Check if game is in viewport (fully or partially visible)
+          const isInViewport = cardTop >= 0 && cardBottom <= window.innerHeight;
+          const isPartiallyInViewport = cardTop < window.innerHeight && cardBottom > 0; // Any part visible
+          const isMostlyInViewport = cardTop >= -100 && cardBottom <= window.innerHeight + 100;
+          
+          // Calculate visible height (how much of the game is actually visible)
+          const visibleTop = Math.max(cardTop, 0);
+          const visibleBottom = Math.min(cardBottom, window.innerHeight);
+          const visibleHeight = Math.max(0, visibleBottom - visibleTop);
+          const visibleRatio = visibleHeight / cardRect.height;
+          
+          // Prefer game with good intersection ratio
+          if (entry.intersectionRatio > 0.3) {
+            // CRITICAL: Prioritize distance to center FIRST, then intersection ratio
+            // A game closer to center is more likely to be the one user is playing
+            // Even if it has slightly lower intersection ratio
+            
+            if (best === null) {
+              minDistanceToCenter = distanceToCenter;
+              best = entry;
+              bestInViewport = isInViewport;
+            } else {
+              // Calculate distance for current best
+              const bestRect = best.target.getBoundingClientRect();
+              const bestCenter = bestRect.top + bestRect.height / 2;
+              const bestDistance = Math.abs(bestCenter - viewportCenter);
+              
+              // PRIORITY 1: If one game is MUCH closer to center (difference > 200px), choose it
+              // This handles cases where a game is partially visible but closer to center
+              if (distanceToCenter < bestDistance - 200) {
+                // This game is significantly closer to center
+                minDistanceToCenter = distanceToCenter;
+                best = entry;
+                bestInViewport = isInViewport;
+              } else if (bestDistance < distanceToCenter - 200) {
+                // Current best is significantly closer, keep it
+                // Do nothing
+              } else {
+                // Games are similarly close to center (within 200px), prefer higher intersection ratio
+                if (entry.intersectionRatio > best.intersectionRatio + 0.1) {
+                  // This game has significantly higher intersection ratio
+                  minDistanceToCenter = distanceToCenter;
+                  best = entry;
+                  bestInViewport = isInViewport;
+                } else if (best.intersectionRatio > entry.intersectionRatio + 0.1) {
+                  // Current best has significantly higher intersection ratio, keep it
+                  // Do nothing
+                } else {
+                  // Similar intersection ratio, prefer one closer to center
+                  if (distanceToCenter < bestDistance) {
+                    minDistanceToCenter = distanceToCenter;
+                    best = entry;
+                    bestInViewport = isInViewport;
+                  }
+                }
+              }
+            }
+          }
+        });
+        
+        // Fallback: if no game found with good intersection, use highest intersection ratio
+        if (!best) {
+          best = visibleDeduped.reduce((a, b) => a.intersectionRatio >= b.intersectionRatio ? a : b);
+        }
+        
         const gameId = best.target.id;
-        activateGame(gameId);
+        
+        if (!gameId) {
+          console.warn('⚠️ Observer: Game card has no ID', best.target)
+          return
+        }
+        
+        // Log all visible games for debugging (use deduplicated list)
+        const visibleGames = visibleDeduped.map(e => {
+          const rect = e.target.getBoundingClientRect();
+          const center = rect.top + rect.height / 2;
+          const dist = Math.abs(center - viewportCenter);
+          return { 
+            id: e.target.id, 
+            ratio: (e.intersectionRatio * 100).toFixed(1) + '%',
+            distToCenter: Math.round(dist) + 'px'
+          };
+        });
+        console.log(`👁️ Observer detected ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`, visibleGames)
+        
+        // Calculate final distance for logging (avoid Infinity)
+        const finalDistance = isFinite(minDistanceToCenter) ? Math.round(minDistanceToCenter) : 'N/A'
+        console.log(`👁️ Observer activating game: ${gameId} (intersection: ${(best.intersectionRatio * 100).toFixed(1)}%, distance to center: ${finalDistance}px, currentActiveGame: ${currentActiveGame})`)
+        
+        // WARNING: If rocket-bnb is not in visible list but is being played, scroll check should handle it
+        if (gameId !== 'rocket-bnb' && currentActiveGame === 'rocket-bnb') {
+          console.warn(`⚠️ Observer detected ${gameId} but currentActiveGame is rocket-bnb - scroll check fallback should activate rocket-bnb`)
+        }
+        
+        // Only activate if scroll check hasn't already activated a better game
+        // Scroll check runs every 200ms and is more reliable, so we only use observer as secondary
+        // Check if currentActiveGame is different - if scroll check already activated a game, don't override
+        if (currentActiveGame && currentActiveGame !== gameId) {
+          // Scroll check may have already activated the correct game, so check distance first
+          const currentGameCard = getGameCardElement(currentActiveGame)
+          if (currentGameCard) {
+            const currentRect = currentGameCard.getBoundingClientRect()
+            const currentCenter = currentRect.top + currentRect.height / 2
+            const currentDistance = Math.abs(currentCenter - (window.innerHeight / 2))
+            
+            const bestRect = best.target.getBoundingClientRect()
+            const bestCenter = bestRect.top + bestRect.height / 2
+            const bestDistance = Math.abs(bestCenter - (window.innerHeight / 2))
+            
+            // Only activate if observer's game is significantly closer (within 100px difference)
+            if (bestDistance < currentDistance - 100) {
+              console.log(`👁️ Observer overriding scroll check: ${currentActiveGame} → ${gameId} (distances: ${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px)`)
+              activateGame(gameId)
+            } else {
+              console.log(`👁️ Observer skipping (scroll check already activated closer game: ${currentActiveGame}, distance: ${Math.round(currentDistance)}px)`)
+            }
+          } else {
+            activateGame(gameId)
+          }
+        } else {
+          activateGame(gameId)
+        }
     }, {
-        // Observe inside the snapping container
-        root: document.querySelector('.game-container') || null,
-        rootMargin: '300px 0px 300px 0px',
-        threshold: thresholds
+        // Observe inside the snapping container (relative to container, not viewport)
+        // This is important because game cards scroll within the container
+        root: gameContainer || null, // Use container as root for proper intersection calculation
+        rootMargin: '500px 0px 500px 0px', // Preload games 500px above/below visible area
+        threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] // More thresholds for better detection
       });
 
-    document.querySelectorAll('.game-card').forEach(card => observer.observe(card));
-    console.log('✅ Game observer initialized for', document.querySelectorAll('.game-card').length, 'games')
+    const cards = document.querySelectorAll('.game-card')
+    cards.forEach(card => {
+      observer.observe(card)
+      console.log(`👁️ Observing game card: ${card.id || card.dataset?.gameId}`)
+    })
+    console.log('✅ Game observer initialized for', cards.length, 'games')
+    
+    // FALLBACK: Also check scroll position to find game at center
+    // This helps when IntersectionObserver misses the game
+    let scrollCheckTimeout = null
+    const checkScrollPosition = () => {
+      try {
+        if (scrollCheckTimeout) clearTimeout(scrollCheckTimeout)
+        scrollCheckTimeout = setTimeout(() => {
+          try {
+            const viewportCenter = window.innerHeight / 2
+            const allCards = Array.from(document.querySelectorAll('.game-card'))
+            if (!allCards.length) return // No cards yet
+            
+            let closestGame = null
+            let minDistance = Infinity
+            
+            allCards.forEach(card => {
+              try {
+                const rect = card.getBoundingClientRect()
+                const cardCenter = rect.top + rect.height / 2
+                const distance = Math.abs(cardCenter - viewportCenter)
+                
+                // Check if game is visible (any part in viewport)
+                const isVisible = rect.top < window.innerHeight && rect.bottom > 0
+                
+                if (isVisible && distance < minDistance) {
+                  minDistance = distance
+                  closestGame = card
+                }
+              } catch (e) {
+                console.warn('Error checking card:', e)
+              }
+            })
+            
+            if (closestGame && closestGame.id && typeof activateGame === 'function') {
+              const gameId = closestGame.id
+              // Only activate if different from current active game
+              if (gameId !== currentActiveGame) {
+                const rect = closestGame.getBoundingClientRect()
+                const cardCenter = rect.top + rect.height / 2
+                const distance = Math.abs(cardCenter - viewportCenter)
+                console.log(`📍 [SCROLL CHECK] Found game at center: ${gameId} (distance: ${Math.round(distance)}px, currentActiveGame: ${currentActiveGame})`)
+                activateGame(gameId)
+              }
+            }
+          } catch (e) {
+            console.warn('Error in scroll check:', e)
+          }
+        }, 100) // Debounce 100ms
+      } catch (e) {
+        console.warn('Error setting up scroll check:', e)
+      }
+    }
+    
+    // Check on scroll (only if container exists)
+    try {
+      const gameContainer = document.querySelector('.game-container')
+      if (gameContainer) {
+        gameContainer.addEventListener('scroll', checkScrollPosition, { passive: true })
+      }
+      window.addEventListener('scroll', checkScrollPosition, { passive: true })
+      
+      // Also check periodically (every 200ms) as PRIMARY method
+      // IntersectionObserver may miss games, so this is more reliable
+      setInterval(checkScrollPosition, 200)
+    } catch (e) {
+      console.warn('Error setting up scroll listeners:', e)
+    }
   }
     
     // Dropdown nav logic
@@ -1750,9 +2193,19 @@
       item.addEventListener('click', function(e) {
         items.forEach(i => i.classList.remove('active'));
         this.classList.add('active');
+        const category = this.getAttribute('data-category');
         closeNavDropdown();
         e.stopPropagation();
-        // Optionally hook category filtering here.
+        
+        // Apply filter based on category
+        if (category) {
+          // Use window.applyGameFilter since it's defined in a module
+          if (typeof window.applyGameFilter === 'function') {
+            window.applyGameFilter(category);
+          } else {
+            console.error('applyGameFilter is not available yet. Please wait for the page to load.');
+          }
+        }
       });
     });
 
@@ -1816,6 +2269,261 @@
   // 3️⃣ Create "supabase" object for using RPC, queries, insert, etc.
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
 
+  // Global state for current filter
+  let currentFilter = 'Recommended' // 'Recommended', 'Liked', 'Trending', 'Popular'
+  
+  // Sort games by likes (descending - highest likes first)
+  async function sortGamesByLikes(cards) {
+    if (!cards || cards.length === 0) return cards
+    
+    // Get like counts for all games in parallel
+    const likeCounts = await Promise.all(
+      cards.map(async (card) => {
+        const gameId = card.id || card.getAttribute('data-game-id')
+        if (!gameId) return { gameId: null, likes: 0 }
+        
+        try {
+          const { data, error } = await supabase.rpc('get_social_counts', { p_game_id: gameId })
+          if (error) {
+            console.warn(`Failed to get likes for ${gameId}:`, error.message)
+            return { gameId, likes: 0 }
+          }
+          return { gameId, likes: (data?.likes || 0) }
+        } catch (e) {
+          console.warn(`Error getting likes for ${gameId}:`, e)
+          return { gameId, likes: 0 }
+        }
+      })
+    )
+    
+    // Create map for quick lookup
+    const likesMap = new Map(likeCounts.map(item => [item.gameId, item.likes]))
+    
+    // Sort cards by likes (descending)
+    const sorted = [...cards].sort((a, b) => {
+      const aId = a.id || a.getAttribute('data-game-id')
+      const bId = b.id || b.getAttribute('data-game-id')
+      const aLikes = likesMap.get(aId) || 0
+      const bLikes = likesMap.get(bId) || 0
+      return bLikes - aLikes // Descending order
+    })
+    
+    console.log(`📊 Sorted ${sorted.length} games by likes (highest first)`)
+    return sorted
+  }
+  
+  // Filter games by "Liked" (user's liked games)
+  // CRITICAL: Only return games that are LIKED (localStorage = '1')
+  // Games that are UNLIKED or NEVER LIKED will be filtered out (hidden)
+  function filterLikedGames(cards) {
+    if (!cards || cards.length === 0) return cards
+    
+    const likedGames = cards.filter(card => {
+      const gameId = card.id || card.getAttribute('data-game-id')
+      if (!gameId) return false
+      
+      // CRITICAL: Only show games where localStorage has '1' (liked)
+      // If localStorage is '0' (unliked) or null/undefined (never liked) → HIDE
+      const likeStatus = localStorage.getItem('mp_like_' + gameId)
+      const isLiked = likeStatus === '1'
+      
+      if (!isLiked) {
+        console.log(`   ❌ Game ${gameId} is NOT liked (status: ${likeStatus || 'null'}) → Will be HIDDEN`)
+      }
+      
+      return isLiked
+    })
+    
+    console.log(`❤️ Filtered to ${likedGames.length} liked game(s) (${cards.length - likedGames.length} games will be HIDDEN)`)
+    return likedGames
+  }
+  
+  // Apply filter and reorder games
+  // Make it globally accessible (for event listeners in non-module scripts)
+  window.applyGameFilter = async function applyGameFilter(category) {
+    const container = document.querySelector('.game-container')
+    if (!container) return
+    
+    currentFilter = category
+    console.log(`🔍 Applying filter: ${category}`)
+    
+    // Get all game cards
+    const allCards = Array.from(container.querySelectorAll('.game-card'))
+    if (allCards.length === 0) return
+    
+    let filteredCards = allCards
+    
+    // Apply filter based on category
+    if (category === 'Liked') {
+      // STEP 1: First, hide ALL games
+      allCards.forEach(card => {
+        card.style.display = 'none'
+      })
+      
+      // STEP 2: Filter to get only liked games
+      filteredCards = filterLikedGames(allCards)
+      
+      // STEP 3: Show ONLY liked games
+      filteredCards.forEach(card => {
+        const gameId = card.id || card.getAttribute('data-game-id')
+        card.style.display = '' // Show liked games
+        console.log(`   ✅ Game ${gameId} is LIKED → SHOW`)
+      })
+      
+      // STEP 4: Double-check: Hide any remaining games that are NOT liked
+      allCards.forEach(card => {
+        const gameId = card.id || card.getAttribute('data-game-id')
+        if (!gameId) {
+          card.style.display = 'none'
+          return
+        }
+        
+        const likeStatus = localStorage.getItem('mp_like_' + gameId)
+        const isLiked = likeStatus === '1'
+        
+        if (!isLiked) {
+          card.style.display = 'none' // Hide unliked/never-liked games
+          console.log(`   ❌ Game ${gameId} is NOT liked (status: ${likeStatus || 'null'}) → HIDE`)
+        }
+      })
+      
+      if (filteredCards.length === 0) {
+        console.log('⚠️ No liked games found - all games will be HIDDEN')
+      } else {
+        console.log(`❤️ Showing ${filteredCards.length} liked game(s)`)
+      }
+    } else {
+      // Show all games for other filters
+      allCards.forEach(card => card.style.display = '')
+    }
+    
+    // Sort by likes (for Recommended, Trending, Popular, and Liked)
+    if (category === 'Recommended' || category === 'Trending' || category === 'Popular' || category === 'Liked') {
+      // Only sort visible games (for 'Liked', this is already filteredCards)
+      const cardsToSort = category === 'Liked' ? filteredCards : allCards.filter(card => card.style.display !== 'none')
+      filteredCards = await sortGamesByLikes(cardsToSort)
+    }
+    
+    // Reorder DOM elements (only visible/liked games)
+    // CRITICAL: Deduplicate by gameId to prevent duplicate games
+    const seenGameIds = new Set()
+    const visibleCards = filteredCards.filter(card => {
+      const gameId = card.id || card.getAttribute('data-game-id')
+      if (!gameId) return false
+      
+      // Skip if we've already seen this gameId
+      if (seenGameIds.has(gameId)) {
+        console.warn(`⚠️ Duplicate game detected: ${gameId} - skipping`)
+        return false
+      }
+      seenGameIds.add(gameId)
+      
+      // For 'Liked' filter, double-check localStorage
+      if (category === 'Liked') {
+        const likeStatus = localStorage.getItem('mp_like_' + gameId)
+        return likeStatus === '1'
+      }
+      
+      return card.style.display !== 'none'
+    })
+    
+    console.log(`📋 Reordering ${visibleCards.length} unique games (${seenGameIds.size} unique gameIds)`)
+    
+    visibleCards.forEach((card) => {
+      container.appendChild(card) // Move to end (will reorder)
+    })
+    
+    // Reinitialize after reordering
+    const newAllCards = Array.from(container.querySelectorAll('.game-card'))
+    
+    // CRITICAL: Remove any duplicate games by gameId (keep only the first occurrence)
+    const gameIdMap = new Map()
+    const duplicatesToRemove = []
+    
+    newAllCards.forEach((card, index) => {
+      const gameId = card.id || card.getAttribute('data-game-id')
+      if (!gameId) return
+      
+      if (gameIdMap.has(gameId)) {
+        // This is a duplicate - mark for removal
+        duplicatesToRemove.push(card)
+        console.warn(`⚠️ Found duplicate game in DOM: ${gameId} at index ${index} - will be removed`)
+      } else {
+        gameIdMap.set(gameId, card)
+      }
+    })
+    
+    // Remove duplicates from DOM
+    duplicatesToRemove.forEach(card => {
+      card.remove()
+      console.log(`🗑️ Removed duplicate game: ${card.id || card.getAttribute('data-game-id')}`)
+    })
+    
+    // Get updated list after removing duplicates
+    const finalAllCards = Array.from(container.querySelectorAll('.game-card'))
+    
+    // Final check: Ensure only liked games are visible when filter is 'Liked'
+    if (category === 'Liked') {
+      finalAllCards.forEach(card => {
+        const gameId = card.id || card.getAttribute('data-game-id')
+        if (!gameId) {
+          card.style.display = 'none'
+          return
+        }
+        
+        const likeStatus = localStorage.getItem('mp_like_' + gameId)
+        if (likeStatus !== '1') {
+          card.style.display = 'none'
+        }
+      })
+    }
+    
+    const visibleAllCards = finalAllCards.filter(card => card.style.display !== 'none')
+    
+    if (typeof window.initializeGameStates === 'function') {
+      window.initializeGameStates(finalAllCards)
+    }
+    
+    // Reinitialize observer (cards order changed)
+    initGameObserver()
+    
+    // Auto load first game (after filter/sort) - only if there are visible games
+    if (visibleAllCards.length > 0 && visibleAllCards[0]?.id) {
+      const game1Id = visibleAllCards[0].id
+      const game2Id = visibleAllCards[1]?.id
+      
+      const game1Card = getGameCardElement(game1Id)
+      if (game1Card) {
+        loadGameIframe(game1Id)
+        setGameState(game1Id, GAME_STATES.ACTIVE)
+        currentActiveGame = game1Id
+        try { window.__memeplayActiveGame = game1Id } catch {}
+        document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId: game1Id } }))
+        console.log(`🚀 Filter applied: Game 1 (${game1Id}) loaded`)
+      }
+      
+      if (game2Id) {
+        const game2Card = getGameCardElement(game2Id)
+        if (game2Card) {
+          setGameState(game2Id, GAME_STATES.WAITING)
+          loadGameIframe(game2Id)
+          console.log(`📦 Filter applied: Game 2 (${game2Id}) preloaded`)
+        }
+      }
+      
+      // Scroll to first game
+      const gameContainer = document.querySelector('.game-container')
+      if (game1Card && gameContainer) {
+        gameContainer.style.scrollSnapType = 'none'
+        gameContainer.scrollTop = 0
+        game1Card.scrollIntoView({ behavior: 'smooth', block: 'start' })
+        setTimeout(() => {
+          gameContainer.style.scrollSnapType = 'y mandatory'
+        }, 1000)
+      }
+    }
+  }
+
   async function loadGameCards() {
     const container = document.querySelector('.game-container')
     if (!container) return
@@ -1830,112 +2538,179 @@
       console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
       initFocusControls()
       
-      // 🚀 APPROACH B: Preload first 4 games - SCROLL FIRST, LOAD AFTER
-      
-      // Get first 4 games in DOM (not hard-coded)
+      // 🚀 CRITICAL: Load game 1 IMMEDIATELY (don't wait for sort)
+      // Get all games first (before sorting)
       const allCards = Array.from(document.querySelectorAll('.game-card'))
-      const firstFourGames = allCards.slice(0, 4).map(c => c.id).filter(Boolean)
       
-      // Game order loaded silently (debug logs removed for cleaner console)
-      
-      // STEP 1: FORCE SCROLL TO FIRST GAME (disable snap first)
-      const firstCard = allCards[0]
+      // STEP 1: Load game 1 IMMEDIATELY (first game in DOM, before sorting)
+      // This ensures user sees game immediately without waiting for sort
+      const firstCardBeforeSort = allCards[0]
       const gameContainer = document.querySelector('.game-container')
       
-      if (firstCard && gameContainer) {
-        // Temporarily disable scroll-snap to force position
-        gameContainer.style.scrollSnapType = 'none'
-        gameContainer.style.scrollBehavior = 'auto'
+      if (firstCardBeforeSort && firstCardBeforeSort.id) {
+        const game1IdBeforeSort = firstCardBeforeSort.id
+        const game2IdBeforeSort = allCards[1]?.id
         
-        // Force scroll to absolute top
-        gameContainer.scrollTop = 0
+        console.log(`🚀 [INITIAL] Loading game 1 IMMEDIATELY (before sort): ${game1IdBeforeSort}`)
         
-        // Scroll to first card explicitly
-        requestAnimationFrame(() => {
-          firstCard.scrollIntoView({ block: 'start' })
-          
-          // Re-enable scroll-snap sau 500ms
-          setTimeout(() => {
-            gameContainer.style.scrollSnapType = 'y mandatory'
-            gameContainer.style.scrollBehavior = 'smooth'
-            console.log('✅ Scroll-snap re-enabled')
-          }, 500)
+        // Load game 1 immediately
+        const game1Card = getGameCardElement(game1IdBeforeSort)
+        if (game1Card) {
+          loadGameIframe(game1IdBeforeSort)
+          setGameState(game1IdBeforeSort, GAME_STATES.ACTIVE)
+          currentActiveGame = game1IdBeforeSort
+          try { window.__memeplayActiveGame = game1IdBeforeSort } catch {}
+          document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId: game1IdBeforeSort } }))
+        }
+        
+        // Load game 2 (waiting)
+        if (game2IdBeforeSort) {
+          const game2Card = getGameCardElement(game2IdBeforeSort)
+          if (game2Card) {
+            setGameState(game2IdBeforeSort, GAME_STATES.WAITING)
+            loadGameIframe(game2IdBeforeSort)
+            console.log(`📦 [INITIAL] Game 2 preloaded: ${game2IdBeforeSort}`)
+          }
+        }
+        
+        // Scroll to first game
+        if (gameContainer) {
+          gameContainer.style.scrollSnapType = 'none'
+          gameContainer.style.scrollBehavior = 'auto'
+          gameContainer.scrollTop = 0
+          requestAnimationFrame(() => {
+            firstCardBeforeSort.scrollIntoView({ block: 'start' })
+            setTimeout(() => {
+              gameContainer.style.scrollSnapType = 'y mandatory'
+              gameContainer.style.scrollBehavior = 'smooth'
+            }, 500)
+          })
+        }
+      }
+      
+      // STEP 2: Initialize game states
+      if (typeof window.initializeGameStates === 'function') {
+        window.initializeGameStates(allCards)
+      } else {
+        allCards.forEach(card => {
+          const gid = card?.id || card?.dataset?.gameId
+          if (gid) {
+            card.dataset.gameState = card.dataset.gameState || 'hidden'
+          }
         })
       }
       
-      // STEP 2: Init observers
+      // STEP 3: Init observers (before sorting)
       initGameObserver()
       initSocialHandlers()
       
-      // STEP 2.5: Handle hash navigation (from share links)
-      const hash = window.location.hash.slice(1); // Remove '#'
+      // STEP 4: Handle hash navigation (from share links)
+      const hash = window.location.hash.slice(1)
       if (hash && allCards.some(c => c.id === hash)) {
-        console.log('🔗 Hash detected:', hash);
-        // Scroll to game after delay
+        console.log('🔗 Hash detected:', hash)
         setTimeout(() => {
-          const targetCard = document.getElementById(hash);
+          const targetCard = document.getElementById(hash)
           if (targetCard) {
-            gameContainer.style.scrollSnapType = 'none';
-            targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            activateGame(hash);
-            console.log('✅ Scrolled to game:', hash);
+            gameContainer.style.scrollSnapType = 'none'
+            targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            activateGame(hash)
             setTimeout(() => {
-              gameContainer.style.scrollSnapType = 'y mandatory';
-            }, 1000);
+              gameContainer.style.scrollSnapType = 'y mandatory'
+            }, 1000)
           }
-        }, 1000);
+        }, 1000)
       }
       
-      // STEP 2.6: MEMEPLAY logo click → Home (Game #1)
-      const logoEl = document.getElementById('memeplayLogo');
+      // STEP 5: MEMEPLAY logo click → Home (Game #1)
+      const logoEl = document.getElementById('memeplayLogo')
       if (logoEl) {
         logoEl.addEventListener('click', () => {
-          console.log('🏠 MEMEPLAY logo clicked → Go to Game #1');
-          window.location.hash = '';  // Clear hash
+          console.log('🏠 MEMEPLAY logo clicked → Go to Game #1')
+          window.location.hash = ''
+          const firstCard = Array.from(document.querySelectorAll('.game-card'))[0]
           if (firstCard && gameContainer) {
-            gameContainer.style.scrollSnapType = 'none';
-            gameContainer.scrollTop = 0;
-            firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
-            if (firstCard.id) activateGame(firstCard.id);
+            gameContainer.style.scrollSnapType = 'none'
+            gameContainer.scrollTop = 0
+            firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            if (firstCard.id) activateGame(firstCard.id)
             setTimeout(() => {
-              gameContainer.style.scrollSnapType = 'y mandatory';
-            }, 1000);
+              gameContainer.style.scrollSnapType = 'y mandatory'
+            }, 1000)
           }
-        });
+        })
       }
       
-      // STEP 3: PRIORITY LOADING (mobile-optimized)
-      const isMobile = window.innerWidth < 768
-      
-      if (isMobile) {
-        // 📱 MOBILE: Load game 1 INSTANTLY, games 2-4 after (don't block game 1!)
-        // 📱 Mobile: Priority loading - game 1 instant, 2-4 after 2s
-        if (allCards[0]?.id) {
-          activateGame(allCards[0].id, true)
-          currentActiveGame = allCards[0].id
+      // STEP 6: Sort games by likes in BACKGROUND (non-blocking)
+      // This will reorder games, but won't interrupt user if they're already playing
+      console.log('📊 [INITIAL] Starting background sort by likes...')
+      sortGamesByLikes(allCards).then(sortedCards => {
+        console.log('📊 [INITIAL] Sort completed, reordering games...')
         
-          // Load games 2-4 after 2 seconds (user is playing game 1)
-          setTimeout(() => {
-            const games2to4 = allCards.slice(1, 4)
-            games2to4.forEach(card => {
-              if (card.id) activateGame(card.id, true)
-            })
-          }, 2000)
-        }
-      } else {
-        // 💻 DESKTOP: Load 4 games parallel (fast connection)
-        setTimeout(() => {
-          const gamesToPreload = allCards.slice(0, 4)
+        // Only reorder if user hasn't scrolled away from first game
+        // (to avoid interrupting user experience)
+        const currentActive = currentActiveGame || window.__memeplayActiveGame
+        const firstAfterSort = sortedCards[0]?.id || sortedCards[0]?.getAttribute('data-game-id')
+        
+        // Reorder DOM
+        sortedCards.forEach(card => {
+          container.appendChild(card)
+        })
+        
+        // If first game changed and user is still on first game, switch to new first
+        if (firstAfterSort && firstAfterSort !== currentActive && currentActive === allCards[0]?.id) {
+          console.log(`📊 [INITIAL] First game changed after sort: ${allCards[0]?.id} → ${firstAfterSort}`)
+          console.log(`📊 [INITIAL] User still on first game, switching to new first...`)
           
-          gamesToPreload.forEach((card) => {
-            if (card.id) activateGame(card.id, true)
-          })
-          
-          if (allCards[0]) {
-            currentActiveGame = allCards[0].id
+          // Switch to new first game
+          const newFirstCard = getGameCardElement(firstAfterSort)
+          if (newFirstCard) {
+            // Unload old first game
+            if (allCards[0]?.id) {
+              unloadGameIframe(allCards[0].id)
+              setGameState(allCards[0].id, GAME_STATES.HIDDEN)
+            }
+            
+            // Load new first game
+            loadGameIframe(firstAfterSort)
+            setGameState(firstAfterSort, GAME_STATES.ACTIVE)
+            currentActiveGame = firstAfterSort
+            try { window.__memeplayActiveGame = firstAfterSort } catch {}
+            document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId: firstAfterSort } }))
+            
+            // Scroll to new first game
+            if (gameContainer) {
+              gameContainer.style.scrollSnapType = 'none'
+              gameContainer.scrollTop = 0
+              newFirstCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              setTimeout(() => {
+                gameContainer.style.scrollSnapType = 'y mandatory'
+              }, 1000)
+            }
+          }
+        } else {
+          console.log(`📊 [INITIAL] Sort completed, but user already moved or first game unchanged`)
         }
-      }, 300)
-      }
+        
+        // Reinitialize after reordering
+        const allCardsReordered = Array.from(document.querySelectorAll('.game-card'))
+        if (typeof window.initializeGameStates === 'function') {
+          window.initializeGameStates(allCardsReordered)
+        }
+        
+        // Reinitialize observer
+        initGameObserver()
+      }).catch(error => {
+        console.error('📊 [INITIAL] Sort failed:', error)
+        // Continue with original order if sort fails
+      })
+      
+      // Unload all other games (except game 1 and 2)
+      allCards.forEach((card, idx) => {
+        if (idx > 1) {
+          const gid = card.id || card.dataset?.gameId
+          if (gid) unloadGameIframe(gid)
+        }
+      })
       
     } catch (error) {
       console.error('Load game list failed:', error)
@@ -2325,9 +3100,17 @@
 
   // Queue achievements to show after game over
   const pendingAchievements = {}
+  let isGameOver = false // Flag to prevent showing rewards during gameplay
   
   // Show all pending achievements for a game
+  // CRITICAL: Only show after game over, not during gameplay
   function showPendingAchievements(gameId) {
+    // SECURITY: Only allow showing achievements after game over
+    if (!isGameOver) {
+      console.warn('⚠️ [SECURITY] showPendingAchievements called during gameplay - BLOCKED! Must wait for game over.')
+      return
+    }
+    
     console.log('🔔 [DEBUG] showPendingAchievements called for:', gameId)
     console.log('🔔 [DEBUG] pendingAchievements object:', pendingAchievements)
     
@@ -2355,9 +3138,15 @@
     
     // Clear queue after showing
     delete pendingAchievements[gameId]
+    
+    // Reset flag after showing (for next game)
+    setTimeout(() => {
+      isGameOver = false
+    }, achievements.length * 2500 + 1000)
   }
   
-  // Expose globally so game can call
+  // Expose globally but with protection - games should NOT call this directly
+  // Only game over handler should call this
   window.__showPendingAchievements = showPendingAchievements
   
   function showPlayAward(amount, label, isNewAchievement = false) {
@@ -3209,44 +3998,103 @@ window.addEventListener("beforeunload", stopGame);
       }
       function renderHeart(isLiked) {
         const wrapper = likeBtn.closest('.icon-wrapper')
-        if (wrapper) wrapper.classList.toggle('liked', !!isLiked)
+        if (wrapper) {
+          wrapper.classList.toggle('liked', !!isLiked)
+          console.log(`❤️ [LIKE DEBUG] ${gameId} - renderHeart(${isLiked}) → wrapper.classList.liked = ${wrapper.classList.contains('liked')}`)
+        }
         likeBtn.setAttribute('aria-pressed', isLiked ? 'true' : 'false')
+        console.log(`❤️ [LIKE DEBUG] ${gameId} - renderHeart(${isLiked}) → aria-pressed = ${likeBtn.getAttribute('aria-pressed')}`)
       }
+      
+      // Load initial like status from localStorage and Supabase
       ;(async () => {
         try {
+          // First, check localStorage
+          const localLiked = localStorage.getItem('mp_like_' + gameId) === '1'
+          console.log(`❤️ [LIKE DEBUG] ${gameId} - Initial load: localStorage = ${localLiked}`)
+          
+          // Then, sync with Supabase to get accurate counts
           const { data, error } = await supabase.rpc('get_social_counts', { p_game_id: gameId })
-          console.log('[COMMENT DEBUG]', gameId, '- RPC response:', { data, error })
+          console.log(`❤️ [LIKE DEBUG] ${gameId} - get_social_counts RPC response:`, { data, error })
+          
           if (!error && data) {
-            console.log('[COMMENT DEBUG]', gameId, '- Setting counts:', { likes: data.likes ?? 0, comments: data.comments ?? 0 })
-            console.log('[COMMENT DEBUG]', gameId, '- cmtCountEl exists:', !!cmtCountEl)
+            console.log(`❤️ [LIKE DEBUG] ${gameId} - Setting counts:`, { likes: data.likes ?? 0, comments: data.comments ?? 0 })
             setCounts(data.likes ?? 0, data.comments ?? 0)
           }
+          
+          // Render based on localStorage (will be synced with Supabase on first click)
+          // Note: We don't check Supabase here to avoid unnecessary API calls
+          // The first click will sync localStorage with Supabase
+          renderHeart(localLiked)
         } catch (e) {
-          console.error('[COMMENT DEBUG]', gameId, '- Error:', e)
+          console.error(`❤️ [LIKE DEBUG] ${gameId} - Error loading initial state:`, e)
+          // Fallback to localStorage
+          const localLiked = localStorage.getItem('mp_like_' + gameId) === '1'
+          renderHeart(localLiked)
         }
       })()
-      const liked = localStorage.getItem('mp_like_' + gameId) === '1'
-      renderHeart(liked)
+      
       likeBtn.addEventListener('click', async () => {
+        const beforeState = localStorage.getItem('mp_like_' + gameId) === '1'
+        console.log(`❤️ [LIKE DEBUG] ${gameId} - LIKE BUTTON CLICKED!`)
+        console.log(`   → Before: localStorage = ${beforeState}, userId = ${userId}`)
+        
         likeBtn.disabled = true
+        
         try {
+          console.log(`   → Calling toggle_like RPC...`)
           const { data, error } = await supabase.rpc('toggle_like', {
             p_user_id: userId,
             p_game_id: gameId
           })
-          if (error) throw error
-          const isLiked = !!(data && (data.is_liked ?? data.liked))
-          renderHeart(isLiked)
-          localStorage.setItem('mp_like_' + gameId, isLiked ? '1' : '0')
-          const likes = (data && (data.total_likes ?? data.likes))
-          if (likes != null) {
-            const currentComments = cmtCountEl ? Number(cmtCountEl.textContent) || 0 : 0
-            setCounts(likes, currentComments)
+          
+          console.log(`   → RPC Response:`, { data, error })
+          
+          if (error) {
+            console.error(`   ❌ RPC Error:`, error)
+            throw error
           }
+          
+          const isLiked = !!(data && (data.is_liked ?? data.liked))
+          const totalLikes = (data && (data.total_likes ?? data.likes)) ?? 0
+          
+          console.log(`   → Parsed: isLiked = ${isLiked}, totalLikes = ${totalLikes}`)
+          
+          // Update localStorage
+          localStorage.setItem('mp_like_' + gameId, isLiked ? '1' : '0')
+          console.log(`   → Updated localStorage: mp_like_${gameId} = ${isLiked ? '1' : '0'}`)
+          
+          // Update UI
+          renderHeart(isLiked)
+          console.log(`   → UI updated: renderHeart(${isLiked})`)
+          
+          // Update like count
+          if (totalLikes != null) {
+            const currentComments = cmtCountEl ? Number(cmtCountEl.textContent) || 0 : 0
+            setCounts(totalLikes, currentComments)
+            console.log(`   → Updated counts: likes = ${totalLikes}, comments = ${currentComments}`)
+          }
+          
+          // Only reload game list if user is currently viewing "Liked" filter
+          // This prevents auto-switching to "Liked" filter when user likes a game
+          if (currentFilter === 'Liked') {
+            console.log(`   → User is viewing "Liked" filter - reloading list...`)
+            setTimeout(() => {
+              if (typeof window.applyGameFilter === 'function') {
+                window.applyGameFilter('Liked')
+              }
+            }, 200)
+          } else {
+            console.log(`   → User is viewing "${currentFilter}" filter - keeping current view`)
+          }
+          
+          console.log(`   ✅ Like toggle completed successfully!`)
         } catch (e) {
-          console.error('toggle_like error:', e?.message || e)
+          console.error(`   ❌ toggle_like error:`, e?.message || e)
+          console.error(`   → Stack:`, e?.stack)
         } finally {
           likeBtn.disabled = false
+          console.log(`   → Button re-enabled`)
         }
       })
       commentBtn.addEventListener('click', () => openPanel(gameId))
@@ -3482,6 +4330,9 @@ window.addEventListener("beforeunload", stopGame);
       // HIGH SCORE = GAME OVER
       console.log('🎮 Game Over detected! Stopping game to finalize achievements...')
       
+      // Set flag to allow showing achievements (ONLY after game over)
+      isGameOver = true
+      
       // Stop game = finalize playtime + queue any remaining achievements
       if (activeGame === gameId || activeGame) {
         console.log('   ⏹️ Calling stopGame() to finalize playtime...')
@@ -3503,11 +4354,13 @@ window.addEventListener("beforeunload", stopGame);
         console.log('   ✅ Found', achievementsToShow.length, 'achievement(s) under key:', keyUsed)
         // Wait 1s after game over, then show achievements
         setTimeout(() => {
-          console.log('   🎉 NOW showing achievements...')
+          console.log('   🎉 NOW showing achievements (isGameOver=true)...')
           showPendingAchievements(keyUsed)
         }, 1000)
       } else {
         console.log('   ❌ NO pending achievements found after stopGame!')
+        // Reset flag if no achievements to show
+        isGameOver = false
       }
     }
   })
