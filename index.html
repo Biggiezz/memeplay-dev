@@ -1416,12 +1416,12 @@
           </div>
         </div>
       </div>
-      <button id="creatorButton" class="icon-button" title="Creator">
+      <button id="creatorButton" class="icon-button" title="Create Game">
         <svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-          <circle cx="12" cy="7" r="4"></circle>
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
-        </button>
+      </button>
       <button id="walletConnectBtn" class="icon-button wallet-connect" aria-label="Connect MetaMask">
         <img src="assets/icons/metamask.svg" alt="MetaMask" />
       </button>
@@ -2228,14 +2228,12 @@
       });
     });
 
-    // Creator button - direct click to open overlay
+    // Creator button - navigate to editor page
     creatorButton?.addEventListener('click', (event) => {
-      event.stopPropagation();
+      event.preventDefault();
       closeNavDropdown();
       closeHamburgerDropdown();
-            if (typeof window.__openCreatorOverlay === 'function') {
-              window.__openCreatorOverlay();
-            }
+      window.location.href = '/games/templates/pacman-template/index.html#creatorScreen';
     });
 
     document.addEventListener('click', function(e) {

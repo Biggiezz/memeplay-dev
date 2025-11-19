@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pacman Template - MVP1</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="creatorScreen">
+    <!-- ====================================
+         EDITOR PANEL
+         ==================================== -->
+    <div id="editorContainer" class="editor-container">
+      <div class="editor-panel">
+        <h2 style="color: #FFFFFF; margin-bottom: 20px;">Game Editor</h2>
+        
+        <!-- Logo -->
+        <div class="editor-group">
+          <label class="editor-label">Logo</label>
+          <input type="file" id="fragmentLogoInput" class="editor-file-input" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif">
+          <label for="fragmentLogoInput" class="editor-file-label">Upload Logo</label>
+          <div id="fragmentLogoLoading" style="display: none; color: #ffb642; font-size: 12px; margin-top: 5px;">Processing image...</div>
+          <img id="fragmentLogoPreview" class="logo-preview" alt="Fragment Logo Preview">
+        </div>
+        
+        <!-- Game Title -->
+        <div class="editor-group">
+          <label class="editor-label">Game Title</label>
+          <input type="text" id="titleInput" class="editor-input" placeholder="Enter game title">
+        </div>
+        
+        <!-- Story 1 -->
+        <div class="editor-group">
+          <label class="editor-label">Story 1 <span id="story1Count" class="char-count">0/50</span></label>
+          <textarea id="story1Input" class="editor-textarea" placeholder="Enter story text (max 50 characters)..." maxlength="50"></textarea>
+        </div>
+        
+        <!-- Story 2 -->
+        <div class="editor-group">
+          <label class="editor-label">Story 2 <span id="story2Count" class="char-count">0/50</span></label>
+          <textarea id="story2Input" class="editor-textarea" placeholder="Enter story text (max 50 characters)..." maxlength="50"></textarea>
+        </div>
+        
+        <!-- Story 3 -->
+        <div class="editor-group">
+          <label class="editor-label">Story 3 <span id="story3Count" class="char-count">0/50</span></label>
+          <textarea id="story3Input" class="editor-textarea" placeholder="Enter story text (max 50 characters)..." maxlength="50"></textarea>
+        </div>
+        
+        <!-- Map Selection -->
+        <div class="editor-group">
+          <label class="editor-label">Map</label>
+          <select id="mapSelect" class="editor-input" style="cursor: pointer;">
+            <option value="1">Map 1 - Easy (Wide Area)</option>
+            <option value="2" class="disabled-option" disabled>Map 2 - Coming Soon</option>
+            <option value="3" class="disabled-option" disabled>Map 3 - Coming Soon</option>
+            <option value="4" class="disabled-option" disabled>Map 4 - Coming Soon</option>
+            <option value="5" class="disabled-option" disabled>Map 5 - Coming Soon</option>
+          </select>
+        </div>
+        
+        <!-- Buttons -->
+        <button id="playTestBtn" class="editor-btn">Play Test</button>
+      <button id="closeEditorBtn" class="editor-btn secondary">Close Editor</button>
+      </div>
+
+      <div class="editor-canvas">
+        <div class="game-wrapper">
+          <canvas id="gameCanvasEditor" style="background: #0f0f1e;"></canvas>
+        </div>
+      </div>
+    </div>
+    
+    <div class="creator-floating-buttons">
+      <!-- Editor Toggle Button (for testing) -->
+      <button id="editorToggle" class="floating-btn">➕ Create</button>
+      
+      <!-- Save Button -->
+      <button id="saveBtn" class="floating-btn" style="display: none;">💾 Save</button>
+      
+      <!-- Public Link Button (shown after Save) -->
+      <button id="publicLinkBtn" class="floating-btn disabled" style="display: none;">🔗 Get Public Link</button>
+    </div>
+  </div>
+  
+  <!-- ====================================
+       GAME WRAPPER
+       ==================================== -->
+  <div id="gameWrapper">
+    <div class="game-wrapper">
+      <!-- ====================================
+           HUD (Heads-Up Display)
+           ==================================== -->
+      <div class="hud">
+        <div class="hud-left">
+          <div class="hud-info">
+            <div id="hudScore" class="hud-score">Score: 0</div>
+            <div id="hudLevel" class="hud-level">LV 1</div>
+          </div>
+        </div>
+      </div>
+      
+      <!-- Canvas (only game area: 700x730) -->
+      <canvas id="gameCanvas" width="700" height="730"></canvas>
+      
+      <!-- ====================================
+           MOBILE CONTROLS
+           ==================================== -->
+      <div class="mobile-controls">
+        <div class="control-row">
+          <button id="btnUp" class="control-btn up">▲</button>
+        </div>
+        <div class="control-row">
+          <button id="btnLeft" class="control-btn">◄</button>
+          <button id="btnDown" class="control-btn">▼</button>
+          <button id="btnRight" class="control-btn">►</button>
+        </div>
+      </div>
+      
+      <!-- ====================================
+           GAME OVER SCREEN
+           ==================================== -->
+      <div class="game-over-screen">
+        <img id="gameOverLogo" class="game-over-logo" src="" alt="Fragment Logo" style="display: none;">
+        <div id="gameOverStory" class="game-over-story"></div>
+        <button id="restartBtn" class="restart-btn">Play Again</button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ====================================
+       SCRIPTS
+       ==================================== -->
+  <script src="config.js"></script>
+  <script src="maps.js"></script>
+  <script src="game.js"></script>
+  <script>
+    (function() {
+      const BASE_WIDTH = 720;
+      const BASE_HEIGHT = 1070; // includes padding for HUD / controls
+      
+      function applyGameScale() {
+        const wrapper = document.getElementById('gameWrapper');
+        if (!wrapper) return;
+        const inner = wrapper.querySelector('.game-wrapper');
+        if (!inner) return;
+        const availableWidth = wrapper.clientWidth;
+        const scale = Math.min(1, availableWidth / BASE_WIDTH);
+        inner.style.transform = `scale(${scale})`;
+        inner.style.transformOrigin = 'top center';
+        wrapper.style.height = `${BASE_HEIGHT * scale}px`;
+      }
+      
+      window.addEventListener('resize', applyGameScale);
+      window.addEventListener('orientationchange', applyGameScale);
+      document.addEventListener('DOMContentLoaded', applyGameScale);
+    })();
+  </script>
+</body>
+</html>
+
