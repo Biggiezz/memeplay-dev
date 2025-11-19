@@ -70,13 +70,11 @@ function slugify(text) {
     .replace(/(^-|-$)/g, '') || 'memeplay-project';
 }
 
-function buildPublicLinkUrl() {
-  const titleInput = document.getElementById('titleInput');
-  const rawTitle = titleInput ? titleInput.value.trim() : '';
-  const slug = slugify(rawTitle || 'memeplay-project');
-  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+function buildPublicLinkUrl(gameId = null) {
+  const id = gameId || (typeof generateGameId === 'function' ? generateGameId() : slugify('memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
   const baseUrl = window.location.origin.replace(/\/$/, '');
-  return `${baseUrl}/${slug}-${randomSuffix}`;
+  const currentPath = window.location.pathname.replace(/\/$/, '');
+  return `${baseUrl}${currentPath}?game=${id}`;
 }
 
 function isWalkableTileValue(value) {
@@ -2224,6 +2222,12 @@ function setupEditor() {
       if (saveBtn.dataset.visible !== 'true') {
         return;
       }
+      // Generate and save game ID
+      const gameId = typeof generateGameId === 'function' ? generateGameId() : (slugify(document.getElementById('titleInput')?.value || 'memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
+      saveBrandConfig(gameId);
+      // Store game ID for public link
+      saveBtn.dataset.gameId = gameId;
+      
       saveBtn.textContent = '✅ Saved';
       saveBtn.style.background = '#4ECDC4';
       saveBtn.dataset.saved = 'true';
@@ -2237,7 +2241,16 @@ function setupEditor() {
       if (publicLinkBtn.dataset.enabled !== 'true') {
         return;
       }
-      const shareUrl = buildPublicLinkUrl();
+      // Get game ID from save button or generate new one
+      const gameId = saveBtn && saveBtn.dataset.gameId ? saveBtn.dataset.gameId : (typeof generateGameId === 'function' ? generateGameId() : slugify(document.getElementById('titleInput')?.value || 'memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
+      // Ensure game is saved with this ID
+      if (!saveBtn || saveBtn.dataset.saved !== 'true') {
+        saveBrandConfig(gameId);
+        if (saveBtn) {
+          saveBtn.dataset.gameId = gameId;
+        }
+      }
+      const shareUrl = buildPublicLinkUrl(gameId);
       
       // Get current page URL
       const currentUrl = shareUrl;

@@ -81,9 +81,30 @@ let BRAND_CONFIG = {
   ]
 };
 
+// Get game ID from URL query param or generate new one
+function getGameId() {
+  const urlParams = new URLSearchParams(window.location.search);
+  const gameId = urlParams.get('game');
+  return gameId || null;
+}
+
+// Generate unique game ID
+function generateGameId() {
+  const titleInput = document.getElementById('titleInput');
+  const rawTitle = titleInput ? titleInput.value.trim() : '';
+  const slug = rawTitle
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/(^-|-$)/g, '') || 'memeplay-project';
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  return `${slug}-${randomSuffix}`;
+}
+
 // Load brand config from localStorage or use defaults
 function loadBrandConfig() {
-  const saved = localStorage.getItem('pacman_brand_config');
+  const gameId = getGameId();
+  const storageKey = gameId ? `pacman_brand_config_${gameId}` : 'pacman_brand_config';
+  const saved = localStorage.getItem(storageKey);
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -104,13 +125,16 @@ function loadBrandConfig() {
 }
 
 // Save brand config to localStorage
-function saveBrandConfig() {
+function saveBrandConfig(gameId = null) {
+  const id = gameId || getGameId() || 'pacman_brand_config';
+  const storageKey = id.startsWith('pacman_brand_config') ? id : `pacman_brand_config_${id}`;
   const toSave = {
     fragmentLogoUrl: BRAND_CONFIG.fragmentLogoUrl,
     title: BRAND_CONFIG.title,
     stories: BRAND_CONFIG.stories
   };
-  localStorage.setItem('pacman_brand_config', JSON.stringify(toSave));
+  localStorage.setItem(storageKey, JSON.stringify(toSave));
+  return id;
 }
 
 // Initialize on load

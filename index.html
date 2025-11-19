@@ -2522,6 +2522,115 @@
     }
   }
 
+  // Load user-created games from localStorage
+  function loadUserCreatedGames() {
+    const container = document.querySelector('.game-container')
+    if (!container) return
+    
+    // Get all saved game configs from localStorage
+    const savedGames = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('pacman_brand_config_') && key !== 'pacman_brand_config') {
+        try {
+          const gameId = key.replace('pacman_brand_config_', '')
+          const config = JSON.parse(localStorage.getItem(key))
+          if (config && config.title) {
+            savedGames.push({ gameId, config })
+          }
+        } catch (e) {
+          console.warn('Failed to parse game config:', key, e)
+        }
+      }
+    }
+    
+    // Add each saved game to the container
+    savedGames.forEach(({ gameId, config }) => {
+      // Check if game card already exists
+      if (document.getElementById(gameId)) {
+        return
+      }
+      
+      // Create game card HTML
+      const gameCard = document.createElement('div')
+      gameCard.className = 'game-card'
+      gameCard.id = gameId
+      gameCard.setAttribute('data-game-id', gameId)
+      gameCard.setAttribute('data-user-created', 'true')
+      
+      const baseUrl = window.location.origin.replace(/\/$/, '')
+      const gameUrl = `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`
+      
+      gameCard.innerHTML = `
+        <div class="game-stage">
+          <iframe
+            data-game-url="${gameUrl}"
+            width="720"
+            height="1000"
+            frameborder="0"
+            title="${config.title || 'Pacman Game'}">
+          </iframe>
+          <button class="focus-toggle" type="button" aria-label="Toggle focus mode" aria-pressed="false">⤢</button>
+        </div>
+        <footer class="game-footer">
+          <div class="game-icons">
+            <div class="game-icons-left">
+              <div class="icon-wrapper" data-role="like">
+                <button type="button" title="Like" aria-label="Like">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M24 40.5l-1.2-1.1C16 33 10 28 10 21.5 10 17 13.6 13.5 18 13.5c2.8 0 5.5 1.4 7 3.8 1.5-2.4 4.2-3.8 7-3.8 4.4 0 8 3.5 8 8 0 6.5-6 11.6-12.8 17.9L24 40.5z" />
+                  </svg>
+                </button>
+                <span class="icon-count" data-label="likes">0</span>
+              </div>
+              <div class="icon-wrapper" data-role="comment">
+                <button type="button" title="Comments" aria-label="Comments">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M9 20.5c0-7.2 7.5-12.5 16-12.5s16 5.3 16 12.5-7.5 12.5-16 12.5c-2.3 0-4.6-.3-6.7-.9l-5.8 4.7 1.7-6.3C11.5 27.4 9 24.2 9 20.5z" />
+                  </svg>
+                </button>
+                <span class="icon-count" data-label="comments">0</span>
+              </div>
+              <div class="icon-wrapper" data-role="share">
+                <button type="button" title="Share" aria-label="Share">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <path d="M10 36 Q16 24 24 18 Q32 12 40 14 M40 14 L35 10 M40 14 L35 18" stroke-linecap="round" stroke-linejoin="round"/>
+                  </svg>
+                </button>
+              </div>
+              <div class="icon-wrapper" data-role="leaderboard">
+                <button type="button" title="Leaderboard & Rewards" aria-label="Leaderboard">
+                  <svg viewBox="0 0 48 48" aria-hidden="true">
+                    <rect x="8" y="22" width="10" height="18" />
+                    <rect x="19" y="12" width="10" height="28" />
+                    <rect x="30" y="26" width="10" height="14" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div class="game-icons-right">
+              <div class="icon-wrapper" data-role="marketcap">
+                <button type="button" title="Market Cap" aria-label="Market Cap">
+                  <span>...</span>
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="creator-text">
+            Creator: <strong>${config.title || 'User'}</strong>
+          </div>
+        </footer>
+      `
+      
+      // Append to container (at the end, so user-created games appear last)
+      container.appendChild(gameCard)
+    })
+    
+    if (savedGames.length > 0) {
+      console.log(`✅ Loaded ${savedGames.length} user-created game(s)`)
+    }
+  }
+
   async function loadGameCards() {
     const container = document.querySelector('.game-container')
     if (!container) return
@@ -2534,6 +2643,9 @@
       const wrapper = doc.querySelector('[data-game-list]')
       container.innerHTML = wrapper ? wrapper.innerHTML : markup
       console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
+      
+      // Load user-created games after loading static games
+      loadUserCreatedGames()
       initFocusControls()
       
       // 🚀 CRITICAL: Load game 1 IMMEDIATELY (don't wait for sort)
