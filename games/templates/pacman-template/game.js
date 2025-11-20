@@ -70,8 +70,16 @@ function slugify(text) {
     .replace(/(^-|-$)/g, '') || 'memeplay-project';
 }
 
-function buildPublicLinkUrl(gameId = null) {
+function buildPublicLinkUrl(gameId = null, forceProduction = false) {
   const id = gameId || (typeof generateGameId === 'function' ? generateGameId() : slugify('memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
+  
+  // For public links (share), always use production format (short URL)
+  if (forceProduction) {
+    // Always use production domain for public links
+    const productionUrl = 'https://memeplay.dev';
+    return `${productionUrl}/${id}`;
+  }
+  
   const baseUrl = window.location.origin.replace(/\/$/, '');
   
   // Check if we're on localhost (development)
@@ -2384,7 +2392,8 @@ function setupEditor() {
           saveBtn.dataset.saved = 'true';
         }
       }
-      const shareUrl = buildPublicLinkUrl(gameId);
+      // Always use production format for public links (short URL)
+      const shareUrl = buildPublicLinkUrl(gameId, true);
       console.log('🔗 Public link generated:', shareUrl, 'Game ID:', gameId);
       
       // Get current page URL
