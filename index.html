@@ -389,6 +389,14 @@
       backface-visibility: hidden;
       -webkit-backface-visibility: hidden;
       pointer-events: auto;
+      overflow: hidden !important;
+      scrollbar-width: none !important;
+      -ms-overflow-style: none !important;
+    }
+    .game-stage iframe::-webkit-scrollbar {
+      display: none !important;
+      width: 0 !important;
+      height: 0 !important;
     }
     .focus-toggle {
       position: absolute;
@@ -1437,7 +1445,7 @@
           <line x1="12" y1="5" x2="12" y2="19"></line>
           <line x1="5" y1="12" x2="19" y2="12"></line>
         </svg>
-      </button>
+        </button>
       <button id="walletConnectBtn" class="icon-button wallet-connect" aria-label="Connect MetaMask">
         <img src="assets/icons/metamask.svg" alt="MetaMask" />
       </button>
@@ -1743,7 +1751,7 @@
         setGameState(gameId, GAME_STATES.HIDDEN, card)
       }
     }
-    
+  
     function activateGame(gameId, isPreload = false) {
       console.log(`🚀 [activateGame] CALLED with gameId: ${gameId}, isPreload: ${isPreload}`)
       if (!gameId) {
@@ -2538,123 +2546,178 @@
     }
   }
 
-  // Load user-created games from localStorage
-  function loadUserCreatedGames() {
+  async function loadUserCreatedGames() {
     const container = document.querySelector('.game-container')
     if (!container) {
       console.warn('❌ Game container not found')
-      return
+      return []
     }
-    
-    console.log('🔍 Loading user-created games from localStorage...')
-    
-    // Get all saved game configs from localStorage
-    const savedGames = []
+
+    const baseUrl = window.location.origin.replace(/\/$/, '')
+    container.querySelectorAll('.game-card[data-user-created="true"]').forEach(card => card.remove())
+
+    const supabaseGames = await fetchSupabaseUserGames(baseUrl)
+    const games = supabaseGames.length > 0 ? supabaseGames : loadLocalUserGames(baseUrl)
+
+    games.forEach(game => renderUserGameCard(game, container))
+
+    if (games.length > 0) {
+      console.log(`✅ Loaded ${games.length} user-created game(s) from ${games[0]?.source || 'local'}`)
+    } else {
+      console.log('ℹ️ No user-created games found')
+    }
+    return games
+  }
+
+  function loadLocalUserGames(baseUrl) {
+    console.log('🔍 Loading user-created games from localStorage (fallback)...')
+    const results = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
-      if (key && key.startsWith('pacman_brand_config_') && key !== 'pacman_brand_config') {
-        try {
-          const gameId = key.replace('pacman_brand_config_', '')
-          const config = JSON.parse(localStorage.getItem(key))
-          console.log(`📦 Found game: ${gameId}`, config)
-          if (config && config.title) {
-            savedGames.push({ gameId, config })
-          } else {
-            console.warn(`⚠️ Game ${gameId} missing title:`, config)
-          }
-        } catch (e) {
-          console.warn('Failed to parse game config:', key, e)
-        }
+      if (!key || !key.startsWith('pacman_brand_config_') || key === 'pacman_brand_config') continue
+      try {
+        const gameId = key.replace('pacman_brand_config_', '')
+        const config = JSON.parse(localStorage.getItem(key) || '{}')
+        if (!config || !config.title) continue
+        results.push({
+          source: 'localStorage',
+          gameId,
+          title: config.title || 'Pacman Game',
+          creator: config.title || 'Creator',
+          mapColor: config.mapColor || '#1a1a2e',
+          fragmentLogoUrl: config.fragmentLogoUrl || '',
+          stories: config.stories || [],
+          likes: 0,
+          comments: 0,
+          plays: 0,
+          templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+          publicUrl: `${baseUrl}/#${gameId}`
+        })
+      } catch (error) {
+        console.warn('Failed to parse local game config:', key, error)
       }
     }
-    
-    console.log(`✅ Found ${savedGames.length} user-created game(s)`)
-    
-    // Add each saved game to the container
-    savedGames.forEach(({ gameId, config }) => {
-      // Check if game card already exists
-      if (document.getElementById(gameId)) {
-        console.log(`⏭️ Game ${gameId} already exists, skipping`)
-        return
+    return results
+  }
+
+  async function fetchSupabaseUserGames(baseUrl) {
+    if (typeof supabase === 'undefined') return []
+    try {
+      const { data, error } = await supabase.rpc('list_user_created_games', {
+        p_template_id: 'pacman-template'
+      })
+      if (error) {
+        console.warn('⚠️ list_user_created_games error:', error.message || error)
+        return []
       }
-      
-      // Create game card HTML
-      const gameCard = document.createElement('div')
-      gameCard.className = 'game-card'
-      gameCard.id = gameId
-      gameCard.setAttribute('data-game-id', gameId)
-      gameCard.setAttribute('data-user-created', 'true')
-      
-      const baseUrl = window.location.origin.replace(/\/$/, '')
-      const gameUrl = `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`
-      
-      gameCard.innerHTML = `
-        <div class="game-stage">
-          <iframe
-            data-game-url="${gameUrl}"
-            width="720"
-            height="1000"
-            frameborder="0"
-            title="${config.title || 'Pacman Game'}">
-          </iframe>
-          <button class="focus-toggle" type="button" aria-label="Toggle focus mode" aria-pressed="false">⤢</button>
+      if (!Array.isArray(data) || data.length === 0) return []
+      return data
+        .map(item => {
+          const gameId = item?.game_id || item?.id
+          if (!gameId) return null
+          return {
+            source: 'supabase',
+            gameId,
+            title: item.title || 'Pacman Game',
+            creator: item.creator_name || item.creator_id || item.title || 'Creator',
+            mapColor: item.map_color || '#1a1a2e',
+            fragmentLogoUrl: item.fragment_logo_url || '',
+            stories: item.stories || [],
+            likes: item.likes_count ?? item.likes ?? 0,
+            comments: item.comments_count ?? item.comments ?? 0,
+            plays: item.plays_count ?? item.plays ?? 0,
+            templateUrl: item.template_url || `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+            publicUrl: item.public_url || `${baseUrl}/#${gameId}`
+          }
+        })
+        .filter(Boolean)
+    } catch (error) {
+      console.error('❌ fetchSupabaseUserGames error:', error)
+      return []
+    }
+  }
+
+  function renderUserGameCard(game, container) {
+    if (!game?.gameId) return
+    if (document.getElementById(game.gameId)) {
+      console.log(`⏭️ Game ${game.gameId} already exists, skipping`)
+      return
+    }
+
+    const gameCard = document.createElement('div')
+    gameCard.className = 'game-card'
+    gameCard.id = game.gameId
+    gameCard.setAttribute('data-game-id', game.gameId)
+    gameCard.setAttribute('data-user-created', 'true')
+    gameCard.setAttribute('data-source', game.source || 'unknown')
+
+    gameCard.innerHTML = `
+      <div class="game-stage">
+        <iframe
+          data-game-url="${game.templateUrl}"
+          width="720"
+          height="1000"
+          frameborder="0"
+          scrolling="no"
+          style="overflow: hidden; border: none;"
+          title="${game.title || 'Pacman Game'}">
+        </iframe>
+        <button class="focus-toggle" type="button" aria-label="Toggle focus mode" aria-pressed="false">⤢</button>
+      </div>
+      <footer class="game-footer">
+        <div class="game-icons">
+          <div class="game-icons-left">
+            <div class="icon-wrapper" data-role="like">
+              <button type="button" title="Like" aria-label="Like">
+                <svg viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M24 40.5l-1.2-1.1C16 33 10 28 10 21.5 10 17 13.6 13.5 18 13.5c2.8 0 5.5 1.4 7 3.8 1.5-2.4 4.2-3.8 7-3.8 4.4 0 8 3.5 8 8 0 6.5-6 11.6-12.8 17.9L24 40.5z" />
+                </svg>
+              </button>
+              <span class="icon-count" data-label="likes">${game.likes ?? 0}</span>
+            </div>
+            <div class="icon-wrapper" data-role="comment">
+              <button type="button" title="Comments" aria-label="Comments">
+                <svg viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M9 20.5c0-7.2 7.5-12.5 16-12.5s16 5.3 16 12.5-7.5 12.5-16 12.5c-2.3 0-4.6-.3-6.7-.9l-5.8 4.7 1.7-6.3C11.5 27.4 9 24.2 9 20.5z" />
+                </svg>
+              </button>
+              <span class="icon-count" data-label="comments">${game.comments ?? 0}</span>
+            </div>
+            <div class="icon-wrapper" data-role="share">
+              <button type="button" title="Share" aria-label="Share">
+                <svg viewBox="0 0 48 48" aria-hidden="true">
+                  <path d="M10 36 Q16 24 24 18 Q32 12 40 14 M40 14 L35 10 M40 14 L35 18" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+              </button>
+            </div>
+            <div class="icon-wrapper" data-role="leaderboard">
+              <button type="button" title="Leaderboard & Rewards" aria-label="Leaderboard">
+                <svg viewBox="0 0 48 48" aria-hidden="true">
+                  <rect x="8" y="22" width="10" height="18" />
+                  <rect x="19" y="12" width="10" height="28" />
+                  <rect x="30" y="26" width="10" height="14" />
+                </svg>
+              </button>
+            </div>
+          </div>
+          <div class="game-icons-right">
+            <div class="icon-wrapper" data-role="marketcap">
+              <button type="button" title="Market Cap" aria-label="Market Cap">
+                <span>...</span>
+              </button>
+            </div>
+          </div>
         </div>
-        <footer class="game-footer">
-          <div class="game-icons">
-            <div class="game-icons-left">
-              <div class="icon-wrapper" data-role="like">
-                <button type="button" title="Like" aria-label="Like">
-                  <svg viewBox="0 0 48 48" aria-hidden="true">
-                    <path d="M24 40.5l-1.2-1.1C16 33 10 28 10 21.5 10 17 13.6 13.5 18 13.5c2.8 0 5.5 1.4 7 3.8 1.5-2.4 4.2-3.8 7-3.8 4.4 0 8 3.5 8 8 0 6.5-6 11.6-12.8 17.9L24 40.5z" />
-                  </svg>
-                </button>
-                <span class="icon-count" data-label="likes">0</span>
-              </div>
-              <div class="icon-wrapper" data-role="comment">
-                <button type="button" title="Comments" aria-label="Comments">
-                  <svg viewBox="0 0 48 48" aria-hidden="true">
-                    <path d="M9 20.5c0-7.2 7.5-12.5 16-12.5s16 5.3 16 12.5-7.5 12.5-16 12.5c-2.3 0-4.6-.3-6.7-.9l-5.8 4.7 1.7-6.3C11.5 27.4 9 24.2 9 20.5z" />
-                  </svg>
-                </button>
-                <span class="icon-count" data-label="comments">0</span>
-              </div>
-              <div class="icon-wrapper" data-role="share">
-                <button type="button" title="Share" aria-label="Share">
-                  <svg viewBox="0 0 48 48" aria-hidden="true">
-                    <path d="M10 36 Q16 24 24 18 Q32 12 40 14 M40 14 L35 10 M40 14 L35 18" stroke-linecap="round" stroke-linejoin="round"/>
-                  </svg>
-                </button>
-              </div>
-              <div class="icon-wrapper" data-role="leaderboard">
-                <button type="button" title="Leaderboard & Rewards" aria-label="Leaderboard">
-                  <svg viewBox="0 0 48 48" aria-hidden="true">
-                    <rect x="8" y="22" width="10" height="18" />
-                    <rect x="19" y="12" width="10" height="28" />
-                    <rect x="30" y="26" width="10" height="14" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            <div class="game-icons-right">
-              <div class="icon-wrapper" data-role="marketcap">
-                <button type="button" title="Market Cap" aria-label="Market Cap">
-                  <span>...</span>
-                </button>
-              </div>
-            </div>
-          </div>
-          <div class="creator-text">
-            Creator: <strong>${config.title || 'User'}</strong>
-          </div>
-        </footer>
-      `
-      
-      // Append to container (at the end, so user-created games appear last)
-      container.appendChild(gameCard)
-    })
-    
-    if (savedGames.length > 0) {
-      console.log(`✅ Loaded ${savedGames.length} user-created game(s)`)
+        <div class="creator-text">
+          Creator: <strong>${game.creator || game.title || 'User'}</strong>
+        </div>
+      </footer>
+    `
+
+    container.appendChild(gameCard)
+
+    if (typeof setPlaysLabelForCard === 'function' && Number.isFinite(game.plays)) {
+      setPlaysLabelForCard(game.gameId, game.plays)
     }
   }
 
@@ -2674,7 +2737,7 @@
       initFocusControls()
       
       // Load user-created games after loading static games
-      loadUserCreatedGames()
+      await loadUserCreatedGames()
       
       // 🚀 CRITICAL: Load game 1 IMMEDIATELY (don't wait for sort)
       // Get all games first (before sorting)
@@ -2713,17 +2776,17 @@
         
         // Scroll to first game
         if (gameContainer) {
-          gameContainer.style.scrollSnapType = 'none'
-          gameContainer.style.scrollBehavior = 'auto'
-          gameContainer.scrollTop = 0
-          requestAnimationFrame(() => {
+        gameContainer.style.scrollSnapType = 'none'
+        gameContainer.style.scrollBehavior = 'auto'
+        gameContainer.scrollTop = 0
+        requestAnimationFrame(() => {
             firstCardBeforeSort.scrollIntoView({ block: 'start' })
-            setTimeout(() => {
-              gameContainer.style.scrollSnapType = 'y mandatory'
-              gameContainer.style.scrollBehavior = 'smooth'
-            }, 500)
-          })
-        }
+          setTimeout(() => {
+            gameContainer.style.scrollSnapType = 'y mandatory'
+            gameContainer.style.scrollBehavior = 'smooth'
+          }, 500)
+        })
+      }
       }
       
       // STEP 2: Initialize game states
@@ -2743,8 +2806,10 @@
       initSocialHandlers()
       
       // STEP 4: Handle hash navigation (from share links)
+      // Re-get allCards after loadUserCreatedGames() to include user-created games
+      const allCardsWithUserCreated = Array.from(document.querySelectorAll('.game-card'))
       const hash = window.location.hash.slice(1)
-      if (hash && allCards.some(c => c.id === hash)) {
+      if (hash && allCardsWithUserCreated.some(c => c.id === hash)) {
         console.log('🔗 Hash detected:', hash)
         setTimeout(() => {
           const targetCard = document.getElementById(hash)
@@ -2803,7 +2868,7 @@
           const newFirstCard = getGameCardElement(firstAfterSort)
           if (newFirstCard) {
             // Unload old first game
-            if (allCards[0]?.id) {
+        if (allCards[0]?.id) {
               unloadGameIframe(allCards[0].id)
               setGameState(allCards[0].id, GAME_STATES.HIDDEN)
             }
@@ -2820,12 +2885,12 @@
               gameContainer.style.scrollSnapType = 'none'
               gameContainer.scrollTop = 0
               newFirstCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
-              setTimeout(() => {
+          setTimeout(() => {
                 gameContainer.style.scrollSnapType = 'y mandatory'
               }, 1000)
             }
-          }
-        } else {
+        }
+      } else {
           console.log(`📊 [INITIAL] Sort completed, but user already moved or first game unchanged`)
         }
         
@@ -2855,9 +2920,6 @@
       container.innerHTML = '<div style="padding:24px;text-align:center;color:#bbb;">Unable to load games. Please refresh.</div>'
     }
   }
-  
-  // Load games on page load
-  loadGameCards()
 
   function updateFocusButtons() {
     const active = document.body.classList.contains('focus-mode')
@@ -3956,7 +4018,6 @@ window.addEventListener("beforeunload", stopGame);
 
   // ==============================
   // Likes & Comments (Supabase RPC)
-  // ==============================
   function initSocialHandlers() {
     // Global overlay controller (single instance handlers)
     const overlay = document.getElementById('commentsOverlay')
@@ -4389,23 +4450,25 @@ window.addEventListener("beforeunload", stopGame);
         console.error('❌ [SCORE] Submit score error:', err)
       }
 
-      // Ensure a play is counted even if timer didn't start properly
-      // ❗ Legacy games: skip safeguard here để tránh double-count; stopGame() sẽ lo increment.
+      // Ensure a play is counted even if timer didn't start properly.
+      // Chỉ chạy safeguard khi timer KHÔNG chạy (ví dụ fallback hoặc iframe không gửi GAME_START).
+      // Nếu timer đang chạy bình thường, stopGame() sẽ tự increment → tránh double-count.
+      const timerRunningForGame = activeGame === gameId && !!activeStartTime;
       if (!isLegacyGame(gameId)) {
+        if (timerRunningForGame) {
+          console.log('⏭️ [PLAYS SAFEGUARD] Skip for', gameId, '- timer đã chạy, stopGame sẽ cộng.');
+        } else {
+          console.log('⏱ [PLAYS SAFEGUARD] GAME_SCORE đến khi chưa start timer (game hiện đại) → bỏ qua để tránh double-count.');
+        }
+      } else if (!timerRunningForGame) {
         try {
-          // Compute session seconds; if not available, fallback to 3s minimum
-          let secondsElapsed = 0
-          if (activeGame === gameId && activeStartTime) {
-            secondsElapsed = Math.max(0, Math.floor((Date.now() - activeStartTime) / 1000))
-          }
-          const secondsForPlay = Math.max(3, secondsElapsed)
-          console.log('⏱ [PLAYS SAFEGUARD] secondsForPlay =', secondsForPlay, 'gameId =', gameId)
+          // Legacy fallback: game không gửi GAME_START nên ép cộng tối thiểu 3s
           const sgPayload = {
             p_user_id: userId,
             p_game_id: gameId,
-            p_seconds: secondsForPlay
+            p_seconds: 3
           };
-          console.log('📈 [PLAYS] increment_play_count (safeguard) →', sgPayload);
+          console.log('📈 [PLAYS] increment_play_count (legacy safeguard) →', sgPayload);
           const { data: incData, error: incErr } = await rpcWithKeepalive('increment_play_count', sgPayload)
           if (incErr) {
             console.warn('⏱ [PLAYS SAFEGUARD] increment_play_count failed:', incErr.message)
@@ -4417,6 +4480,8 @@ window.addEventListener("beforeunload", stopGame);
           console.warn('⏱ [PLAYS SAFEGUARD] error:', e?.message || e)
           try { await loadPlayCount(gameId) } catch {}
         }
+      } else if (timerRunningForGame) {
+        console.log('⏭️ [PLAYS SAFEGUARD] Skip for', gameId, '- timer already running (stopGame handles increment)');
       }
       
       // LEGACY GAMES (Lovable): Always treat GAME_SCORE as full session end (old behavior)
@@ -4704,18 +4769,9 @@ window.addEventListener("beforeunload", stopGame);
   function buildShareUrl(gameId) {
     if (!gameId) return `${window.location.origin}/`
     
-    // Check if this is a user-created Pacman game
-    const gameCard = document.getElementById(gameId)
-    const isUserCreated = gameCard?.getAttribute('data-user-created') === 'true'
-    
-    if (isUserCreated) {
-      // User-created Pacman game: use short URL format
-      // Vercel rewrite will handle: /pacman-game-8041 → /games/templates/pacman-template/index.html?game=pacman-game-8041
-      return `${window.location.origin}/${gameId}`
-    } else {
-      // Regular game: use root path with hash
-      return `${window.location.origin}/#${gameId}`
-    }
+    // All games (including user-created Pacman games) use hash navigation
+    // This ensures consistent behavior: /#brick-fallen-crypto, /#pacman-game-7251
+    return `${window.location.origin}/#${gameId}`
   }
 
   ;(function initShareOverlay(){
@@ -4936,68 +4992,9 @@ window.addEventListener("beforeunload", stopGame);
         }
       }, { passive: false });
       
-      // Handle keyboard scroll (Space, Arrow keys) with scroll-snap
-      document.addEventListener('keydown', (e) => {
-        // Only handle when focus is not in input/textarea
-        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
-        
-        const key = e.key;
-        if (key === ' ' || key === 'ArrowDown' || key === 'ArrowUp' || key === 'PageDown' || key === 'PageUp') {
-          e.preventDefault();
-          
-          // Find current game card and scroll to next/previous game
-          const cards = Array.from(document.querySelectorAll('.game-card'));
-          if (!cards.length) return;
-          
-          let currentIndex = 0;
-          const containerTop = gameContainer.scrollTop;
-          const containerHeight = gameContainer.clientHeight;
-          
-          // Find currently visible game card (occupying >50% viewport)
-          for (let i = 0; i < cards.length; i++) {
-            const card = cards[i];
-            const cardTop = card.offsetTop - gameContainer.offsetTop;
-            const cardBottom = cardTop + card.offsetHeight;
-            const viewportTop = containerTop;
-            const viewportBottom = containerTop + containerHeight;
-            
-            // If card occupies >50% viewport
-            const visibleTop = Math.max(cardTop, viewportTop);
-            const visibleBottom = Math.min(cardBottom, viewportBottom);
-            const visibleHeight = visibleBottom - visibleTop;
-            
-            if (visibleHeight > containerHeight * 0.5) {
-              currentIndex = i;
-              break;
-            }
-          }
-          
-          // Determine next/previous game
-          let nextIndex = currentIndex;
-          if (key === 'ArrowDown' || key === ' ' || key === 'PageDown') {
-            nextIndex = (currentIndex + 1) % cards.length;
-          } else if (key === 'ArrowUp' || key === 'PageUp') {
-            nextIndex = (currentIndex - 1 + cards.length) % cards.length;
-          }
-          
-          // Scroll to center of game card + 5% offset down to make game appear slightly lower
-          if (cards[nextIndex]) {
-            const card = cards[nextIndex];
-            const cardTop = card.offsetTop - gameContainer.offsetTop;
-            const cardHeight = card.offsetHeight;
-            const containerHeight = gameContainer.clientHeight;
-            const cardCenter = cardTop + cardHeight / 2;
-            // Calculate scroll position: center - 5% viewport down = center + 5% containerHeight
-            const offsetDown = containerHeight * 0.05; // 5% down
-            const targetScroll = Math.max(0, cardCenter - containerHeight / 2 - offsetDown);
-            
-            gameContainer.scrollTo({
-              top: targetScroll,
-              behavior: 'smooth'
-            });
-          }
-        }
-      });
+      // ✅ REMOVED: Keyboard scroll with Arrow keys - Only mouse wheel scrolling is allowed
+      // Arrow keys are now exclusively for game control (handled in game.js)
+      // Users can only scroll using mouse wheel
     })();
   </script>
 

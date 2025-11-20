@@ -36,6 +36,82 @@ let gateBlinkTimer = 0;
 // Ghosts
 let ghosts = [];
 let ghostCount = 1;
+const EMBEDDED_GAME_ID = typeof getGameId === 'function' ? getGameId() : null;
+const isPublicView = !!EMBEDDED_GAME_ID;
+
+const TEMPLATE_ID = 'pacman-template';
+const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ';
+let supabaseClientPromise = null;
+
+function getCreatorIdentifier() {
+  const key = 'pacman_creator_id';
+  let id = localStorage.getItem(key);
+  if (!id) {
+    id = 'creator_' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem(key, id);
+  }
+  return id;
+}
+
+async function getSupabaseClient() {
+  if (window.supabaseClient) return window.supabaseClient;
+  if (supabaseClientPromise) return supabaseClientPromise;
+  supabaseClientPromise = (async () => {
+    try {
+      const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+      const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      window.supabaseClient = client;
+      return client;
+    } catch (error) {
+      console.error('[Supabase] Failed to load client:', error);
+      return null;
+    }
+  })();
+  return supabaseClientPromise;
+}
+
+async function syncGameToSupabase(gameId, context = 'manual-save') {
+  try {
+    const supabase = await getSupabaseClient();
+    if (!supabase) {
+      console.warn('[Supabase] Client unavailable, skip sync');
+      return false;
+    }
+
+    const baseUrl = window.location.origin.replace(/\/$/, '');
+    const templateUrl = `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`;
+    const publicUrl = buildPublicLinkUrl(gameId, true);
+    const stories = Array.isArray(BRAND_CONFIG.stories) ? BRAND_CONFIG.stories : [];
+
+    const payload = {
+      p_game_id: gameId,
+      p_template_id: TEMPLATE_ID,
+      p_title: BRAND_CONFIG.title || 'Pacman Game',
+      p_map_color: BRAND_CONFIG.mapColor || '#1a1a2e',
+      p_fragment_logo_url: BRAND_CONFIG.fragmentLogoUrl || null,
+      p_story_one: stories[0] || '',
+      p_story_two: stories[1] || '',
+      p_story_three: stories[2] || '',
+      p_public_url: publicUrl,
+      p_template_url: templateUrl,
+      p_creator_id: getCreatorIdentifier(),
+      p_context: context
+    };
+
+    const { error } = await supabase.rpc('upsert_user_created_game', payload);
+    if (error) {
+      console.error('[Supabase] upsert_user_created_game error:', error.message || error);
+      return false;
+    }
+
+    console.log(`[Supabase] Synced game ${gameId} (${context})`);
+    return true;
+  } catch (err) {
+    console.error('[Supabase] Unexpected sync error:', err);
+    return false;
+  }
+}
 
 // Ghost AI state
 let ghostSpeedMultiplier = 0.25;          // starts at 25% of Pacman speed
@@ -73,26 +149,11 @@ function slugify(text) {
 function buildPublicLinkUrl(gameId = null, forceProduction = false) {
   const id = gameId || (typeof generateGameId === 'function' ? generateGameId() : slugify('memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
   
-  // For public links (share), always use production format (short URL)
-  if (forceProduction) {
-    // Always use production domain for public links
-    const productionUrl = 'https://memeplay.dev';
-    return `${productionUrl}/${id}`;
-  }
-  
   const baseUrl = window.location.origin.replace(/\/$/, '');
   
-  // Check if we're on localhost (development)
-  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  
-  if (isLocal) {
-    // On local: use pacman-game.html with query parameter (works with any server)
-    return `${baseUrl}/pacman-game.html?id=${id}`;
-  } else {
-    // On production: use short URL format (Vercel rewrite will handle it)
-    // /pacman-game-8041 → /games/templates/pacman-template/index.html?game=pacman-game-8041
-    return `${baseUrl}/${id}`;
-  }
+  // Always use hash navigation (like other games: /#brick-fallen-crypto)
+  // This ensures the game appears on homepage and works on both local and production
+  return `${baseUrl}/#${id}`;
 }
 
 function isWalkableTileValue(value) {
@@ -109,6 +170,7 @@ let mobileDirection = null;
 let mobileDirectionSource = null; // 'button' or 'swipe'
 let mobileSwipeTimeoutId = null;
 let mobileGameUnlocked = false;
+let hasSentGameStart = false;
 
 function setMobileDirection(dir, source = 'button') {
   if (!dir) return;
@@ -126,6 +188,7 @@ function setMobileDirection(dir, source = 'button') {
       mobileSwipeTimeoutId = null;
     }, 200);
   }
+  requestGameStartFromParent(source === 'swipe' ? 'mobile-swipe' : 'mobile-button');
 }
 
 function clearMobileDirection(source = 'button') {
@@ -143,6 +206,14 @@ function clearMobileDirection(source = 'button') {
       clearTimeout(mobileSwipeTimeoutId);
     }
     mobileSwipeTimeoutId = null;
+  }
+}
+
+function requestGameStartFromParent(source = 'input') {
+  if (hasSentGameStart) return;
+  hasSentGameStart = true;
+  if (EMBEDDED_GAME_ID) {
+    notifyParentGameStart(source);
   }
 }
 
@@ -191,6 +262,21 @@ const SOUND_PRESETS = {
       { freq: 660, duration: 0.28, gain: 0.2, type: 'triangle' },
       { freq: 880, duration: 0.32, gain: 0.18, offset: 0.18, type: 'sine' }
     ]
+  },
+  ghostYellowGlow: {
+    sequence: [
+      { freq: 600, duration: 0.12, gain: 0.25, type: 'sine' },
+      { freq: 800, duration: 0.1, gain: 0.2, offset: 0.08, type: 'triangle' }
+    ]
+  },
+  ghostRedAlert: {
+    sequence: [
+      { freq: 400, duration: 0.15, gain: 0.3, type: 'sawtooth' },
+      { freq: 0, duration: 0.1, gain: 0, offset: 0.15 }, // Pause (silence)
+      { freq: 450, duration: 0.15, gain: 0.3, offset: 0.25, type: 'sawtooth' },
+      { freq: 0, duration: 0.1, gain: 0, offset: 0.4 }, // Pause (silence)
+      { freq: 500, duration: 0.2, gain: 0.35, offset: 0.5, type: 'sawtooth' }
+    ]
   }
 };
 
@@ -238,12 +324,18 @@ function playSound(name) {
 
   const startTime = ctx.currentTime;
   preset.sequence.forEach(step => {
-    const osc = ctx.createOscillator();
-    const gainNode = ctx.createGain();
     const offset = step.offset || 0;
     const duration = step.duration || 0.1;
     const freq = step.freq || 440;
     const gainValue = step.gain ?? 0.2;
+    
+    // Skip silence (freq = 0) - just wait for the duration
+    if (freq === 0 || gainValue === 0) {
+      return; // Skip this step (silence/pause)
+    }
+    
+    const osc = ctx.createOscillator();
+    const gainNode = ctx.createGain();
     osc.type = step.type || 'sine';
     osc.frequency.setValueAtTime(freq, startTime + offset);
     gainNode.gain.setValueAtTime(gainValue, startTime + offset);
@@ -368,15 +460,19 @@ function initLevel(level) {
   ghostGlowState = 'none';
   ghostPendingBoost = 0;
   
-  // Find player spawn (first path tile)
+  // ✅ CRITICAL: Find player spawn (first path tile) and force reset position
   const spawnPos = findFirstPathTile();
-  player.x = mapOffsetX + spawnPos.col * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-  player.y = mapOffsetY + spawnPos.row * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+  const spawnX = mapOffsetX + spawnPos.col * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+  const spawnY = mapOffsetY + spawnPos.row * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+  
+  // Force snap to exact spawn position
+  player.x = Math.round(spawnX);
+  player.y = Math.round(spawnY);
   player.direction = 'right';
   player.nextDirection = 'right';
   
-  // Player position is already set correctly, no need to snap
-  // Just ensure it's within valid bounds
+  // Reset player animation
+  player.animationFrame = 0;
   
   // Spawn fragments
   spawnFragments();
@@ -454,6 +550,7 @@ function checkFragmentCollection() {
           if (fragmentsCollected === 3) {
             ghostGlowState = 'red';
             ghostGlowTimer = Number.POSITIVE_INFINITY;
+            playSound('ghostRedAlert'); // Long alert sound when ghost turns red (3rd fragment)
           }
         }
         
@@ -550,11 +647,18 @@ function spawnGhosts() {
       { body: '#0000FF', eyes: '#FFFFFF' }  // Blue
     ];
     
+    const row = tile[0];
+    const col = tile[1];
+    
+    // ✅ CRITICAL: Verify this tile is actually walkable (double-check)
+    if (!isWalkableTileValue(currentMap[row][col])) {
+      console.warn(`⚠️ Spawn tile [${row}, ${col}] is not walkable, skipping ghost ${index}`);
+      return; // Skip this ghost if tile is not walkable
+    }
+    
     // Find valid directions from spawn tile
     const validDirections = [];
     const directions = ['up', 'down', 'left', 'right'];
-    const row = tile[0];
-    const col = tile[1];
     
     directions.forEach(dir => {
       let checkRow = row;
@@ -575,40 +679,97 @@ function spawnGhosts() {
       }
     });
     
-    // Choose a valid direction (or default to first available)
-    // If no valid direction, find any direction that can be moved to
-    let spawnDirection = validDirections.length > 0 
-      ? validDirections[Math.floor(Math.random() * validDirections.length)]
-      : null;
-    
-    // If still none, try to find direction from nearby tiles
-    if (!spawnDirection) {
-      for (let dir of directions) {
-        let testRow = row;
-        let testCol = col;
-        switch(dir) {
-          case 'up': testRow--; break;
-          case 'down': testRow++; break;
-          case 'left': testCol--; break;
-          case 'right': testCol++; break;
+    // ✅ CRITICAL: Only spawn if tile has at least ONE valid direction
+    if (validDirections.length === 0) {
+      console.warn(`⚠️ Spawn tile [${row}, ${col}] has no valid directions, finding alternative...`);
+      // Find alternative tile that has valid directions
+      const alternativeTiles = availableTiles.filter(t => {
+        if (t[0] === row && t[1] === col) return false; // Skip current tile
+        if (spawnTiles.slice(0, index).some(st => st[0] === t[0] && st[1] === t[1])) return false; // Skip already used
+        
+        // Check if this alternative tile has valid directions
+        const altRow = t[0];
+        const altCol = t[1];
+        if (!isWalkableTileValue(currentMap[altRow][altCol])) return false;
+        
+        let hasValidDir = false;
+        for (let dir of directions) {
+          let testRow = altRow;
+          let testCol = altCol;
+          switch(dir) {
+            case 'up': testRow--; break;
+            case 'down': testRow++; break;
+            case 'left': testCol--; break;
+            case 'right': testCol++; break;
+          }
+          if (testRow >= 0 && testRow < currentMap.length &&
+              testCol >= 0 && testCol < currentMap[0].length &&
+              isWalkableTileValue(currentMap[testRow][testCol])) {
+            hasValidDir = true;
+            break;
+          }
         }
-        if (testRow >= 0 && testRow < currentMap.length &&
-            testCol >= 0 && testCol < currentMap[0].length &&
-            isWalkableTileValue(currentMap[testRow][testCol])) {
-          spawnDirection = dir;
-          break;
-        }
+        return hasValidDir;
+      });
+      
+      if (alternativeTiles.length > 0) {
+        // Use alternative tile
+        const newTile = alternativeTiles[0];
+        spawnTiles[index] = newTile;
+        // Re-check valid directions with new tile
+        validDirections.length = 0;
+        directions.forEach(dir => {
+          let checkRow = newTile[0];
+          let checkCol = newTile[1];
+          switch(dir) {
+            case 'up': checkRow--; break;
+            case 'down': checkRow++; break;
+            case 'left': checkCol--; break;
+            case 'right': checkCol++; break;
+          }
+          if (checkRow >= 0 && checkRow < currentMap.length &&
+              checkCol >= 0 && checkCol < currentMap[0].length &&
+              isWalkableTileValue(currentMap[checkRow][checkCol])) {
+            validDirections.push(dir);
+          }
+        });
+        // Update row/col for rest of function
+        row = newTile[0];
+        col = newTile[1];
+      } else {
+        console.warn(`⚠️ No alternative tile found for ghost ${index}, skipping`);
+        return; // Skip this ghost if no valid spawn location
       }
     }
     
-    // Fallback: default to right if still none
-    if (!spawnDirection) spawnDirection = 'right';
+    // Choose a valid direction (prefer horizontal movement for better gameplay)
+    let spawnDirection = validDirections.find(dir => dir === 'left' || dir === 'right') ||
+                         validDirections[Math.floor(Math.random() * validDirections.length)];
     
     const colorIndex = index % ghostColors.length;
-    const ghostX = mapOffsetX + tile[1] * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
-    const ghostY = mapOffsetY + tile[0] * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+    // ✅ CRITICAL: Ensure exact center of tile for proper collision detection
+    // Use row/col (may have been updated to alternative tile)
+    const ghostX = mapOffsetX + col * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
+    const ghostY = mapOffsetY + row * CONFIG.TILE_SIZE + CONFIG.TILE_SIZE / 2;
     const snappedX = Math.round(ghostX);
     const snappedY = Math.round(ghostY);
+    
+    // ✅ CRITICAL: Verify ghost can actually move in spawn direction before creating
+    const testGhost = { x: snappedX, y: snappedY, direction: spawnDirection, size: CONFIG.GHOST_SIZE };
+    if (!canGhostMove(testGhost, spawnDirection, CONFIG.TILE_SIZE / 4)) {
+      // If can't move, try another valid direction
+      const workingDir = validDirections.find(dir => {
+        testGhost.direction = dir;
+        return canGhostMove(testGhost, dir, CONFIG.TILE_SIZE / 4);
+      });
+      if (workingDir) {
+        spawnDirection = workingDir;
+      } else {
+        console.warn(`⚠️ Ghost ${index} cannot move in any direction from spawn, skipping`);
+        return; // Skip if truly stuck
+      }
+    }
+    
     ghosts.push({
       x: snappedX,
       y: snappedY,
@@ -853,7 +1014,7 @@ function handleFirstFragmentBoost() {
   ghostGlowState = 'yellow';
   ghostPendingBoost = 0.25;
   flashBorder();
-  playSound('ghostFreeze');
+  playSound('ghostYellowGlow'); // Sound when ghost glows yellow for first time
 }
 
 function checkGhostCollision() {
@@ -1389,8 +1550,21 @@ function updateHUD() {
 // ====================================
 
 function setupControls() {
+  const isFormElement = (el) => {
+    if (!el) return false;
+    const tag = el.tagName;
+    return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
+  };
+
   window.addEventListener('keydown', (e) => {
-    keys[e.key] = true;
+    const key = e.key;
+    // ✅ CRITICAL: Prevent page scrolling with arrow keys (only allow mouse wheel scrolling)
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key) && !isFormElement(e.target)) {
+      e.preventDefault();
+      e.stopPropagation(); // Also stop propagation to ensure no scroll
+      requestGameStartFromParent('keyboard');
+    }
+    keys[key] = true;
     
     // Test maps: Press 1-5 to jump to specific map
     if (e.key >= '1' && e.key <= '5') {
@@ -1402,6 +1576,11 @@ function setupControls() {
   });
   
   window.addEventListener('keyup', (e) => {
+    // ✅ CRITICAL: Also prevent default on keyup for arrow keys to ensure no scroll
+    if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !isFormElement(e.target)) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     keys[e.key] = false;
   });
 }
@@ -1520,7 +1699,8 @@ function gameLoop(timestamp = 0) {
     ctx.imageSmoothingQuality = 'high';
   }
   
-  if (gameState === 'playing') {
+  const gameplayActive = !isPublicView || hasSentGameStart;
+  if (gameState === 'playing' && gameplayActive) {
     // Update animation frames
     player.animationFrame += deltaTime * 0.01; // Animate mouth
     
@@ -1530,8 +1710,10 @@ function gameLoop(timestamp = 0) {
     checkFragmentCollection();
     checkExitGate();
     checkGhostCollision();
-    
-    // Render
+  }
+  
+  // Always render (even when paused) to show initial state
+  if (ctx && canvas) {
     render();
   }
   
@@ -1597,9 +1779,10 @@ function gameOver() {
 
 function restartGame() {
   isGameOver = false;
-  gameState = 'playing';
+  gameState = 'playing'; // Auto start game immediately
   score = 0;
   currentLevel = 1;
+  hasSentGameStart = true; // ✅ Set to true so game starts immediately (ghosts move)
   
   // Reset ghost AI state
   ghostSpeedMultiplier = 0.25; // Start at 25% of Pacman speed
@@ -1619,7 +1802,18 @@ function restartGame() {
     editorCtx.imageSmoothingQuality = 'high';
   }
   
+  // ✅ CRITICAL: Force reset player and ghosts to spawn positions
   initLevel(1);
+  
+  // Notify parent that game has started (for play count tracking)
+  if (isPublicView) {
+    notifyParentGameStart();
+  }
+  
+  // Force render to show initial state
+  if (ctx && canvas) {
+    render();
+  }
 }
 
 // ====================================
@@ -1638,10 +1832,25 @@ function setupMemePlayIntegration() {
 function sendScoreToMemePlay() {
   // Send score to parent window (MemePlay)
   if (window.parent && window.parent !== window) {
-    window.parent.postMessage({
+    const message = {
       type: 'GAME_SCORE',
       score: score,
       level: currentLevel
+    };
+    if (EMBEDDED_GAME_ID) {
+      message.gameId = EMBEDDED_GAME_ID;
+    }
+    window.parent.postMessage(message, '*');
+  }
+}
+
+function notifyParentGameStart(source = 'auto') {
+  if (!EMBEDDED_GAME_ID) return;
+  if (window.parent && window.parent !== window) {
+    window.parent.postMessage({
+      type: 'GAME_START',
+      gameId: EMBEDDED_GAME_ID,
+      source
     }, '*');
   }
 }
@@ -2026,6 +2235,14 @@ function setupEditor() {
     });
   }
   
+  // Close Home Button (X button)
+  const closeHomeBtn = document.getElementById('closeHomeBtn');
+  if (closeHomeBtn) {
+    closeHomeBtn.addEventListener('click', () => {
+      window.location.href = PROJECT_HOME_URL;
+    });
+  }
+  
   // Title input
   if (titleInput) {
     titleInput.value = BRAND_CONFIG.title;
@@ -2037,17 +2254,19 @@ function setupEditor() {
   
   // Map Color buttons
   if (mapColorButtons.length > 0) {
-    // Set initial selected color
-    mapColorButtons.forEach(btn => {
-      const color = btn.dataset.color;
-      if (color === (BRAND_CONFIG.mapColor || '#1a1a2e')) {
-        btn.style.borderWidth = '3px';
-        btn.style.borderColor = '#ffb642';
-      } else {
-        btn.style.borderWidth = '2px';
-        btn.style.borderColor = '#ffb642';
-      }
-    });
+    const highlightSelectedMapColor = (selectedColor) => {
+      mapColorButtons.forEach(btn => {
+        if (btn.dataset.color === selectedColor) {
+          btn.classList.add('active');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.remove('active');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      });
+    };
+
+    highlightSelectedMapColor(BRAND_CONFIG.mapColor || '#1a1a2e');
     
     // Handle color selection
     mapColorButtons.forEach(btn => {
@@ -2056,16 +2275,7 @@ function setupEditor() {
         BRAND_CONFIG.mapColor = selectedColor;
         saveBrandConfig();
         
-        // Update button styles
-        mapColorButtons.forEach(b => {
-          if (b === btn) {
-            b.style.borderWidth = '3px';
-            b.style.borderColor = '#ffb642';
-          } else {
-            b.style.borderWidth = '2px';
-            b.style.borderColor = '#ffb642';
-          }
-        });
+        highlightSelectedMapColor(selectedColor);
         
         // Force re-render to apply new color
         if (ctx && canvas) {
@@ -2277,11 +2487,22 @@ function setupEditor() {
         gameWrapperEl.style.display = 'flex';
         gameWrapperEl.style.visibility = 'visible';
         gameWrapperEl.style.opacity = '1';
+        // Force reflow to ensure browser recognizes the display change
+        void gameWrapperEl.offsetHeight;
+        void gameWrapperEl.getBoundingClientRect(); // Additional reflow trigger
       }
       if (gameCanvasEl) {
         gameCanvasEl.style.display = 'block';
         gameCanvasEl.style.visibility = 'visible';
         gameCanvasEl.style.opacity = '1';
+        // Force reflow to ensure browser recognizes the display change
+        void gameCanvasEl.offsetHeight;
+        void gameCanvasEl.getBoundingClientRect(); // Additional reflow trigger
+      }
+      
+      // Trigger a resize event to force browser to recalculate layout
+      if (window.dispatchEvent) {
+        window.dispatchEvent(new Event('resize'));
       }
       
       // Hide editor on desktop
@@ -2317,30 +2538,89 @@ function setupEditor() {
       // Initialize level with selected map (this will set currentLevel)
       initLevel(1);
       
-      // Force render immediately
+      // Force reflow and render immediately
+      if (gameWrapperEl) {
+        void gameWrapperEl.offsetHeight; // Force reflow
+      }
       if (ctx && canvas) {
-        render();
+        // Use requestAnimationFrame to ensure render happens after reflow
+        requestAnimationFrame(() => {
+          render();
+          // Force another render after a short delay to ensure everything is painted
+          setTimeout(() => {
+            if (ctx && canvas) {
+              render();
+            }
+          }, 50);
+        });
       }
 
-      // Scroll to game
+      // Scroll to game area (unified logic for mobile and desktop)
       if (gameWrapperEl) {
-        setTimeout(() => {
-          gameWrapperEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          if (isMobileViewport()) {
-            applyMobileGameScale();
-          }
-          // Force another render after scroll
-          if (ctx && canvas) {
-            render();
-          }
-        }, 150);
+        if (isMobileViewport()) {
+          // Mobile: wait for unlock, then scroll
+          const scrollToGame = () => {
+            // Ensure game is unlocked and visible
+            if (document.body.classList.contains('mobile-game-locked')) {
+              setTimeout(scrollToGame, 50);
+              return;
+            }
+            
+            // Ensure gameWrapper is visible
+            if (gameWrapperEl.style.display === 'none') {
+              gameWrapperEl.style.display = 'flex';
+            }
+            
+            // Wait for layout update
+            requestAnimationFrame(() => {
+              requestAnimationFrame(() => {
+                // Calculate scroll position
+                const rect = gameWrapperEl.getBoundingClientRect();
+                const scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
+                const elementTop = rect.top + scrollTop;
+                
+                // Scroll to game area
+                window.scrollTo({
+                  top: Math.max(0, elementTop - 20),
+                  behavior: 'smooth'
+                });
+                
+                // Also try scrollIntoView as backup
+                setTimeout(() => {
+                  gameWrapperEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  applyMobileGameScale();
+                  
+                  // Force render after scroll
+                  if (ctx && canvas) {
+                    render();
+                  }
+                }, 100);
+              });
+            });
+          };
+          
+          // Start scrolling after unlock
+          setTimeout(scrollToGame, 300);
+        } else {
+          // Desktop: scroll to center if game is not fully visible
+          setTimeout(() => {
+            const rect = gameWrapperEl.getBoundingClientRect();
+            if (rect.bottom > window.innerHeight || rect.top < 0) {
+              gameWrapperEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }
+            // Force render after scroll
+            if (ctx && canvas) {
+              render();
+            }
+          }, 200);
+        }
       }
     });
   }
   
   // Save button
   if (saveBtn) {
-    saveBtn.addEventListener('click', () => {
+    saveBtn.addEventListener('click', async () => {
       if (saveBtn.dataset.visible !== 'true') {
         return;
       }
@@ -2364,12 +2644,16 @@ function setupEditor() {
       saveBtn.style.background = '#4ECDC4';
       saveBtn.dataset.saved = 'true';
       setPublicLinkEnabled(true);
+
+      saveBtn.dataset.supabaseSync = 'pending';
+      const synced = await syncGameToSupabase(gameId, 'manual-save');
+      saveBtn.dataset.supabaseSync = synced ? 'success' : 'error';
     });
   }
   
   // Public Link button
   if (publicLinkBtn) {
-    publicLinkBtn.addEventListener('click', () => {
+    publicLinkBtn.addEventListener('click', async () => {
       if (publicLinkBtn.dataset.enabled !== 'true') {
         return;
       }
@@ -2392,6 +2676,11 @@ function setupEditor() {
           saveBtn.dataset.saved = 'true';
         }
       }
+
+      // Ensure Supabase knows about this game before sharing
+      publicLinkBtn.dataset.supabaseSync = 'pending';
+      const synced = await syncGameToSupabase(gameId, 'public-link');
+      publicLinkBtn.dataset.supabaseSync = synced ? 'success' : 'error';
       // Always use production format for public links (short URL)
       const shareUrl = buildPublicLinkUrl(gameId, true);
       console.log('🔗 Public link generated:', shareUrl, 'Game ID:', gameId);
@@ -2461,22 +2750,27 @@ function applyMobileGameScale() {
     return;
   }
 
+  // Mobile: Scale to fit width, ensure full game is visible and centered
   const baseWidth = 720;
-  const baseHeight = 1000;
+  const baseHeight = 800; // 70px HUD + 730px game area (no footer on mobile editor)
   const containerWidth = container.clientWidth || viewportWidth;
-  const scale = Math.min(containerWidth / baseWidth, 1);
+  const scale = containerWidth / baseWidth; // Scale to fit full width
   const scaledHeight = baseHeight * scale;
-  const scaledWidth = baseWidth * scale;
-  const translateX = Math.max((containerWidth - scaledWidth) / 2, 0);
 
+  // Use margin auto for centering, scale from center
   wrapper.style.position = 'relative';
-  wrapper.style.left = '0';
-  wrapper.style.margin = '0';
-  wrapper.style.transformOrigin = 'top left';
-  wrapper.style.transform = `translateX(${translateX}px) scale(${scale})`;
+  wrapper.style.left = 'auto';
+  wrapper.style.margin = '0 auto';
+  wrapper.style.transformOrigin = 'top center';
+  wrapper.style.transform = `scale(${scale})`;
   wrapper.style.width = `${baseWidth}px`;
+  wrapper.style.height = `${baseHeight}px`;
+  container.style.width = '100%';
   container.style.height = `${scaledHeight}px`;
   container.style.minHeight = `${scaledHeight}px`;
+  container.style.overflow = 'visible'; // Ensure nothing is cropped
+  container.style.display = 'flex'; // Use flexbox for centering
+  container.style.justifyContent = 'center'; // Center horizontally
 }
 
 window.addEventListener('resize', applyMobileGameScale);
@@ -2533,6 +2827,10 @@ window.addEventListener('DOMContentLoaded', () => {
     // PUBLIC GAME MODE - Show game, hide editor
     // ====================================
     console.log('🎮 Public game mode - Game ID:', gameId);
+
+    if (document.body && !document.body.classList.contains('public-game-view')) {
+      document.body.classList.add('public-game-view');
+    }
     
     // CRITICAL: Ensure game ID is in URL if it came from path
     // Vercel rewrite might not pass query param, so we need to add it
@@ -2581,8 +2879,23 @@ window.addEventListener('DOMContentLoaded', () => {
         gameCanvas.style.opacity = '1';
       }
       
-      // Force restart to ensure game state is correct
-      restartGame();
+      // Initialize game state (auto-start immediately)
+      isGameOver = false;
+      gameState = 'playing'; // Auto start game immediately
+      score = 0;
+      currentLevel = 1;
+      hasSentGameStart = true; // ✅ Set to true so game starts immediately
+      
+      // Initialize level (reset positions)
+      initLevel(1);
+      
+      // Notify parent that game has started (for play count tracking)
+      notifyParentGameStart();
+      
+      // ✅ CRITICAL: Auto-focus canvas so arrow keys work immediately without clicking
+      if (gameCanvas) {
+        gameCanvas.focus();
+      }
       
       // Force a render to ensure canvas is drawn
       if (ctx && canvas) {
@@ -2604,6 +2917,9 @@ window.addEventListener('DOMContentLoaded', () => {
       if (recheckGameId) {
         console.log('🔄 Found game ID on recheck:', recheckGameId);
         // Switch to public game mode
+        if (document.body && !document.body.classList.contains('public-game-view')) {
+          document.body.classList.add('public-game-view');
+        }
         if (creatorScreen) creatorScreen.style.display = 'none';
         if (editorContainer) {
           editorContainer.classList.remove('active');
@@ -2618,7 +2934,25 @@ window.addEventListener('DOMContentLoaded', () => {
         if (!ctx || !canvas) {
           initGame();
         }
-        restartGame();
+        
+        // Initialize game state (auto-start immediately)
+        isGameOver = false;
+        gameState = 'playing'; // Auto start game immediately
+        score = 0;
+        currentLevel = 1;
+        hasSentGameStart = true; // ✅ Set to true so game starts immediately
+        
+        // Initialize level (reset positions)
+        initLevel(1);
+        
+        // Notify parent that game has started (for play count tracking)
+        notifyParentGameStart();
+        
+        // ✅ CRITICAL: Auto-focus canvas so arrow keys work immediately without clicking
+        if (gameCanvas) {
+          gameCanvas.focus();
+        }
+        
         if (ctx && canvas) {
           render();
         }
@@ -2676,4 +3010,5 @@ const restartBtn = document.getElementById('restartBtn');
 if (restartBtn) {
   restartBtn.addEventListener('click', restartGame);
 }
+
 

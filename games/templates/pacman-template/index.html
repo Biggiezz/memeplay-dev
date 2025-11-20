@@ -7,6 +7,18 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
+  <script>
+    (function() {
+      try {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('game')) {
+          document.body.classList.add('public-game-view');
+        }
+      } catch (err) {
+        console.warn('[Pacman] Failed to set public-game-view class early:', err);
+      }
+    })();
+  </script>
   <div id="creatorScreen">
     <!-- ====================================
          EDITOR PANEL
@@ -63,10 +75,10 @@
         <!-- Map Color -->
         <div class="editor-group">
           <label class="editor-label">Map Color</label>
-          <div style="display: flex; gap: 10px; margin-top: 8px;">
-            <button type="button" class="map-color-btn" data-color="#6B46C1" style="background: #6B46C1; width: 50px; height: 50px; border: 2px solid #ffb642; border-radius: 8px; cursor: pointer;" title="Purple"></button>
-            <button type="button" class="map-color-btn" data-color="#000000" style="background: #000000; width: 50px; height: 50px; border: 2px solid #ffb642; border-radius: 8px; cursor: pointer;" title="Black"></button>
-            <button type="button" class="map-color-btn" data-color="#8B4513" style="background: #8B4513; width: 50px; height: 50px; border: 2px solid #ffb642; border-radius: 8px; cursor: pointer;" title="Brown"></button>
+          <div class="map-color-picker">
+            <button type="button" class="map-color-btn" data-color="#6B46C1" style="--color:#6B46C1;" aria-label="Purple map color" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#000000" style="--color:#000000;" aria-label="Black map color" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#8B4513" style="--color:#8B4513;" aria-label="Brown map color" aria-pressed="false"></button>
           </div>
         </div>
         
@@ -91,6 +103,9 @@
       
       <!-- Public Link Button (shown after Save) -->
       <button id="publicLinkBtn" class="floating-btn disabled" style="display: none;">🔗 Get Public Link</button>
+      
+      <!-- Close Button (return to homepage) -->
+      <button id="closeHomeBtn" class="floating-btn">✕ Close</button>
     </div>
   </div>
   
@@ -112,7 +127,7 @@
       </div>
       
       <!-- Canvas (only game area: 700x730) -->
-      <canvas id="gameCanvas" width="700" height="730"></canvas>
+      <canvas id="gameCanvas" width="700" height="730" tabindex="0"></canvas>
       
       <!-- ====================================
            MOBILE CONTROLS
@@ -144,6 +159,14 @@
        ==================================== -->
   <script src="config.js"></script>
   <script src="maps.js"></script>
+  <script type="module">
+    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+    const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'
+    if (!window.supabaseClient) {
+      window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+    }
+  </script>
   <script src="game.js"></script>
   <script>
     (function() {

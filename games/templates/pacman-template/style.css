@@ -25,9 +25,19 @@ html, body {
   width: 100%;
   min-height: 100%;
   overflow-x: hidden;
+  /* Allow vertical scroll on mobile for editor, hide on desktop/iframe */
   overflow-y: auto;
   font-family: 'Arial', sans-serif;
   background: #0a0a0a;
+  scrollbar-width: none !important; /* Firefox - hide scrollbar but allow scroll */
+  -ms-overflow-style: none !important; /* IE/Edge - hide scrollbar but allow scroll */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
 
 body {
@@ -69,6 +79,7 @@ body {
   image-rendering: crisp-edges;
   transform: none;
   zoom: 1;
+  outline: none; /* Remove focus outline, but allow focus for keyboard control */
 }
 
 .creator-floating-buttons {
@@ -117,6 +128,21 @@ body {
 #gameWrapper .game-wrapper {
   transform-origin: top center;
   position: relative;
+}
+
+body.public-game-view #creatorScreen,
+body.public-game-view #editorContainer,
+body.public-game-view .creator-floating-buttons,
+body.public-game-view #editorToggle {
+  display: none !important;
+}
+
+body.public-game-view #gameWrapper {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  justify-content: center;
+  padding-top: 10px;
 }
 
 /* ====================================
@@ -372,6 +398,46 @@ body {
   gap: 10px;
 }
 
+.map-color-picker {
+  display: flex;
+  gap: 12px;
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.map-color-btn {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  border: 2px solid rgba(255, 182, 66, 0.6);
+  background: var(--color, #1a1a2e);
+  cursor: pointer;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+  position: relative;
+  outline: none;
+}
+
+.map-color-btn:focus-visible {
+  box-shadow: 0 0 0 2px #ffffff, 0 0 0 5px rgba(255, 182, 66, 0.6);
+}
+
+.map-color-btn.active {
+  border-color: #fffbdd;
+  box-shadow: 0 0 0 3px rgba(255, 182, 66, 0.35), 0 0 18px rgba(255, 182, 66, 0.55);
+  transform: scale(1.08);
+}
+
+.map-color-btn.active::after {
+  content: '✓';
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 18px;
+  color: #ffffff;
+  text-shadow: 0 0 4px rgba(0, 0, 0, 0.65);
+  font-weight: bold;
+}
+
 .editor-label {
   color: #FFFFFF;
   font-size: 14px;
@@ -485,7 +551,10 @@ body {
 @media (max-width: 992px) {
   html, body {
     overflow-x: hidden;
+    overflow-y: auto !important; /* Allow vertical scroll on mobile */
     align-items: stretch;
+    height: auto; /* Allow body to expand */
+    min-height: 100vh; /* Minimum viewport height */
   }
 
   #gameWrapper {
@@ -494,14 +563,23 @@ body {
     padding: 0;
     margin: 0;
     position: relative;
-    overflow: visible;
+    overflow: visible !important; /* Ensure nothing is cropped */
     display: block;
   }
 
   #gameWrapper .game-wrapper {
-    margin: 0;
-    left: 0;
+    margin: 0 auto !important; /* Center horizontally */
+    left: auto !important;
     height: 800px; /* 70px HUD + 730px game area, no footer */
+    width: 720px; /* Fixed width for scaling reference */
+    overflow: visible !important;
+    position: relative !important;
+  }
+  
+  #gameWrapper #gameCanvas {
+    width: 700px !important;
+    height: 730px !important;
+    display: block;
   }
 
   #creatorScreen {
@@ -522,6 +600,11 @@ body {
     left: auto;
     right: auto;
     bottom: auto;
+    overflow: visible !important; /* Ensure game is not cropped */
+  }
+  
+  .editor-container #gameWrapper {
+    overflow: visible !important; /* Ensure game is not cropped */
   }
   
   .editor-panel {
