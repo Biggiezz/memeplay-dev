@@ -73,9 +73,18 @@ function slugify(text) {
 function buildPublicLinkUrl(gameId = null) {
   const id = gameId || (typeof generateGameId === 'function' ? generateGameId() : slugify('memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
   const baseUrl = window.location.origin.replace(/\/$/, '');
-  // Use short URL format: /pacman-game-8041
-  // Vercel rewrite will handle: /pacman-game-8041 → /games/templates/pacman-template/index.html?game=pacman-game-8041
-  return `${baseUrl}/${id}`;
+  
+  // Check if we're on localhost (development)
+  const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  
+  if (isLocal) {
+    // On local: use pacman-game.html with query parameter (works with any server)
+    return `${baseUrl}/pacman-game.html?id=${id}`;
+  } else {
+    // On production: use short URL format (Vercel rewrite will handle it)
+    // /pacman-game-8041 → /games/templates/pacman-template/index.html?game=pacman-game-8041
+    return `${baseUrl}/${id}`;
+  }
 }
 
 function isWalkableTileValue(value) {

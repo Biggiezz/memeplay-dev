@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pacman Game</title>
+  <script>
+    // Extract game ID from URL path or query parameter
+    const path = window.location.pathname;
+    const urlParams = new URLSearchParams(window.location.search);
+    
+    let gameId = null;
+    
+    // Priority 1: Try to get from query parameter: ?id=pacman-game-8861
+    gameId = urlParams.get('id');
+    
+    // Priority 2: Try to get from path: /pacman-game-8861
+    if (!gameId) {
+      const pathMatch = path.match(/\/pacman-game-([^\/]+)/);
+      if (pathMatch && pathMatch[1]) {
+        gameId = pathMatch[1];
+      }
+    }
+    
+    // Priority 3: Try to get from filename: pacman-game-8861.html
+    if (!gameId) {
+      const filename = path.split('/').pop();
+      if (filename && filename.startsWith('pacman-game-')) {
+        gameId = filename.replace('pacman-game-', '').replace('.html', '');
+      }
+    }
+    
+    if (gameId) {
+      // Redirect to full path
+      const redirectUrl = `/games/templates/pacman-template/index.html?game=${gameId}`;
+      window.location.replace(redirectUrl);
+    } else {
+      // Fallback: redirect to homepage
+      window.location.replace('/');
+    }
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
+</html>
+
