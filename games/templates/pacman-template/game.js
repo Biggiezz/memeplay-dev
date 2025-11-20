@@ -73,9 +73,9 @@ function slugify(text) {
 function buildPublicLinkUrl(gameId = null) {
   const id = gameId || (typeof generateGameId === 'function' ? generateGameId() : slugify('memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
   const baseUrl = window.location.origin.replace(/\/$/, '');
-  // Always use the correct game template path
-  const gamePath = '/games/templates/pacman-template/index.html';
-  return `${baseUrl}${gamePath}?game=${id}`;
+  // Use short URL format: /pacman-game-8041
+  // Vercel rewrite will handle: /pacman-game-8041 → /games/templates/pacman-template/index.html?game=pacman-game-8041
+  return `${baseUrl}/${id}`;
 }
 
 function isWalkableTileValue(value) {

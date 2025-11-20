@@ -4692,8 +4692,9 @@ window.addEventListener("beforeunload", stopGame);
     const isUserCreated = gameCard?.getAttribute('data-user-created') === 'true'
     
     if (isUserCreated) {
-      // User-created Pacman game: use full path with query param
-      return `${window.location.origin}/games/templates/pacman-template/index.html?game=${gameId}`
+      // User-created Pacman game: use short URL format
+      // Vercel rewrite will handle: /pacman-game-8041 → /games/templates/pacman-template/index.html?game=pacman-game-8041
+      return `${window.location.origin}/${gameId}`
     } else {
       // Regular game: use root path with hash
       return `${window.location.origin}/#${gameId}`
