@@ -27,6 +27,22 @@
   <link rel="preconnect" href="https://pixel-orb-escape.lovable.app" crossorigin>
   <link rel="preconnect" href="https://rosebud.ai" crossorigin>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <!-- Local development redirect for short Pacman game URLs -->
+  <script>
+    // Handle short URL format for local development: /pacman-game-8041
+    // On Vercel, this is handled by vercel.json rewrites
+    // On local server, we need JavaScript redirect
+    (function() {
+      const path = window.location.pathname;
+      const pacmanGameMatch = path.match(/^\/(pacman-game-[^\/]+)$/);
+      if (pacmanGameMatch) {
+        const gameId = pacmanGameMatch[1];
+        const redirectUrl = `/games/templates/pacman-template/index.html?game=${gameId}`;
+        window.location.replace(redirectUrl);
+        return;
+      }
+    })();
+  </script>
   <!-- Debug console for mobile - Remove sau khi fix xong -->
   <!-- DEBUG: Eruda console (DISABLED for performance) -->
   <!-- <script src="https://cdn.jsdelivr.net/npm/eruda"></script> -->
