@@ -2369,11 +2369,42 @@ window.addEventListener('DOMContentLoaded', () => {
   setupEditor();
   applyMobileGameScale();
   
-  // On mobile, scroll to top (page 1) on refresh
-  if (window.innerWidth <= 992) {
-    setTimeout(() => {
-      scrollToCreatorScreen();
-    }, 100);
+  // Check if this is a public game link (has ?game= parameter)
+  const gameId = typeof getGameId === 'function' ? getGameId() : null;
+  if (gameId) {
+    // This is a public game link - hide editor and show game immediately
+    const creatorScreen = document.getElementById('creatorScreen');
+    const editorContainer = document.getElementById('editorContainer');
+    const editorToggle = document.getElementById('editorToggle');
+    const gameWrapper = document.getElementById('gameWrapper');
+    
+    if (creatorScreen) {
+      creatorScreen.style.display = 'none';
+    }
+    if (editorContainer) {
+      editorContainer.classList.remove('active');
+    }
+    if (editorToggle) {
+      editorToggle.style.display = 'none';
+    }
+    if (gameWrapper) {
+      gameWrapper.style.display = 'flex';
+    }
+    
+    // Start game immediately
+    if (gameState === 'playing' || gameState === 'gameOver') {
+      restartGame();
+    }
+    
+    console.log('🎮 Public game mode - Editor hidden, game visible');
+  } else {
+    // This is editor mode - show editor as normal
+    // On mobile, scroll to top (page 1) on refresh
+    if (window.innerWidth <= 992) {
+      setTimeout(() => {
+        scrollToCreatorScreen();
+      }, 100);
+    }
   }
   
   // Load fragment logo on startup
