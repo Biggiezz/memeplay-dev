@@ -4,7 +4,30 @@
 
 Short URLs (e.g., `/pacman-game-8041`) are supported on **Vercel production** via `vercel.json` rewrites.
 
-For **local development**, use the full URL format:
+## Testing Short URLs Locally
+
+### Option 1: Use `serve` Package (Recommended) ✅
+
+The project includes `serve.json` config for rewrite support:
+
+1. **Start server with rewrite support:**
+   ```bash
+   # Windows
+   START-LOCAL-SERVER.bat
+   
+   # Or manually
+   npm install
+   npm run dev
+   ```
+
+2. **Access short URLs:**
+   ```
+   http://localhost:5500/pacman-game-8041 ✅
+   ```
+
+### Option 2: Use Full URL
+
+If using `python -m http.server` or Live Server:
 
 ```
 http://localhost:5500/games/templates/pacman-template/index.html?game=pacman-game-8041
@@ -12,15 +35,7 @@ http://localhost:5500/games/templates/pacman-template/index.html?game=pacman-gam
 
 ## Why?
 
-Local static servers (like `http-server`, `python -m http.server`, or Live Server) don't support rewrite rules. The short URL format only works on Vercel deployment.
-
-## Testing Short URLs Locally
-
-If you need to test short URLs locally, you can:
-
-1. **Use full URL** (recommended for local testing)
-2. **Deploy to Vercel** and test there
-3. **Use a local server with rewrite support** (like `serve` with custom config)
+Most local static servers (like `http-server`, `python -m http.server`, or Live Server) don't support rewrite rules. The `serve` package supports rewrites via `serve.json`.
 
 ## Production URLs
 

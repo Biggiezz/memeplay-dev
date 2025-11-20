@@ -1,5 +1,12 @@
 {
   "dependencies": {
     "terser": "^5.44.1"
+  },
+  "devDependencies": {
+    "serve": "^14.2.1"
+  },
+  "scripts": {
+    "dev": "serve -s . -l 5500",
+    "start": "serve -s . -l 5500"
   }
 }
