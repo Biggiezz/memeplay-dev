@@ -2365,40 +2365,99 @@ window.addEventListener('orientationchange', applyMobileGameScale);
 // ====================================
 
 window.addEventListener('DOMContentLoaded', () => {
-  initGame();
-  setupEditor();
-  applyMobileGameScale();
-  
-  // Check if this is a public game link (has ?game= parameter)
+  // Check if this is a public game link (has ?game= parameter) FIRST
   const gameId = typeof getGameId === 'function' ? getGameId() : null;
-  if (gameId) {
-    // This is a public game link - hide editor and show game immediately
-    const creatorScreen = document.getElementById('creatorScreen');
-    const editorContainer = document.getElementById('editorContainer');
-    const editorToggle = document.getElementById('editorToggle');
-    const gameWrapper = document.getElementById('gameWrapper');
+  const isPublicGame = !!gameId;
+  
+  // Get DOM elements
+  const creatorScreen = document.getElementById('creatorScreen');
+  const editorContainer = document.getElementById('editorContainer');
+  const editorToggle = document.getElementById('editorToggle');
+  const gameWrapper = document.getElementById('gameWrapper');
+  const gameCanvas = document.getElementById('gameCanvas');
+  
+  if (isPublicGame) {
+    // ====================================
+    // PUBLIC GAME MODE - Show game, hide editor
+    // ====================================
+    console.log('🎮 Public game mode - Game ID:', gameId);
     
+    // Hide editor elements
     if (creatorScreen) {
       creatorScreen.style.display = 'none';
     }
     if (editorContainer) {
       editorContainer.classList.remove('active');
+      editorContainer.style.display = 'none';
     }
     if (editorToggle) {
       editorToggle.style.display = 'none';
     }
+    
+    // Show game elements
     if (gameWrapper) {
       gameWrapper.style.display = 'flex';
     }
-    
-    // Start game immediately
-    if (gameState === 'playing' || gameState === 'gameOver') {
-      restartGame();
+    if (gameCanvas) {
+      gameCanvas.style.display = 'block';
+      gameCanvas.style.visibility = 'visible';
     }
     
-    console.log('🎮 Public game mode - Editor hidden, game visible');
+    // Initialize game (this will start game loop)
+    initGame();
+    
+    // Ensure game is ready and visible
+    setTimeout(() => {
+      if (gameWrapper) {
+        gameWrapper.style.display = 'flex';
+        gameWrapper.style.visibility = 'visible';
+        gameWrapper.style.opacity = '1';
+      }
+      if (gameCanvas) {
+        gameCanvas.style.display = 'block';
+        gameCanvas.style.visibility = 'visible';
+        gameCanvas.style.opacity = '1';
+      }
+      
+      // Force restart to ensure game state is correct
+      restartGame();
+      
+      // Force a render to ensure canvas is drawn
+      if (ctx && canvas) {
+        render();
+      }
+      
+      console.log('✅ Game initialized and visible', {
+        gameWrapper: gameWrapper?.style.display,
+        gameCanvas: gameCanvas?.style.display,
+        canvasVisible: canvas?.offsetWidth > 0 && canvas?.offsetHeight > 0
+      });
+    }, 50);
+    
   } else {
-    // This is editor mode - show editor as normal
+    // ====================================
+    // EDITOR MODE - Show editor, hide game
+    // ====================================
+    console.log('✏️ Editor mode - No game ID');
+    
+    // Hide game elements
+    if (gameWrapper) {
+      gameWrapper.style.display = 'none';
+    }
+    
+    // Show editor elements
+    if (creatorScreen) {
+      creatorScreen.style.display = 'block';
+    }
+    if (editorContainer) {
+      editorContainer.classList.add('active');
+      editorContainer.style.display = 'flex';
+    }
+    
+    // Initialize game (for preview) and editor
+    initGame();
+    setupEditor();
+    
     // On mobile, scroll to top (page 1) on refresh
     if (window.innerWidth <= 992) {
       setTimeout(() => {
@@ -2406,6 +2465,9 @@ window.addEventListener('DOMContentLoaded', () => {
       }, 100);
     }
   }
+  
+  // Apply mobile scaling
+  applyMobileGameScale();
   
   // Load fragment logo on startup
   if (BRAND_CONFIG.fragmentLogoUrl) {
