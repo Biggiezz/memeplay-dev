@@ -1860,7 +1860,6 @@ function setupEditor() {
   const publicLinkBtn = document.getElementById('publicLinkBtn');
   const mapSelect = document.getElementById('mapSelect');
   const titleInput = document.getElementById('titleInput');
-  const smartContractInput = document.getElementById('smartContractInput');
   const story1Input = document.getElementById('story1Input');
   const story2Input = document.getElementById('story2Input');
   const story3Input = document.getElementById('story3Input');
@@ -1997,22 +1996,6 @@ function setupEditor() {
     titleInput.addEventListener('input', (e) => {
       BRAND_CONFIG.title = e.target.value;
       saveBrandConfig();
-    });
-  }
-  
-  // Smart Contract input
-  if (smartContractInput) {
-    smartContractInput.value = BRAND_CONFIG.smartContract || '';
-    smartContractInput.addEventListener('input', (e) => {
-      const value = e.target.value.trim();
-      // Validate Ethereum/BSC address format (0x followed by 40 hex chars)
-      if (value === '' || /^0x[a-fA-F0-9]{40}$/i.test(value)) {
-        BRAND_CONFIG.smartContract = value;
-        saveBrandConfig();
-        smartContractInput.style.borderColor = '';
-      } else {
-        smartContractInput.style.borderColor = '#ffb642';
-      }
     });
   }
   
