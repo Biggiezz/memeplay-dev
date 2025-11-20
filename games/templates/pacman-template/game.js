@@ -2534,6 +2534,16 @@ window.addEventListener('DOMContentLoaded', () => {
     // ====================================
     console.log('🎮 Public game mode - Game ID:', gameId);
     
+    // CRITICAL: Ensure game ID is in URL if it came from path
+    // Vercel rewrite might not pass query param, so we need to add it
+    if (!window.location.search.includes('game=')) {
+      const newUrl = `${window.location.pathname}?game=${gameId}`;
+      if (window.location.pathname !== newUrl) {
+        console.log('🔧 Adding game ID to URL:', newUrl);
+        window.history.replaceState({}, '', newUrl);
+      }
+    }
+    
     // Hide editor elements
     if (creatorScreen) {
       creatorScreen.style.display = 'none';

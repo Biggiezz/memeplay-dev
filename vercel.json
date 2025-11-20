@@ -14,8 +14,8 @@
   ],
   "rewrites": [
     {
-      "source": "/pacman-game-(.*)",
-      "destination": "/games/templates/pacman-template/index.html?game=pacman-game-$1"
+      "source": "/pacman-game-:gameId",
+      "destination": "/games/templates/pacman-template/index.html?game=pacman-game-:gameId"
     }
   ]
 }
