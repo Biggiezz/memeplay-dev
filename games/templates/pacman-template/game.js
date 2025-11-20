@@ -1972,12 +1972,31 @@ function setupEditor() {
   // Toggle editor
   if (editorToggle) {
     editorToggle.addEventListener('click', () => {
+      // Show editor immediately on both mobile and desktop
+      const creatorScreen = document.getElementById('creatorScreen');
+      const gameWrapper = document.getElementById('gameWrapper');
+      
+      // Hide game wrapper
+      if (gameWrapper) {
+        gameWrapper.style.display = 'none';
+      }
+      
+      // Show creator screen and editor
+      if (creatorScreen) {
+        creatorScreen.style.display = 'block';
+      }
+      if (editorContainer) {
+        editorContainer.classList.add('active');
+        editorContainer.style.display = 'flex';
+      }
+      
+      // Hide create button, show save/public link buttons
+      editorToggle.style.display = 'none';
+      handleFloatingButtonsVisibility(true);
+      
+      // Scroll to editor on mobile
       if (isMobileViewport()) {
         scrollToCreatorScreen();
-      } else if (editorContainer) {
-        editorContainer.classList.add('active');
-        editorToggle.style.display = 'none';
-        handleFloatingButtonsVisibility(true);
       }
     });
   }
@@ -2219,7 +2238,17 @@ function setupEditor() {
   
   // Play test button
   if (playTestBtn) {
-    playTestBtn.addEventListener('click', () => {
+    // Ensure button is enabled and visible
+    playTestBtn.disabled = false;
+    playTestBtn.style.pointerEvents = 'auto';
+    playTestBtn.style.opacity = '1';
+    
+    playTestBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      console.log('🎮 Play Test clicked');
+      
       // Get selected map from dropdown
       const selectedMap = mapSelect ? parseInt(mapSelect.value) : currentLevel;
       
@@ -2230,14 +2259,18 @@ function setupEditor() {
       if (gameWrapperEl) {
         gameWrapperEl.style.display = 'flex';
         gameWrapperEl.style.visibility = 'visible';
+        gameWrapperEl.style.opacity = '1';
       }
       if (gameCanvasEl) {
         gameCanvasEl.style.display = 'block';
         gameCanvasEl.style.visibility = 'visible';
+        gameCanvasEl.style.opacity = '1';
       }
       
+      // Hide editor on desktop
       if (!isMobileViewport() && editorContainer) {
         editorContainer.classList.remove('active');
+        editorContainer.style.display = 'none';
         if (editorToggle) {
           editorToggle.style.display = 'block';
         }
@@ -2267,16 +2300,21 @@ function setupEditor() {
       // Initialize level with selected map (this will set currentLevel)
       initLevel(1);
       
-      // Force render
+      // Force render immediately
       if (ctx && canvas) {
         render();
       }
 
+      // Scroll to game
       if (gameWrapperEl) {
         setTimeout(() => {
           gameWrapperEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
           if (isMobileViewport()) {
             applyMobileGameScale();
+          }
+          // Force another render after scroll
+          if (ctx && canvas) {
+            render();
           }
         }, 150);
       }
