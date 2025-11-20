@@ -2525,7 +2525,12 @@
   // Load user-created games from localStorage
   function loadUserCreatedGames() {
     const container = document.querySelector('.game-container')
-    if (!container) return
+    if (!container) {
+      console.warn('❌ Game container not found')
+      return
+    }
+    
+    console.log('🔍 Loading user-created games from localStorage...')
     
     // Get all saved game configs from localStorage
     const savedGames = []
@@ -2535,8 +2540,11 @@
         try {
           const gameId = key.replace('pacman_brand_config_', '')
           const config = JSON.parse(localStorage.getItem(key))
+          console.log(`📦 Found game: ${gameId}`, config)
           if (config && config.title) {
             savedGames.push({ gameId, config })
+          } else {
+            console.warn(`⚠️ Game ${gameId} missing title:`, config)
           }
         } catch (e) {
           console.warn('Failed to parse game config:', key, e)
@@ -2544,10 +2552,13 @@
       }
     }
     
+    console.log(`✅ Found ${savedGames.length} user-created game(s)`)
+    
     // Add each saved game to the container
     savedGames.forEach(({ gameId, config }) => {
       // Check if game card already exists
       if (document.getElementById(gameId)) {
+        console.log(`⏭️ Game ${gameId} already exists, skipping`)
         return
       }
       
@@ -4672,6 +4683,23 @@ window.addEventListener("beforeunload", stopGame);
     if (overlay) overlay.classList.add('open')
   }
 
+  // Build correct share URL based on game type
+  function buildShareUrl(gameId) {
+    if (!gameId) return `${window.location.origin}/`
+    
+    // Check if this is a user-created Pacman game
+    const gameCard = document.getElementById(gameId)
+    const isUserCreated = gameCard?.getAttribute('data-user-created') === 'true'
+    
+    if (isUserCreated) {
+      // User-created Pacman game: use full path with query param
+      return `${window.location.origin}/games/templates/pacman-template/index.html?game=${gameId}`
+    } else {
+      // Regular game: use root path with hash
+      return `${window.location.origin}/#${gameId}`
+    }
+  }
+
   ;(function initShareOverlay(){
     const overlay = document.getElementById('shareOverlay')
     if (!overlay) return
@@ -4696,7 +4724,7 @@ window.addEventListener("beforeunload", stopGame);
 
     // Copy Link Button
     copyBtn?.addEventListener('click', async () => {
-      const shareUrl = `${window.location.origin}${window.location.pathname}#${currentShareGameId}`
+      const shareUrl = buildShareUrl(currentShareGameId)
       try {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           await navigator.clipboard.writeText(shareUrl)
@@ -4718,7 +4746,7 @@ window.addEventListener("beforeunload", stopGame);
 
     // Telegram Button
     telegramBtn?.addEventListener('click', () => {
-      const shareUrl = `${window.location.origin}${window.location.pathname}#${currentShareGameId}`
+      const shareUrl = buildShareUrl(currentShareGameId)
       const text = `🎮 Check out this awesome game on MemePlay Arcade! Play and earn PLAY points! 🚀`
       const telegramUrl = `https://t.me/share/url?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`
       window.open(telegramUrl, '_blank')
@@ -4727,7 +4755,7 @@ window.addEventListener("beforeunload", stopGame);
 
     // X/Twitter Button
     xBtn?.addEventListener('click', () => {
-      const shareUrl = `${window.location.origin}${window.location.pathname}#${currentShareGameId}`
+      const shareUrl = buildShareUrl(currentShareGameId)
       const text = `🎮 Just played an awesome game on MemePlay! Play & earn PLAY points! 🚀`
       const xUrl = `https://twitter.com/intent/tweet?url=${encodeURIComponent(shareUrl)}&text=${encodeURIComponent(text)}`
       window.open(xUrl, '_blank')

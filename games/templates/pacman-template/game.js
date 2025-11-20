@@ -73,8 +73,9 @@ function slugify(text) {
 function buildPublicLinkUrl(gameId = null) {
   const id = gameId || (typeof generateGameId === 'function' ? generateGameId() : slugify('memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
   const baseUrl = window.location.origin.replace(/\/$/, '');
-  const currentPath = window.location.pathname.replace(/\/$/, '');
-  return `${baseUrl}${currentPath}?game=${id}`;
+  // Always use the correct game template path
+  const gamePath = '/games/templates/pacman-template/index.html';
+  return `${baseUrl}${gamePath}?game=${id}`;
 }
 
 function isWalkableTileValue(value) {
@@ -2222,9 +2223,19 @@ function setupEditor() {
       if (saveBtn.dataset.visible !== 'true') {
         return;
       }
+      // Ensure title is set (use input value or default)
+      const titleInput = document.getElementById('titleInput');
+      if (titleInput && titleInput.value.trim()) {
+        BRAND_CONFIG.title = titleInput.value.trim();
+      } else if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
+        BRAND_CONFIG.title = titleInput?.value.trim() || 'Pacman Game';
+      }
+      
       // Generate and save game ID
-      const gameId = typeof generateGameId === 'function' ? generateGameId() : (slugify(document.getElementById('titleInput')?.value || 'memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
-      saveBrandConfig(gameId);
+      const gameId = typeof generateGameId === 'function' ? generateGameId() : (slugify(BRAND_CONFIG.title || 'memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
+      const savedId = saveBrandConfig(gameId);
+      console.log('💾 Game saved with ID:', savedId, 'Title:', BRAND_CONFIG.title);
+      
       // Store game ID for public link
       saveBtn.dataset.gameId = gameId;
       
@@ -2241,16 +2252,27 @@ function setupEditor() {
       if (publicLinkBtn.dataset.enabled !== 'true') {
         return;
       }
+      // Ensure title is set (use input value or default)
+      const titleInput = document.getElementById('titleInput');
+      if (titleInput && titleInput.value.trim()) {
+        BRAND_CONFIG.title = titleInput.value.trim();
+      } else if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
+        BRAND_CONFIG.title = titleInput?.value.trim() || 'Pacman Game';
+      }
+      
       // Get game ID from save button or generate new one
-      const gameId = saveBtn && saveBtn.dataset.gameId ? saveBtn.dataset.gameId : (typeof generateGameId === 'function' ? generateGameId() : slugify(document.getElementById('titleInput')?.value || 'memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
+      const gameId = saveBtn && saveBtn.dataset.gameId ? saveBtn.dataset.gameId : (typeof generateGameId === 'function' ? generateGameId() : slugify(BRAND_CONFIG.title || 'memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
       // Ensure game is saved with this ID
       if (!saveBtn || saveBtn.dataset.saved !== 'true') {
-        saveBrandConfig(gameId);
+        const savedId = saveBrandConfig(gameId);
+        console.log('💾 Game auto-saved with ID:', savedId, 'Title:', BRAND_CONFIG.title);
         if (saveBtn) {
           saveBtn.dataset.gameId = gameId;
+          saveBtn.dataset.saved = 'true';
         }
       }
       const shareUrl = buildPublicLinkUrl(gameId);
+      console.log('🔗 Public link generated:', shareUrl, 'Game ID:', gameId);
       
       // Get current page URL
       const currentUrl = shareUrl;
