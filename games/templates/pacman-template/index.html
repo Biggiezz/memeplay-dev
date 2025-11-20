@@ -30,6 +30,13 @@
           <input type="text" id="titleInput" class="editor-input" placeholder="Enter game title">
         </div>
         
+        <!-- Smart Contract -->
+        <div class="editor-group">
+          <label class="editor-label">Smart Contract Address</label>
+          <input type="text" id="smartContractInput" class="editor-input" placeholder="0x..." pattern="^0x[a-fA-F0-9]{40}$">
+          <small style="color: #888; font-size: 11px; margin-top: 5px; display: block;">Enter Ethereum/BSC contract address (optional)</small>
+        </div>
+        
         <!-- Story 1 -->
         <div class="editor-group">
           <label class="editor-label">Story 1 <span id="story1Count" class="char-count">0/50</span></label>
@@ -58,6 +65,16 @@
             <option value="4" class="disabled-option" disabled>Map 4 - Coming Soon</option>
             <option value="5" class="disabled-option" disabled>Map 5 - Coming Soon</option>
           </select>
+        </div>
+        
+        <!-- Map Color -->
+        <div class="editor-group">
+          <label class="editor-label">Map Color</label>
+          <div style="display: flex; gap: 10px; margin-top: 8px;">
+            <button type="button" class="map-color-btn" data-color="#6B46C1" style="background: #6B46C1; width: 50px; height: 50px; border: 2px solid #ffb642; border-radius: 8px; cursor: pointer;" title="Purple"></button>
+            <button type="button" class="map-color-btn" data-color="#000000" style="background: #000000; width: 50px; height: 50px; border: 2px solid #ffb642; border-radius: 8px; cursor: pointer;" title="Black"></button>
+            <button type="button" class="map-color-btn" data-color="#8B4513" style="background: #8B4513; width: 50px; height: 50px; border: 2px solid #ffb642; border-radius: 8px; cursor: pointer;" title="Brown"></button>
+          </div>
         </div>
         
         <!-- Buttons -->

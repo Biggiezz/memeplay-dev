@@ -74,6 +74,8 @@ let BRAND_CONFIG = {
   fragmentLogo: null, // Fragment logo (BNB) image object
   fragmentLogoUrl: '',
   title: 'Pacman Game',
+  smartContract: '', // Smart contract address
+  mapColor: '#1a1a2e', // Map wall color (default: dark blue)
   stories: [
     'Congratulations! You collected all fragments!',
     'Amazing! You completed the level!',
@@ -131,6 +133,8 @@ function saveBrandConfig(gameId = null) {
   const toSave = {
     fragmentLogoUrl: BRAND_CONFIG.fragmentLogoUrl,
     title: BRAND_CONFIG.title,
+    smartContract: BRAND_CONFIG.smartContract || '',
+    mapColor: BRAND_CONFIG.mapColor || '#1a1a2e',
     stories: BRAND_CONFIG.stories
   };
   localStorage.setItem(storageKey, JSON.stringify(toSave));

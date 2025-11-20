@@ -1099,6 +1099,9 @@ function drawMap() {
 }
 
 function drawMapToCanvas(targetCtx) {
+  // Use custom map color from BRAND_CONFIG, fallback to default
+  const wallColor = BRAND_CONFIG.mapColor || CONFIG.WALL_COLOR;
+  
   for (let row = 0; row < currentMap.length; row++) {
     for (let col = 0; col < currentMap[row].length; col++) {
       const x = mapOffsetX + col * CONFIG.TILE_SIZE;
@@ -1106,7 +1109,7 @@ function drawMapToCanvas(targetCtx) {
       
       if (currentMap[row][col] === 1) {
         // Wall
-        targetCtx.fillStyle = CONFIG.WALL_COLOR;
+        targetCtx.fillStyle = wallColor;
         targetCtx.fillRect(x, y, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
       }
     }
@@ -1857,6 +1860,7 @@ function setupEditor() {
   const publicLinkBtn = document.getElementById('publicLinkBtn');
   const mapSelect = document.getElementById('mapSelect');
   const titleInput = document.getElementById('titleInput');
+  const smartContractInput = document.getElementById('smartContractInput');
   const story1Input = document.getElementById('story1Input');
   const story2Input = document.getElementById('story2Input');
   const story3Input = document.getElementById('story3Input');
@@ -1866,6 +1870,7 @@ function setupEditor() {
   const fragmentLogoInput = document.getElementById('fragmentLogoInput');
   const fragmentLogoPreview = document.getElementById('fragmentLogoPreview');
   const fragmentLogoLoading = document.getElementById('fragmentLogoLoading');
+  const mapColorButtons = document.querySelectorAll('.map-color-btn');
   if (saveBtn) {
     saveBtn.dataset.visible = 'false';
     saveBtn.dataset.saved = 'false';
@@ -1992,6 +1997,65 @@ function setupEditor() {
     titleInput.addEventListener('input', (e) => {
       BRAND_CONFIG.title = e.target.value;
       saveBrandConfig();
+    });
+  }
+  
+  // Smart Contract input
+  if (smartContractInput) {
+    smartContractInput.value = BRAND_CONFIG.smartContract || '';
+    smartContractInput.addEventListener('input', (e) => {
+      const value = e.target.value.trim();
+      // Validate Ethereum/BSC address format (0x followed by 40 hex chars)
+      if (value === '' || /^0x[a-fA-F0-9]{40}$/i.test(value)) {
+        BRAND_CONFIG.smartContract = value;
+        saveBrandConfig();
+        smartContractInput.style.borderColor = '';
+      } else {
+        smartContractInput.style.borderColor = '#ffb642';
+      }
+    });
+  }
+  
+  // Map Color buttons
+  if (mapColorButtons.length > 0) {
+    // Set initial selected color
+    mapColorButtons.forEach(btn => {
+      const color = btn.dataset.color;
+      if (color === (BRAND_CONFIG.mapColor || '#1a1a2e')) {
+        btn.style.borderWidth = '3px';
+        btn.style.borderColor = '#ffb642';
+      } else {
+        btn.style.borderWidth = '2px';
+        btn.style.borderColor = '#ffb642';
+      }
+    });
+    
+    // Handle color selection
+    mapColorButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const selectedColor = btn.dataset.color;
+        BRAND_CONFIG.mapColor = selectedColor;
+        saveBrandConfig();
+        
+        // Update button styles
+        mapColorButtons.forEach(b => {
+          if (b === btn) {
+            b.style.borderWidth = '3px';
+            b.style.borderColor = '#ffb642';
+          } else {
+            b.style.borderWidth = '2px';
+            b.style.borderColor = '#ffb642';
+          }
+        });
+        
+        // Force re-render to apply new color
+        if (ctx && canvas) {
+          render();
+        }
+        if (editorCtx && editorCanvas) {
+          render();
+        }
+      });
     });
   }
   
@@ -2154,7 +2218,9 @@ function setupEditor() {
               const x = previewMapOffsetX + col * CONFIG.TILE_SIZE;
               const y = previewMapOffsetY + row * CONFIG.TILE_SIZE;
               if (previewMap[row][col] === 1) {
-                editorCtx.fillStyle = CONFIG.WALL_COLOR;
+                // Use custom map color from BRAND_CONFIG
+                const wallColor = BRAND_CONFIG.mapColor || CONFIG.WALL_COLOR;
+                editorCtx.fillStyle = wallColor;
                 editorCtx.fillRect(x, y, CONFIG.TILE_SIZE, CONFIG.TILE_SIZE);
               }
             }
@@ -2173,6 +2239,19 @@ function setupEditor() {
     playTestBtn.addEventListener('click', () => {
       // Get selected map from dropdown
       const selectedMap = mapSelect ? parseInt(mapSelect.value) : currentLevel;
+      
+      // Ensure game wrapper is visible
+      const gameWrapperEl = document.getElementById('gameWrapper');
+      const gameCanvasEl = document.getElementById('gameCanvas');
+      
+      if (gameWrapperEl) {
+        gameWrapperEl.style.display = 'flex';
+        gameWrapperEl.style.visibility = 'visible';
+      }
+      if (gameCanvasEl) {
+        gameCanvasEl.style.display = 'block';
+        gameCanvasEl.style.visibility = 'visible';
+      }
       
       if (!isMobileViewport() && editorContainer) {
         editorContainer.classList.remove('active');
@@ -2204,8 +2283,12 @@ function setupEditor() {
       
       // Initialize level with selected map (this will set currentLevel)
       initLevel(1);
+      
+      // Force render
+      if (ctx && canvas) {
+        render();
+      }
 
-      const gameWrapperEl = document.getElementById('gameWrapper');
       if (gameWrapperEl) {
         setTimeout(() => {
           gameWrapperEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
