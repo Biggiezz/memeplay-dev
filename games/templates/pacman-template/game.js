@@ -2488,8 +2488,38 @@ window.addEventListener('orientationchange', applyMobileGameScale);
 
 window.addEventListener('DOMContentLoaded', () => {
   // Check if this is a public game link (has ?game= parameter) FIRST
-  const gameId = typeof getGameId === 'function' ? getGameId() : null;
+  // Try multiple ways to get game ID
+  let gameId = null;
+  
+  // Method 1: Use getGameId function from config.js
+  if (typeof getGameId === 'function') {
+    gameId = getGameId();
+  }
+  
+  // Method 2: Direct URL parsing (fallback)
+  if (!gameId) {
+    const urlParams = new URLSearchParams(window.location.search);
+    gameId = urlParams.get('game');
+  }
+  
+  // Method 3: Check URL path for pacman-game-xxx pattern
+  if (!gameId) {
+    const pathMatch = window.location.pathname.match(/pacman-game-([^\/]+)/);
+    if (pathMatch && pathMatch[1]) {
+      gameId = pathMatch[1];
+    }
+  }
+  
   const isPublicGame = !!gameId;
+  
+  console.log('🔍 Game ID Detection:', {
+    gameId,
+    isPublicGame,
+    url: window.location.href,
+    search: window.location.search,
+    pathname: window.location.pathname,
+    hasGetGameId: typeof getGameId === 'function'
+  });
   
   // Get DOM elements
   const creatorScreen = document.getElementById('creatorScreen');
@@ -2552,11 +2582,38 @@ window.addEventListener('DOMContentLoaded', () => {
       console.log('✅ Game initialized and visible', {
         gameWrapper: gameWrapper?.style.display,
         gameCanvas: gameCanvas?.style.display,
-        canvasVisible: canvas?.offsetWidth > 0 && canvas?.offsetHeight > 0
+        canvasVisible: canvas?.offsetWidth > 0 && canvas?.offsetHeight > 0,
+        gameId: gameId
       });
     }, 50);
     
   } else {
+    // Double-check: Maybe game ID was added after initial load (Vercel rewrite delay)
+    setTimeout(() => {
+      const recheckGameId = typeof getGameId === 'function' ? getGameId() : (new URLSearchParams(window.location.search).get('game'));
+      if (recheckGameId) {
+        console.log('🔄 Found game ID on recheck:', recheckGameId);
+        // Switch to public game mode
+        if (creatorScreen) creatorScreen.style.display = 'none';
+        if (editorContainer) {
+          editorContainer.classList.remove('active');
+          editorContainer.style.display = 'none';
+        }
+        if (editorToggle) editorToggle.style.display = 'none';
+        if (gameWrapper) gameWrapper.style.display = 'flex';
+        if (gameCanvas) {
+          gameCanvas.style.display = 'block';
+          gameCanvas.style.visibility = 'visible';
+        }
+        if (!ctx || !canvas) {
+          initGame();
+        }
+        restartGame();
+        if (ctx && canvas) {
+          render();
+        }
+      }
+    }, 200);
     // ====================================
     // EDITOR MODE - Show editor, hide game
     // ====================================
