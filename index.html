@@ -5184,9 +5184,38 @@ window.addEventListener("beforeunload", stopGame);
         }
       }, { passive: false });
       
-      // ✅ REMOVED: Keyboard scroll with Arrow keys - Only mouse wheel scrolling is allowed
-      // Arrow keys are now exclusively for game control (handled in game.js)
-      // Users can only scroll using mouse wheel
+      let touchStartY = null
+      let touchActive = false
+      function handleTouchStart(e) {
+        if (e.touches && e.touches.length === 1) {
+          touchStartY = e.touches[0].clientY
+          touchActive = true
+          gameContainer.classList.add('is-scrolling')
+          gameContainer.style.scrollBehavior = 'auto'
+        }
+      }
+      function handleTouchMove(e) {
+        if (!touchActive || !e.touches || e.touches.length !== 1) return
+        const currentY = e.touches[0].clientY
+        const delta = touchStartY - currentY
+        touchStartY = currentY
+        gameContainer.scrollTop += delta
+        clearTimeout(gameContainer._scrollingClassTimeout)
+        gameContainer._scrollingClassTimeout = setTimeout(() => {
+          gameContainer.classList.remove('is-scrolling')
+        }, 600)
+        scheduleSnap()
+      }
+      function handleTouchEnd() {
+        touchActive = false
+        touchStartY = null
+        scheduleSnap()
+      }
+      gameContainer.addEventListener('touchstart', handleTouchStart, { passive: true })
+      gameContainer.addEventListener('touchmove', handleTouchMove, { passive: false })
+      gameContainer.addEventListener('touchend', handleTouchEnd, { passive: true })
+      gameContainer.addEventListener('touchcancel', handleTouchEnd, { passive: true })
+      
     })();
   </script>
 
