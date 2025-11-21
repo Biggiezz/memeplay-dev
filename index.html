@@ -1975,19 +1975,18 @@
       
       allGamesToCheck.forEach((game) => {
         if (game.id && !gamesToKeep.includes(game.id)) {
-          // Only unload if game is more than 5 positions away from current game
           const gameIndex = allGames.findIndex(g => g.id === game.id)
           if (gameIndex !== -1) {
             const distance = Math.abs(gameIndex - currentIndex)
-            // Unload only if more than 5 games away (to save memory, but keep nearby games loaded)
-            if (distance > 5) {
-              console.log(`🗑️ Unloading distant game: ${game.id} (distance: ${distance}, not in keep list: ${gamesToKeep.join(', ')})`)
+            const unloadRadius = isPacmanGame(game.id) ? 2 : 5
+            if (distance > unloadRadius) {
+              if (window.__DEBUG_SCROLL) console.log(`🗑️ Unloading distant game: ${game.id} (distance: ${distance}, radius: ${unloadRadius})`)
               unloadGameIframe(game.id)
             } else {
-              console.log(`✅ Keeping nearby game loaded: ${game.id} (distance: ${distance}, will be visible when scrolled)`)
+              if (window.__DEBUG_SCROLL) console.log(`✅ Keeping nearby game loaded: ${game.id} (distance: ${distance})`)
             }
           }
-        } else if (game.id && gamesToKeep.includes(game.id)) {
+        } else if (game.id && gamesToKeep.includes(game.id) && window.__DEBUG_SCROLL) {
           console.log(`✅ Keeping game loaded: ${game.id} (in keep list)`)
         }
       })
