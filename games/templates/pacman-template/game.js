@@ -36,6 +36,23 @@ let gateBlinkTimer = 0;
 // Ghosts
 let ghosts = [];
 let ghostCount = 1;
+const PACMAN_DEBUG_ENABLED = (() => {
+  try {
+    if (typeof window !== 'undefined' && window.__PACMAN_DEBUG) return true;
+    if (typeof window !== 'undefined' && window.parent && window.parent.__PACMAN_DEBUG) return true;
+    if (localStorage.getItem('pacman_debug') === 'true') return true;
+  } catch (_) {}
+  return false;
+})();
+
+if (!PACMAN_DEBUG_ENABLED && typeof console !== 'undefined') {
+  ['log', 'info', 'debug'].forEach(method => {
+    if (typeof console[method] === 'function') {
+      console[method] = () => {};
+    }
+  });
+}
+
 const EMBEDDED_GAME_ID = typeof getGameId === 'function' ? getGameId() : null;
 const isPublicView = !!EMBEDDED_GAME_ID;
 
@@ -164,9 +181,9 @@ function buildPublicLinkUrl(gameId = null, forceProduction = false) {
   
   const baseUrl = window.location.origin.replace(/\/$/, '');
   
-  // Always use hash navigation (like other games: /#brick-fallen-crypto)
-  // This ensures the game appears on homepage and works on both local and production
-  return `${baseUrl}/#${id}`;
+  // ✅ FIXED: Use query parameter ?game=id instead of hash #id
+  // This ensures the game appears on homepage and works with MemePlay routing system
+  return `${baseUrl}/?game=${id}`;
 }
 
 function isWalkableTileValue(value) {
@@ -431,6 +448,15 @@ function initGame() {
 
   // Prepare Web Audio unlock for mobile
   setupAudioUnlock();
+  
+  // ✅ CRITICAL: Auto-focus canvas in public view so arrow keys work immediately without clicking
+  if (isPublicView && gameCanvas) {
+    // Use setTimeout to ensure canvas is fully rendered before focusing
+    setTimeout(() => {
+      gameCanvas.focus();
+      console.log('[Pacman] Canvas auto-focused for keyboard input');
+    }, 100);
+  }
   
   // Start game loop
   gameLoop();
@@ -1571,10 +1597,17 @@ function setupControls() {
 
   window.addEventListener('keydown', (e) => {
     const key = e.key;
-    // ✅ CRITICAL: Prevent page scrolling with arrow keys (only allow mouse wheel scrolling)
+    // ✅ CRITICAL: In public view, arrow keys should work immediately without clicking
+    // Prevent page scrolling with arrow keys (only allow mouse wheel scrolling)
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key) && !isFormElement(e.target)) {
       e.preventDefault();
       e.stopPropagation(); // Also stop propagation to ensure no scroll
+      
+      // ✅ CRITICAL: Auto-focus canvas if not already focused (for better UX)
+      if (isPublicView && gameCanvas && document.activeElement !== gameCanvas) {
+        gameCanvas.focus();
+      }
+      
       requestGameStartFromParent('keyboard');
     }
     keys[key] = true;
@@ -1792,10 +1825,10 @@ function gameOver() {
 
 function restartGame() {
   isGameOver = false;
-  gameState = 'playing'; // Auto start game immediately
+  gameState = 'playing'; // Game is ready but waits for user input
   score = 0;
   currentLevel = 1;
-  hasSentGameStart = true; // ✅ Set to true so game starts immediately (ghosts move)
+  hasSentGameStart = false;
   
   // Reset ghost AI state
   ghostSpeedMultiplier = 0.25; // Start at 25% of Pacman speed
@@ -1818,10 +1851,8 @@ function restartGame() {
   // ✅ CRITICAL: Force reset player and ghosts to spawn positions
   initLevel(1);
   
-  // Notify parent that game has started (for play count tracking)
-  if (isPublicView) {
-    notifyParentGameStart();
-  }
+  // Treat Play Again as a fresh user interaction so ghosts move immediately
+  requestGameStartFromParent('restart-button');
   
   // Force render to show initial state
   if (ctx && canvas) {
@@ -1834,10 +1865,60 @@ function restartGame() {
 // ====================================
 
 function setupMemePlayIntegration() {
+  const arrowKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
+  const arrowToDirection = {
+    ArrowUp: 'up',
+    ArrowDown: 'down',
+    ArrowLeft: 'left',
+    ArrowRight: 'right'
+  };
+  
+  const handleRemoteKeyEvent = (data) => {
+    if (!data || !arrowKeys.has(data.key)) return;
+    const phase = data.phase || data.keyEventType;
+    if (phase === 'keydown') {
+      keys[data.key] = true;
+      const desiredDirection = arrowToDirection[data.key];
+      if (desiredDirection) {
+        player.nextDirection = desiredDirection;
+        if (!player.direction) {
+          player.direction = desiredDirection;
+        }
+      }
+      requestGameStartFromParent('keyboard-remote');
+    } else if (phase === 'keyup') {
+      keys[data.key] = false;
+    }
+  };
+  
+  const handleFocusRequest = () => {
+    if (gameCanvas) {
+      try {
+        gameCanvas.focus();
+      } catch (err) {
+        console.warn('[Pacman] Failed to focus canvas from parent message:', err);
+      }
+    }
+  };
+  
   // Listen for messages from parent (MemePlay)
   window.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'GAME_OVER') {
-      gameOver();
+    const data = event.data;
+    if (!data || typeof data !== 'object') return;
+    switch (data.type) {
+      case 'GAME_OVER':
+        gameOver();
+        break;
+      case 'PACMAN_KEY_EVENT': // legacy name
+      case 'PACMAN_REMOTE_INPUT':
+        handleRemoteKeyEvent(data);
+        break;
+      case 'PACMAN_FOCUS_REQUEST': // legacy
+      case 'PACMAN_REMOTE_FOCUS':
+        handleFocusRequest();
+        break;
+      default:
+        break;
     }
   });
 }
@@ -2211,6 +2292,12 @@ function setupEditor() {
   // Toggle editor
   if (editorToggle) {
     editorToggle.addEventListener('click', () => {
+      if (document.body && document.body.classList.contains('public-game-view')) {
+        document.body.classList.remove('public-game-view');
+      }
+      if (editorModeStorageKey) {
+        localStorage.setItem(editorModeStorageKey, 'true');
+      }
       // Show editor immediately on both mobile and desktop
       const creatorScreen = document.getElementById('creatorScreen');
       const gameWrapper = document.getElementById('gameWrapper');
@@ -2538,6 +2625,12 @@ function setupEditor() {
           editorToggle.style.display = 'block';
         }
         handleFloatingButtonsVisibility(false);
+        if (document.body && !document.body.classList.contains('public-game-view')) {
+          document.body.classList.add('public-game-view');
+        }
+        if (editorModeStorageKey) {
+          localStorage.removeItem(editorModeStorageKey);
+        }
       }
 
       // Show save & public link workflow after Play Test
@@ -2836,6 +2929,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }
   
   const isPublicGame = !!gameId;
+  const editorModeStorageKey = gameId ? `pacman_editor_mode_${gameId}` : null;
   
   console.log('🔍 Game ID Detection:', {
     gameId,
@@ -2858,6 +2952,10 @@ window.addEventListener('DOMContentLoaded', () => {
     // PUBLIC GAME MODE - Show game, hide editor
     // ====================================
     console.log('🎮 Public game mode - Game ID:', gameId);
+
+    if (editorModeStorageKey) {
+      localStorage.removeItem(editorModeStorageKey);
+    }
 
     if (document.body && !document.body.classList.contains('public-game-view')) {
       document.body.classList.add('public-game-view');
@@ -2910,19 +3008,16 @@ window.addEventListener('DOMContentLoaded', () => {
         gameCanvas.style.opacity = '1';
       }
       
-      // Initialize game state (auto-start immediately)
+      // Initialize game state (wait for user input to start)
       isGameOver = false;
-      gameState = 'playing'; // Auto start game immediately
+      gameState = 'playing'; // Game state ready, ghosts wait for user interaction
       score = 0;
       currentLevel = 1;
-      hasSentGameStart = true; // ✅ Set to true so game starts immediately
-      
+      hasSentGameStart = false;
+    
       // Initialize level (reset positions)
       initLevel(1);
-      
-      // Notify parent that game has started (for play count tracking)
-      notifyParentGameStart();
-      
+
       // ✅ CRITICAL: Auto-focus canvas so arrow keys work immediately without clicking
       if (gameCanvas) {
         gameCanvas.focus();
@@ -2951,6 +3046,9 @@ window.addEventListener('DOMContentLoaded', () => {
         if (document.body && !document.body.classList.contains('public-game-view')) {
           document.body.classList.add('public-game-view');
         }
+        if (editorModeStorageKey) {
+          localStorage.removeItem(editorModeStorageKey);
+        }
         if (creatorScreen) creatorScreen.style.display = 'none';
         if (editorContainer) {
           editorContainer.classList.remove('active');
@@ -2966,18 +3064,15 @@ window.addEventListener('DOMContentLoaded', () => {
           initGame();
         }
         
-        // Initialize game state (auto-start immediately)
+        // Initialize game state (wait for user input)
         isGameOver = false;
-        gameState = 'playing'; // Auto start game immediately
+        gameState = 'playing';
         score = 0;
         currentLevel = 1;
-        hasSentGameStart = true; // ✅ Set to true so game starts immediately
+        hasSentGameStart = false;
         
         // Initialize level (reset positions)
         initLevel(1);
-        
-        // Notify parent that game has started (for play count tracking)
-        notifyParentGameStart();
         
         // ✅ CRITICAL: Auto-focus canvas so arrow keys work immediately without clicking
         if (gameCanvas) {

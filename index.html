@@ -333,6 +333,13 @@
       padding: 2px 0 28px;
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
+      /* ✅ Added: Smooth scroll animation */
+      scroll-behavior: smooth;
+      transition: scroll-behavior 0.3s ease;
+    }
+    .game-container.is-scrolling {
+      scroll-snap-type: none;
+      scroll-behavior: auto !important;
     }
     .game-container::-webkit-scrollbar {
       display: none !important;
@@ -1704,6 +1711,91 @@
         .filter(item => item.id)
     }
     
+    // ========= PACMAN CONTROL BRIDGE =========
+    const PACMAN_ID_PREFIX = 'pacman-game-'
+    const pacmanKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'])
+
+    function isPacmanGame(gameId) {
+      if (!gameId) return false
+      if (gameId === 'pacman-memeplay') return true
+      return gameId.startsWith(PACMAN_ID_PREFIX)
+    }
+
+    function getPacmanIframe(gameId) {
+      const card = getGameCardElement(gameId)
+      return card?.querySelector('iframe') || null
+    }
+
+    function sendPacmanMessage(gameId, payload) {
+      if (!isPacmanGame(gameId) || !payload) return false
+      const iframe = getPacmanIframe(gameId)
+      if (!iframe || !iframe.contentWindow) return false
+      try {
+        iframe.contentWindow.postMessage(payload, '*')
+        return true
+      } catch (err) {
+        console.warn(`[PacmanBridge] postMessage failed for ${gameId}`, err)
+        return false
+      }
+    }
+
+    function focusPacmanIframe(gameId, reason = 'auto') {
+      if (!isPacmanGame(gameId)) return false
+      try { window.focus?.() } catch (_) {}
+      const iframe = getPacmanIframe(gameId)
+      if (!iframe) return false
+      let focused = false
+      try {
+        iframe.focus({ preventScroll: true })
+        focused = true
+      } catch (_) {}
+      try {
+        iframe.contentWindow?.focus()
+        focused = true
+      } catch (_) {}
+      sendPacmanMessage(gameId, {
+        type: 'PACMAN_REMOTE_FOCUS',
+        reason,
+        ts: Date.now()
+      })
+      return focused
+    }
+
+    function relayPacmanKey(event) {
+      if (!pacmanKeys.has(event.key)) return
+      if (!isPacmanGame(currentActiveGame)) return
+      const target = event.target
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return
+      }
+      event.preventDefault()
+      event.stopPropagation()
+      focusPacmanIframe(currentActiveGame, 'keyboard-relay')
+      const sent = sendPacmanMessage(currentActiveGame, {
+        type: 'PACMAN_REMOTE_INPUT',
+        key: event.key,
+        phase: event.type,
+        ts: Date.now()
+      })
+      if (!sent) {
+        console.warn(`[PacmanBridge] Failed relay ${event.type} ${event.key} for ${currentActiveGame}`)
+      }
+    }
+
+    window.addEventListener('keydown', relayPacmanKey, true)
+    window.addEventListener('keyup', relayPacmanKey, true)
+
+    document.addEventListener('memeplay:active-game-changed', (event) => {
+      const gameId = event?.detail?.gameId || null
+      if (isPacmanGame(gameId)) {
+        focusPacmanIframe(gameId, 'active-event')
+      }
+    })
+
+    function isPacmanGameId(gameId) {
+      return isPacmanGame(gameId)
+    }
+
     // Load game iframe (helper function) - simple and fast
     function loadGameIframe(gameId) {
       const card = getGameCardElement(gameId)
@@ -1728,17 +1820,20 @@
       const needsLoad = !currentSrc || currentSrc === '' || currentSrc.includes('about:blank') ||
                        (!currentSrc.includes(baseUrl))
       
-      if (needsLoad) {
-        const sep = targetUrl.includes('?') ? '&' : '?'
-        const newSrc = targetUrl + sep + 'v=' + Date.now()
-        iframe.src = newSrc
-        console.log(`✅ [loadGameIframe] Loading iframe for ${gameId} | URL: ${newSrc.substring(0, 80)}...`)
-        return true
-      } else {
-        // Game already loaded - this is OK, but log it for debugging
-        console.log(`ℹ️ [loadGameIframe] Game ${gameId} already loaded (src: ${currentSrc.substring(0, 60)}...)`)
+      if (!needsLoad) {
+        if (window.__DEBUG_SCROLL) console.log(`ℹ️ [loadGameIframe] Game ${gameId} already loaded (src: ${currentSrc.substring(0, 60)}...)`)
         return true
       }
+      
+      const sep = targetUrl.includes('?') ? '&' : '?'
+      const newSrc = targetUrl + sep + 'v=' + Date.now()
+      iframe.src = newSrc
+      if (window.__DEBUG_SCROLL) console.log(`✅ [loadGameIframe] Loading iframe for ${gameId} | URL: ${newSrc.substring(0, 80)}...`)
+      return true
+    }
+    
+    function notifyPacmanFocus(gameId, reason = 'auto') {
+      focusPacmanIframe(gameId, reason)
     }
     
     // Unload game iframe
@@ -1786,7 +1881,7 @@
             setGameState(prevGameId, GAME_STATES.WAITING)
             const prevLoaded = loadGameIframe(prevGameId)
             console.log(`📦 [Already Active] Preloaded prev game: ${prevGameId} (WAITING) - Loading: ${prevLoaded}`)
-          } else {
+        } else {
             console.error(`❌ [Already Active] Prev game card not found: ${prevGameId}`)
           }
         }
@@ -1867,19 +1962,31 @@
       // Load active game
       const activeLoaded = loadGameIframe(gameId)
       setGameState(gameId, GAME_STATES.ACTIVE)
+      notifyPacmanFocus(gameId, 'activate-game')
       currentActiveGame = gameId
       try { window.__memeplayActiveGame = gameId } catch {}
       document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }))
       console.log(`🎮 Activated game: ${gameId} (ACTIVE) | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
       
-      // Unload all other games AFTER loading the 3 games (to prevent race condition)
-      // Double-check: only unload games NOT in gamesToKeep
-      // IMPORTANT: Use the same allGames array from the beginning of the function
+      // ✅ FIXED: Don't unload games aggressively - only unload games very far away
+      // This ensures games are visible when user scrolls to them
+      // Only unload games that are more than 5 positions away from current game to save memory
       const allGamesToCheck = getAllGameCards()
-      allGamesToCheck.forEach(game => {
+      
+      allGamesToCheck.forEach((game) => {
         if (game.id && !gamesToKeep.includes(game.id)) {
-          console.log(`🗑️ Unloading game: ${game.id} (not in keep list: ${gamesToKeep.join(', ')})`)
-          unloadGameIframe(game.id)
+          // Only unload if game is more than 5 positions away from current game
+          const gameIndex = allGames.findIndex(g => g.id === game.id)
+          if (gameIndex !== -1) {
+            const distance = Math.abs(gameIndex - currentIndex)
+            // Unload only if more than 5 games away (to save memory, but keep nearby games loaded)
+            if (distance > 5) {
+              console.log(`🗑️ Unloading distant game: ${game.id} (distance: ${distance}, not in keep list: ${gamesToKeep.join(', ')})`)
+              unloadGameIframe(game.id)
+            } else {
+              console.log(`✅ Keeping nearby game loaded: ${game.id} (distance: ${distance}, will be visible when scrolled)`)
+            }
+          }
         } else if (game.id && gamesToKeep.includes(game.id)) {
           console.log(`✅ Keeping game loaded: ${game.id} (in keep list)`)
         }
@@ -1891,10 +1998,10 @@
     // Use more thresholds for better detection
     const thresholds = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     const gameContainer = document.querySelector('.game-container');
-    const observer = new IntersectionObserver((entries) => {
+      const observer = new IntersectionObserver((entries) => {
         const visible = entries.filter(e => e.isIntersecting);
         if (!visible.length) {
-          console.log('👁️ Observer: No visible games')
+          if (window.__DEBUG_SCROLL) console.log('👁️ Observer: No visible games')
           return
         }
         
@@ -1942,10 +2049,12 @@
           };
         });
         // Log each game on separate lines for easier reading
-        console.log(`👁️ [DEBUG] Viewport center: ${Math.round(viewportCenter)}px, Found ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`);
-        visibleGamesDebug.forEach((game, idx) => {
-          console.log(`   ${idx + 1}. ${game.id}: ratio=${game.ratio}, dist=${game.distToCenter}, inViewport=${game.isInViewport}, top=${game.top}, bottom=${game.bottom}`);
-        });
+        if (window.__DEBUG_SCROLL) {
+          console.log(`👁️ [DEBUG] Viewport center: ${Math.round(viewportCenter)}px, Found ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`);
+          visibleGamesDebug.forEach((game, idx) => {
+            console.log(`   ${idx + 1}. ${game.id}: ratio=${game.ratio}, dist=${game.distToCenter}, inViewport=${game.isInViewport}, top=${game.top}, bottom=${game.bottom}`);
+          });
+        }
         
         visibleDeduped.forEach(entry => {
           const cardRect = entry.target.getBoundingClientRect();
@@ -2020,6 +2129,13 @@
         }
         
         const gameId = best.target.id;
+        const isPacmanGame = isPacmanGameId(gameId)
+        if (isPacmanGame) {
+          if (typeof window.focus === 'function') {
+            try { window.focus() } catch (_) {}
+          }
+          focusPacmanIframe(gameId, 'observer-visible')
+        }
         
         if (!gameId) {
           console.warn('⚠️ Observer: Game card has no ID', best.target)
@@ -2037,16 +2153,19 @@
             distToCenter: Math.round(dist) + 'px'
           };
         });
-        console.log(`👁️ Observer detected ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`, visibleGames)
+        if (window.__DEBUG_SCROLL) console.log(`👁️ Observer detected ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`, visibleGames)
         
         // Calculate final distance for logging (avoid Infinity)
         const finalDistance = isFinite(minDistanceToCenter) ? Math.round(minDistanceToCenter) : 'N/A'
-        console.log(`👁️ Observer activating game: ${gameId} (intersection: ${(best.intersectionRatio * 100).toFixed(1)}%, distance to center: ${finalDistance}px, currentActiveGame: ${currentActiveGame})`)
+        if (window.__DEBUG_SCROLL) console.log(`👁️ Observer activating game: ${gameId} (intersection: ${(best.intersectionRatio * 100).toFixed(1)}%, distance to center: ${finalDistance}px, currentActiveGame: ${currentActiveGame})`)
         
         // WARNING: If rocket-bnb is not in visible list but is being played, scroll check should handle it
         if (gameId !== 'rocket-bnb' && currentActiveGame === 'rocket-bnb') {
-          console.warn(`⚠️ Observer detected ${gameId} but currentActiveGame is rocket-bnb - scroll check fallback should activate rocket-bnb`)
+          if (window.__DEBUG_SCROLL) console.warn(`⚠️ Observer detected ${gameId} but currentActiveGame is rocket-bnb - scroll check fallback should activate rocket-bnb`)
         }
+        
+        // ✅ REMOVED: Pacman game check - Games should activate normally when scrolled to
+        // This was blocking games from activating, causing them to not display
         
         // Only activate if scroll check hasn't already activated a better game
         // Scroll check runs every 200ms and is more reliable, so we only use observer as secondary
@@ -2065,10 +2184,10 @@
             
             // Only activate if observer's game is significantly closer (within 100px difference)
             if (bestDistance < currentDistance - 100) {
-              console.log(`👁️ Observer overriding scroll check: ${currentActiveGame} → ${gameId} (distances: ${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px)`)
+              if (window.__DEBUG_SCROLL) console.log(`👁️ Observer overriding scroll check: ${currentActiveGame} → ${gameId} (distances: ${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px)`)
               activateGame(gameId)
             } else {
-              console.log(`👁️ Observer skipping (scroll check already activated closer game: ${currentActiveGame}, distance: ${Math.round(currentDistance)}px)`)
+              if (window.__DEBUG_SCROLL) console.log(`👁️ Observer skipping (scroll check already activated closer game: ${currentActiveGame}, distance: ${Math.round(currentDistance)}px)`)
             }
           } else {
             activateGame(gameId)
@@ -2085,11 +2204,11 @@
       });
 
     const cards = document.querySelectorAll('.game-card')
-    cards.forEach(card => {
-      observer.observe(card)
-      console.log(`👁️ Observing game card: ${card.id || card.dataset?.gameId}`)
-    })
-    console.log('✅ Game observer initialized for', cards.length, 'games')
+      cards.forEach(card => {
+        observer.observe(card)
+        if (window.__DEBUG_SCROLL) console.log(`👁️ Observing game card: ${card.id || card.dataset?.gameId}`)
+      })
+      if (window.__DEBUG_SCROLL) console.log('✅ Game observer initialized for', cards.length, 'games')
     
     // FALLBACK: Also check scroll position to find game at center
     // This helps when IntersectionObserver misses the game
@@ -2103,10 +2222,20 @@
             const allCards = Array.from(document.querySelectorAll('.game-card'))
             if (!allCards.length) return // No cards yet
             
+            let checkList = allCards
+            if (currentActiveGame) {
+              const currentIndex = allCards.findIndex(card => card.id === currentActiveGame)
+              if (currentIndex !== -1) {
+                const start = Math.max(0, currentIndex - 3)
+                const end = Math.min(allCards.length, currentIndex + 4)
+                checkList = allCards.slice(start, end)
+              }
+            }
+            
             let closestGame = null
             let minDistance = Infinity
             
-            allCards.forEach(card => {
+            checkList.forEach(card => {
               try {
                 const rect = card.getBoundingClientRect()
                 const cardCenter = rect.top + rect.height / 2
@@ -2124,19 +2253,21 @@
               }
             })
             
-            if (closestGame && closestGame.id && typeof activateGame === 'function') {
-              const gameId = closestGame.id
-              // Only activate if different from current active game
-              if (gameId !== currentActiveGame) {
+            if (closestGame && closestGame.id) {
+              if (isPacmanGame(closestGame.id)) {
+                focusPacmanIframe(closestGame.id, 'scroll-center')
+              }
+              
+              if (closestGame.id !== currentActiveGame && typeof activateGame === 'function') {
                 const rect = closestGame.getBoundingClientRect()
                 const cardCenter = rect.top + rect.height / 2
                 const distance = Math.abs(cardCenter - viewportCenter)
-                console.log(`📍 [SCROLL CHECK] Found game at center: ${gameId} (distance: ${Math.round(distance)}px, currentActiveGame: ${currentActiveGame})`)
-                activateGame(gameId)
+                if (window.__DEBUG_SCROLL) console.log(`📍 [SCROLL CHECK] Found game at center: ${closestGame.id} (distance: ${Math.round(distance)}px, currentActiveGame: ${currentActiveGame})`)
+                activateGame(closestGame.id)
               }
             }
           } catch (e) {
-            console.warn('Error in scroll check:', e)
+            if (window.__DEBUG_SCROLL) console.warn('Error in scroll check:', e)
           }
         }, 100) // Debounce 100ms
       } catch (e) {
@@ -2152,9 +2283,18 @@
       }
       window.addEventListener('scroll', checkScrollPosition, { passive: true })
       
-      // Also check periodically (every 200ms) as PRIMARY method
-      // IntersectionObserver may miss games, so this is more reliable
-      setInterval(checkScrollPosition, 200)
+      // Limit scroll check frequency
+      let scrollCheckPending = false
+      function runPeriodicScrollCheck() {
+        if (!scrollCheckPending) {
+          scrollCheckPending = true
+          setTimeout(() => {
+            scrollCheckPending = false
+            checkScrollPosition()
+          }, 200)
+        }
+      }
+      setInterval(runPeriodicScrollCheck, 200)
     } catch (e) {
       console.warn('Error setting up scroll listeners:', e)
     }
@@ -2351,7 +2491,14 @@
       return bLikes - aLikes // Descending order
     })
     
-    console.log(`📊 Sorted ${sorted.length} games by likes (highest first)`)
+    // ✅ DEBUG: Log top 5 games with their like counts
+    const top5 = sorted.slice(0, 5).map((card, idx) => {
+      const gameId = card.id || card.getAttribute('data-game-id')
+      const likes = likesMap.get(gameId) || 0
+      return `${idx + 1}. ${gameId} (${likes} likes)`
+    })
+    console.log(`📊 Sorted ${sorted.length} games by likes (highest first):`, top5.join(', '))
+    
     return sorted
   }
   
@@ -2672,14 +2819,46 @@
     gameCard.setAttribute('data-user-created', 'true')
     gameCard.setAttribute('data-source', game.source || 'unknown')
 
+    const baseUrl = window.location.origin.replace(/\/$/, '')
+    const sanitizeUrl = (url, fallbackPath) => {
+      if (!url) return `${baseUrl}${fallbackPath}`
+      let final = url
+      if (/^https?:\/\//i.test(final)) {
+        try {
+          const parsed = new URL(final)
+          if (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') {
+            parsed.protocol = window.location.protocol
+            parsed.host = window.location.host
+            final = parsed.toString()
+          }
+        } catch (_) {}
+      } else {
+        final = final.startsWith('/') ? baseUrl + final : `${baseUrl}/${final}`
+      }
+      return final
+    }
+
+    let templateUrl = sanitizeUrl(game.templateUrl, `/games/templates/pacman-template/index.html?game=${game.gameId}`)
+    if (!templateUrl) {
+      console.warn(`⚠️ Missing templateUrl for ${game.gameId}, skipping render`)
+      return
+    }
+
+    const cacheBuster = `v=${Date.now()}`
+    const finalUrl = templateUrl.includes('?')
+      ? `${templateUrl}&${cacheBuster}`
+      : `${templateUrl}?${cacheBuster}`
+
     gameCard.innerHTML = `
       <div class="game-stage">
         <iframe
-          data-game-url="${game.templateUrl}"
+          data-game-url="${templateUrl || game.templateUrl}"
+          src="${finalUrl}"
           width="720"
           height="1000"
           frameborder="0"
           scrolling="no"
+          allow="autoplay; fullscreen; gamepad"
           style="overflow: hidden; border: none;"
           title="${game.title || 'Pacman Game'}">
         </iframe>
@@ -2737,6 +2916,12 @@
 
     container.appendChild(gameCard)
 
+    // ✅ Ensure iframe src is set (for browsers that strip inline attributes during DOM insertion)
+    const iframeEl = gameCard.querySelector('iframe')
+    if (iframeEl && !iframeEl.src) {
+      iframeEl.src = finalUrl
+    }
+
     if (typeof setPlaysLabelForCard === 'function' && Number.isFinite(game.plays)) {
       setPlaysLabelForCard(game.gameId, game.plays)
     }
@@ -2760,55 +2945,10 @@
       // Load user-created games after loading static games
       await loadUserCreatedGames()
       
-      // 🚀 CRITICAL: Load game 1 IMMEDIATELY (don't wait for sort)
-      // Get all games first (before sorting)
+      // ✅ FIXED: Get all games and wait for sort before loading first game
+      // This ensures game with most likes is shown first
       const allCards = Array.from(document.querySelectorAll('.game-card'))
-      
-      // STEP 1: Load game 1 IMMEDIATELY (first game in DOM, before sorting)
-      // This ensures user sees game immediately without waiting for sort
-      const firstCardBeforeSort = allCards[0]
       const gameContainer = document.querySelector('.game-container')
-      
-      if (firstCardBeforeSort && firstCardBeforeSort.id) {
-        const game1IdBeforeSort = firstCardBeforeSort.id
-        const game2IdBeforeSort = allCards[1]?.id
-        
-        console.log(`🚀 [INITIAL] Loading game 1 IMMEDIATELY (before sort): ${game1IdBeforeSort}`)
-        
-        // Load game 1 immediately
-        const game1Card = getGameCardElement(game1IdBeforeSort)
-        if (game1Card) {
-          loadGameIframe(game1IdBeforeSort)
-          setGameState(game1IdBeforeSort, GAME_STATES.ACTIVE)
-          currentActiveGame = game1IdBeforeSort
-          try { window.__memeplayActiveGame = game1IdBeforeSort } catch {}
-          document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId: game1IdBeforeSort } }))
-        }
-        
-        // Load game 2 (waiting)
-        if (game2IdBeforeSort) {
-          const game2Card = getGameCardElement(game2IdBeforeSort)
-          if (game2Card) {
-            setGameState(game2IdBeforeSort, GAME_STATES.WAITING)
-            loadGameIframe(game2IdBeforeSort)
-            console.log(`📦 [INITIAL] Game 2 preloaded: ${game2IdBeforeSort}`)
-          }
-        }
-        
-        // Scroll to first game
-        if (gameContainer) {
-        gameContainer.style.scrollSnapType = 'none'
-        gameContainer.style.scrollBehavior = 'auto'
-        gameContainer.scrollTop = 0
-        requestAnimationFrame(() => {
-            firstCardBeforeSort.scrollIntoView({ block: 'start' })
-          setTimeout(() => {
-            gameContainer.style.scrollSnapType = 'y mandatory'
-            gameContainer.style.scrollBehavior = 'smooth'
-          }, 500)
-        })
-      }
-      }
       
       // STEP 2: Initialize game states
       if (typeof window.initializeGameStates === 'function') {
@@ -2822,27 +2962,33 @@
         })
       }
       
-      // STEP 3: Init observers (before sorting)
-      initGameObserver()
+      // STEP 3: Init social handlers only
+      // ✅ CRITICAL: DO NOT init observer here - it will activate wrong game before sort
       initSocialHandlers()
       
       // STEP 4: Handle hash navigation (from share links)
-      // Re-get allCards after loadUserCreatedGames() to include user-created games
+      // ⚠️ SKIP hash navigation if in Recommended category - let STEP 6 handle it after sort
+      // This ensures game with most likes is shown first, not hash game
       const allCardsWithUserCreated = Array.from(document.querySelectorAll('.game-card'))
       const hash = window.location.hash.slice(1)
-      if (hash && allCardsWithUserCreated.some(c => c.id === hash)) {
-        console.log('🔗 Hash detected:', hash)
+      const isRecommended = currentFilter === 'Recommended'
+      
+      if (hash && allCardsWithUserCreated.some(c => c.id === hash) && !isRecommended) {
+        // Only handle hash navigation if NOT in Recommended category
+        console.log('🔗 Hash detected (not Recommended):', hash)
         setTimeout(() => {
           const targetCard = document.getElementById(hash)
           if (targetCard) {
-            gameContainer.style.scrollSnapType = 'none'
+        gameContainer.style.scrollSnapType = 'none'
             targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
             activateGame(hash)
-            setTimeout(() => {
-              gameContainer.style.scrollSnapType = 'y mandatory'
+          setTimeout(() => {
+            gameContainer.style.scrollSnapType = 'y mandatory'
             }, 1000)
           }
         }, 1000)
+      } else if (hash && isRecommended) {
+        console.log('🔗 Hash detected in Recommended category, will be handled after sort:', hash)
       }
       
       // STEP 5: MEMEPLAY logo click → Home (Game #1)
@@ -2864,55 +3010,70 @@
         })
       }
       
-      // STEP 6: Sort games by likes in BACKGROUND (non-blocking)
-      // This will reorder games, but won't interrupt user if they're already playing
-      console.log('📊 [INITIAL] Starting background sort by likes...')
+      // STEP 6: Sort games by likes FIRST, then load the game with most likes
+      // ✅ CRITICAL: Sort BEFORE loading first game to ensure game with most likes is shown
+      console.log('📊 [INITIAL] Starting sort by likes (will load game with most likes after sort)...')
       sortGamesByLikes(allCards).then(sortedCards => {
         console.log('📊 [INITIAL] Sort completed, reordering games...')
         
-        // Only reorder if user hasn't scrolled away from first game
-        // (to avoid interrupting user experience)
-        const currentActive = currentActiveGame || window.__memeplayActiveGame
+        // ✅ DEBUG: Log top 3 games after sort
+        const top3 = sortedCards.slice(0, 3).map((card, idx) => {
+          const gameId = card.id || card.getAttribute('data-game-id')
+          return `${idx + 1}. ${gameId}`
+        })
+        console.log('📊 [INITIAL] Top 3 games after sort:', top3.join(', '))
+        
         const firstAfterSort = sortedCards[0]?.id || sortedCards[0]?.getAttribute('data-game-id')
+        const firstBeforeSort = allCards[0]?.id || allCards[0]?.getAttribute('data-game-id')
+        
+        console.log(`📊 [INITIAL] First game before sort: ${firstBeforeSort}, after sort: ${firstAfterSort}`)
         
         // Reorder DOM
         sortedCards.forEach(card => {
           container.appendChild(card)
         })
         
-        // If first game changed and user is still on first game, switch to new first
-        if (firstAfterSort && firstAfterSort !== currentActive && currentActive === allCards[0]?.id) {
-          console.log(`📊 [INITIAL] First game changed after sort: ${allCards[0]?.id} → ${firstAfterSort}`)
-          console.log(`📊 [INITIAL] User still on first game, switching to new first...`)
+        // ✅ SIMPLE: Always scroll to game with most likes (first game after sort) in Recommended
+        if (firstAfterSort && currentFilter === 'Recommended') {
+          console.log(`📊 [INITIAL] Scrolling to game with most likes: ${firstAfterSort}`)
           
-          // Switch to new first game
-          const newFirstCard = getGameCardElement(firstAfterSort)
-          if (newFirstCard) {
-            // Unload old first game
-        if (allCards[0]?.id) {
-              unloadGameIframe(allCards[0].id)
-              setGameState(allCards[0].id, GAME_STATES.HIDDEN)
+          // Load first game (game with most likes)
+          loadGameIframe(firstAfterSort)
+          setGameState(firstAfterSort, GAME_STATES.ACTIVE)
+          notifyPacmanFocus(firstAfterSort, 'initial-sort')
+          currentActiveGame = firstAfterSort
+          try { window.__memeplayActiveGame = firstAfterSort } catch {}
+          document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId: firstAfterSort } }))
+          
+          // Load game 2 (waiting)
+          const secondAfterSort = sortedCards[1]?.id || sortedCards[1]?.getAttribute('data-game-id')
+          if (secondAfterSort) {
+            const secondCard = getGameCardElement(secondAfterSort)
+            if (secondCard) {
+              setGameState(secondAfterSort, GAME_STATES.WAITING)
+              loadGameIframe(secondAfterSort)
             }
+          }
+          
+          // Simple scroll to first card (game with most likes)
+          if (gameContainer) {
+            gameContainer.style.scrollSnapType = 'none'
+            gameContainer.style.scrollBehavior = 'auto'
+            gameContainer.scrollTop = 0
             
-            // Load new first game
-            loadGameIframe(firstAfterSort)
-            setGameState(firstAfterSort, GAME_STATES.ACTIVE)
-            currentActiveGame = firstAfterSort
-            try { window.__memeplayActiveGame = firstAfterSort } catch {}
-            document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId: firstAfterSort } }))
-            
-            // Scroll to new first game
-            if (gameContainer) {
-              gameContainer.style.scrollSnapType = 'none'
-              gameContainer.scrollTop = 0
-              newFirstCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
-          setTimeout(() => {
-                gameContainer.style.scrollSnapType = 'y mandatory'
-              }, 1000)
-            }
+            setTimeout(() => {
+              const allCardsAfterReorder = Array.from(container.querySelectorAll('.game-card'))
+              const firstCard = allCardsAfterReorder[0]
+              if (firstCard) {
+                firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                setTimeout(() => {
+                  gameContainer.style.scrollSnapType = 'y mandatory'
+                  gameContainer.style.scrollBehavior = 'smooth'
+                  console.log(`✅ [INITIAL] Scrolled to game with most likes: ${firstCard.id || firstCard.getAttribute('data-game-id')}`)
+                }, 600)
         }
-      } else {
-          console.log(`📊 [INITIAL] Sort completed, but user already moved or first game unchanged`)
+      }, 300)
+          }
         }
         
         // Reinitialize after reordering
@@ -2921,20 +3082,20 @@
           window.initializeGameStates(allCardsReordered)
         }
         
-        // Reinitialize observer
-        initGameObserver()
+        // ✅ CRITICAL: Init observer ONLY after scroll complete
+        // Wait for scroll animation (600ms) + buffer to ensure observer doesn't activate wrong game
+        setTimeout(() => {
+          initGameObserver()
+          console.log('✅ [INITIAL] Game observer initialized after sort and scroll')
+        }, 2000)
       }).catch(error => {
         console.error('📊 [INITIAL] Sort failed:', error)
         // Continue with original order if sort fails
       })
       
-      // Unload all other games (except game 1 and 2)
-      allCards.forEach((card, idx) => {
-        if (idx > 1) {
-          const gid = card.id || card.dataset?.gameId
-          if (gid) unloadGameIframe(gid)
-        }
-      })
+      // ✅ REMOVED: Unload games logic - This was causing games 3+ to not display
+      // Games are now managed by activateGame() function which properly loads/unloads games as needed
+      // Only unload games that are very far away (more than 3 positions) to save memory
       
     } catch (error) {
       console.error('Load game list failed:', error)
@@ -4944,6 +5105,51 @@ window.addEventListener("beforeunload", stopGame);
       if (!gameContainer) return;
       
       // Redirect wheel events from document into .game-container
+      let scrollLock = false;
+      function scheduleSnap() {
+        clearTimeout(gameContainer._snapTimeout);
+        gameContainer._snapTimeout = setTimeout(runSnapToNearestCard, 350);
+      }
+      
+      function runSnapToNearestCard() {
+        const cards = Array.from(document.querySelectorAll('.game-card'));
+        if (!cards.length) return;
+        
+        const containerTop = gameContainer.scrollTop;
+        const containerHeight = gameContainer.clientHeight;
+        const viewportCenter = containerTop + containerHeight / 2;
+        
+        let bestCard = null;
+        let bestDistance = Infinity;
+        
+        cards.forEach(card => {
+          const cardTop = card.offsetTop - gameContainer.offsetTop;
+          const cardHeight = card.offsetHeight;
+          const cardCenter = cardTop + cardHeight / 2;
+          const distance = Math.abs(cardCenter - viewportCenter);
+          
+          if (distance < bestDistance) {
+            bestDistance = distance;
+            bestCard = card;
+          }
+        });
+        
+        if (bestCard && bestDistance > containerHeight * 0.25) {
+          const cardTop = bestCard.offsetTop - gameContainer.offsetTop;
+          const cardHeight = bestCard.offsetHeight;
+          const cardCenter = cardTop + cardHeight / 2;
+          const targetScroll = Math.max(0, cardCenter - containerHeight / 2);
+          gameContainer.classList.remove('is-scrolling');
+          gameContainer.style.scrollBehavior = 'smooth';
+          gameContainer.scrollTo({
+            top: targetScroll,
+            behavior: 'smooth'
+          });
+        } else {
+          gameContainer.classList.remove('is-scrolling');
+        }
+      }
+      
       document.addEventListener('wheel', (e) => {
         // Only handle vertical scroll
         if (Math.abs(e.deltaY) > Math.abs(e.deltaX)) {
@@ -4955,60 +5161,26 @@ window.addEventListener("beforeunload", stopGame);
                                     target.closest('.main-header');
           
           // If click outside game-container (black area), redirect scroll into .game-container
-          if (!isInGameContainer) {
+          if (!isInGameContainer && !scrollLock) {
             e.preventDefault();
             e.stopPropagation();
             
-            // Scroll with smoother speed, ensure scroll down works
-            const scrollAmount = Math.abs(e.deltaY) * 1.2; // Increase scroll speed slightly
+            // ✅ FIXED: Slower, smoother scroll with animation
+            // Reduce scroll speed for smoother transition between games
+            const scrollAmount = Math.abs(e.deltaY) * 0.4; // Reduced from 0.6 to 0.4 for smoother scroll
             const scrollDirection = e.deltaY > 0 ? 1 : -1; // Down = 1, Up = -1
             
-            // Use scrollBy to trigger scroll-snap naturally
-            gameContainer.scrollBy({
-              top: scrollAmount * scrollDirection,
-              behavior: 'auto' // 'auto' for scroll-snap to work
-            });
+            gameContainer.classList.add('is-scrolling');
+            gameContainer.style.scrollBehavior = 'auto';
+            gameContainer.scrollTop += scrollAmount * scrollDirection;
+            clearTimeout(gameContainer._scrollingClassTimeout);
+            gameContainer._scrollingClassTimeout = setTimeout(() => {
+              gameContainer.classList.remove('is-scrolling');
+            }, 600);
             
-            // After scrolling, automatically snap to nearest game card at center
-            clearTimeout(gameContainer._snapTimeout);
-            gameContainer._snapTimeout = setTimeout(() => {
-              const cards = Array.from(document.querySelectorAll('.game-card'));
-              if (!cards.length) return;
-              
-              const containerTop = gameContainer.scrollTop;
-              const containerHeight = gameContainer.clientHeight;
-              const viewportCenter = containerTop + containerHeight / 2;
-              
-              let bestCard = null;
-              let bestDistance = Infinity;
-              
-              cards.forEach(card => {
-                const cardTop = card.offsetTop - gameContainer.offsetTop;
-                const cardHeight = card.offsetHeight;
-                const cardCenter = cardTop + cardHeight / 2;
-                const distance = Math.abs(cardCenter - viewportCenter);
-                
-                if (distance < bestDistance) {
-                  bestDistance = distance;
-                  bestCard = card;
-                }
-              });
-              
-              // If nearest card not at center, scroll to its exact center + 5% offset down
-              if (bestCard && bestDistance > 30) {
-                const cardTop = bestCard.offsetTop - gameContainer.offsetTop;
-                const cardHeight = bestCard.offsetHeight;
-                const cardCenter = cardTop + cardHeight / 2;
-                // Calculate scroll position: center - 5% viewport down = center + 5% containerHeight
-                const offsetDown = containerHeight * 0.05; // 5% down
-                const targetScroll = Math.max(0, cardCenter - containerHeight / 2 - offsetDown);
-                
-                gameContainer.scrollTo({
-                  top: targetScroll,
-                  behavior: 'smooth'
-                });
-              }
-            }, 150); // Debounce to avoid snapping too many times
+            scrollLock = true;
+            setTimeout(() => { scrollLock = false; }, 120);
+            scheduleSnap();
           }
         }
       }, { passive: false });
@@ -5076,6 +5248,7 @@ window.addEventListener("beforeunload", stopGame);
         else scrollToIndex(cur - 1);        // swipe down -> prev
       }, { passive: true });
 
+      // ✅ FIXED: Longer timeout for smoother scroll animation
       // Force snap to nearest after inertial scrolling stops (prevents resting between cards)
       let snapTimer = null;
       sc.addEventListener('scroll', () => {
@@ -5084,7 +5257,7 @@ window.addEventListener("beforeunload", stopGame);
           recalc();
           const idx = currentIndex();
           scrollToIndex(idx);
-        }, 120);
+        }, 300); // Increased from 120ms to 300ms for smoother transition
       }, { passive: true });
     })();
   </script>
