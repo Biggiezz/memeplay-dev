@@ -36,8 +36,8 @@
           <img id="fragmentLogoPreview" class="logo-preview" alt="Fragment Logo Preview">
         </div>
         
-        <!-- Game Title -->
-        <div class="editor-group">
+        <!-- Game Title (Auto-generated, hidden) -->
+        <div class="editor-group" style="display: none;">
           <label class="editor-label">Game Title</label>
           <input type="text" id="titleInput" class="editor-input" placeholder="Enter game title">
         </div>
@@ -159,14 +159,8 @@
        ==================================== -->
   <script src="config.js"></script>
   <script src="maps.js"></script>
-  <script type="module">
-    import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-    const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'
-    if (!window.supabaseClient) {
-      window.supabaseClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
-    }
-  </script>
+  <!-- Supabase client will be created lazily in game.js when needed -->
+  <!-- This prevents local network permission prompt on page load -->
   <script src="game.js"></script>
   <script>
     (function() {

@@ -60,7 +60,20 @@ async function getSupabaseClient() {
   supabaseClientPromise = (async () => {
     try {
       const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-      const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+      // Disable realtime to prevent local network permission prompt
+      // Client is created lazily only when needed (not on page load)
+      const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+        realtime: {
+          params: {
+            eventsPerSecond: 0
+          }
+        },
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        }
+      });
       window.supabaseClient = client;
       return client;
     } catch (error) {
@@ -2243,13 +2256,25 @@ function setupEditor() {
     });
   }
   
-  // Title input
+  // Title input - Auto-generate default title
   if (titleInput) {
-    titleInput.value = BRAND_CONFIG.title;
-    titleInput.addEventListener('input', (e) => {
-      BRAND_CONFIG.title = e.target.value;
+    // Generate default title if not set or is default value
+    if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }).replace(',', '');
+      BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
       saveBrandConfig();
-    });
+    }
+    titleInput.value = BRAND_CONFIG.title;
+    // Disable input - title is auto-generated
+    titleInput.disabled = true;
+    titleInput.style.opacity = '0.6';
+    titleInput.style.cursor = 'not-allowed';
+    titleInput.title = 'Game title is auto-generated';
   }
   
   // Map Color buttons
@@ -2624,12 +2649,15 @@ function setupEditor() {
       if (saveBtn.dataset.visible !== 'true') {
         return;
       }
-      // Ensure title is set (use input value or default)
-      const titleInput = document.getElementById('titleInput');
-      if (titleInput && titleInput.value.trim()) {
-        BRAND_CONFIG.title = titleInput.value.trim();
-      } else if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
-        BRAND_CONFIG.title = titleInput?.value.trim() || 'Pacman Game';
+      // Title is auto-generated, ensure it's set
+      if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
+        const timestamp = new Date().toLocaleString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }).replace(',', '');
+        BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
       }
       
       // Generate and save game ID
@@ -2657,12 +2685,15 @@ function setupEditor() {
       if (publicLinkBtn.dataset.enabled !== 'true') {
         return;
       }
-      // Ensure title is set (use input value or default)
-      const titleInput = document.getElementById('titleInput');
-      if (titleInput && titleInput.value.trim()) {
-        BRAND_CONFIG.title = titleInput.value.trim();
-      } else if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
-        BRAND_CONFIG.title = titleInput?.value.trim() || 'Pacman Game';
+      // Title is auto-generated, ensure it's set
+      if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
+        const timestamp = new Date().toLocaleString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }).replace(',', '');
+        BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
       }
       
       // Get game ID from save button or generate new one
