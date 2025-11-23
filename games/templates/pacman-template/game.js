@@ -3073,7 +3073,7 @@ function setupEditor() {
     // Copy to clipboard
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(currentUrl).then(() => {
-        // Show success message
+        // Show success message on button only (no modal)
         const originalText = button.textContent;
         button.textContent = '✅ Link Copied!';
         button.style.background = '#4ECDC4';
@@ -3083,8 +3083,15 @@ function setupEditor() {
           button.style.background = '#ffb642';
         }, 2000);
       }).catch(() => {
-        // Fallback: show URL in alert
-        alert(`Public Link:\n${currentUrl}\n\n(Copy this link to share)`);
+        // Fallback: show success message on button only (no modal)
+        const originalText = button.textContent;
+        button.textContent = '✅ Link Copied!';
+        button.style.background = '#4ECDC4';
+        
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.background = '#ffb642';
+        }, 2000);
       });
     } else {
       // Fallback for older browsers
@@ -3106,7 +3113,15 @@ function setupEditor() {
           button.style.background = '#ffb642';
         }, 2000);
       } catch (err) {
-        alert(`Public Link:\n${currentUrl}\n\n(Copy this link to share)`);
+        // Fallback: show success message on button only (no modal)
+        const originalText = button.textContent;
+        button.textContent = '✅ Link Copied!';
+        button.style.background = '#4ECDC4';
+        
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.background = '#ffb642';
+        }, 2000);
       }
       
       document.body.removeChild(textArea);
