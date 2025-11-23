@@ -177,13 +177,30 @@ function slugify(text) {
 }
 
 function buildPublicLinkUrl(gameId = null, forceProduction = false) {
-  const id = gameId || (typeof generateGameId === 'function' ? generateGameId() : slugify('memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
+  let id = gameId;
+  console.log('[buildPublicLinkUrl] Input gameId:', gameId, 'type:', typeof gameId, 'forceProduction:', forceProduction);
+  
+  if (!id || id === 'null' || id === 'undefined' || id === '') {
+    console.warn('[buildPublicLinkUrl] gameId is invalid, generating new ID...');
+    if (typeof generateGameId === 'function') {
+      id = generateGameId();
+    } else {
+      // Fallback: generate pacman-7420 format
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      id = `pacman-${randomSuffix}`;
+    }
+    console.log('[buildPublicLinkUrl] Generated new ID:', id);
+  }
   
   const baseUrl = window.location.origin.replace(/\/$/, '');
+  console.log('[buildPublicLinkUrl] baseUrl from window.location.origin:', baseUrl);
   
   // ✅ FIXED: Use query parameter ?game=id instead of hash #id
   // This ensures the game appears on homepage and works with MemePlay routing system
-  return `${baseUrl}/?game=${id}`;
+  const publicUrl = `${baseUrl}/?game=${id}`;
+  console.log('[buildPublicLinkUrl] Final publicUrl:', publicUrl);
+  
+  return publicUrl;
 }
 
 function isWalkableTileValue(value) {
@@ -434,8 +451,24 @@ function initGame() {
     mapOffsetY = (CONFIG.CANVAS_HEIGHT - mapHeight) / 2; // Center vertically in 730px
   }
   
-  // Load brand config
-  loadBrandConfig();
+  // ✅ FIX: KHÔNG gọi loadBrandConfig() ở đây nữa
+  // Trong editor mode: loadBrandConfig() đã được gọi trước initGame() với saved gameId
+  // Trong public game mode: loadBrandConfig() đã được gọi trước initGame() với gameId từ URL
+  // Nếu gọi lại ở đây sẽ ghi đè BRAND_CONFIG.mapIndex về 0 (default)
+  
+  // ✅ DEBUG: Log mapIndex hiện tại
+  const currentGameId = getGameId();
+  const lastSavedGameId = localStorage.getItem('pacman_last_saved_game_id');
+  console.log('[initGame] BRAND_CONFIG.mapIndex:', BRAND_CONFIG.mapIndex, 'gameId:', currentGameId || lastSavedGameId || 'none');
+  
+  // ✅ FIX: Load mapIndex from BRAND_CONFIG before initializing level
+  // BRAND_CONFIG.mapIndex đã được load từ localStorage trước đó
+  const savedMapIndex = BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0;
+  mapIndex = savedMapIndex;
+  const baseMap = MAPS[mapIndex] || MAPS[0] || [];
+  currentMap = baseMap.map(row => [...row]);
+  
+  console.log('[initGame] Using mapIndex:', mapIndex, 'from BRAND_CONFIG.mapIndex:', BRAND_CONFIG.mapIndex);
   
   // Initialize first level
   initLevel(1);
@@ -467,14 +500,21 @@ function initGame() {
 
 function initLevel(level) {
   currentLevel = level;
-  mapIndex = 0;
-  const baseMap = MAPS[0] || [];
+  
+  // ✅ FIX: Đơn giản hóa logic - CHỈ dùng BRAND_CONFIG.mapIndex (đã load từ localStorage)
+  // Không phụ thuộc vào dropdown value vì dropdown có thể chưa được set khi initLevel() chạy
+  // Dropdown chỉ để hiển thị và để user chọn map mới (sẽ được xử lý trong event listener)
+  const selectedMapIndex = BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0; // Default Map 1
+  
+  mapIndex = selectedMapIndex;
+  const baseMap = MAPS[mapIndex] || MAPS[0] || [];
   currentMap = baseMap.map(row => [...row]);
   
-  // Update map select dropdown if it exists
-  const mapSelect = document.getElementById('mapSelect');
+  console.log('[initLevel] Using mapIndex:', mapIndex, 'from BRAND_CONFIG.mapIndex:', BRAND_CONFIG.mapIndex);
+  
+  // Update map select dropdown if it exists (không đổi giá trị, chỉ để hiển thị)
   if (mapSelect) {
-    mapSelect.value = level.toString();
+    // Giữ nguyên giá trị đã chọn, không đổi theo level
   }
   
   // Calculate ghost count (Level 1 = 3 ghosts, then +1 per level)
@@ -507,8 +547,16 @@ function initLevel(level) {
   // Force snap to exact spawn position
   player.x = Math.round(spawnX);
   player.y = Math.round(spawnY);
-  player.direction = 'right';
-  player.nextDirection = 'right';
+  
+  // ✅ CRITICAL: In public view, don't set direction until user interacts
+  // This prevents Pacman from moving automatically when game loads
+  if (isPublicView) {
+    player.direction = null; // No direction until user swipes/presses arrow keys
+    player.nextDirection = null;
+  } else {
+    player.direction = 'right';
+    player.nextDirection = 'right';
+  }
   
   // Reset player animation
   player.animationFrame = 0;
@@ -1104,6 +1152,11 @@ function isAtCenter(threshold = 0.1) {
 }
 
 function updatePlayer(deltaTime = 16) {
+  // ✅ CRITICAL: In public view, don't move until user has interacted
+  if (isPublicView && !hasSentGameStart) {
+    return;
+  }
+  
   // Get input direction
   let inputDir = null;
   
@@ -1540,12 +1593,14 @@ function drawPlayerToCanvas(targetCtx) {
   targetCtx.fillStyle = '#FFD700';
   targetCtx.beginPath();
   
+  // ✅ CRITICAL: If no direction (game not started), show default right-facing direction
+  // but don't animate mouth (mouthAnimation will be 0)
   const angle = {
     'up': -Math.PI / 2,
     'down': Math.PI / 2,
     'left': Math.PI,
     'right': 0
-  }[player.direction] || 0;
+  }[player.direction || 'right'] || 0;
   
   // Animated mouth opening/closing (continuous animation)
   const mouthAnimation = Math.sin(player.animationFrame) * 0.15 + 0.25; // Oscillates between 0.1 and 0.4
@@ -1684,6 +1739,8 @@ function setupSwipeControls() {
 
   const onTouchStart = (event) => {
     if (event.touches.length !== 1) return;
+    // ✅ FIX: preventDefault để ngăn touch events bubble lên parent (giống rocket-bnb, brick-fallen-crypto)
+    event.preventDefault();
     const touch = event.touches[0];
     touchStartX = touch.clientX;
     touchStartY = touch.clientY;
@@ -1692,6 +1749,8 @@ function setupSwipeControls() {
 
   const onTouchMove = (event) => {
     if (!isSwiping || touchStartX === null || touchStartY === null) return;
+    // ✅ FIX: preventDefault để ngăn touch events bubble lên parent
+    event.preventDefault();
     const touch = event.touches[0];
     const dx = touch.clientX - touchStartX;
     const dy = touch.clientY - touchStartY;
@@ -1711,16 +1770,19 @@ function setupSwipeControls() {
     setMobileDirection(direction, 'swipe');
   };
 
-  const resetSwipe = () => {
+  const resetSwipe = (event) => {
+    // ✅ FIX: preventDefault để ngăn touch events bubble lên parent
+    if (event) event.preventDefault();
     touchStartX = null;
     touchStartY = null;
     isSwiping = false;
   };
 
-  canvasEl.addEventListener('touchstart', onTouchStart, { passive: true });
-  canvasEl.addEventListener('touchmove', onTouchMove, { passive: true });
-  canvasEl.addEventListener('touchend', resetSwipe);
-  canvasEl.addEventListener('touchcancel', resetSwipe);
+  // ✅ FIX: Đổi passive: false để có thể preventDefault (giống rocket-bnb, brick-fallen-crypto)
+  canvasEl.addEventListener('touchstart', onTouchStart, { passive: false });
+  canvasEl.addEventListener('touchmove', onTouchMove, { passive: false });
+  canvasEl.addEventListener('touchend', resetSwipe, { passive: false });
+  canvasEl.addEventListener('touchcancel', resetSwipe, { passive: false });
 }
 
 // setupFooterSwipeToEditor removed - swipe in game area only controls Pacman
@@ -1750,12 +1812,15 @@ function gameLoop(timestamp = 0) {
     // Update animation frames
     player.animationFrame += deltaTime * 0.01; // Animate mouth
     
-    // Update with deltaTime
-    updatePlayer(deltaTime);
-    updateGhosts(deltaTime);
-    checkFragmentCollection();
-    checkExitGate();
-    checkGhostCollision();
+    // ✅ CRITICAL: Only update player and ghosts when user has interacted (hasSentGameStart = true)
+    // This prevents Pacman and ghosts from moving automatically when game loads
+    if (hasSentGameStart) {
+      updatePlayer(deltaTime);
+      updateGhosts(deltaTime);
+      checkFragmentCollection();
+      checkExitGate();
+      checkGhostCollision();
+    }
   }
   
   // Always render (even when paused) to show initial state
@@ -1917,10 +1982,42 @@ function setupMemePlayIntegration() {
       case 'PACMAN_REMOTE_FOCUS':
         handleFocusRequest();
         break;
+      case 'FOCUS_MODE_CHANGED':
+        // Update focus toggle button state
+        const focusToggleBtn = document.querySelector('.focus-toggle');
+        if (focusToggleBtn && data.isFocus !== undefined) {
+          focusToggleBtn.setAttribute('aria-pressed', data.isFocus ? 'true' : 'false');
+          focusToggleBtn.textContent = data.isFocus ? '⤡' : '⤢';
+        }
+        break;
       default:
         break;
     }
   });
+  
+  // ====================================
+  // FOCUS MODE TOGGLE BUTTON
+  // ====================================
+  const focusToggleBtn = document.querySelector('.focus-toggle');
+  if (focusToggleBtn) {
+    // Handle button click - send message to parent
+    focusToggleBtn.addEventListener('click', (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      
+      // Get game ID (from embedded game or current game)
+      const gameId = EMBEDDED_GAME_ID || (typeof getGameId === 'function' ? getGameId() : null) || 'pacman-template';
+      
+      // Send message to parent to toggle focus mode
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'TOGGLE_FOCUS_MODE',
+          gameId: gameId
+        }, '*');
+        console.log('[Pacman] 📤 Sent TOGGLE_FOCUS_MODE to parent:', gameId);
+      }
+    });
+  }
 }
 
 function sendScoreToMemePlay() {
@@ -2177,15 +2274,13 @@ function setupEditor() {
   const editorToggle = document.getElementById('editorToggle');
   const playTestBtn = document.getElementById('playTestBtn');
   const saveBtn = document.getElementById('saveBtn');
+  const saveBtnMobile = document.getElementById('saveBtnMobile');
   const publicLinkBtn = document.getElementById('publicLinkBtn');
+  const publicLinkBtnMobile = document.getElementById('publicLinkBtnMobile');
   const mapSelect = document.getElementById('mapSelect');
   const titleInput = document.getElementById('titleInput');
   const story1Input = document.getElementById('story1Input');
-  const story2Input = document.getElementById('story2Input');
-  const story3Input = document.getElementById('story3Input');
   const story1Count = document.getElementById('story1Count');
-  const story2Count = document.getElementById('story2Count');
-  const story3Count = document.getElementById('story3Count');
   const fragmentLogoInput = document.getElementById('fragmentLogoInput');
   const fragmentLogoPreview = document.getElementById('fragmentLogoPreview');
   const fragmentLogoLoading = document.getElementById('fragmentLogoLoading');
@@ -2218,35 +2313,58 @@ function setupEditor() {
     }
   };
 
-  const setPublicLinkEnabled = (enabled) => {
-    if (!publicLinkBtn) return;
-    publicLinkBtn.dataset.enabled = enabled ? 'true' : 'false';
+  const setPublicLinkEnabled = (enabled, btnElement = null) => {
+    const btn = btnElement || publicLinkBtn;
+    if (!btn) return;
+    btn.dataset.enabled = enabled ? 'true' : 'false';
     if (enabled) {
-      publicLinkBtn.style.opacity = '1';
-      publicLinkBtn.style.pointerEvents = 'auto';
-      publicLinkBtn.style.background = '#ffb642';
-      publicLinkBtn.style.boxShadow = '0 0 12px rgba(255, 182, 66, 0.4)';
+      btn.style.opacity = '1';
+      btn.style.pointerEvents = 'auto';
+      btn.style.background = '#ffb642';
+      btn.style.boxShadow = '0 0 12px rgba(255, 182, 66, 0.4)';
     } else {
-      publicLinkBtn.style.opacity = '0.5';
-      publicLinkBtn.style.pointerEvents = 'none';
-      publicLinkBtn.style.background = '#555555';
-      publicLinkBtn.style.boxShadow = '0 0 12px rgba(255, 182, 66, 0.2)';
+      btn.style.opacity = '0.5';
+      btn.style.pointerEvents = 'none';
+      btn.style.background = '#555555';
+      btn.style.boxShadow = '0 0 12px rgba(255, 182, 66, 0.2)';
     }
   };
 
   const showSaveFlow = () => {
-    if (saveBtn) {
-      saveBtn.style.display = 'block';
-      saveBtn.dataset.visible = 'true';
-      saveBtn.dataset.saved = 'false';
-      saveBtn.textContent = '💾 Save';
-      saveBtn.style.background = '#ffb642';
-    }
-    if (publicLinkBtn) {
-      publicLinkBtn.style.display = 'block';
-      publicLinkBtn.dataset.visible = 'true';
-      publicLinkBtn.textContent = '🔗 Get Public Link';
-      setPublicLinkEnabled(false);
+    const isMobile = isMobileViewport();
+    
+    if (isMobile) {
+      // Mobile: Show floating buttons
+      const publicLinkBtnMobile = document.getElementById('publicLinkBtnMobile');
+      
+      if (saveBtnMobile) {
+        saveBtnMobile.style.display = 'block';
+        saveBtnMobile.dataset.visible = 'true';
+        saveBtnMobile.dataset.saved = 'false';
+        saveBtnMobile.textContent = '💾 Save';
+        saveBtnMobile.style.background = '#ffb642';
+      }
+      if (publicLinkBtnMobile) {
+        publicLinkBtnMobile.style.display = 'block';
+        publicLinkBtnMobile.dataset.visible = 'true';
+        publicLinkBtnMobile.textContent = '🔗 Get Public Link';
+        setPublicLinkEnabled(false, publicLinkBtnMobile);
+      }
+    } else {
+      // Desktop: Show editor panel buttons
+      if (saveBtn) {
+        saveBtn.style.display = 'block';
+        saveBtn.dataset.visible = 'true';
+        saveBtn.dataset.saved = 'false';
+        saveBtn.textContent = '💾 Save';
+        saveBtn.style.background = '#ffb642';
+      }
+      if (publicLinkBtn) {
+        publicLinkBtn.style.display = 'block';
+        publicLinkBtn.dataset.visible = 'true';
+        publicLinkBtn.textContent = '🔗 Get Public Link';
+        setPublicLinkEnabled(false);
+      }
     }
   };
 
@@ -2292,37 +2410,36 @@ function setupEditor() {
   // Toggle editor
   if (editorToggle) {
     editorToggle.addEventListener('click', () => {
-      if (document.body && document.body.classList.contains('public-game-view')) {
-        document.body.classList.remove('public-game-view');
-      }
-      if (editorModeStorageKey) {
-        localStorage.setItem(editorModeStorageKey, 'true');
-      }
-      // Show editor immediately on both mobile and desktop
+      // ✅ Back to page 1 of editor (creatorScreen)
       const creatorScreen = document.getElementById('creatorScreen');
       const gameWrapper = document.getElementById('gameWrapper');
       
-      // Hide game wrapper
+      // Hide game wrapper if showing
       if (gameWrapper) {
         gameWrapper.style.display = 'none';
       }
       
-      // Show creator screen and editor
+      // Hide editor container (page 2) if showing
+      if (editorContainer) {
+        editorContainer.classList.remove('active');
+        editorContainer.style.display = 'none';
+      }
+      
+      // Show creator screen (page 1)
       if (creatorScreen) {
         creatorScreen.style.display = 'block';
       }
-      if (editorContainer) {
-        editorContainer.classList.add('active');
-        editorContainer.style.display = 'flex';
-      }
       
-      // Hide create button, show save/public link buttons
-      editorToggle.style.display = 'none';
-      handleFloatingButtonsVisibility(true);
+      // Show back button, hide save/public link buttons
+      editorToggle.style.display = 'block';
+      handleFloatingButtonsVisibility(false);
       
-      // Scroll to editor on mobile
-      if (isMobileViewport()) {
-        scrollToCreatorScreen();
+      // Scroll to page 1 (creatorScreen)
+      scrollToCreatorScreen();
+      
+      // Remove public-game-view class if present
+      if (document.body && document.body.classList.contains('public-game-view')) {
+        document.body.classList.remove('public-game-view');
       }
     });
   }
@@ -2412,30 +2529,6 @@ function setupEditor() {
       BRAND_CONFIG.stories[0] = value;
       saveBrandConfig();
       updateCharCount(story1Input, story1Count, MAX_STORY_LENGTH);
-    });
-  }
-  
-  if (story2Input) {
-    story2Input.value = (BRAND_CONFIG.stories[1] || '').substring(0, MAX_STORY_LENGTH);
-    updateCharCount(story2Input, story2Count, MAX_STORY_LENGTH);
-    story2Input.addEventListener('input', (e) => {
-      const value = e.target.value.substring(0, MAX_STORY_LENGTH);
-      e.target.value = value;
-      BRAND_CONFIG.stories[1] = value;
-      saveBrandConfig();
-      updateCharCount(story2Input, story2Count, MAX_STORY_LENGTH);
-    });
-  }
-  
-  if (story3Input) {
-    story3Input.value = (BRAND_CONFIG.stories[2] || '').substring(0, MAX_STORY_LENGTH);
-    updateCharCount(story3Input, story3Count, MAX_STORY_LENGTH);
-    story3Input.addEventListener('input', (e) => {
-      const value = e.target.value.substring(0, MAX_STORY_LENGTH);
-      e.target.value = value;
-      BRAND_CONFIG.stories[2] = value;
-      saveBrandConfig();
-      updateCharCount(story3Input, story3Count, MAX_STORY_LENGTH);
     });
   }
   
@@ -2531,18 +2624,36 @@ function setupEditor() {
   
   // Map selection
   if (mapSelect) {
-    mapSelect.value = currentLevel.toString();
+    // ✅ FIX: Load mapIndex from BRAND_CONFIG when editor loads
+    // CHỈ set dropdown value để hiển thị, KHÔNG thay đổi BRAND_CONFIG.mapIndex
+    const savedMapIndex = BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0;
+    const savedMapNumber = savedMapIndex + 1; // Convert index (0,1) to map number (1,2)
+    if (savedMapNumber >= 1 && savedMapNumber <= MAPS.length) {
+      mapSelect.value = String(savedMapNumber);
+      // ✅ Update mapIndex and currentMap based on saved value (chỉ để hiển thị)
+      mapIndex = savedMapIndex;
+      const baseMap = MAPS[mapIndex] || MAPS[0] || [];
+      currentMap = baseMap.map(row => [...row]);
+      console.log('[setupEditor] Set dropdown to Map', savedMapNumber, 'from BRAND_CONFIG.mapIndex:', savedMapIndex);
+    } else {
+      // Nếu mapIndex không hợp lệ, set default nhưng KHÔNG save (tránh ghi đè)
+      mapSelect.value = '1';
+      console.log('[setupEditor] Invalid mapIndex, using default Map 1');
+    }
     
     mapSelect.addEventListener('change', (e) => {
       const selectedMap = parseInt(e.target.value, 10);
-      if (selectedMap === 1 && MAPS.length > 0 && editorCanvas && editorCtx) {
-        if (editorContainer && editorContainer.classList.contains('active')) {
+      // ✅ FIX: Hỗ trợ tất cả map (Map 1, Map 2, Map 3...)
+      if (selectedMap >= 1 && selectedMap <= MAPS.length && MAPS.length > 0) {
+        // ✅ FIX: Update preview trong editor canvas
+        if (editorCanvas && editorCtx && editorContainer && editorContainer.classList.contains('active')) {
           const tempLevel = currentLevel;
           const tempMap = currentMap;
           const tempMapIndex = mapIndex;
           
-          mapIndex = 0;
-          const previewMap = MAPS[0].map(row => [...row]);
+          // Load map tương ứng với selectedMap (Map 1 = index 0, Map 2 = index 1)
+          mapIndex = selectedMap - 1;
+          const previewMap = MAPS[mapIndex].map(row => [...row]);
           
           const mapCols = previewMap[0] ? previewMap[0].length : CONFIG.MAP_COLS;
           const mapRows = previewMap.length;
@@ -2571,6 +2682,35 @@ function setupEditor() {
           currentMap = tempMap;
           mapIndex = tempMapIndex;
         }
+        
+        // ✅ FIX: Update game map thực tế ngay lập tức (không cần Play Test)
+        // Load map mới vào currentMap và re-render game
+        const newMapIndex = selectedMap - 1;
+        const newBaseMap = MAPS[newMapIndex] || MAPS[0] || [];
+        mapIndex = newMapIndex;
+        currentMap = newBaseMap.map(row => [...row]);
+        
+        // ✅ FIX: Save mapIndex to BRAND_CONFIG when map is changed
+        BRAND_CONFIG.mapIndex = newMapIndex;
+        // ✅ CRITICAL: Save with current gameId if exists, otherwise save without gameId (will use default)
+        const currentGameId = (saveBtn && saveBtn.dataset.gameId) || 
+                              (saveBtnMobile && saveBtnMobile.dataset.gameId) || 
+                              (typeof getGameId === 'function' ? getGameId() : null);
+        if (currentGameId) {
+          saveBrandConfig(currentGameId);
+          console.log('💾 Map changed: Saved mapIndex', newMapIndex, 'for gameId:', currentGameId);
+        } else {
+          saveBrandConfig();
+          console.log('💾 Map changed: Saved mapIndex', newMapIndex, '(no gameId yet)');
+        }
+        
+        // Re-initialize level với map mới (giữ nguyên level, chỉ đổi map)
+        initLevel(currentLevel);
+        
+        // Re-render game map ngay lập tức
+        if (ctx && canvas) {
+          render();
+        }
       }
     });
   }
@@ -2588,94 +2728,88 @@ function setupEditor() {
       
       console.log('🎮 Play Test clicked');
       
-      // Get selected map from dropdown
-      const selectedMap = mapSelect ? parseInt(mapSelect.value) : currentLevel;
+      const isMobile = isMobileViewport();
       
-      // Ensure game wrapper is visible
-      const gameWrapperEl = document.getElementById('gameWrapper');
-      const gameCanvasEl = document.getElementById('gameCanvas');
-      
-      if (gameWrapperEl) {
-        gameWrapperEl.style.display = 'flex';
-        gameWrapperEl.style.visibility = 'visible';
-        gameWrapperEl.style.opacity = '1';
-        // Force reflow to ensure browser recognizes the display change
-        void gameWrapperEl.offsetHeight;
-        void gameWrapperEl.getBoundingClientRect(); // Additional reflow trigger
-      }
-      if (gameCanvasEl) {
-        gameCanvasEl.style.display = 'block';
-        gameCanvasEl.style.visibility = 'visible';
-        gameCanvasEl.style.opacity = '1';
-        // Force reflow to ensure browser recognizes the display change
-        void gameCanvasEl.offsetHeight;
-        void gameCanvasEl.getBoundingClientRect(); // Additional reflow trigger
-      }
-      
-      // Trigger a resize event to force browser to recalculate layout
-      if (window.dispatchEvent) {
-        window.dispatchEvent(new Event('resize'));
-      }
-      
-      // Hide editor on desktop
-      if (!isMobileViewport() && editorContainer) {
-        editorContainer.classList.remove('active');
-        editorContainer.style.display = 'none';
-        if (editorToggle) {
-          editorToggle.style.display = 'block';
+      if (isMobile) {
+        // ✅ Mobile: Keep original behavior (show game wrapper)
+        // Get selected map from dropdown
+        const selectedMap = mapSelect ? parseInt(mapSelect.value) : currentLevel;
+        
+        // Ensure game wrapper is visible
+        const gameWrapperEl = document.getElementById('gameWrapper');
+        const gameCanvasEl = document.getElementById('gameCanvas');
+        
+        if (gameWrapperEl) {
+          gameWrapperEl.style.display = 'flex';
+          gameWrapperEl.style.visibility = 'visible';
+          gameWrapperEl.style.opacity = '1';
+          // Force reflow to ensure browser recognizes the display change
+          void gameWrapperEl.offsetHeight;
+          void gameWrapperEl.getBoundingClientRect(); // Additional reflow trigger
         }
-        handleFloatingButtonsVisibility(false);
-        if (document.body && !document.body.classList.contains('public-game-view')) {
-          document.body.classList.add('public-game-view');
+        if (gameCanvasEl) {
+          gameCanvasEl.style.display = 'block';
+          gameCanvasEl.style.visibility = 'visible';
+          gameCanvasEl.style.opacity = '1';
+          // Force reflow to ensure browser recognizes the display change
+          void gameCanvasEl.offsetHeight;
+          void gameCanvasEl.getBoundingClientRect(); // Additional reflow trigger
         }
-        if (editorModeStorageKey) {
-          localStorage.removeItem(editorModeStorageKey);
+        
+        // Trigger a resize event to force browser to recalculate layout
+        if (window.dispatchEvent) {
+          window.dispatchEvent(new Event('resize'));
         }
-      }
-
-      // Show save & public link workflow after Play Test
-      showSaveFlow();
-
-      if (isMobileViewport()) {
+        
+        // Show save & public link workflow after Play Test (mobile uses floating buttons)
+        showSaveFlow();
+        
         unlockMobileGameIfNeeded();
-      }
-      
-      // Reset game state but keep selected map
-      isGameOver = false;
-      gameState = 'playing';
-      score = 0;
-      
-      // Reset ghost AI state
-      ghostSpeedMultiplier = 0.25; // Start at 25% of Pacman speed
-      firstFragmentEaten = false;
-      ghostFreezeTimer = 0;
-      ghostGlowTimer = 0;
-      ghostGlowState = 'none';
-      ghostPendingBoost = 0;
-      
-      // Initialize level with selected map (this will set currentLevel)
-      initLevel(1);
-      
-      // Force reflow and render immediately
-      if (gameWrapperEl) {
-        void gameWrapperEl.offsetHeight; // Force reflow
-      }
-      if (ctx && canvas) {
-        // Use requestAnimationFrame to ensure render happens after reflow
-        requestAnimationFrame(() => {
-          render();
-          // Force another render after a short delay to ensure everything is painted
+        
+        // Reset game state but keep selected map
+        isGameOver = false;
+        gameState = 'playing';
+        score = 0;
+        
+        // Reset ghost AI state
+        ghostSpeedMultiplier = 0.25; // Start at 25% of Pacman speed
+        firstFragmentEaten = false;
+        ghostFreezeTimer = 0;
+        ghostGlowTimer = 0;
+        ghostGlowState = 'none';
+        ghostPendingBoost = 0;
+        
+        // ✅ FIX: Load map được chọn từ dropdown (giữ nguyên level, chỉ load map mới)
+        initLevel(currentLevel);
+        
+        // ✅ FIX: Auto-focus canvas để có thể điều khiển Pacman ngay lập tức (Mobile)
+        if (gameCanvasEl) {
+          // Use setTimeout to ensure canvas is fully rendered before focusing
           setTimeout(() => {
-            if (ctx && canvas) {
-              render();
-            }
-          }, 50);
-        });
-      }
+            gameCanvasEl.focus();
+            console.log('[Pacman] Canvas auto-focused for keyboard input after Play Test (Mobile)');
+          }, 200); // Delay longer for mobile to ensure unlock completes
+        }
+        
+        // Force reflow and render immediately
+        if (gameWrapperEl) {
+          void gameWrapperEl.offsetHeight; // Force reflow
+        }
+        if (ctx && canvas) {
+          // Use requestAnimationFrame to ensure render happens after reflow
+          requestAnimationFrame(() => {
+            render();
+            // Force another render after a short delay to ensure everything is painted
+            setTimeout(() => {
+              if (ctx && canvas) {
+                render();
+              }
+            }, 50);
+          });
+        }
 
-      // Scroll to game area (unified logic for mobile and desktop)
-      if (gameWrapperEl) {
-        if (isMobileViewport()) {
+        // Scroll to game area (mobile)
+        if (gameWrapperEl) {
           // Mobile: wait for unlock, then scroll
           const scrollToGame = () => {
             // Ensure game is unlocked and visible
@@ -2719,141 +2853,274 @@ function setupEditor() {
           
           // Start scrolling after unlock
           setTimeout(scrollToGame, 300);
-        } else {
-          // Desktop: scroll to center if game is not fully visible
-          setTimeout(() => {
-            const rect = gameWrapperEl.getBoundingClientRect();
-            if (rect.bottom > window.innerHeight || rect.top < 0) {
-              gameWrapperEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }
-            // Force render after scroll
-            if (ctx && canvas) {
-              render();
-            }
-          }, 200);
         }
-      }
-    });
-  }
-  
-  // Save button
-  if (saveBtn) {
-    saveBtn.addEventListener('click', async () => {
-      if (saveBtn.dataset.visible !== 'true') {
-        return;
-      }
-      // Title is auto-generated, ensure it's set
-      if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
-        const timestamp = new Date().toLocaleString('en-US', { 
-          month: 'short', 
-          day: 'numeric', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }).replace(',', '');
-        BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
-      }
-      
-      // Generate and save game ID
-      const gameId = typeof generateGameId === 'function' ? generateGameId() : (slugify(BRAND_CONFIG.title || 'memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
-      const savedId = saveBrandConfig(gameId);
-      console.log('💾 Game saved with ID:', savedId, 'Title:', BRAND_CONFIG.title);
-      
-      // Store game ID for public link
-      saveBtn.dataset.gameId = gameId;
-      
-      saveBtn.textContent = '✅ Saved';
-      saveBtn.style.background = '#4ECDC4';
-      saveBtn.dataset.saved = 'true';
-      setPublicLinkEnabled(true);
-
-      saveBtn.dataset.supabaseSync = 'pending';
-      const synced = await syncGameToSupabase(gameId, 'manual-save');
-      saveBtn.dataset.supabaseSync = synced ? 'success' : 'error';
-    });
-  }
-  
-  // Public Link button
-  if (publicLinkBtn) {
-    publicLinkBtn.addEventListener('click', async () => {
-      if (publicLinkBtn.dataset.enabled !== 'true') {
-        return;
-      }
-      // Title is auto-generated, ensure it's set
-      if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
-        const timestamp = new Date().toLocaleString('en-US', { 
-          month: 'short', 
-          day: 'numeric', 
-          hour: '2-digit', 
-          minute: '2-digit' 
-        }).replace(',', '');
-        BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
-      }
-      
-      // Get game ID from save button or generate new one
-      const gameId = saveBtn && saveBtn.dataset.gameId ? saveBtn.dataset.gameId : (typeof generateGameId === 'function' ? generateGameId() : slugify(BRAND_CONFIG.title || 'memeplay-project') + '-' + Math.floor(1000 + Math.random() * 9000));
-      // Ensure game is saved with this ID
-      if (!saveBtn || saveBtn.dataset.saved !== 'true') {
-        const savedId = saveBrandConfig(gameId);
-        console.log('💾 Game auto-saved with ID:', savedId, 'Title:', BRAND_CONFIG.title);
-        if (saveBtn) {
-          saveBtn.dataset.gameId = gameId;
-          saveBtn.dataset.saved = 'true';
-        }
-      }
-
-      // Ensure Supabase knows about this game before sharing
-      publicLinkBtn.dataset.supabaseSync = 'pending';
-      const synced = await syncGameToSupabase(gameId, 'public-link');
-      publicLinkBtn.dataset.supabaseSync = synced ? 'success' : 'error';
-      // Always use production format for public links (short URL)
-      const shareUrl = buildPublicLinkUrl(gameId, true);
-      console.log('🔗 Public link generated:', shareUrl, 'Game ID:', gameId);
-      
-      // Get current page URL
-      const currentUrl = shareUrl;
-      
-      // Copy to clipboard
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(currentUrl).then(() => {
-          // Show success message
-          const originalText = publicLinkBtn.textContent;
-          publicLinkBtn.textContent = '✅ Link Copied!';
-          publicLinkBtn.style.background = '#4ECDC4';
-          
-          setTimeout(() => {
-            publicLinkBtn.textContent = originalText;
-            publicLinkBtn.style.background = '#ffb642';
-          }, 2000);
-        }).catch(() => {
-          // Fallback: show URL in alert
-          alert(`Public Link:\n${currentUrl}\n\n(Copy this link to share)`);
-        });
       } else {
-        // Fallback for older browsers
-        const textArea = document.createElement('textarea');
-        textArea.value = currentUrl;
-        textArea.style.position = 'fixed';
-        textArea.style.opacity = '0';
-        document.body.appendChild(textArea);
-        textArea.select();
-        
-        try {
-          document.execCommand('copy');
-          const originalText = publicLinkBtn.textContent;
-          publicLinkBtn.textContent = '✅ Link Copied!';
-          publicLinkBtn.style.background = '#4ECDC4';
-          
-          setTimeout(() => {
-            publicLinkBtn.textContent = originalText;
-            publicLinkBtn.style.background = '#ffb642';
-          }, 2000);
-        } catch (err) {
-          alert(`Public Link:\n${currentUrl}\n\n(Copy this link to share)`);
+        // ✅ Desktop: Only add checkmark and show Save/Get Public Link in editor panel
+        // Add checkmark to Play Test button
+        if (playTestBtn.textContent.trim() === 'Play Test') {
+          playTestBtn.textContent = 'Play Test ✓';
+          playTestBtn.style.color = '#4ade80'; // Green color for checkmark
         }
-        
-        document.body.removeChild(textArea);
+
+        // ✅ FIX: Auto-focus canvas để có thể điều khiển Pacman ngay lập tức (Desktop)
+        const gameCanvasEl = document.getElementById('gameCanvas');
+        if (gameCanvasEl) {
+          // Use setTimeout to ensure canvas is fully rendered before focusing
+          setTimeout(() => {
+            gameCanvasEl.focus();
+            console.log('[Pacman] Canvas auto-focused for keyboard input after Play Test (Desktop)');
+          }, 100);
+        }
+
+        // Show save & public link workflow after Play Test (desktop uses editor panel buttons)
+        showSaveFlow();
       }
     });
+  }
+  
+  // Save button handler (shared for desktop and mobile)
+  const handleSaveClick = async (button, isMobile = false) => {
+    if (button.dataset.visible !== 'true') {
+      return;
+    }
+    // Title is auto-generated, ensure it's set
+    if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }).replace(',', '');
+      BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
+    }
+    
+    // ✅ FIX: Save mapIndex to BRAND_CONFIG before saving
+    const mapSelect = document.getElementById('mapSelect');
+    if (mapSelect) {
+      const selectedMap = parseInt(mapSelect.value, 10);
+      if (selectedMap >= 1 && selectedMap <= MAPS.length) {
+        BRAND_CONFIG.mapIndex = selectedMap - 1;
+      }
+    }
+    
+    // Generate and save game ID (format: pacman-7420)
+    let gameId;
+    if (typeof generateGameId === 'function') {
+      gameId = generateGameId();
+    } else {
+      // Fallback: generate pacman-7420 format
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      gameId = `pacman-${randomSuffix}`;
+    }
+    const savedId = saveBrandConfig(gameId);
+    console.log('💾 Game saved with ID:', savedId, 'Title:', BRAND_CONFIG.title, 'MapIndex:', BRAND_CONFIG.mapIndex);
+    
+    // ✅ FIX: Lưu gameId vào localStorage để có thể load lại khi F5 trong editor mode
+    localStorage.setItem('pacman_last_saved_game_id', gameId);
+    
+    // ✅ DEBUG: Verify mapIndex was saved to localStorage
+    const storageKey = `pacman_brand_config_${gameId}`;
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        console.log('💾 [DEBUG] Verified localStorage save:', {
+          gameId,
+          storageKey,
+          savedMapIndex: parsed.mapIndex,
+          currentMapIndex: BRAND_CONFIG.mapIndex
+        });
+      } catch (e) {
+        console.error('💾 [DEBUG] Failed to parse saved config:', e);
+      }
+    } else {
+      console.warn('💾 [DEBUG] No saved config found for gameId:', gameId);
+    }
+    
+    // Store game ID for public link (both desktop and mobile buttons)
+    if (saveBtn) {
+      saveBtn.dataset.gameId = gameId;
+      saveBtn.dataset.saved = 'true';
+      console.log('💾 [SAVE] Desktop - gameId:', gameId, 'saved:', saveBtn.dataset.saved);
+    }
+    if (saveBtnMobile) {
+      saveBtnMobile.dataset.gameId = gameId;
+      saveBtnMobile.dataset.saved = 'true';
+      console.log('💾 [SAVE] Mobile - gameId:', gameId, 'saved:', saveBtnMobile.dataset.saved);
+    } else {
+      console.warn('💾 [SAVE] Mobile - saveBtnMobile is null!');
+    }
+    
+    button.textContent = '✅ Saved';
+    button.style.background = '#4ECDC4';
+    button.dataset.saved = 'true';
+    
+    // ✅ FIX: Enable public link button for both desktop and mobile
+    setPublicLinkEnabled(true);
+    if (publicLinkBtnMobile) {
+      setPublicLinkEnabled(true, publicLinkBtnMobile);
+    }
+
+    button.dataset.supabaseSync = 'pending';
+    const synced = await syncGameToSupabase(gameId, 'manual-save');
+    button.dataset.supabaseSync = synced ? 'success' : 'error';
+  };
+
+  // Save button (Desktop)
+  if (saveBtn) {
+    saveBtn.addEventListener('click', () => handleSaveClick(saveBtn, false));
+  }
+  
+  // ✅ FIX: Save button (Mobile) - Add event listener
+  if (saveBtnMobile) {
+    saveBtnMobile.addEventListener('click', () => handleSaveClick(saveBtnMobile, true));
+  }
+  
+  // Public Link button handler (shared for desktop and mobile)
+  const handlePublicLinkClick = async (button) => {
+    if (button.dataset.enabled !== 'true') {
+      return;
+    }
+    // Title is auto-generated, ensure it's set
+    if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
+      const timestamp = new Date().toLocaleString('en-US', { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      }).replace(',', '');
+      BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
+    }
+    
+    // ✅ FIX: Save mapIndex to BRAND_CONFIG before getting public link
+    const mapSelect = document.getElementById('mapSelect');
+    if (mapSelect) {
+      const selectedMap = parseInt(mapSelect.value, 10);
+      if (selectedMap >= 1 && selectedMap <= MAPS.length) {
+        BRAND_CONFIG.mapIndex = selectedMap - 1;
+      }
+    }
+    
+    // Get game ID from save button (desktop or mobile) or generate new one
+    let gameId;
+    console.log('🔗 [GET_LINK] Checking gameId sources...');
+    console.log('🔗 [GET_LINK] saveBtn:', saveBtn, 'dataset.gameId:', saveBtn?.dataset.gameId, 'dataset.saved:', saveBtn?.dataset.saved);
+    console.log('🔗 [GET_LINK] saveBtnMobile:', saveBtnMobile, 'dataset.gameId:', saveBtnMobile?.dataset.gameId, 'dataset.saved:', saveBtnMobile?.dataset.saved);
+    
+    if (saveBtn && saveBtn.dataset.gameId) {
+      gameId = saveBtn.dataset.gameId;
+      console.log('🔗 [GET_LINK] Using gameId from saveBtn (desktop):', gameId);
+    } else if (saveBtnMobile && saveBtnMobile.dataset.gameId) {
+      gameId = saveBtnMobile.dataset.gameId;
+      console.log('🔗 [GET_LINK] Using gameId from saveBtnMobile (mobile):', gameId);
+    } else if (typeof generateGameId === 'function') {
+      gameId = generateGameId();
+      console.log('🔗 [GET_LINK] Generated new gameId:', gameId);
+    } else {
+      // Fallback: generate pacman-7420 format
+      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+      gameId = `pacman-${randomSuffix}`;
+      console.log('🔗 [GET_LINK] Fallback generated gameId:', gameId);
+    }
+    
+    // ✅ CRITICAL: Validate gameId
+    if (!gameId || gameId === 'null' || gameId === 'undefined' || gameId === '') {
+      console.error('❌ [GET_LINK] ERROR: gameId is invalid!', gameId);
+      alert('❌ Lỗi: Không thể tạo public link vì gameId không hợp lệ.\n\nVui lòng Save game trước khi lấy public link.');
+      return;
+    }
+    
+    // Ensure game is saved with this ID
+    const isSaved = (saveBtn && saveBtn.dataset.saved === 'true') || 
+                    (saveBtnMobile && saveBtnMobile.dataset.saved === 'true');
+    if (!isSaved) {
+      const savedId = saveBrandConfig(gameId);
+      console.log('💾 Game auto-saved with ID:', savedId, 'Title:', BRAND_CONFIG.title, 'MapIndex:', BRAND_CONFIG.mapIndex);
+      if (saveBtn) {
+        saveBtn.dataset.gameId = gameId;
+        saveBtn.dataset.saved = 'true';
+      }
+      if (saveBtnMobile) {
+        saveBtnMobile.dataset.gameId = gameId;
+        saveBtnMobile.dataset.saved = 'true';
+      }
+    }
+
+    // Ensure Supabase knows about this game before sharing
+    button.dataset.supabaseSync = 'pending';
+    const synced = await syncGameToSupabase(gameId, 'public-link');
+    button.dataset.supabaseSync = synced ? 'success' : 'error';
+    
+    // Always use production format for public links (short URL)
+    console.log('🔗 [GET_LINK] Calling buildPublicLinkUrl with gameId:', gameId, 'type:', typeof gameId);
+    const shareUrl = buildPublicLinkUrl(gameId, true);
+    console.log('🔗 [GET_LINK] Public link generated:', shareUrl, 'Game ID:', gameId);
+    console.log('🔗 [GET_LINK] shareUrl includes ?game=:', shareUrl.includes('?game='));
+    console.log('🔗 [GET_LINK] shareUrl includes /index.html:', shareUrl.includes('/index.html'));
+    console.log('🔗 [GET_LINK] shareUrl includes #creatorScreen:', shareUrl.includes('#creatorScreen'));
+    
+    // ✅ CRITICAL: Validate shareUrl
+    if (!shareUrl || !shareUrl.includes('?game=') || shareUrl.includes('/index.html') || shareUrl.includes('#creatorScreen')) {
+      console.error('❌ [GET_LINK] ERROR: Invalid shareUrl!', shareUrl);
+      alert(`❌ Lỗi: Link không đúng format!\n\nExpected: https://domain.com/?game=id\nGot: ${shareUrl}\n\nGame ID: ${gameId}`);
+      return;
+    }
+    
+    // Get current page URL
+    const currentUrl = shareUrl;
+    console.log('🔗 [GET_LINK] currentUrl before copy:', currentUrl);
+    
+    // Copy to clipboard
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(currentUrl).then(() => {
+        // Show success message
+        const originalText = button.textContent;
+        button.textContent = '✅ Link Copied!';
+        button.style.background = '#4ECDC4';
+        
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.background = '#ffb642';
+        }, 2000);
+      }).catch(() => {
+        // Fallback: show URL in alert
+        alert(`Public Link:\n${currentUrl}\n\n(Copy this link to share)`);
+      });
+    } else {
+      // Fallback for older browsers
+      const textArea = document.createElement('textarea');
+      textArea.value = currentUrl;
+      textArea.style.position = 'fixed';
+      textArea.style.opacity = '0';
+      document.body.appendChild(textArea);
+      textArea.select();
+      
+      try {
+        document.execCommand('copy');
+        const originalText = button.textContent;
+        button.textContent = '✅ Link Copied!';
+        button.style.background = '#4ECDC4';
+        
+        setTimeout(() => {
+          button.textContent = originalText;
+          button.style.background = '#ffb642';
+        }, 2000);
+      } catch (err) {
+        alert(`Public Link:\n${currentUrl}\n\n(Copy this link to share)`);
+      }
+      
+      document.body.removeChild(textArea);
+    }
+  };
+
+  // Public Link button (Desktop)
+  if (publicLinkBtn) {
+    publicLinkBtn.addEventListener('click', () => handlePublicLinkClick(publicLinkBtn));
+  }
+  
+  // ✅ FIX: Public Link button (Mobile) - Add event listener
+  if (publicLinkBtnMobile) {
+    publicLinkBtnMobile.addEventListener('click', () => handlePublicLinkClick(publicLinkBtnMobile));
   }
 }
 
@@ -2909,26 +3176,14 @@ window.addEventListener('DOMContentLoaded', () => {
   // Try multiple ways to get game ID
   let gameId = null;
   
-  // Method 1: Use getGameId function from config.js
-  if (typeof getGameId === 'function') {
-    gameId = getGameId();
-  }
+  // ONLY check ?game= parameter from URL query string
+  // This ensures editor is visible when there's no ?game= parameter
+  const urlParams = new URLSearchParams(window.location.search);
+  gameId = urlParams.get('game');
   
-  // Method 2: Direct URL parsing (fallback)
-  if (!gameId) {
-    const urlParams = new URLSearchParams(window.location.search);
-    gameId = urlParams.get('game');
-  }
-  
-  // Method 3: Check URL path for pacman-game-xxx pattern
-  if (!gameId) {
-    const pathMatch = window.location.pathname.match(/pacman-game-([^\/]+)/);
-    if (pathMatch && pathMatch[1]) {
-      gameId = pathMatch[1];
-    }
-  }
-  
-  const isPublicGame = !!gameId;
+  // Only set isPublicGame if ?game= parameter exists
+  // This ensures editor is not hidden when there's no ?game= parameter
+  const isPublicGame = gameId !== null && gameId !== '';
   const editorModeStorageKey = gameId ? `pacman_editor_mode_${gameId}` : null;
   
   console.log('🔍 Game ID Detection:', {
@@ -2992,6 +3247,10 @@ window.addEventListener('DOMContentLoaded', () => {
       gameCanvas.style.visibility = 'visible';
     }
     
+    // ✅ FIX: Load brand config with correct gameId BEFORE initGame()
+    // This ensures mapIndex is loaded from localStorage before initLevel() is called
+    loadBrandConfig(gameId); // Pass gameId explicitly to ensure correct loading
+    
     // Initialize game (this will start game loop)
     initGame();
     
@@ -3015,6 +3274,12 @@ window.addEventListener('DOMContentLoaded', () => {
       currentLevel = 1;
       hasSentGameStart = false;
     
+      // ✅ FIX: Load mapIndex from BRAND_CONFIG before initializing level (public game mode)
+      const savedMapIndex = BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0;
+      mapIndex = savedMapIndex;
+      const baseMap = MAPS[mapIndex] || MAPS[0] || [];
+      currentMap = baseMap.map(row => [...row]);
+      
       // Initialize level (reset positions)
       initLevel(1);
 
@@ -3061,6 +3326,8 @@ window.addEventListener('DOMContentLoaded', () => {
           gameCanvas.style.visibility = 'visible';
         }
         if (!ctx || !canvas) {
+          // ✅ FIX: Load brand config with correct gameId BEFORE initGame()
+          loadBrandConfig(recheckGameId); // Pass gameId explicitly
           initGame();
         }
         
@@ -3070,6 +3337,12 @@ window.addEventListener('DOMContentLoaded', () => {
         score = 0;
         currentLevel = 1;
         hasSentGameStart = false;
+        
+        // ✅ FIX: Load mapIndex from BRAND_CONFIG before initializing level (recheck mode)
+        const savedMapIndex = BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0;
+        mapIndex = savedMapIndex;
+        const baseMap = MAPS[mapIndex] || MAPS[0] || [];
+        currentMap = baseMap.map(row => [...row]);
         
         // Initialize level (reset positions)
         initLevel(1);
@@ -3101,6 +3374,19 @@ window.addEventListener('DOMContentLoaded', () => {
     if (editorContainer) {
       editorContainer.classList.add('active');
       editorContainer.style.display = 'flex';
+    }
+    
+    // ✅ FIX: Load brand config with saved gameId BEFORE initGame() in editor mode
+    // This ensures mapIndex is loaded from the correct localStorage key
+    const lastSavedGameId = localStorage.getItem('pacman_last_saved_game_id');
+    if (lastSavedGameId) {
+      console.log('[Editor Mode] Loading config with last saved gameId:', lastSavedGameId);
+      loadBrandConfig(lastSavedGameId);
+      console.log('[Editor Mode] BRAND_CONFIG.mapIndex after loadBrandConfig:', BRAND_CONFIG.mapIndex);
+    } else {
+      console.log('[Editor Mode] No saved gameId, loading default config');
+      loadBrandConfig();
+      console.log('[Editor Mode] BRAND_CONFIG.mapIndex after loadBrandConfig:', BRAND_CONFIG.mapIndex);
     }
     
     // Initialize game (for preview) and editor

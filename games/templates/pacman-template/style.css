@@ -58,7 +58,12 @@ body {
   position: relative;
   background: #0d0d1a;
   overflow: hidden;
-  touch-action: none;
+  /* ✅ FIX CRITICAL: Thay đổi touch-action để không chặn scroll của parent
+     - pan-y: Cho phép vertical scroll (để parent có thể scroll)
+     - pinch-zoom: Cho phép zoom gestures
+     - Loại bỏ "none" vì nó chặn tất cả touch events → gây bug mobile scroll
+  */
+  touch-action: pan-y pinch-zoom;
   margin: 0 auto;
   /* IMPORTANT: Reserve space for header */
   padding-top: 70px;
@@ -80,13 +85,70 @@ body {
   transform: none;
   zoom: 1;
   outline: none; /* Remove focus outline, but allow focus for keyboard control */
+  /* ✅ FIX: touch-action: none - ngăn touch events bubble lên parent (giống rocket-bnb, brick-fallen-crypto) */
+  touch-action: none !important;
+  -ms-touch-action: none !important;
+}
+
+/* ====================================
+   FOCUS TOGGLE BUTTON
+   ==================================== */
+.game-wrapper .focus-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(6, 9, 15, 0.3);
+  color: #eef4ff;
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.32;
+  transition: background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 10;
+  /* ✅ FIX: Đảm bảo button có cùng kích thước và độ mờ như Bird Squash */
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.game-wrapper .focus-toggle:hover,
+.game-wrapper .focus-toggle:focus-visible {
+  background: rgba(6, 9, 15, 0.72);
+  opacity: 0.95;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.game-wrapper .focus-toggle[aria-pressed="true"] {
+  background: rgba(255, 182, 66, 0.2);
+  border-color: rgba(255, 182, 66, 0.4);
+  opacity: 0.9;
 }
 
 .creator-floating-buttons {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 12px;
   margin-top: 15px;
+}
+
+/* Button row - each row contains buttons on same line */
+.button-row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  width: 100%;
 }
 
 .floating-btn {
@@ -100,7 +162,21 @@ body {
   box-shadow: 0 0 12px rgba(255, 182, 66, 0.4);
   transition: all 0.3s;
   flex: 1;
-  min-width: 140px;
+  min-width: 0;
+}
+
+/* Icon buttons (back and close) - smaller, compact */
+.floating-btn.icon-btn {
+  padding: 8px;
+  min-width: auto;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .floating-btn.disabled {
@@ -622,18 +698,27 @@ body.public-game-view #gameWrapper {
     display: flex;
   }
   
-  #editorToggle,
-  #saveBtn,
-  #publicLinkBtn {
-    position: static !important;
-    width: 100%;
-    margin-top: 12px;
-    box-shadow: none !important;
-    display: block !important;
-  }
-  
   .creator-floating-buttons {
     flex-direction: column;
+    gap: 12px;
+  }
+  
+  .button-row {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    width: 100%;
+  }
+  
+  .floating-btn {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .floating-btn.icon-btn {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
   }
 
   .game-over-logo {

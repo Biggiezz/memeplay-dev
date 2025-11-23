@@ -5276,6 +5276,40 @@ window.addEventListener("beforeunload", stopGame);
         else scrollToIndex(cur - 1);        // swipe down -> prev
       }, { passive: true });
 
+      const FOOTER_SWIPE_THRESHOLD = 80;
+      cards.forEach((card) => {
+        const footer = card.querySelector('.game-footer');
+        if (!footer) return;
+        let footerStartY = 0;
+        let footerTracking = false;
+
+        footer.addEventListener('touchstart', (e) => {
+          if (!e.touches || !e.touches.length) return;
+          footerTracking = true;
+          footerStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        footer.addEventListener('touchmove', (e) => {
+          if (!footerTracking || !e.touches || !e.touches.length) return;
+          const currentY = e.touches[0].clientY;
+          const dy = currentY - footerStartY;
+          if (Math.abs(dy) >= FOOTER_SWIPE_THRESHOLD) {
+            e.preventDefault();
+            footerTracking = false;
+            const cur = currentIndex();
+            if (dy < 0) {
+              scrollToIndex(cur + 1);
+            } else {
+              scrollToIndex(cur - 1);
+            }
+          }
+        }, { passive: false });
+
+        const endFooterSwipe = () => { footerTracking = false; };
+        footer.addEventListener('touchend', endFooterSwipe, { passive: true });
+        footer.addEventListener('touchcancel', endFooterSwipe, { passive: true });
+      });
+
       // ✅ FIXED: Longer timeout for smoother scroll animation
       // Force snap to nearest after inertial scrolling stops (prevents resting between cards)
       let snapTimer = null;

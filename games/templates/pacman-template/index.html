@@ -10,9 +10,61 @@
   <script>
     (function() {
       try {
-        var params = new URLSearchParams(window.location.search);
-        if (params.get('game')) {
-          document.body.classList.add('public-game-view');
+        var searchParams = new URLSearchParams(window.location.search || '');
+        var hash = window.location.hash || '';
+        var pathname = window.location.pathname || '';
+        var hasGameId = false;
+        var detectedGameId = null;
+        
+        if (searchParams.get('game')) {
+          hasGameId = true;
+          detectedGameId = searchParams.get('game');
+        }
+        
+        if (!hasGameId && hash) {
+          var normalizedHash = hash.replace(/^#/, '').trim();
+          if (normalizedHash.startsWith('/?')) {
+            normalizedHash = normalizedHash.slice(2);
+          }
+          if (normalizedHash.includes('game=')) {
+            var hashQuery = normalizedHash.includes('?') ? normalizedHash.split('?')[1] : normalizedHash;
+            var hashParams = new URLSearchParams(hashQuery);
+            var hashGameId = hashParams.get('game');
+            if (hashGameId) {
+              hasGameId = true;
+              detectedGameId = hashGameId;
+            }
+          } else if (normalizedHash.startsWith('pacman-game-')) {
+            hasGameId = true;
+            detectedGameId = normalizedHash;
+          }
+        }
+        
+        if (!hasGameId && pathname && /\/pacman-game-[^/]+$/.test(pathname)) {
+          hasGameId = true;
+          detectedGameId = pathname.split('/').pop();
+        }
+        
+        var editorFlagKey = detectedGameId ? `pacman_editor_mode_${detectedGameId}` : null;
+        var prefersEditorMode = editorFlagKey ? localStorage.getItem(editorFlagKey) === 'true' : false;
+        
+        var addPublicViewClass = function() {
+          if (!document.body) return;
+          if (!document.body.classList.contains('public-game-view')) {
+            document.body.classList.add('public-game-view');
+          }
+        };
+        
+        if (hasGameId && !prefersEditorMode) {
+          if (document.body) {
+            addPublicViewClass();
+          } else {
+            document.addEventListener('DOMContentLoaded', addPublicViewClass, { once: true });
+            setTimeout(addPublicViewClass, 0);
+          }
+          console.log('[Pacman] ✅ Added public-game-view class (early detection)');
+        } else if (prefersEditorMode) {
+          console.log('[Pacman] ✏️ Editor mode preferred, skipping public-game-view class');
         }
       } catch (err) {
         console.warn('[Pacman] Failed to set public-game-view class early:', err);
@@ -48,27 +100,15 @@
           <textarea id="story1Input" class="editor-textarea" placeholder="Enter story text (max 50 characters)..." maxlength="50"></textarea>
         </div>
         
-        <!-- Story 2 -->
-        <div class="editor-group">
-          <label class="editor-label">Story 2 <span id="story2Count" class="char-count">0/50</span></label>
-          <textarea id="story2Input" class="editor-textarea" placeholder="Enter story text (max 50 characters)..." maxlength="50"></textarea>
-        </div>
-        
-        <!-- Story 3 -->
-        <div class="editor-group">
-          <label class="editor-label">Story 3 <span id="story3Count" class="char-count">0/50</span></label>
-          <textarea id="story3Input" class="editor-textarea" placeholder="Enter story text (max 50 characters)..." maxlength="50"></textarea>
-        </div>
-        
         <!-- Map Selection -->
         <div class="editor-group">
           <label class="editor-label">Map</label>
           <select id="mapSelect" class="editor-input" style="cursor: pointer;">
-            <option value="1">Map 1 - Easy (Wide Area)</option>
-            <option value="2" class="disabled-option" disabled>Map 2 - Coming Soon</option>
-            <option value="3" class="disabled-option" disabled>Map 3 - Coming Soon</option>
-            <option value="4" class="disabled-option" disabled>Map 4 - Coming Soon</option>
-            <option value="5" class="disabled-option" disabled>Map 5 - Coming Soon</option>
+            <option value="1">Map 1</option>
+            <option value="2">Map 2</option>
+            <option value="3">Map 3</option>
+            <option value="4" class="disabled-option" disabled>Map 4</option>
+            <option value="5" class="disabled-option" disabled>Map 5</option>
           </select>
         </div>
         
@@ -84,7 +124,11 @@
         
         <!-- Buttons -->
         <button id="playTestBtn" class="editor-btn">Play Test</button>
-      <button id="closeEditorBtn" class="editor-btn secondary">Close Editor</button>
+        <button id="closeEditorBtn" class="editor-btn secondary">Close Editor</button>
+        
+        <!-- Save and Get Public Link buttons - shown after Play Test (Desktop only) -->
+        <button id="saveBtn" class="editor-btn" style="display: none; margin-top: 10px;">💾 Save</button>
+        <button id="publicLinkBtn" class="editor-btn disabled" style="display: none; margin-top: 10px;">🔗 Get Public Link</button>
       </div>
 
       <div class="editor-canvas">
@@ -95,17 +139,17 @@
     </div>
     
     <div class="creator-floating-buttons">
-      <!-- Editor Toggle Button (for testing) -->
-      <button id="editorToggle" class="floating-btn">➕ Create</button>
+      <!-- Row 1: Icon buttons (back and close) -->
+      <div class="button-row">
+        <button id="editorToggle" class="floating-btn icon-btn" title="Back">←</button>
+        <button id="closeHomeBtn" class="floating-btn icon-btn" title="Close">×</button>
+      </div>
       
-      <!-- Save Button -->
-      <button id="saveBtn" class="floating-btn" style="display: none;">💾 Save</button>
-      
-      <!-- Public Link Button (shown after Save) -->
-      <button id="publicLinkBtn" class="floating-btn disabled" style="display: none;">🔗 Get Public Link</button>
-      
-      <!-- Close Button (return to homepage) -->
-      <button id="closeHomeBtn" class="floating-btn">✕ Close</button>
+      <!-- Row 2: Save and Get Public Link (Mobile only) -->
+      <div class="button-row">
+        <button id="saveBtnMobile" class="floating-btn" style="display: none;">💾 Save</button>
+        <button id="publicLinkBtnMobile" class="floating-btn disabled" style="display: none;">🔗 Get Public Link</button>
+      </div>
     </div>
   </div>
   
@@ -128,6 +172,11 @@
       
       <!-- Canvas (only game area: 700x730) -->
       <canvas id="gameCanvas" width="700" height="730" tabindex="0"></canvas>
+      
+      <!-- ====================================
+           FOCUS TOGGLE BUTTON
+           ==================================== -->
+      <button class="focus-toggle" aria-label="Toggle focus mode" aria-pressed="false" title="Toggle focus mode">⤢</button>
       
       <!-- ====================================
            MOBILE CONTROLS
@@ -158,6 +207,25 @@
        SCRIPTS
        ==================================== -->
   <script src="config.js"></script>
+  <script>
+    (function() {
+      try {
+        if (typeof getGameId === 'function') {
+          var gameId = getGameId();
+          if (gameId) {
+            var editorFlagKey = `pacman_editor_mode_${gameId}`;
+            var prefersEditorMode = localStorage.getItem(editorFlagKey) === 'true';
+            if (!prefersEditorMode && document.body && !document.body.classList.contains('public-game-view')) {
+              document.body.classList.add('public-game-view');
+              console.log('[Pacman] ✅ Added public-game-view class (post-config) for game', gameId);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Pacman] Failed to set public-game-view class after config.js:', err);
+      }
+    })();
+  </script>
   <script src="maps.js"></script>
   <!-- Supabase client will be created lazily in game.js when needed -->
   <!-- This prevents local network permission prompt on page load -->

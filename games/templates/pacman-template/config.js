@@ -76,6 +76,7 @@ let BRAND_CONFIG = {
   title: 'Pacman Game',
   smartContract: '', // Smart contract address
   mapColor: '#1a1a2e', // Map wall color (default: dark blue)
+  mapIndex: 0, // Selected map index (0 = Map 1, 1 = Map 2, etc.)
   stories: [
     'Congratulations! You collected all fragments!',
     'Amazing! You completed the level!',
@@ -83,34 +84,39 @@ let BRAND_CONFIG = {
   ]
 };
 
-// Get game ID from URL query param or generate new one
+// Get game ID from URL query param ONLY
+// This ensures editor is visible when there's no ?game= parameter
 function getGameId() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const gameId = urlParams.get('game');
-  return gameId || null;
+  const url = new URL(window.location.href);
+  
+  // ✅ ONLY check ?game= parameter from URL query string
+  // This ensures editor is not hidden when there's no ?game= parameter
+  const gameIdFromQuery = url.searchParams.get('game');
+  if (gameIdFromQuery) return gameIdFromQuery;
+  
+  // Don't parse from hash/pathname to avoid hiding editor
+  // Hash/pathname parsing is only for backward compatibility when ?game= exists
+  return null;
 }
 
-// Generate unique game ID
+// Generate unique game ID (format: pacman-7420)
 function generateGameId() {
-  const titleInput = document.getElementById('titleInput');
-  const rawTitle = titleInput ? titleInput.value.trim() : '';
-  const slug = rawTitle
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/(^-|-$)/g, '') || 'memeplay-project';
+  // Generate 4-digit random number (1000-9999)
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  return `${slug}-${randomSuffix}`;
+  return `pacman-${randomSuffix}`;
 }
 
 // Load brand config from localStorage or use defaults
-function loadBrandConfig() {
-  const gameId = getGameId();
+function loadBrandConfig(gameIdOverride = null) {
+  const gameId = gameIdOverride || getGameId();
   const storageKey = gameId ? `pacman_brand_config_${gameId}` : 'pacman_brand_config';
   const saved = localStorage.getItem(storageKey);
+  console.log('[loadBrandConfig] Loading config:', { gameId, storageKey, hasSaved: !!saved });
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
       BRAND_CONFIG = { ...BRAND_CONFIG, ...parsed };
+      console.log('[loadBrandConfig] Loaded config:', { mapIndex: BRAND_CONFIG.mapIndex, title: BRAND_CONFIG.title });
       
       // Load fragment logo image if URL exists
       if (BRAND_CONFIG.fragmentLogoUrl) {
@@ -123,6 +129,8 @@ function loadBrandConfig() {
     } catch (e) {
       console.error('Failed to load brand config:', e);
     }
+  } else {
+    console.log('[loadBrandConfig] No saved config found for:', storageKey);
   }
 }
 
@@ -135,6 +143,7 @@ function saveBrandConfig(gameId = null) {
     title: BRAND_CONFIG.title,
     smartContract: BRAND_CONFIG.smartContract || '',
     mapColor: BRAND_CONFIG.mapColor || '#1a1a2e',
+    mapIndex: BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0,
     stories: BRAND_CONFIG.stories
   };
   localStorage.setItem(storageKey, JSON.stringify(toSave));
