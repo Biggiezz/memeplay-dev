@@ -3066,66 +3066,150 @@ function setupEditor() {
       return;
     }
     
-    // Get current page URL
-    const currentUrl = shareUrl;
-    console.log('🔗 [GET_LINK] currentUrl before copy:', currentUrl);
+    // ✅ CRITICAL: Store shareUrl in a constant to prevent modification
+    const linkToCopy = String(shareUrl);
+    console.log('🔗 [GET_LINK] linkToCopy (final value to copy):', linkToCopy);
+    console.log('🔗 [GET_LINK] linkToCopy type:', typeof linkToCopy);
+    console.log('🔗 [GET_LINK] linkToCopy length:', linkToCopy.length);
     
-    // Copy to clipboard
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(currentUrl).then(() => {
-        // Show success message on button only (no modal)
-        const originalText = button.textContent;
-        button.textContent = '✅ Link Copied!';
-        button.style.background = '#4ECDC4';
-        
-        setTimeout(() => {
-          button.textContent = originalText;
-          button.style.background = '#ffb642';
-        }, 2000);
-      }).catch(() => {
-        // Fallback: show success message on button only (no modal)
-        const originalText = button.textContent;
-        button.textContent = '✅ Link Copied!';
-        button.style.background = '#4ECDC4';
-        
-        setTimeout(() => {
-          button.textContent = originalText;
-          button.style.background = '#ffb642';
-        }, 2000);
+    // Copy to clipboard FIRST (before showing modal)
+    const copyToClipboard = (url) => {
+      return new Promise((resolve, reject) => {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(() => {
+            console.log('✅ [GET_LINK] Copied to clipboard:', url);
+            resolve();
+          }).catch((err) => {
+            console.error('❌ [GET_LINK] Clipboard API failed:', err);
+            reject(err);
+          });
+        } else {
+          // Fallback for older browsers
+          const textArea = document.createElement('textarea');
+          textArea.value = url;
+          textArea.style.position = 'fixed';
+          textArea.style.opacity = '0';
+          textArea.style.left = '-9999px';
+          document.body.appendChild(textArea);
+          textArea.select();
+          
+          try {
+            const success = document.execCommand('copy');
+            document.body.removeChild(textArea);
+            if (success) {
+              console.log('✅ [GET_LINK] Copied to clipboard (fallback):', url);
+              resolve();
+            } else {
+              reject(new Error('execCommand copy failed'));
+            }
+          } catch (err) {
+            document.body.removeChild(textArea);
+            console.error('❌ [GET_LINK] execCommand failed:', err);
+            reject(err);
+          }
+        }
       });
-    } else {
-      // Fallback for older browsers
-      const textArea = document.createElement('textarea');
-      textArea.value = currentUrl;
-      textArea.style.position = 'fixed';
-      textArea.style.opacity = '0';
-      document.body.appendChild(textArea);
-      textArea.select();
+    };
+    
+    // Copy link immediately
+    copyToClipboard(linkToCopy).then(() => {
+      // Show modal with link (already copied)
+      const modal = document.createElement('div');
+      modal.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 10000;
+        font-family: Arial, sans-serif;
+      `;
       
-      try {
-        document.execCommand('copy');
-        const originalText = button.textContent;
-        button.textContent = '✅ Link Copied!';
-        button.style.background = '#4ECDC4';
-        
-        setTimeout(() => {
-          button.textContent = originalText;
-          button.style.background = '#ffb642';
-        }, 2000);
-      } catch (err) {
-        // Fallback: show success message on button only (no modal)
-        const originalText = button.textContent;
-        button.textContent = '✅ Link Copied!';
-        button.style.background = '#4ECDC4';
-        
-        setTimeout(() => {
-          button.textContent = originalText;
-          button.style.background = '#ffb642';
-        }, 2000);
-      }
+      const dialog = document.createElement('div');
+      dialog.style.cssText = `
+        background: #1a1a1a;
+        padding: 24px;
+        border-radius: 12px;
+        max-width: 90%;
+        width: 400px;
+        color: white;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      `;
       
-      document.body.removeChild(textArea);
-    }
+      dialog.innerHTML = `
+        <div style="margin-bottom: 16px; font-size: 18px; font-weight: bold;">Public Link:</div>
+        <div style="margin-bottom: 8px; word-break: break-all; font-size: 14px; color: #fff; line-height: 1.5;">${linkToCopy}</div>
+        <div style="margin-bottom: 16px; font-size: 12px; color: #999;">(Link đã được copy vào clipboard)</div>
+        <div style="display: flex; justify-content: flex-end; gap: 8px;">
+          <button id="copyLinkBtn" style="
+            background: #4ECDC4;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: bold;
+          ">Copy lại</button>
+          <button id="closeModalBtn" style="
+            background: #666;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+          ">Close</button>
+        </div>
+      `;
+      
+      modal.appendChild(dialog);
+      document.body.appendChild(modal);
+      
+      // Copy button handler
+      const copyBtn = dialog.querySelector('#copyLinkBtn');
+      copyBtn.addEventListener('click', () => {
+        copyToClipboard(linkToCopy).then(() => {
+          const originalText = copyBtn.textContent;
+          copyBtn.textContent = '✅ Đã Copy!';
+          copyBtn.style.background = '#2ecc71';
+          setTimeout(() => {
+            copyBtn.textContent = originalText;
+            copyBtn.style.background = '#4ECDC4';
+          }, 2000);
+        }).catch(() => {
+          alert('Không thể copy link. Vui lòng copy thủ công.');
+        });
+      });
+      
+      // Close button handler
+      const closeBtn = dialog.querySelector('#closeModalBtn');
+      const closeModal = () => {
+        document.body.removeChild(modal);
+      };
+      closeBtn.addEventListener('click', closeModal);
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) closeModal();
+      });
+      
+      // Update button feedback
+      const originalText = button.textContent;
+      button.textContent = '✅ Link Copied!';
+      button.style.background = '#4ECDC4';
+      
+      setTimeout(() => {
+        button.textContent = originalText;
+        button.style.background = '#ffb642';
+      }, 2000);
+    }).catch((err) => {
+      console.error('❌ [GET_LINK] Failed to copy:', err);
+      // Still show modal even if copy failed
+      alert(`Link: ${linkToCopy}\n\n(Copy thủ công vì tự động copy thất bại)`);
+    });
   };
 
   // Public Link button (Desktop)
