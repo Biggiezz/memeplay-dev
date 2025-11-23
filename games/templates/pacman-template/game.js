@@ -1856,23 +1856,10 @@ function gameOver() {
   isGameOver = true;
   gameState = 'gameOver';
   
-  // Show random story - FIX: Only random from stories that have content
-  const stories = Array.isArray(BRAND_CONFIG.stories) ? BRAND_CONFIG.stories : [];
-  // Filter out empty stories
-  const validStories = stories.filter(story => story && story.trim() !== '');
-  
-  let randomStory = '';
-  if (validStories.length > 0) {
-    // Random from valid stories (1/3 if 3 stories, or 1/2 if 2 stories, or use the only one)
-    const randomIndex = Math.floor(Math.random() * validStories.length);
-    randomStory = validStories[randomIndex];
-  } else if (stories.length > 0 && stories[0]) {
-    // Fallback: Use first story if it exists (even if empty, better than nothing)
-    randomStory = stories[0];
-  } else {
-    // Default fallback
-    randomStory = 'Congratulations! You collected all fragments!';
-  }
+  // Show random story
+  const randomStory = BRAND_CONFIG.stories[
+    Math.floor(Math.random() * BRAND_CONFIG.stories.length)
+  ];
   
   const gameOverScreen = document.querySelector('.game-over-screen');
   const gameOverLogo = document.getElementById('gameOverLogo');

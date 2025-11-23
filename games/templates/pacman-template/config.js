@@ -116,26 +116,7 @@ function loadBrandConfig(gameIdOverride = null) {
     try {
       const parsed = JSON.parse(saved);
       BRAND_CONFIG = { ...BRAND_CONFIG, ...parsed };
-      
-      // ✅ FIX: Ensure stories is always an array with at least default values
-      if (!Array.isArray(BRAND_CONFIG.stories)) {
-        BRAND_CONFIG.stories = [
-          'Congratulations! You collected all fragments!',
-          'Amazing! You completed the level!',
-          'Well done! Ready for the next challenge?'
-        ];
-      }
-      // Ensure stories array has at least 3 items (fill with defaults if needed)
-      while (BRAND_CONFIG.stories.length < 3) {
-        BRAND_CONFIG.stories.push('Congratulations! You collected all fragments!');
-      }
-      
-      console.log('[loadBrandConfig] Loaded config:', { 
-        mapIndex: BRAND_CONFIG.mapIndex, 
-        title: BRAND_CONFIG.title,
-        storiesCount: BRAND_CONFIG.stories.length,
-        stories: BRAND_CONFIG.stories
-      });
+      console.log('[loadBrandConfig] Loaded config:', { mapIndex: BRAND_CONFIG.mapIndex, title: BRAND_CONFIG.title });
       
       // Load fragment logo image if URL exists
       if (BRAND_CONFIG.fragmentLogoUrl) {

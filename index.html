@@ -3048,29 +3048,16 @@
     const supabaseGames = await fetchSupabaseUserGames(baseUrl)
     const games = supabaseGames.length > 0 ? supabaseGames : loadLocalUserGames(baseUrl)
 
-    console.log(`📊 [loadUserGames] Found ${games.length} total games (${supabaseGames.length} from Supabase, ${games.length - supabaseGames.length} from local)`)
-
     // ✅ FIX: Filter out old format Pacman games (pacman-game-*)
-    // NOTE: Only filter pacman-game-*, NOT pacman-* (new format is pacman-{number})
     const filteredGames = games.filter(game => {
-      if (!game || !game.gameId) {
-        console.warn(`⚠️ [loadUserGames] Game missing gameId:`, game)
-        return false
-      }
-      // Only filter old format (pacman-game-*), keep new format (pacman-{number})
-      if (game.gameId.startsWith('pacman-game-')) {
-        console.log(`🗑️ [loadUserGames] Filtering out old format Pacman game: ${game.gameId}`)
+      if (game.gameId && game.gameId.startsWith('pacman-game-')) {
+        console.log(`🗑️ Filtering out old format Pacman game: ${game.gameId}`)
         return false
       }
       return true
     })
 
-    console.log(`✅ [loadUserGames] After filtering: ${filteredGames.length} games to render`)
-
-    filteredGames.forEach(game => {
-      console.log(`🎮 [loadUserGames] Rendering game: ${game.gameId} (${game.title})`)
-      renderUserGameCard(game, container)
-    })
+    filteredGames.forEach(game => renderUserGameCard(game, container))
     
     // ✅ FIX: Remove any existing old format Pacman games from DOM
     const oldFormatGames = container.querySelectorAll('.game-card[id^="pacman-game-"], .game-card[data-game-id^="pacman-game-"]')
@@ -3120,48 +3107,20 @@
   }
 
   async function fetchSupabaseUserGames(baseUrl) {
-    if (typeof supabase === 'undefined') {
-      console.warn('⚠️ [fetchSupabaseUserGames] Supabase client not available')
-      return []
-    }
+    if (typeof supabase === 'undefined') return []
     try {
-      console.log('🔍 [fetchSupabaseUserGames] Fetching games from Supabase...')
       const { data, error } = await supabase.rpc('list_user_created_games', {
         p_template_id: 'pacman-template'
       })
       if (error) {
-        console.error('❌ [fetchSupabaseUserGames] RPC error:', error.message || error)
+        console.warn('⚠️ list_user_created_games error:', error.message || error)
         return []
       }
-      if (!Array.isArray(data)) {
-        console.warn('⚠️ [fetchSupabaseUserGames] Data is not an array:', typeof data, data)
-        return []
-      }
-      if (data.length === 0) {
-        console.log('ℹ️ [fetchSupabaseUserGames] No games found in Supabase')
-        return []
-      }
-      console.log(`✅ [fetchSupabaseUserGames] Found ${data.length} games from Supabase`)
-      const mappedGames = data
+      if (!Array.isArray(data) || data.length === 0) return []
+      return data
         .map(item => {
           const gameId = item?.game_id || item?.id
-          if (!gameId) {
-            console.warn('⚠️ [fetchSupabaseUserGames] Item missing game_id:', item)
-            return null
-          }
-          // ✅ FIX: Parse stories if it's a string (JSON)
-          let stories = item.stories || []
-          if (typeof stories === 'string') {
-            try {
-              stories = JSON.parse(stories)
-            } catch (e) {
-              console.warn('⚠️ [fetchSupabaseUserGames] Failed to parse stories as JSON:', e)
-              stories = []
-            }
-          }
-          if (!Array.isArray(stories)) {
-            stories = []
-          }
+          if (!gameId) return null
           return {
             source: 'supabase',
             gameId,
@@ -3169,7 +3128,7 @@
             creator: item.creator_name || item.creator_id || item.title || 'Creator',
             mapColor: item.map_color || '#1a1a2e',
             fragmentLogoUrl: item.fragment_logo_url || '',
-            stories: stories,
+            stories: item.stories || [],
             likes: item.likes_count ?? item.likes ?? 0,
             comments: item.comments_count ?? item.comments ?? 0,
             plays: item.plays_count ?? item.plays ?? 0,
@@ -3178,10 +3137,8 @@
           }
         })
         .filter(Boolean)
-      console.log(`✅ [fetchSupabaseUserGames] Mapped ${mappedGames.length} valid games`)
-      return mappedGames
     } catch (error) {
-      console.error('❌ [fetchSupabaseUserGames] Unexpected error:', error)
+      console.error('❌ fetchSupabaseUserGames error:', error)
       return []
     }
   }
