@@ -359,6 +359,24 @@
       scroll-snap-stop: always;
       contain: layout;
     }
+    /* ✅ FIX: Điều chỉnh scroll-snap cho Pacman games - cân bằng giữa snap vào và scroll qua
+       - Giữ scroll-snap-align: center (để vẫn có thể snap vào Pacman)
+       - Chỉ thay đổi scroll-snap-stop: always → normal (cho phép scroll qua được, không force stop)
+       - Áp dụng cho tất cả Pacman games (bất kỳ vị trí nào: số 1, số 3, etc.)
+    */
+    .game-card[id^="pacman-"],
+    .game-card[id="pacman-memeplay"],
+    .game-card[data-game-id^="pacman-"],
+    .game-card[data-game-id="pacman-memeplay"] {
+      scroll-snap-stop: normal !important;
+      /* Giữ scroll-snap-align: center để vẫn có thể snap vào Pacman */
+    }
+    /* ✅ FIX: Ẩn và xóa các game Pacman có đường dẫn kiểu cũ (pacman-game-*) */
+    .game-card[id^="pacman-game-"],
+    .game-card[data-game-id^="pacman-game-"] {
+      display: none !important;
+      visibility: hidden !important;
+    }
     .game-card.is-playing {
       will-change: contents;
     }
@@ -366,6 +384,16 @@
     .game-card.is-playing .focus-toggle {
       transition: none !important;
       animation: none !important;
+    }
+    /* ✅ FIX: Ẩn button focus-toggle cũ trong game-stage của Pacman games
+       Vì Pacman template đã có button focus-toggle riêng trong game
+    */
+    .game-card[data-game-id^="pacman-"] .game-stage .focus-toggle,
+    .game-card[id^="pacman-"] .game-stage .focus-toggle,
+    .game-card[data-game-id="pacman-memeplay"] .game-stage .focus-toggle,
+    .game-card[id="pacman-memeplay"] .game-stage .focus-toggle {
+      display: none !important;
+      visibility: hidden !important;
     }
     .game-card iframe {
       touch-action: pan-y;
@@ -1086,6 +1114,85 @@
         letter-spacing: 1px;
       }
     }
+    /* Create Game Toast */
+    .create-game-toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 999999;
+      background: linear-gradient(135deg, #ffb642 0%, #ff8c00 100%);
+      border: 4px solid #ffb642;
+      border-radius: 24px;
+      padding: 32px 40px;
+      text-align: center;
+      box-shadow: 0 20px 80px rgba(255, 182, 66, 0.6), 0 0 100px rgba(255, 140, 0, 0.5);
+      opacity: 0;
+      transform-origin: center;
+      transition: all 0.5s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      pointer-events: none;
+      backdrop-filter: blur(15px);
+      max-width: 90%;
+      min-width: 320px;
+      cursor: pointer;
+    }
+    .create-game-toast.show {
+      opacity: 1 !important;
+      transform: translate(-50%, -50%) scale(1) !important;
+      animation: dailyBounceIn 0.8s ease-out;
+      pointer-events: all;
+    }
+    .create-game-toast-content {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+    }
+    .create-game-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #2a2a2a 0%, #1a1a1a 100%);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+      flex-shrink: 0;
+    }
+    .create-game-icon::before {
+      content: '+';
+      font-size: 32px;
+      font-weight: 300;
+      color: #ffb642;
+      line-height: 1;
+      text-shadow: 0 2px 8px rgba(255, 182, 66, 0.5);
+    }
+    .create-game-text {
+      font-size: 28px;
+      font-weight: 800;
+      color: #fff;
+      text-shadow: 0 3px 8px rgba(0,0,0,0.3);
+      letter-spacing: 1px;
+    }
+    @media (max-width: 480px) {
+      .create-game-toast {
+        padding: 24px 28px;
+        min-width: 280px;
+        max-width: 90%;
+      }
+      .create-game-icon {
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+      }
+      .create-game-icon::before {
+        font-size: 28px;
+      }
+      .create-game-text {
+        font-size: 20px;
+      }
+    }
     @keyframes dailyBounceIn {
       0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
       50% { transform: translate(-50%, -50%) scale(1.1); }
@@ -1302,9 +1409,9 @@
     .comment-item{background:#101010;border:1px solid #1f1f1f;border-radius:10px;padding:10px}
     .comment-meta{color:#8aa; font-size:24px;margin-bottom:8px}
     .comment-text{font-size:28px;line-height:1.6;white-space:pre-wrap}
-    .comments-input{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #1f1f1f}
-    .comments-input textarea{flex:1;min-height:60px;max-height:160px;background:#0e0e0e;color:#fff;border:1px solid #2a2a2a;border-radius:8px;padding:10px;font-size:20px;resize:vertical}
-    .comments-input button{height:56px;background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:8px;padding:0 16px;cursor:pointer;font-size:32px}
+    .comments-input{display:flex;gap:8px;padding:10px 14px;border-top:1px solid #1f1f1f;position:relative;z-index:100001}
+    .comments-input textarea{flex:1;min-height:60px;max-height:160px;background:#0e0e0e;color:#fff;border:1px solid #2a2a2a;border-radius:8px;padding:10px;font-size:20px;resize:vertical;pointer-events:auto !important;cursor:text !important;z-index:100002;position:relative}
+    .comments-input button{height:56px;background:#273e66;color:#fff;border:1px solid #3c5a8a;border-radius:8px;padding:0 16px;cursor:pointer;font-size:32px;pointer-events:auto !important;z-index:100002;position:relative}
     .comments-footer{display:flex;justify-content:center;padding:10px 14px}
     .comments-footer button{background:none;border:1px solid #2a2a2a;color:#bbb;border-radius:8px;padding:8px 16px;cursor:pointer;font-size:16px}
     #statsOverlay .comments-box{max-width:460px;padding:24px 28px;background:#0b0b0b;border:1px solid rgba(255,182,66,0.35)}
@@ -1708,11 +1815,20 @@
           id: card.id || card.dataset?.gameId,
           element: card
         }))
-        .filter(item => item.id)
+        .filter(item => {
+          if (!item.id) return false
+          // ✅ FIX: Loại bỏ các game Pacman có đường dẫn kiểu cũ (pacman-game-*)
+          // Chỉ giữ lại các game có đường dẫn kiểu mới (pacman-{số})
+          if (item.id.startsWith('pacman-game-')) {
+            console.log(`🗑️ Filtering out old format Pacman game: ${item.id}`)
+            return false
+          }
+          return true
+        })
     }
     
     // ========= PACMAN CONTROL BRIDGE =========
-    const PACMAN_ID_PREFIX = 'pacman-game-'
+    const PACMAN_ID_PREFIX = 'pacman-'
     const pacmanKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'])
 
     function isPacmanGame(gameId) {
@@ -1785,12 +1901,14 @@
     window.addEventListener('keydown', relayPacmanKey, true)
     window.addEventListener('keyup', relayPacmanKey, true)
 
-    document.addEventListener('memeplay:active-game-changed', (event) => {
-      const gameId = event?.detail?.gameId || null
-      if (isPacmanGame(gameId)) {
-        focusPacmanIframe(gameId, 'active-event')
-      }
-    })
+    // ✅ FIX: Không auto-focus Pacman khi active game change - để tránh trigger snap về center
+    // Chỉ focus khi user thực sự click vào game (handle trong game click handler)
+    // document.addEventListener('memeplay:active-game-changed', (event) => {
+    //   const gameId = event?.detail?.gameId || null
+    //   if (isPacmanGame(gameId)) {
+    //     focusPacmanIframe(gameId, 'active-event')
+    //   }
+    // })
 
     function isPacmanGameId(gameId) {
       return isPacmanGame(gameId)
@@ -1873,19 +1991,27 @@
       
       // If already active, just ensure prev/next are loaded (don't reload active game)
       if (!isPreload && currentActiveGame === gameId) {
+        const isCurrentPacman = isPacmanGame(gameId)
+        
+        // ✅ FIXED: For Pacman games, don't preload prev/next (only 1 Pacman should load)
+        if (isCurrentPacman) {
+          console.log(`🎮 [Already Active] Pacman game ${gameId} is ACTIVE - No preload needed`)
+          return
+        }
+        
         console.log(`🔄 Game ${gameId} already active (currentActiveGame: ${currentActiveGame}), ensuring prev/next are loaded...`)
-        // Ensure prev/next are loaded
-        if (prevGameId) {
+        // Ensure prev/next are loaded (only for non-Pacman games)
+        if (prevGameId && !isPacmanGame(prevGameId)) {
           const prevCard = getGameCardElement(prevGameId)
           if (prevCard) {
             setGameState(prevGameId, GAME_STATES.WAITING)
             const prevLoaded = loadGameIframe(prevGameId)
             console.log(`📦 [Already Active] Preloaded prev game: ${prevGameId} (WAITING) - Loading: ${prevLoaded}`)
-        } else {
+          } else {
             console.error(`❌ [Already Active] Prev game card not found: ${prevGameId}`)
           }
         }
-        if (nextGameId) {
+        if (nextGameId && !isPacmanGame(nextGameId)) {
           const nextCard = getGameCardElement(nextGameId)
           if (nextCard) {
             setGameState(nextGameId, GAME_STATES.WAITING)
@@ -1910,11 +2036,36 @@
       console.log(`🔍 [activateGame] Game ${gameId} | Index: ${currentIndex}/${totalGames} | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
       console.log(`🔍 Games to keep loaded: ${gamesToKeep.join(', ')}`)
       
-      // CRITICAL: Load prev and next games IMMEDIATELY and set to WAITING state
+      const isCurrentPacman = isPacmanGame(gameId)
+      
+      // ✅ FIXED: For Pacman games, only load the active game (no preload)
+      // This prevents multiple Pacman games running simultaneously and causing lag
+      if (isCurrentPacman) {
+        // Unload ALL other Pacman games immediately
+        const allGamesToCheck = getAllGameCards()
+        allGamesToCheck.forEach((game) => {
+          if (game.id && isPacmanGame(game.id) && game.id !== gameId) {
+            console.log(`🗑️ [Pacman] Unloading other Pacman game: ${game.id}`)
+            unloadGameIframe(game.id)
+          }
+        })
+        
+        // Only load the active Pacman game
+        const activeLoaded = loadGameIframe(gameId)
+        setGameState(gameId, GAME_STATES.ACTIVE)
+        notifyPacmanFocus(gameId, 'activate-game')
+        currentActiveGame = gameId
+        try { window.__memeplayActiveGame = gameId } catch {}
+        document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }))
+        console.log(`🎮 [Pacman] Activated game: ${gameId} (ACTIVE) - All other Pacman games unloaded`)
+        return
+      }
+      
+      // For non-Pacman games: Load prev and next games IMMEDIATELY and set to WAITING state
       // This ensures when user scrolls to them, they're already loaded and ready to play
       
-      // Load prev game FIRST (user might scroll back)
-      if (prevGameId) {
+      // Load prev game FIRST (user might scroll back) - but skip if it's a Pacman game
+      if (prevGameId && !isPacmanGame(prevGameId)) {
         const prevCard = getGameCardElement(prevGameId)
         if (!prevCard) {
           console.error(`❌ Prev game card not found: ${prevGameId}`)
@@ -1932,12 +2083,14 @@
             console.log(`   → Prev game iframe src: ${iframeSrc.substring(0, 80)}...`)
           }
         }
+      } else if (prevGameId && isPacmanGame(prevGameId)) {
+        console.log(`⏭️ [Pacman] Skipping preload of prev Pacman game: ${prevGameId}`)
       } else {
         console.warn(`⚠️ No prev game for ${gameId}`)
       }
       
-      // Load next game (user will scroll to it)
-      if (nextGameId) {
+      // Load next game (user will scroll to it) - but skip if it's a Pacman game
+      if (nextGameId && !isPacmanGame(nextGameId)) {
         const nextCard = getGameCardElement(nextGameId)
         if (!nextCard) {
           console.error(`❌ Next game card not found: ${nextGameId}`)
@@ -1955,6 +2108,8 @@
             console.log(`   → Next game iframe src: ${iframeSrc.substring(0, 80)}...`)
           }
         }
+      } else if (nextGameId && isPacmanGame(nextGameId)) {
+        console.log(`⏭️ [Pacman] Skipping preload of next Pacman game: ${nextGameId}`)
       } else {
         console.warn(`⚠️ No next game for ${gameId}`)
       }
@@ -1997,7 +2152,7 @@
     // Use more thresholds for better detection
     const thresholds = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
     const gameContainer = document.querySelector('.game-container');
-      const observer = new IntersectionObserver((entries) => {
+    const observer = new IntersectionObserver((entries) => {
         const visible = entries.filter(e => e.isIntersecting);
         if (!visible.length) {
           if (window.__DEBUG_SCROLL) console.log('👁️ Observer: No visible games')
@@ -2073,8 +2228,18 @@
           const visibleHeight = Math.max(0, visibleBottom - visibleTop);
           const visibleRatio = visibleHeight / cardRect.height;
           
+          // ✅ FIX: Điều chỉnh minRatio cho Pacman - cho phép game bị cắt mép một chút vẫn được activate
+          // Khi game bị cắt mép trên (F5 hoặc quay lại), intersectionRatio giảm → cần threshold thấp hơn
+          const gameId = entry.target.id || entry.target.getAttribute('data-game-id') || ''
+          const isPacman = gameId && (gameId.startsWith('pacman-') || gameId === 'pacman-memeplay')
+          // ✅ FIX: Nếu game đang active và vẫn visible một phần → ưu tiên giữ nó active
+          const isCurrentActive = gameId === currentActiveGame
+          // Giảm minRatio: Active Pacman chỉ cần 20%, Pacman khác 30% (thay vì 50%)
+          const minRatio = isPacman ? (isCurrentActive ? 0.2 : 0.3) : 0.3
+          
           // Prefer game with good intersection ratio
-          if (entry.intersectionRatio > 0.3) {
+          // ✅ FIX: Nếu game đang active và vẫn visible một phần (> 10%) → vẫn được activate
+          if (entry.intersectionRatio > minRatio || (isCurrentActive && entry.intersectionRatio > 0.1)) {
             // CRITICAL: Prioritize distance to center FIRST, then intersection ratio
             // A game closer to center is more likely to be the one user is playing
             // Even if it has slightly lower intersection ratio
@@ -2129,11 +2294,41 @@
         
         const gameId = best.target.id;
         const isPacmanGame = isPacmanGameId(gameId)
+        // ✅ FIX #1: Disable IntersectionObserver focus khi scroll từ Pacman
+        // Chỉ focus khi user thực sự click vào Pacman (không phải scroll)
         if (isPacmanGame) {
-          if (typeof window.focus === 'function') {
-            try { window.focus() } catch (_) {}
+          // Check nếu đang scroll TỪ Pacman sang game khác
+          const currentActiveGameId = window.__memeplayActiveGame || currentActiveGame || '';
+          const isCurrentActivePacman = currentActiveGameId && (
+            currentActiveGameId.startsWith('pacman-') || 
+            currentActiveGameId === 'pacman-memeplay'
+          );
+          
+          // Nếu current active là Pacman KHÁC với gameId đang visible → đang scroll TỪ Pacman
+          // Không focus để tránh trigger scroll về Pacman
+          if (isCurrentActivePacman && currentActiveGameId !== gameId) {
+            // Đang scroll từ Pacman sang game khác → không focus
+            return;
           }
-          focusPacmanIframe(gameId, 'observer-visible')
+          
+          // Delay focus để không trigger snap khi đang scroll
+          setTimeout(() => {
+            // Double-check: Chỉ focus nếu game vẫn là active game (không bị switch sang game khác)
+            // VÀ không phải đang scroll từ Pacman
+            const finalActiveGameId = window.__memeplayActiveGame || currentActiveGame || '';
+            const isStillActive = finalActiveGameId === gameId;
+            const isStillPacman = isPacmanGameId(finalActiveGameId);
+            
+            // Chỉ focus nếu:
+            // 1. Game vẫn là active game
+            // 2. Không phải đang scroll từ Pacman khác
+            if (isStillActive && isPacmanGameId(gameId) && (!isStillPacman || finalActiveGameId === gameId)) {
+              if (typeof window.focus === 'function') {
+                try { window.focus() } catch (_) {}
+              }
+              focusPacmanIframe(gameId, 'observer-visible')
+            }
+          }, 500)
         }
         
         if (!gameId) {
@@ -2165,6 +2360,52 @@
         
         // ✅ REMOVED: Pacman game check - Games should activate normally when scrolled to
         // This was blocking games from activating, causing them to not display
+        
+        // ✅ FIX: Nếu game đang active và vẫn visible một phần → ưu tiên giữ nó active
+        // Ngăn bug "game bị cắt mép trên" khi F5 hoặc quay lại từ editor
+        if (currentActiveGame === gameId) {
+          // Game đang active → không cần activate lại
+          if (window.__DEBUG_SCROLL) console.log(`🛡️ [OBSERVER] Game ${gameId} is already active - KEEP active`)
+          return
+        }
+        
+        // ✅ FIX: Tính visible ratio và distance của game đang active để ưu tiên giữ nó active
+        // NHƯNG chỉ khi nó gần center - nếu game khác gần center hơn → cho phép activate game khác
+        if (currentActiveGame) {
+          const currentCard = getGameCardElement(currentActiveGame)
+          if (currentCard) {
+            const currentRect = currentCard.getBoundingClientRect()
+            const currentVisibleTop = Math.max(currentRect.top, 0)
+            const currentVisibleBottom = Math.min(currentRect.bottom, window.innerHeight)
+            const currentVisibleHeight = Math.max(0, currentVisibleBottom - currentVisibleTop)
+            const currentVisibleRatio = currentVisibleHeight / currentRect.height
+            
+            // Tính distance của game đang active đến center
+            const currentCenter = currentRect.top + currentRect.height / 2
+            const currentDistance = Math.abs(currentCenter - (window.innerHeight / 2))
+            
+            // Tính distance của game mới đến center
+            const bestRect = best.target.getBoundingClientRect()
+            const bestCenter = bestRect.top + bestRect.height / 2
+            const bestDistance = Math.abs(bestCenter - (window.innerHeight / 2))
+            
+            // ✅ FIX: Chỉ ưu tiên game đang active nếu:
+            // 1. Nó vẫn visible một phần (> 10%) VÀ
+            // 2. Nó gần center hơn game mới (hoặc game mới cách center > 200px)
+            // Nếu game mới gần center hơn nhiều (difference > 150px) → cho phép activate game mới
+            if (currentVisibleRatio > 0.1 && currentDistance < 200) {
+              // Game đang active vẫn gần center → chỉ activate game mới nếu nó gần center hơn nhiều
+              if (bestDistance < currentDistance - 150) {
+                // Game mới gần center hơn nhiều → cho phép activate
+                if (window.__DEBUG_SCROLL) console.log(`🔄 [OBSERVER] Game ${gameId} is much closer to center (${Math.round(bestDistance)}px vs ${Math.round(currentDistance)}px) - ALLOW activate`)
+              } else {
+                // Game đang active vẫn gần center hơn → giữ nó active
+                if (window.__DEBUG_SCROLL) console.log(`🛡️ [OBSERVER] Current active game ${currentActiveGame} is ${Math.round(currentVisibleRatio * 100)}% visible and closer to center (${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px) - KEEP active`)
+                return
+              }
+            }
+          }
+        }
         
         // Only activate if scroll check hasn't already activated a better game
         // Scroll check runs every 200ms and is more reliable, so we only use observer as secondary
@@ -2198,7 +2439,9 @@
         // Observe inside the snapping container (relative to container, not viewport)
         // This is important because game cards scroll within the container
         root: gameContainer || null, // Use container as root for proper intersection calculation
-        rootMargin: '500px 0px 500px 0px', // Preload games 500px above/below visible area
+        // ✅ FIX: Giảm rootMargin từ 500px → 200px để tránh detect Pacman khi đã scroll xa
+        // rootMargin quá lớn → IntersectionObserver detect Pacman là "visible" ngay cả khi đã scroll xa 500px
+        rootMargin: '200px 0px 200px 0px', // Preload games 200px above/below visible area (giảm từ 500px)
         threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] // More thresholds for better detection
       });
 
@@ -2219,6 +2462,14 @@
           try {
             const viewportCenter = window.innerHeight / 2
             const allCards = Array.from(document.querySelectorAll('.game-card'))
+              .filter(card => {
+                const cardId = card.id || card.getAttribute('data-game-id') || ''
+                // ✅ FIX: Loại bỏ các game Pacman có đường dẫn kiểu cũ (pacman-game-*)
+                if (cardId.startsWith('pacman-game-')) {
+                  return false
+                }
+                return true
+              })
             if (!allCards.length) return // No cards yet
             
             let checkList = allCards
@@ -2231,6 +2482,24 @@
               }
             }
             
+            // ✅ FIX: Loại bỏ currentActiveGame khỏi checkList nếu nó là Pacman
+            // Ngăn checkScrollPosition detect lại Pacman khi đang scroll từ Pacman sang game khác
+            // Game 1 (index 0) có thể không bị vì scroll xuống nhanh chóng ra khỏi viewport
+            // Game 3 (index 2) vẫn nằm trong checkList → bị detect lại → scroll về
+            const currentActiveGameId = window.__memeplayActiveGame || currentActiveGame || '';
+            const isCurrentActivePacman = currentActiveGameId && (
+              currentActiveGameId.startsWith('pacman-') || 
+              currentActiveGameId === 'pacman-memeplay'
+            );
+            
+            // Nếu currentActiveGame là Pacman → loại bỏ nó khỏi checkList
+            if (isCurrentActivePacman && currentActiveGameId) {
+              checkList = checkList.filter(card => {
+                const cardId = card.id || card.getAttribute('data-game-id') || '';
+                return cardId !== currentActiveGameId; // Loại bỏ currentActiveGame
+              });
+            }
+            
             let closestGame = null
             let minDistance = Infinity
             
@@ -2240,10 +2509,15 @@
                 const cardCenter = rect.top + rect.height / 2
                 const distance = Math.abs(cardCenter - viewportCenter)
                 
-                // Check if game is visible (any part in viewport)
+                // ✅ FIX: Chỉ check games thực sự trong viewport (không dùng rootMargin như IntersectionObserver)
+                // Check if game is visible (any part in viewport) - KHÔNG tính rootMargin
                 const isVisible = rect.top < window.innerHeight && rect.bottom > 0
                 
-                if (isVisible && distance < minDistance) {
+                // ✅ FIX: Thêm check distance - chỉ activate game nếu distance < 400px (không quá xa)
+                // Ngăn detect Pacman khi đã scroll xa (do rootMargin quá lớn)
+                const isCloseEnough = distance < 400; // Chỉ activate game nếu cách center < 400px
+                
+                if (isVisible && isCloseEnough && distance < minDistance) {
                   minDistance = distance
                   closestGame = card
                 }
@@ -2253,16 +2527,64 @@
             })
             
             if (closestGame && closestGame.id) {
-              if (isPacmanGame(closestGame.id)) {
-                focusPacmanIframe(closestGame.id, 'scroll-center')
-              }
+              // ✅ FIX: Không focus Pacman khi scroll - để tránh trigger snap về center
+              // Chỉ focus khi user click vào game (handle trong game click handler)
               
               if (closestGame.id !== currentActiveGame && typeof activateGame === 'function') {
+                // ✅ FIX: Tính visible ratio và distance để ưu tiên game đang active
+                // NHƯNG chỉ khi nó gần center - nếu game khác gần center hơn → cho phép activate game khác
                 const rect = closestGame.getBoundingClientRect()
                 const cardCenter = rect.top + rect.height / 2
                 const distance = Math.abs(cardCenter - viewportCenter)
+                
+                // Tính visible ratio của game mới
+                const visibleTop = Math.max(rect.top, 0)
+                const visibleBottom = Math.min(rect.bottom, window.innerHeight)
+                const visibleHeight = Math.max(0, visibleBottom - visibleTop)
+                const visibleRatio = visibleHeight / rect.height
+                
+                // ✅ FIX: Kiểm tra game đang active (nếu có)
+                if (currentActiveGame) {
+                  const currentCard = getGameCardElement(currentActiveGame)
+                  if (currentCard) {
+                    const currentRect = currentCard.getBoundingClientRect()
+                    const currentCenter = currentRect.top + currentRect.height / 2
+                    const currentDistance = Math.abs(currentCenter - viewportCenter)
+                    
+                    // Tính visible ratio của game đang active
+                    const currentVisibleTop = Math.max(currentRect.top, 0)
+                    const currentVisibleBottom = Math.min(currentRect.bottom, window.innerHeight)
+                    const currentVisibleHeight = Math.max(0, currentVisibleBottom - currentVisibleTop)
+                    const currentVisibleRatio = currentVisibleHeight / currentRect.height
+                    
+                    // ✅ FIX: Chỉ ưu tiên game đang active nếu:
+                    // 1. Nó vẫn visible một phần (> 10%) VÀ
+                    // 2. Nó gần center hơn game mới (hoặc game mới cách center > 200px)
+                    // Nếu game mới gần center hơn nhiều (difference > 150px) → cho phép activate game mới
+                    if (currentVisibleRatio > 0.1 && currentDistance < 200) {
+                      // Game đang active vẫn gần center → chỉ activate game mới nếu nó gần center hơn nhiều
+                      if (distance < currentDistance - 150) {
+                        // Game mới gần center hơn nhiều → cho phép activate
+                        if (window.__DEBUG_SCROLL) console.log(`🔄 [SCROLL CHECK] Game ${closestGame.id} is much closer to center (${Math.round(distance)}px vs ${Math.round(currentDistance)}px) - ALLOW activate`)
+                      } else {
+                        // Game đang active vẫn gần center hơn → giữ nó active
+                        if (window.__DEBUG_SCROLL) console.log(`🛡️ [SCROLL CHECK] Current active game ${currentActiveGame} is ${Math.round(currentVisibleRatio * 100)}% visible and closer to center (${Math.round(currentDistance)}px vs ${Math.round(distance)}px) - KEEP active`)
+                        return // Giữ game đang active, không activate game khác
+                      }
+                    }
+                  }
+                }
+                
                 if (window.__DEBUG_SCROLL) console.log(`📍 [SCROLL CHECK] Found game at center: ${closestGame.id} (distance: ${Math.round(distance)}px, currentActiveGame: ${currentActiveGame})`)
                 activateGame(closestGame.id)
+                
+                // ✅ FIX: Không auto-focus Pacman từ checkScrollPosition - để tránh trigger snap về center
+                // Chỉ focus khi user thực sự click vào game (handle trong game click handler)
+                // if (isPacmanGame(closestGame.id)) {
+                //   setTimeout(() => {
+                //     focusPacmanIframe(closestGame.id, 'scroll-center')
+                //   }, 300)
+                // }
               }
             }
           } catch (e) {
@@ -2726,7 +3048,24 @@
     const supabaseGames = await fetchSupabaseUserGames(baseUrl)
     const games = supabaseGames.length > 0 ? supabaseGames : loadLocalUserGames(baseUrl)
 
-    games.forEach(game => renderUserGameCard(game, container))
+    // ✅ FIX: Filter out old format Pacman games (pacman-game-*)
+    const filteredGames = games.filter(game => {
+      if (game.gameId && game.gameId.startsWith('pacman-game-')) {
+        console.log(`🗑️ Filtering out old format Pacman game: ${game.gameId}`)
+        return false
+      }
+      return true
+    })
+
+    filteredGames.forEach(game => renderUserGameCard(game, container))
+    
+    // ✅ FIX: Remove any existing old format Pacman games from DOM
+    const oldFormatGames = container.querySelectorAll('.game-card[id^="pacman-game-"], .game-card[data-game-id^="pacman-game-"]')
+    oldFormatGames.forEach(card => {
+      const gameId = card.id || card.getAttribute('data-game-id') || ''
+      console.log(`🗑️ Removing old format Pacman game from DOM: ${gameId}`)
+      card.remove()
+    })
 
     if (games.length > 0) {
       console.log(`✅ Loaded ${games.length} user-created game(s) from ${games[0]?.source || 'local'}`)
@@ -2806,6 +3145,13 @@
 
   function renderUserGameCard(game, container) {
     if (!game?.gameId) return
+    
+    // ✅ FIX: Skip rendering old format Pacman games (pacman-game-*)
+    if (game.gameId.startsWith('pacman-game-')) {
+      console.log(`🗑️ Skipping render for old format Pacman game: ${game.gameId}`)
+      return
+    }
+    
     if (document.getElementById(game.gameId)) {
       console.log(`⏭️ Game ${game.gameId} already exists, skipping`)
       return
@@ -2939,10 +3285,26 @@
       container.innerHTML = wrapper ? wrapper.innerHTML : markup
       console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
       
+      // ✅ FIX: Remove old format Pacman games immediately after loading
+      const oldFormatGames = container.querySelectorAll('.game-card[id^="pacman-game-"], .game-card[data-game-id^="pacman-game-"]')
+      oldFormatGames.forEach(card => {
+        const gameId = card.id || card.getAttribute('data-game-id') || ''
+        console.log(`🗑️ Removing old format Pacman game from DOM: ${gameId}`)
+        card.remove()
+      })
+      
       initFocusControls()
       
       // Load user-created games after loading static games
       await loadUserCreatedGames()
+      
+      // ✅ FIX: Final cleanup - remove any remaining old format Pacman games
+      const remainingOldGames = container.querySelectorAll('.game-card[id^="pacman-game-"], .game-card[data-game-id^="pacman-game-"]')
+      remainingOldGames.forEach(card => {
+        const gameId = card.id || card.getAttribute('data-game-id') || ''
+        console.log(`🗑️ Final cleanup - removing old format Pacman game: ${gameId}`)
+        card.remove()
+      })
       
       // ✅ FIXED: Get all games and wait for sort before loading first game
       // This ensures game with most likes is shown first
@@ -2969,25 +3331,41 @@
       // ⚠️ SKIP hash navigation if in Recommended category - let STEP 6 handle it after sort
       // This ensures game with most likes is shown first, not hash game
       const allCardsWithUserCreated = Array.from(document.querySelectorAll('.game-card'))
-      const hash = window.location.hash.slice(1)
+      // Check ?game= parameter first (for Pacman games)
+      const urlParams = new URLSearchParams(window.location.search)
+      const gameIdFromQuery = urlParams.get('game')
+      
+      // If ?game= parameter exists, use it; otherwise use hash
+      const hash = gameIdFromQuery || window.location.hash.slice(1)
       const isRecommended = currentFilter === 'Recommended'
       
-      if (hash && allCardsWithUserCreated.some(c => c.id === hash) && !isRecommended) {
+      // Check if target game exists in all cards (including user-created games)
+      const targetGameExists = hash && allCardsWithUserCreated.some(c => {
+        const cardId = c.id || c.getAttribute('data-game-id')
+        return cardId === hash
+      })
+      
+      if (targetGameExists && !isRecommended) {
         // Only handle hash navigation if NOT in Recommended category
-        console.log('🔗 Hash detected (not Recommended):', hash)
+        console.log('🔗 Hash/Query detected (not Recommended):', hash)
         setTimeout(() => {
-          const targetCard = document.getElementById(hash)
+          const targetCard = document.getElementById(hash) || allCardsWithUserCreated.find(c => {
+            const cardId = c.id || c.getAttribute('data-game-id')
+            return cardId === hash
+          })
           if (targetCard) {
-        gameContainer.style.scrollSnapType = 'none'
+            gameContainer.style.scrollSnapType = 'none'
             targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
             activateGame(hash)
-          setTimeout(() => {
-            gameContainer.style.scrollSnapType = 'y mandatory'
+            setTimeout(() => {
+              gameContainer.style.scrollSnapType = 'y mandatory'
             }, 1000)
           }
         }, 1000)
       } else if (hash && isRecommended) {
-        console.log('🔗 Hash detected in Recommended category, will be handled after sort:', hash)
+        console.log('🔗 Hash/Query detected in Recommended category, will be handled after sort:', hash)
+      } else if (hash && !targetGameExists) {
+        console.log('⚠️ Hash/Query game not found in current games:', hash)
       }
       
       // STEP 5: MEMEPLAY logo click → Home (Game #1)
@@ -3009,7 +3387,7 @@
         })
       }
       
-      // STEP 6: Sort games by likes FIRST, then load the game with most likes
+      // STEP 6: Sort games by likes FIRST, then load the game with most likes OR ?game= parameter
       // ✅ CRITICAL: Sort BEFORE loading first game to ensure game with most likes is shown
       console.log('📊 [INITIAL] Starting sort by likes (will load game with most likes after sort)...')
       sortGamesByLikes(allCards).then(sortedCards => {
@@ -3032,29 +3410,24 @@
           container.appendChild(card)
         })
         
-        // ✅ SIMPLE: Always scroll to game with most likes (first game after sort) in Recommended
-        if (firstAfterSort && currentFilter === 'Recommended') {
-          console.log(`📊 [INITIAL] Scrolling to game with most likes: ${firstAfterSort}`)
+        // ✅ PRIORITY: Check ?game= parameter first (for direct links)
+        const urlParams = new URLSearchParams(window.location.search)
+        const gameIdFromQuery = urlParams.get('game')
+        const targetGameId = gameIdFromQuery || hash || firstAfterSort
+        
+        // Check if target game exists in sorted cards
+        const targetCard = sortedCards.find(card => {
+          const cardId = card.id || card.getAttribute('data-game-id')
+          return cardId === targetGameId
+        })
+        
+        if (targetGameId && targetCard && currentFilter === 'Recommended') {
+          const finalGameId = targetCard.id || targetCard.getAttribute('data-game-id')
+          console.log(`🎯 [INITIAL] Scrolling to target game: ${finalGameId} (from ${gameIdFromQuery ? '?game=' : hash ? 'hash' : 'most likes'})`)
           
-          // Load first game (game with most likes)
-          loadGameIframe(firstAfterSort)
-          setGameState(firstAfterSort, GAME_STATES.ACTIVE)
-          notifyPacmanFocus(firstAfterSort, 'initial-sort')
-          currentActiveGame = firstAfterSort
-          try { window.__memeplayActiveGame = firstAfterSort } catch {}
-          document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId: firstAfterSort } }))
-          
-          // Load game 2 (waiting)
-          const secondAfterSort = sortedCards[1]?.id || sortedCards[1]?.getAttribute('data-game-id')
-          if (secondAfterSort) {
-            const secondCard = getGameCardElement(secondAfterSort)
-            if (secondCard) {
-              setGameState(secondAfterSort, GAME_STATES.WAITING)
-              loadGameIframe(secondAfterSort)
-            }
-          }
-          
-          // Simple scroll to first card (game with most likes)
+          // ✅ FIX: Scroll TRƯỚC, sau đó mới activate game để đảm bảo game căn chỉnh hoàn hảo
+          // Ngăn bug "game bị cắt mép trên" khi F5 hoặc quay lại từ editor
+          // Scroll to target card FIRST
           if (gameContainer) {
             gameContainer.style.scrollSnapType = 'none'
             gameContainer.style.scrollBehavior = 'auto'
@@ -3062,16 +3435,44 @@
             
             setTimeout(() => {
               const allCardsAfterReorder = Array.from(container.querySelectorAll('.game-card'))
-              const firstCard = allCardsAfterReorder[0]
-              if (firstCard) {
-                firstCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              const targetCardElement = allCardsAfterReorder.find(card => {
+                const cardId = card.id || card.getAttribute('data-game-id')
+                return cardId === finalGameId
+              }) || allCardsAfterReorder[0]
+              
+              if (targetCardElement) {
+                // ✅ FIX: Sử dụng block: 'center' thay vì 'start' để căn chỉnh hoàn hảo
+                // 'start' có thể cắt mép trên, 'center' đảm bảo game ở giữa viewport
+                targetCardElement.scrollIntoView({ behavior: 'auto', block: 'center' })
+                
+                // ✅ FIX: Đợi scroll hoàn tất TRƯỚC khi activate game
                 setTimeout(() => {
+                  // Bây giờ mới activate game sau khi scroll đã hoàn tất
+                  activateGame(finalGameId)
+                  
+                  // Load game 2 (waiting) - but skip if it's a Pacman game (only 1 Pacman should load)
+                  const secondAfterSort = sortedCards[1]?.id || sortedCards[1]?.getAttribute('data-game-id')
+                  if (secondAfterSort && !isPacmanGame(secondAfterSort)) {
+                    const secondCard = getGameCardElement(secondAfterSort)
+                    if (secondCard) {
+                      setGameState(secondAfterSort, GAME_STATES.WAITING)
+                      loadGameIframe(secondAfterSort)
+                    }
+                  } else if (secondAfterSort && isPacmanGame(secondAfterSort)) {
+                    console.log(`⏭️ [Pacman] Skipping preload of second Pacman game: ${secondAfterSort}`)
+                  }
+                  
+                  // Restore scroll snap sau khi activate
                   gameContainer.style.scrollSnapType = 'y mandatory'
                   gameContainer.style.scrollBehavior = 'smooth'
-                  console.log(`✅ [INITIAL] Scrolled to game with most likes: ${firstCard.id || firstCard.getAttribute('data-game-id')}`)
-                }, 600)
+                  const targetId = targetCardElement.id || targetCardElement.getAttribute('data-game-id')
+                  console.log(`✅ [INITIAL] Scrolled to target game: ${targetId} and activated`)
+                }, 100) // Đợi 100ms để scroll hoàn tất
         }
       }, 300)
+          } else {
+            // Fallback: Nếu không có gameContainer, activate ngay
+            activateGame(finalGameId)
           }
         }
         
@@ -3151,8 +3552,9 @@
     updateFocusButtons()
     
     // Notify iframes about focus mode change
+    // ✅ FIX: Hỗ trợ cả pixel-space-shooter và Pacman games
     const isFocus = document.body.classList.contains('focus-mode');
-    document.querySelectorAll('iframe[data-game-url*="pixel-space-shooter"]').forEach(iframe => {
+    document.querySelectorAll('iframe[data-game-url*="pixel-space-shooter"], iframe[data-game-url*="pacman"]').forEach(iframe => {
       if (iframe.contentWindow) {
         iframe.contentWindow.postMessage({
           type: 'FOCUS_MODE_CHANGED',
@@ -3257,13 +3659,27 @@
       })
       
       if (!response.ok) {
-        throw new Error(`RPC ${functionName} failed: ${response.statusText}`)
+        const errorText = await response.text()
+        console.error(`❌ [RPC] ${functionName} failed (${response.status}):`, errorText)
+        throw new Error(`RPC ${functionName} failed: ${response.status} ${response.statusText}`)
       }
       
       const data = await response.json()
+      
+      // Supabase RPC có thể return:
+      // - Object trực tiếp: { is_new_best: true, ... }
+      // - Array: [{ is_new_best: true, ... }]
+      // - String (nếu function return TEXT): "result"
+      // - Null nếu function không tồn tại
+      
+      // Log để debug
+      if (data === null || (Array.isArray(data) && data.length === 0)) {
+        console.warn(`⚠️ [RPC] ${functionName} returned null/empty. Function may not exist in Supabase.`)
+      }
+      
       return { data, error: null }
     } catch (error) {
-      console.error(`rpcWithKeepalive(${functionName}) error:`, error.message)
+      console.error(`❌ [RPC] rpcWithKeepalive(${functionName}) error:`, error.message)
       return { data: null, error }
     }
   }
@@ -3889,8 +4305,45 @@
     // Hide after 5 seconds
     setTimeout(() => {
       toast.classList.remove('show');
-      setTimeout(() => toast.remove(), 500);
+      setTimeout(() => {
+        toast.remove();
+        // ✅ Show create game toast after daily reward is hidden
+        showCreateGameToast();
+      }, 500);
     }, 5000);
+  }
+
+  function showCreateGameToast() {
+    // Remove old toast if exists
+    const oldToast = document.querySelector('.create-game-toast');
+    if (oldToast) oldToast.remove();
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = 'create-game-toast';
+    
+    toast.innerHTML = `
+      <div class="create-game-toast-content">
+        <div class="create-game-icon"></div>
+        <span class="create-game-text">Create FREE game with your brand in 10s</span>
+      </div>
+    `;
+    
+    // Click handler to open editor
+    toast.addEventListener('click', () => {
+      window.location.href = '/games/templates/pacman-template/index.html#creatorScreen';
+    });
+    
+    document.body.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => toast.classList.add('show'), 100);
+    
+    // Hide after 3 seconds with fade out
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => toast.remove(), 500);
+    }, 3000);
   }
 
   async function dailyCheckin() {
@@ -4256,6 +4709,36 @@ window.addEventListener("beforeunload", stopGame);
         console.error('list_comments error:', e?.message || e)
       } finally { paging.loading = false }
     }
+    // ✅ FIX: Init textarea handlers (chỉ 1 lần để tránh duplicate event listeners)
+    let textareaHandlersInitialized = false
+    function initTextareaHandlers() {
+      if (textareaHandlersInitialized || !ta) return
+      textareaHandlersInitialized = true
+      
+      // Prevent blur events from interfering
+      ta.addEventListener('mousedown', (e) => {
+        e.stopPropagation()
+        ta.focus()
+      }, { capture: true })
+      
+      ta.addEventListener('click', (e) => {
+        e.stopPropagation()
+        ta.focus()
+      }, { capture: true })
+      
+      // Prevent blur khi click vào các element khác trong overlay
+      ta.addEventListener('blur', (e) => {
+        const relatedTarget = e.relatedTarget
+        if (!relatedTarget || !overlay.contains(relatedTarget)) {
+          setTimeout(() => {
+            if (overlay.classList.contains('open') && document.activeElement !== ta) {
+              ta.focus()
+            }
+          }, 10)
+        }
+      })
+    }
+    
     async function openPanel(forGame){
       paging.gameId = forGame
       paging.offset = 0
@@ -4265,8 +4748,33 @@ window.addEventListener("beforeunload", stopGame);
       ta.value = ''
       overlay.classList.add('open')
       
+      // ✅ FIX: Init textarea handlers (chỉ 1 lần)
+      initTextareaHandlers()
+      
+      // ✅ FIX: Focus vào textarea ngay sau khi mở overlay (requestAnimationFrame để đảm bảo render)
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (ta && overlay.classList.contains('open')) {
+            ta.focus()
+            // Set cursor vào cuối textarea nếu có content
+            if (ta.value) {
+              ta.setSelectionRange(ta.value.length, ta.value.length)
+            }
+          }
+        }, 100)
+      })
+      
       // ✅ Load comments and update count based on actual data
       await fetchMore()
+      
+      // ✅ FIX: Re-focus vào textarea sau khi fetchMore (tránh mất focus do re-render)
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (ta && overlay.classList.contains('open') && document.activeElement !== ta) {
+            ta.focus()
+          }
+        }, 150)
+      })
       
       // Update comment count based on loaded comments
       try {
@@ -4291,12 +4799,21 @@ window.addEventListener("beforeunload", stopGame);
     loadMoreBtn.onclick = fetchMore
     closeBtn.onclick = () => overlay.classList.remove('open')
     
-    // Click outside to close (desktop only)
+    // ✅ FIX: Click outside to close (desktop only) - nhưng không đóng khi click vào textarea/button
     overlay.addEventListener('click', (e) => {
+      // Chỉ đóng nếu click vào overlay background, không phải vào comments-box hoặc children
       if (e.target === overlay) {
         overlay.classList.remove('open')
       }
     })
+    
+    // ✅ FIX: Prevent overlay click từ đóng khi click vào comments-box hoặc children
+    const commentsBox = overlay.querySelector('.comments-box')
+    if (commentsBox) {
+      commentsBox.addEventListener('click', (e) => {
+        e.stopPropagation() // Ngăn event bubble lên overlay để tránh đóng
+      })
+    }
     
     postBtn.onclick = async () => {
       const text = (ta.value || '').trim()
@@ -4522,7 +5039,8 @@ window.addEventListener("beforeunload", stopGame);
       toggleFocusMode();
       
       // Send FOCUS_MODE_CHANGED back to iframe
-      const iframes = document.querySelectorAll('iframe[data-game-url*="pixel-space-shooter"]');
+      // ✅ FIX: Hỗ trợ cả pixel-space-shooter và Pacman games
+      const iframes = document.querySelectorAll('iframe[data-game-url*="pixel-space-shooter"], iframe[data-game-url*="pacman"]');
       iframes.forEach(iframe => {
         if (iframe.contentWindow) {
           iframe.contentWindow.postMessage({
@@ -4619,13 +5137,38 @@ window.addEventListener("beforeunload", stopGame);
         console.log('📤 [SCORE] Submitting score immediately (keepalive):', payload)
         const { data, error } = await rpcWithKeepalive('submit_game_score', payload)
         
-        if (error) throw error
+        if (error) {
+          console.error('❌ [SCORE] RPC error:', error)
+          // Không throw để không block game flow, nhưng log để debug
+          console.warn('⚠️ [SCORE] Score submission failed. Make sure SQL function submit_game_score exists in Supabase.')
+          return
+        }
         
-        if (data?.is_new_best) {
-          console.log(`🏆 New high score! Rank #${data.user_rank}/${data.total_players}`)
+        // Supabase RPC có thể return array hoặc object
+        let result = data
+        if (Array.isArray(data)) {
+          result = data.length > 0 ? data[0] : null
+        }
+        
+        console.log('📊 [SCORE] RPC response:', { raw: data, parsed: result })
+        
+        if (!result || typeof result !== 'object') {
+          console.error('❌ [SCORE] Invalid response format:', result)
+          console.warn('⚠️ [SCORE] SQL function submit_game_score may not exist. Run LEADERBOARD-SQL.sql in Supabase.')
+          return
+        }
+        
+        // Verify required fields
+        if (result.best_score === undefined || result.user_rank === undefined) {
+          console.warn('⚠️ [SCORE] Response missing fields:', result)
+          console.warn('⚠️ [SCORE] Expected: { is_new_best, user_rank, total_players, best_score }')
+        }
+        
+        if (result.is_new_best) {
+          console.log(`🏆 New high score! Rank #${result.user_rank}/${result.total_players || 'N/A'}`)
           // TODO: Show toast/animation "New Best!"
         } else {
-          console.log(`✓ Score submitted. Best: ${data.best_score}, Rank: #${data.user_rank}`)
+          console.log(`✓ Score submitted. Best: ${result.best_score || 'N/A'}, Rank: #${result.user_rank || 'N/A'}`)
         }
       } catch (err) {
         console.error('❌ [SCORE] Submit score error:', err)
@@ -4851,11 +5394,42 @@ window.addEventListener("beforeunload", stopGame);
         p_limit: 100
       })
 
-      if (error) throw error
+      if (error) {
+        console.error('❌ [LEADERBOARD] RPC error:', error)
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:#f88;">Failed to load leaderboard. Make sure SQL function get_game_leaderboard_with_user exists in Supabase.</div>'
+        return
+      }
+
+      console.log('📊 [LEADERBOARD] RPC response:', data)
 
       list.innerHTML = ''
 
-      const userEntry = data?.current_user
+      // Supabase RPC có thể return array hoặc object
+      let result = data
+      if (Array.isArray(data)) {
+        result = data.length > 0 ? data[0] : null
+      }
+      
+      if (!result || typeof result !== 'object') {
+        console.error('❌ [LEADERBOARD] Invalid response format:', result)
+        console.warn('⚠️ [LEADERBOARD] SQL function get_game_leaderboard_with_user may not exist. Run LEADERBOARD-SQL.sql in Supabase.')
+        list.innerHTML = '<div style="padding:24px;text-align:center;color:#f88;">Failed to load leaderboard (invalid response). Run LEADERBOARD-SQL.sql in Supabase.</div>'
+        return
+      }
+
+      // Parse current_user (có thể là JSON string hoặc object)
+      let userEntry = null
+      if (result.current_user) {
+        if (typeof result.current_user === 'string') {
+          try {
+            userEntry = result.current_user === 'null' ? null : JSON.parse(result.current_user)
+          } catch {
+            userEntry = null
+          }
+        } else if (typeof result.current_user === 'object') {
+          userEntry = result.current_user
+        }
+      }
       if (userEntry) {
         const userItem = document.createElement('div')
         userItem.className = 'leaderboard-item user-highlight'
@@ -4872,7 +5446,19 @@ window.addEventListener("beforeunload", stopGame);
       divider.textContent = 'Top 100 Players'
       list.appendChild(divider)
 
-      const topPlayers = data?.top_players || []
+      // Parse top_players (có thể là JSON string hoặc array)
+      let topPlayers = []
+      if (result.top_players) {
+        if (Array.isArray(result.top_players)) {
+          topPlayers = result.top_players
+        } else if (typeof result.top_players === 'string') {
+          try {
+            topPlayers = JSON.parse(result.top_players) || []
+          } catch {
+            topPlayers = []
+          }
+        }
+      }
       if (topPlayers.length === 0) {
         const empty = document.createElement('div')
         empty.style.cssText = 'padding:24px;text-align:center;color:#888;'
@@ -4950,8 +5536,13 @@ window.addEventListener("beforeunload", stopGame);
   function buildShareUrl(gameId) {
     if (!gameId) return `${window.location.origin}/`
     
-    // All games (including user-created Pacman games) use hash navigation
-    // This ensures consistent behavior: /#brick-fallen-crypto, /#pacman-game-7251
+    // Pacman games use ?game= parameter, other games use hash navigation
+    if (gameId.startsWith('pacman-')) {
+      return `${window.location.origin}/?game=${gameId}`
+    }
+    
+    // All other games use hash navigation
+    // This ensures consistent behavior: /#brick-fallen-crypto
     return `${window.location.origin}/#${gameId}`
   }
 
@@ -5106,44 +5697,66 @@ window.addEventListener("beforeunload", stopGame);
       // Redirect wheel events from document into .game-container
       let scrollLock = false;
       function scheduleSnap() {
-        clearTimeout(gameContainer._snapTimeout);
+            clearTimeout(gameContainer._snapTimeout);
         gameContainer._snapTimeout = setTimeout(runSnapToNearestCard, 350);
       }
       
       function runSnapToNearestCard() {
-        const cards = Array.from(document.querySelectorAll('.game-card'));
-        if (!cards.length) return;
-        
-        const containerTop = gameContainer.scrollTop;
-        const containerHeight = gameContainer.clientHeight;
-        const viewportCenter = containerTop + containerHeight / 2;
-        
-        let bestCard = null;
-        let bestDistance = Infinity;
-        
-        cards.forEach(card => {
-          const cardTop = card.offsetTop - gameContainer.offsetTop;
-          const cardHeight = card.offsetHeight;
-          const cardCenter = cardTop + cardHeight / 2;
-          const distance = Math.abs(cardCenter - viewportCenter);
-          
-          if (distance < bestDistance) {
-            bestDistance = distance;
-            bestCard = card;
-          }
-        });
-        
+              const cards = Array.from(document.querySelectorAll('.game-card'));
+              if (!cards.length) return;
+              
+              const containerTop = gameContainer.scrollTop;
+              const containerHeight = gameContainer.clientHeight;
+              const viewportCenter = containerTop + containerHeight / 2;
+              
+              let bestCard = null;
+              let bestDistance = Infinity;
+              
+              cards.forEach(card => {
+                const cardTop = card.offsetTop - gameContainer.offsetTop;
+                const cardHeight = card.offsetHeight;
+                const cardCenter = cardTop + cardHeight / 2;
+                const distance = Math.abs(cardCenter - viewportCenter);
+                
+                if (distance < bestDistance) {
+                  bestDistance = distance;
+                  bestCard = card;
+                }
+              });
+              
+              // ✅ FIX #4: Check nếu đang scroll TỪ Pacman sang game khác - không snap
+              // Nhưng vẫn cho phép snap VÀO Pacman (bestCard là Pacman) để game không bị đẩy ra
+              if (bestCard) {
+                const bestCardId = bestCard.id || bestCard.getAttribute('data-game-id') || ''
+                const bestCardIsPacman = bestCardId.startsWith('pacman-') || bestCardId === 'pacman-memeplay'
+                
+                const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]') ||
+                                          document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]')
+                const currentActiveGameId = currentActiveCard?.id || currentActiveCard?.getAttribute('data-game-id') || ''
+                const isCurrentActivePacman = currentActiveGameId && (
+                  currentActiveGameId.startsWith('pacman-') || 
+                  currentActiveGameId === 'pacman-memeplay'
+                )
+                
+                // Chỉ skip snap nếu: (1) current active là Pacman VÀ (2) bestCard KHÔNG phải Pacman
+                // Điều này cho phép snap VÀO Pacman nhưng không snap TỪ Pacman ra
+                if (isCurrentActivePacman && !bestCardIsPacman) {
+                  gameContainer.classList.remove('is-scrolling');
+                  return;
+                }
+              }
+              
         if (bestCard && bestDistance > containerHeight * 0.25) {
-          const cardTop = bestCard.offsetTop - gameContainer.offsetTop;
-          const cardHeight = bestCard.offsetHeight;
-          const cardCenter = cardTop + cardHeight / 2;
+                const cardTop = bestCard.offsetTop - gameContainer.offsetTop;
+                const cardHeight = bestCard.offsetHeight;
+                const cardCenter = cardTop + cardHeight / 2;
           const targetScroll = Math.max(0, cardCenter - containerHeight / 2);
           gameContainer.classList.remove('is-scrolling');
           gameContainer.style.scrollBehavior = 'smooth';
-          gameContainer.scrollTo({
-            top: targetScroll,
-            behavior: 'smooth'
-          });
+                gameContainer.scrollTo({
+                  top: targetScroll,
+                  behavior: 'smooth'
+                });
         } else {
           gameContainer.classList.remove('is-scrolling');
         }
@@ -5159,10 +5772,29 @@ window.addEventListener("beforeunload", stopGame);
                                     target.closest('.game-container') ||
                                     target.closest('.main-header');
           
+          // ✅ FIX: Check if current active game is Pacman
+          const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]') ||
+                                    document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]')
+          const currentActiveGameId = currentActiveCard?.id || currentActiveCard?.getAttribute('data-game-id') || ''
+          const isCurrentActivePacman = currentActiveGameId && (
+            currentActiveGameId.startsWith('pacman-') || 
+            currentActiveGameId === 'pacman-memeplay'
+          )
+          
           // If click outside game-container (black area), redirect scroll into .game-container
           if (!isInGameContainer && !scrollLock) {
-            e.preventDefault();
+          e.preventDefault();
             e.stopPropagation();
+            
+            // ✅ FIX: Tắt scroll-snap tạm thời khi scroll từ Pacman game (cho phép scroll mượt hơn)
+            if (isCurrentActivePacman) {
+              gameContainer.style.scrollSnapType = 'none';
+              // Bật lại sau 1.5s (đủ thời gian để scroll qua game khác)
+              clearTimeout(gameContainer._scrollSnapTimeout);
+              gameContainer._scrollSnapTimeout = setTimeout(() => {
+                gameContainer.style.scrollSnapType = '';
+              }, 1500);
+            }
             
             // ✅ FIXED: Slower, smoother scroll with animation
             // Reduce scroll speed for smoother transition between games
@@ -5179,42 +5811,15 @@ window.addEventListener("beforeunload", stopGame);
             
             scrollLock = true;
             setTimeout(() => { scrollLock = false; }, 120);
-            scheduleSnap();
+            
+            // ✅ FIX: Không schedule snap nếu đang scroll từ Pacman game
+            // Chỉ schedule snap cho non-Pacman games
+            if (!isCurrentActivePacman) {
+              scheduleSnap();
+            }
           }
         }
       }, { passive: false });
-      
-      let touchStartY = null
-      let touchActive = false
-      function handleTouchStart(e) {
-        if (e.touches && e.touches.length === 1) {
-          touchStartY = e.touches[0].clientY
-          touchActive = true
-          gameContainer.classList.add('is-scrolling')
-          gameContainer.style.scrollBehavior = 'auto'
-        }
-      }
-      function handleTouchMove(e) {
-        if (!touchActive || !e.touches || e.touches.length !== 1) return
-        const currentY = e.touches[0].clientY
-        const delta = touchStartY - currentY
-        touchStartY = currentY
-        gameContainer.scrollTop += delta
-        clearTimeout(gameContainer._scrollingClassTimeout)
-        gameContainer._scrollingClassTimeout = setTimeout(() => {
-          gameContainer.classList.remove('is-scrolling')
-        }, 600)
-        scheduleSnap()
-      }
-      function handleTouchEnd() {
-        touchActive = false
-        touchStartY = null
-        scheduleSnap()
-      }
-      gameContainer.addEventListener('touchstart', handleTouchStart, { passive: true })
-      gameContainer.addEventListener('touchmove', handleTouchMove, { passive: false })
-      gameContainer.addEventListener('touchend', handleTouchEnd, { passive: true })
-      gameContainer.addEventListener('touchcancel', handleTouchEnd, { passive: true })
       
     })();
   </script>
@@ -5250,13 +5855,13 @@ window.addEventListener("beforeunload", stopGame);
       window.addEventListener('resize', recalc, { passive: true });
       window.addEventListener('orientationchange', recalc, { passive: true });
 
-      let startY = 0, startT = 0, moved = false;
-      const THRESHOLD = 60; // px
-      const VELOCITY = 0.35; // px/ms
+      let startY = 0, moved = false;
+      const THRESHOLD = 60; // px - chỉ cần vuốt 60px là chuyển game
 
       sc.addEventListener('touchstart', (e) => {
         if (!e.touches || !e.touches.length) return;
-        startY = e.touches[0].clientY; startT = performance.now(); moved = false;
+        startY = e.touches[0].clientY; 
+        moved = false;
       }, { passive: true });
 
       sc.addEventListener('touchmove', (e) => {
@@ -5267,59 +5872,55 @@ window.addEventListener("beforeunload", stopGame);
         if (!moved) return;
         const endY = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientY : startY;
         const dy = endY - startY; // down = positive
-        const dt = Math.max(1, performance.now() - startT);
-        const v = Math.abs(dy) / dt;
-        if (Math.abs(dy) < THRESHOLD && v < VELOCITY) return; // ignore tiny swipes
+        
+        // ✅ Chỉ cần vuốt 60px (lên hoặc xuống) là chuyển game
+        if (Math.abs(dy) < THRESHOLD) return;
 
         const cur = currentIndex();
-        if (dy < 0) scrollToIndex(cur + 1); // swipe up -> next
-        else scrollToIndex(cur - 1);        // swipe down -> prev
+        if (dy < 0) scrollToIndex(cur + 1); // swipe up -> next game
+        else scrollToIndex(cur - 1);        // swipe down -> prev game
       }, { passive: true });
-
-      const FOOTER_SWIPE_THRESHOLD = 80;
-      cards.forEach((card) => {
-        const footer = card.querySelector('.game-footer');
-        if (!footer) return;
-        let footerStartY = 0;
-        let footerTracking = false;
-
-        footer.addEventListener('touchstart', (e) => {
-          if (!e.touches || !e.touches.length) return;
-          footerTracking = true;
-          footerStartY = e.touches[0].clientY;
-        }, { passive: true });
-
-        footer.addEventListener('touchmove', (e) => {
-          if (!footerTracking || !e.touches || !e.touches.length) return;
-          const currentY = e.touches[0].clientY;
-          const dy = currentY - footerStartY;
-          if (Math.abs(dy) >= FOOTER_SWIPE_THRESHOLD) {
-            e.preventDefault();
-            footerTracking = false;
-            const cur = currentIndex();
-            if (dy < 0) {
-              scrollToIndex(cur + 1);
-            } else {
-              scrollToIndex(cur - 1);
-            }
-          }
-        }, { passive: false });
-
-        const endFooterSwipe = () => { footerTracking = false; };
-        footer.addEventListener('touchend', endFooterSwipe, { passive: true });
-        footer.addEventListener('touchcancel', endFooterSwipe, { passive: true });
-      });
 
       // ✅ FIXED: Longer timeout for smoother scroll animation
       // Force snap to nearest after inertial scrolling stops (prevents resting between cards)
       let snapTimer = null;
       sc.addEventListener('scroll', () => {
         if (snapTimer) clearTimeout(snapTimer);
+        
+        // ✅ FIX: Tăng timeout khi scroll từ Pacman (300ms → 800ms)
+        // snapTimer quá ngắn → force snap về Pacman trước khi scroll animation xong
+        const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]') ||
+                                  document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]')
+        const currentActiveGameId = currentActiveCard?.id || currentActiveCard?.getAttribute('data-game-id') || ''
+        const isCurrentActivePacman = currentActiveGameId && (
+          currentActiveGameId.startsWith('pacman-') || 
+          currentActiveGameId === 'pacman-memeplay'
+        )
+        
+        // Nếu đang scroll từ Pacman → tăng timeout lên 800ms (để scroll animation xong)
+        // Nếu không phải Pacman → giữ 300ms như cũ
+        const timeout = isCurrentActivePacman ? 800 : 300;
+        
         snapTimer = setTimeout(() => {
+          // ✅ FIX CRITICAL: Check nếu current active game là Pacman - không force snap về nearest game
+          // Điều này ngăn Pacman tự cuộn về màn hình khi đã scroll sang game khác
+          const currentActiveCard2 = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]') ||
+                                    document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]')
+          const currentActiveGameId2 = currentActiveCard2?.id || currentActiveCard2?.getAttribute('data-game-id') || ''
+          const isCurrentActivePacman2 = currentActiveGameId2 && (
+            currentActiveGameId2.startsWith('pacman-') || 
+            currentActiveGameId2 === 'pacman-memeplay'
+          )
+          
+          // Nếu đang scroll từ Pacman, không force snap về nearest game
+          if (isCurrentActivePacman2) {
+            return; // Không snap về game nào, để user scroll tự do
+          }
+          
           recalc();
           const idx = currentIndex();
           scrollToIndex(idx);
-        }, 300); // Increased from 120ms to 300ms for smoother transition
+        }, timeout);
       }, { passive: true });
     })();
   </script>

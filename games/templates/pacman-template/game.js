@@ -2976,346 +2976,151 @@ function setupEditor() {
     saveBtnMobile.addEventListener('click', () => handleSaveClick(saveBtnMobile, true));
   }
   
-  // Public Link button handler (shared for desktop and mobile)
-  const handlePublicLinkClick = async (button) => {
+  // Public Link button handler - FIXED for iOS Safari: Copy MUST happen in click event, no async before
+  const handlePublicLinkClick = (button) => {
     if (button.dataset.enabled !== 'true') {
       return;
     }
-    // Title is auto-generated, ensure it's set
-    if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
-      const timestamp = new Date().toLocaleString('en-US', { 
-        month: 'short', 
-        day: 'numeric', 
-        hour: '2-digit', 
-        minute: '2-digit' 
-      }).replace(',', '');
-      BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
+    
+    // ✅ CRITICAL FIX: Get gameId FIRST (synchronous only, no async)
+    let gameId = null;
+    if (saveBtnMobile && saveBtnMobile.dataset.gameId && saveBtnMobile.dataset.saved === 'true') {
+      gameId = String(saveBtnMobile.dataset.gameId);
+    } else if (saveBtn && saveBtn.dataset.gameId && saveBtn.dataset.saved === 'true') {
+      gameId = String(saveBtn.dataset.gameId);
     }
     
-    // ✅ FIX: Save mapIndex to BRAND_CONFIG before getting public link
-    const mapSelect = document.getElementById('mapSelect');
-    if (mapSelect) {
-      const selectedMap = parseInt(mapSelect.value, 10);
-      if (selectedMap >= 1 && selectedMap <= MAPS.length) {
-        BRAND_CONFIG.mapIndex = selectedMap - 1;
+    if (!gameId) {
+      alert('Please Save the game first before getting public link.');
+      return;
+    }
+    
+    // ✅ CRITICAL FIX: Build link SYNCHRONOUSLY (no async, no API calls)
+    const baseUrl = window.location.origin.replace(/\/$/, '');
+    const linkToCopy = `${baseUrl}/?game=${gameId}`;
+    
+    // ✅ CRITICAL FIX: Copy IMMEDIATELY in click event (iOS Safari requirement)
+    // Must use execCommand with VISIBLE textarea (not hidden) for iOS Safari
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const isInIframe = window.parent && window.parent !== window;
+    
+    let copySuccess = false;
+    
+    if (isMobile && isInIframe) {
+      // Mobile iframe: Use visible textarea + execCommand (ONLY way that works on iOS Safari)
+      const textArea = document.createElement('textarea');
+      textArea.value = linkToCopy;
+      textArea.style.cssText = 'position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:1px;height:1px;opacity:0.01;z-index:99999;';
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      textArea.setSelectionRange(0, linkToCopy.length);
+      
+      try {
+        copySuccess = document.execCommand('copy');
+        document.body.removeChild(textArea);
+      } catch (err) {
+        document.body.removeChild(textArea);
+        console.error('❌ [MOBILE] execCommand failed:', err);
       }
-    }
-    
-    // Get game ID from save button (desktop or mobile) or generate new one
-    let gameId;
-    console.log('🔗 [GET_LINK] Checking gameId sources...');
-    console.log('🔗 [GET_LINK] saveBtn:', saveBtn, 'dataset.gameId:', saveBtn?.dataset.gameId, 'dataset.saved:', saveBtn?.dataset.saved);
-    console.log('🔗 [GET_LINK] saveBtnMobile:', saveBtnMobile, 'dataset.gameId:', saveBtnMobile?.dataset.gameId, 'dataset.saved:', saveBtnMobile?.dataset.saved);
-    
-    if (saveBtn && saveBtn.dataset.gameId) {
-      gameId = saveBtn.dataset.gameId;
-      console.log('🔗 [GET_LINK] Using gameId from saveBtn (desktop):', gameId);
-    } else if (saveBtnMobile && saveBtnMobile.dataset.gameId) {
-      gameId = saveBtnMobile.dataset.gameId;
-      console.log('🔗 [GET_LINK] Using gameId from saveBtnMobile (mobile):', gameId);
-    } else if (typeof generateGameId === 'function') {
-      gameId = generateGameId();
-      console.log('🔗 [GET_LINK] Generated new gameId:', gameId);
     } else {
-      // Fallback: generate pacman-7420 format
-      const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      gameId = `pacman-${randomSuffix}`;
-      console.log('🔗 [GET_LINK] Fallback generated gameId:', gameId);
-    }
-    
-    // ✅ CRITICAL: Validate gameId
-    if (!gameId || gameId === 'null' || gameId === 'undefined' || gameId === '') {
-      console.error('❌ [GET_LINK] ERROR: gameId is invalid!', gameId);
-      alert('❌ Lỗi: Không thể tạo public link vì gameId không hợp lệ.\n\nVui lòng Save game trước khi lấy public link.');
-      return;
-    }
-    
-    // Ensure game is saved with this ID
-    const isSaved = (saveBtn && saveBtn.dataset.saved === 'true') || 
-                    (saveBtnMobile && saveBtnMobile.dataset.saved === 'true');
-    if (!isSaved) {
-      const savedId = saveBrandConfig(gameId);
-      console.log('💾 Game auto-saved with ID:', savedId, 'Title:', BRAND_CONFIG.title, 'MapIndex:', BRAND_CONFIG.mapIndex);
-      if (saveBtn) {
-        saveBtn.dataset.gameId = gameId;
-        saveBtn.dataset.saved = 'true';
-      }
-      if (saveBtnMobile) {
-        saveBtnMobile.dataset.gameId = gameId;
-        saveBtnMobile.dataset.saved = 'true';
-      }
-    }
-
-    // Ensure Supabase knows about this game before sharing
-    button.dataset.supabaseSync = 'pending';
-    const synced = await syncGameToSupabase(gameId, 'public-link');
-    button.dataset.supabaseSync = synced ? 'success' : 'error';
-    
-    // Always use production format for public links (short URL)
-    console.log('🔗 [GET_LINK] Calling buildPublicLinkUrl with gameId:', gameId, 'type:', typeof gameId);
-    const shareUrl = buildPublicLinkUrl(gameId, true);
-    console.log('🔗 [GET_LINK] Public link generated:', shareUrl, 'Game ID:', gameId);
-    console.log('🔗 [GET_LINK] shareUrl includes ?game=:', shareUrl.includes('?game='));
-    console.log('🔗 [GET_LINK] shareUrl includes /index.html:', shareUrl.includes('/index.html'));
-    console.log('🔗 [GET_LINK] shareUrl includes #creatorScreen:', shareUrl.includes('#creatorScreen'));
-    
-    // ✅ CRITICAL: Validate shareUrl
-    if (!shareUrl || !shareUrl.includes('?game=') || shareUrl.includes('/index.html') || shareUrl.includes('#creatorScreen')) {
-      console.error('❌ [GET_LINK] ERROR: Invalid shareUrl!', shareUrl);
-      alert(`❌ Lỗi: Link không đúng format!\n\nExpected: https://domain.com/?game=id\nGot: ${shareUrl}\n\nGame ID: ${gameId}`);
-      return;
-    }
-    
-    // ✅ CRITICAL: Store shareUrl in a constant to prevent modification
-    const linkToCopy = String(shareUrl);
-    console.log('🔗 [GET_LINK] linkToCopy (final value to copy):', linkToCopy);
-    console.log('🔗 [GET_LINK] linkToCopy type:', typeof linkToCopy);
-    console.log('🔗 [GET_LINK] linkToCopy length:', linkToCopy.length);
-    
-    // Copy to clipboard function (improved for mobile)
-    const copyToClipboard = (url) => {
-      return new Promise((resolve, reject) => {
-        // Method 1: Try modern Clipboard API first (requires HTTPS and user interaction)
-        if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(url).then(() => {
-            console.log('✅ [GET_LINK] Copied to clipboard (Clipboard API):', url);
-            resolve();
-          }).catch((err) => {
-            console.warn('⚠️ [GET_LINK] Clipboard API failed, trying fallback:', err);
-            // Fall through to fallback method
-            tryFallbackCopy();
-          });
-        } else {
-          // No Clipboard API, use fallback immediately
-          tryFallbackCopy();
-        }
-        
-        function tryFallbackCopy() {
-          // Method 2: Fallback using textarea (works better on mobile)
+      // Desktop: Try Clipboard API first, fallback to execCommand
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        try {
+          navigator.clipboard.writeText(linkToCopy);
+          copySuccess = true;
+        } catch (err) {
+          console.error('❌ [DESKTOP] Clipboard API failed:', err);
+          // Fallback
           const textArea = document.createElement('textarea');
-          textArea.value = url;
+          textArea.value = linkToCopy;
           textArea.style.position = 'fixed';
-          textArea.style.top = '0';
-          textArea.style.left = '0';
-          textArea.style.width = '2em';
-          textArea.style.height = '2em';
-          textArea.style.padding = '0';
-          textArea.style.border = 'none';
-          textArea.style.outline = 'none';
-          textArea.style.boxShadow = 'none';
-          textArea.style.background = 'transparent';
           textArea.style.opacity = '0';
-          textArea.style.zIndex = '-1';
-          textArea.setAttribute('readonly', '');
-          textArea.setAttribute('aria-hidden', 'true');
-          
+          textArea.style.left = '-9999px';
           document.body.appendChild(textArea);
-          
-          // Focus and select (critical for mobile)
-          textArea.focus();
           textArea.select();
-          textArea.setSelectionRange(0, url.length);
-          
           try {
-            // Try execCommand
-            const success = document.execCommand('copy');
+            copySuccess = document.execCommand('copy');
             document.body.removeChild(textArea);
-            
-            if (success) {
-              console.log('✅ [GET_LINK] Copied to clipboard (execCommand):', url);
-              resolve();
-            } else {
-              console.error('❌ [GET_LINK] execCommand returned false');
-              reject(new Error('execCommand copy failed'));
-            }
-          } catch (err) {
+          } catch (err2) {
             document.body.removeChild(textArea);
-            console.error('❌ [GET_LINK] execCommand exception:', err);
-            reject(err);
           }
         }
-      });
-    };
+      } else {
+        // Fallback for older browsers
+        const textArea = document.createElement('textarea');
+        textArea.value = linkToCopy;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        textArea.style.left = '-9999px';
+        document.body.appendChild(textArea);
+        textArea.select();
+        try {
+          copySuccess = document.execCommand('copy');
+          document.body.removeChild(textArea);
+        } catch (err) {
+          document.body.removeChild(textArea);
+        }
+      }
+    }
     
-    // Copy link immediately
-    copyToClipboard(linkToCopy).then(() => {
-      // Show modal with link (already copied)
-      const modal = document.createElement('div');
-      modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 10000;
-        font-family: Arial, sans-serif;
-      `;
-      
-      const dialog = document.createElement('div');
-      dialog.style.cssText = `
-        background: #1a1a1a;
-        padding: 24px;
-        border-radius: 12px;
-        max-width: 90%;
-        width: 400px;
-        color: white;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      `;
-      
-      dialog.innerHTML = `
-        <div style="margin-bottom: 16px; font-size: 18px; font-weight: bold;">Public Link:</div>
-        <div style="margin-bottom: 8px; word-break: break-all; font-size: 14px; color: #fff; line-height: 1.5;">${linkToCopy}</div>
-        <div style="margin-bottom: 16px; font-size: 12px; color: #999;">(Link copied to clipboard)</div>
-        <div style="display: flex; justify-content: flex-end; gap: 8px;">
-          <button id="copyLinkBtn" style="
-            background: #4ECDC4;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-          ">Copy Again</button>
-          <button id="closeModalBtn" style="
-            background: #666;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-          ">Close</button>
-        </div>
-      `;
-      
-      modal.appendChild(dialog);
-      document.body.appendChild(modal);
-      
-      // Copy button handler
-      const copyBtn = dialog.querySelector('#copyLinkBtn');
-      copyBtn.addEventListener('click', () => {
-        copyToClipboard(linkToCopy).then(() => {
-          const originalText = copyBtn.textContent;
-          copyBtn.textContent = '✅ Copied!';
-          copyBtn.style.background = '#2ecc71';
-          setTimeout(() => {
-            copyBtn.textContent = originalText;
-            copyBtn.style.background = '#4ECDC4';
-          }, 2000);
-        }).catch(() => {
-          alert('Failed to copy link. Please copy manually.');
-        });
-      });
-      
-      // Close button handler
-      const closeBtn = dialog.querySelector('#closeModalBtn');
-      const closeModal = () => {
-        document.body.removeChild(modal);
-      };
-      closeBtn.addEventListener('click', closeModal);
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-      });
-      
-      // Update button feedback
-      const originalText = button.textContent;
+    // ✅ Update button feedback IMMEDIATELY (synchronous)
+    const originalText = button.textContent;
+    if (copySuccess) {
       button.textContent = '✅ Link Copied!';
       button.style.background = '#4ECDC4';
+    } else {
+      button.textContent = '⚠️ Copy Failed';
+      button.style.background = '#ff6b6b';
+    }
+    
+    setTimeout(() => {
+      button.textContent = originalText;
+      button.style.background = '#ffb642';
+    }, 2000);
+    
+    // ✅ Run async operations AFTER copy (background tasks)
+    (async () => {
+      // Title is auto-generated, ensure it's set
+      if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
+        const timestamp = new Date().toLocaleString('en-US', { 
+          month: 'short', 
+          day: 'numeric', 
+          hour: '2-digit', 
+          minute: '2-digit' 
+        }).replace(',', '');
+        BRAND_CONFIG.title = `Pacman Game - ${timestamp}`;
+      }
       
-      setTimeout(() => {
-        button.textContent = originalText;
-        button.style.background = '#ffb642';
-      }, 2000);
-    }).catch((err) => {
-      console.error('❌ [GET_LINK] Failed to copy:', err);
-      // Show modal even if copy failed (user can copy manually)
-      const modal = document.createElement('div');
-      modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 10000;
-        font-family: Arial, sans-serif;
-      `;
+      // Save mapIndex to BRAND_CONFIG
+      const mapSelect = document.getElementById('mapSelect');
+      if (mapSelect) {
+        const selectedMap = parseInt(mapSelect.value, 10);
+        if (selectedMap >= 1 && selectedMap <= MAPS.length) {
+          BRAND_CONFIG.mapIndex = selectedMap - 1;
+        }
+      }
       
-      const dialog = document.createElement('div');
-      dialog.style.cssText = `
-        background: #1a1a1a;
-        padding: 24px;
-        border-radius: 12px;
-        max-width: 90%;
-        width: 400px;
-        color: white;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
-      `;
+      // Ensure game is saved
+      const isSaved = (saveBtn && saveBtn.dataset.saved === 'true') || 
+                      (saveBtnMobile && saveBtnMobile.dataset.saved === 'true');
+      if (!isSaved) {
+        const savedId = saveBrandConfig(gameId);
+        if (saveBtn) {
+          saveBtn.dataset.gameId = gameId;
+          saveBtn.dataset.saved = 'true';
+        }
+        if (saveBtnMobile) {
+          saveBtnMobile.dataset.gameId = gameId;
+          saveBtnMobile.dataset.saved = 'true';
+        }
+      }
       
-      dialog.innerHTML = `
-        <div style="margin-bottom: 16px; font-size: 18px; font-weight: bold;">Public Link:</div>
-        <div style="margin-bottom: 8px; word-break: break-all; font-size: 14px; color: #fff; line-height: 1.5;">${linkToCopy}</div>
-        <div style="margin-bottom: 16px; font-size: 12px; color: #ffa500;">(Please copy manually)</div>
-        <div style="display: flex; justify-content: flex-end; gap: 8px;">
-          <button id="copyLinkBtn" style="
-            background: #4ECDC4;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-            font-weight: bold;
-          ">Copy</button>
-          <button id="closeModalBtn" style="
-            background: #666;
-            color: white;
-            border: none;
-            padding: 10px 20px;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 14px;
-          ">Close</button>
-        </div>
-      `;
-      
-      modal.appendChild(dialog);
-      document.body.appendChild(modal);
-      
-      // Copy button handler
-      const copyBtn = dialog.querySelector('#copyLinkBtn');
-      copyBtn.addEventListener('click', () => {
-        copyToClipboard(linkToCopy).then(() => {
-          const originalText = copyBtn.textContent;
-          copyBtn.textContent = '✅ Copied!';
-          copyBtn.style.background = '#2ecc71';
-          setTimeout(() => {
-            copyBtn.textContent = originalText;
-            copyBtn.style.background = '#4ECDC4';
-          }, 2000);
-        }).catch(() => {
-          alert('Failed to copy link. Please select and copy manually.');
-        });
-      });
-      
-      // Close button handler
-      const closeBtn = dialog.querySelector('#closeModalBtn');
-      const closeModal = () => {
-        document.body.removeChild(modal);
-      };
-      closeBtn.addEventListener('click', closeModal);
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) closeModal();
-      });
-    });
+      // Sync to Supabase (background)
+      button.dataset.supabaseSync = 'pending';
+      await syncGameToSupabase(gameId, 'public-link');
+      button.dataset.supabaseSync = 'success';
+    })();
   };
 
   // Public Link button (Desktop)

@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MemePlay Docs - Fun First, Profit Follows</title>
+  <title>MemePlay Documentation (2025) - UGC Meme Game Creator Platform</title>
   <style>
     * {
       margin: 0;
@@ -146,6 +146,14 @@
       font-style: italic;
     }
 
+    .intro-box {
+      background: rgba(255, 182, 66, 0.08);
+      border-left: 4px solid #ffb642;
+      padding: 20px 24px;
+      margin: 24px 0;
+      border-radius: 8px;
+    }
+
     .callout {
       background: rgba(255, 182, 66, 0.08);
       border-left: 4px solid #ffb642;
@@ -198,6 +206,12 @@
       margin: 24px 0;
     }
 
+    hr {
+      border: none;
+      border-top: 1px solid rgba(255, 182, 66, 0.2);
+      margin: 32px 0;
+    }
+
     /* Mobile Responsive */
     @media (max-width: 900px) {
       .docs-container {
@@ -234,12 +248,12 @@
       <nav>
         <a href="#intro">What is MemePlay?</a>
         <a href="#mission">Our Mission</a>
-        <a href="#how-to-earn">How to Earn</a>
-        <a href="#create-game">Create Your Game (AI)</a>
+        <a href="#how-to-earn">How to Earn on MemePlay</a>
+        <a href="#create-game">Create Your Game</a>
         <a href="#monetize">Monetize Your Game</a>
-        <a href="#revenue">Revenue Model</a>
-        <a href="#donations">Donation System</a>
-        <a href="#token-launch">Token Launch</a>
+        <a href="#revenue">Platform Revenue Model</a>
+        <a href="#token-launch">Token & On-Chain Features</a>
+        <a href="#donations">How Donations Work</a>
         <a href="#roadmap">Roadmap</a>
         <a href="#faq">FAQ</a>
       </nav>
@@ -247,562 +261,336 @@
 
     <!-- Main Content -->
     <main class="content">
-      <h1>🎮 MemePlay</h1>
-      <p class="tagline">Fun First, Profit Follows.</p>
+      <h1>🎮 MemePlay Documentation (2025)</h1>
+      <p class="tagline">The official documentation for MemePlay — a UGC meme-game creator platform where anyone can build, customize, and share fun mini-games in under one minute.</p>
+
+      <div class="intro-box">
+        <p><strong>MemePlay is not a GameFi speculation project.</strong></p>
+        <p>MemePlay is <strong>UGC + Meme + Game</strong> for creators, communities, and brands.</p>
+      </div>
+
+      <hr>
 
       <!-- What is MemePlay -->
       <section id="intro">
-        <h2>🌟 What is MemePlay?</h2>
+        <h2>What is MemePlay?</h2>
         <p>
-          <strong>MemePlay</strong> is a Web3 social gaming platform where <strong>anyone can create, play, and profit</strong> from 
-          hyper-casual meme games—no coding skills required! <strong>MemePlay = 4meme + GameFi</strong>, where:
+          MemePlay is a Web3 UGC (User Generated Content) gaming platform that lets anyone create and share hyper-casual meme-themed mini-games — no coding skills required.
         </p>
+        <p>In MemePlay's new model:</p>
         <ul>
-          <li><strong>Players</strong> enjoy instant, no-download games & earn PLAY points</li>
-          <li><strong>Creators</strong> build games with AI in minutes & earn from play count + donations</li>
-          <li><strong>Traders</strong> speculate on game tokens (every game = meme coin)</li>
+          <li>👉 <strong>Players</strong> enjoy instant, free, no-wallet games</li>
+          <li>👉 <strong>Creators</strong> generate games in minutes through templates</li>
+          <li>👉 <strong>Meme/token projects</strong> add <strong>their own logo/brand</strong> inside the game</li>
+          <li>👉 <strong>Games</strong> act as free, viral <strong>marketing tools</strong> for any project</li>
         </ul>
-        <p>
-          All powered by blockchain technology (BSC), making every action transparent, rewarding, and community-driven.
-        </p>
+        <p><strong>Important:</strong></p>
+        <p>MVP1 does <strong>NOT</strong> launch a new token for each game.</p>
+        <p>Creators simply attach their <strong>existing project logo or token</strong> into the game UI.</p>
+        <p>MemePlay focuses on:</p>
+        <ul>
+          <li>Fun first</li>
+          <li>No-code creation</li>
+          <li>Fast iteration</li>
+          <li>Easy virality</li>
+          <li>Community-driven value</li>
+          <li>Zero speculation, zero financial risk</li>
+        </ul>
       </section>
 
       <!-- Our Mission -->
       <section id="mission">
-        <h2>🎯 Our Mission</h2>
+        <h2>Our Mission</h2>
         <p>
-          To <strong>democratize game creation</strong> and prove that entertainment + blockchain can coexist without 
-          sacrificing fun for profit. We believe:
+          To democratize game creation and empower communities with interactive tools — without complexity, without gambling mechanics, and without forced token speculation.
         </p>
+        <p>We believe:</p>
         <ol>
-          <li><strong>Games should be fun first</strong> — no forced wallet connections, no complex tokenomics to understand</li>
-          <li><strong>Creators deserve fair pay</strong> — earn from passion, not predatory ad networks</li>
-          <li><strong>Communities drive value</strong> — players + creators together build token value</li>
+          <li><strong>Games should be fun first</strong> — no wallet gate, no DeFi required.</li>
+          <li><strong>Creators deserve fair tools</strong> — not dependent on predatory ad networks.</li>
+          <li><strong>Communities grow through creativity</strong>, not token manipulation.</li>
+          <li><strong>Attention is the new currency</strong> — MemePlay turns attention into value.</li>
         </ol>
-        <p>
-          <em>Traditional web2 gaming extracts value from users. MemePlay returns value to creators and players.</em>
-        </p>
+        <p>MemePlay is where memes become playable experiences — fast, simple, and viral.</p>
       </section>
 
       <!-- How to Earn -->
       <section id="how-to-earn">
-        <h2>💰 How to Earn on MemePlay</h2>
-        
-        <h3>For Players:</h3>
-        <ul>
-          <li><strong>Play Games:</strong> Earn PLAY points for every second you play (convertible to rewards)</li>
-          <li><strong>Unlock Achievements:</strong>
-            <ul>
-              <li>⭐ 10s playtime → +100 PLAY</li>
-              <li>⭐ 60s playtime → +300 PLAY</li>
-              <li>⭐ 300s playtime → +1,000 PLAY</li>
-            </ul>
-          </li>
-          <li><strong>Trade Game Tokens:</strong> Buy early on bonding curves, sell when games go viral (10x-100x gains possible)</li>
-          <li><strong>Airdrop Farming:</strong> Top players of each game may receive token airdrops from creators</li>
-        </ul>
+        <h2>How to Earn on MemePlay</h2>
+        <p>MemePlay enables creators and players to grow together, sustainably.</p>
 
-        <h3>For Creators:</h3>
+        <h3>For Players</h3>
         <ul>
-          <li><strong>Play Count Milestones:</strong> Automated PLAY rewards as your game grows (see "Monetize Your Game")</li>
-          <li><strong>Donations:</strong> Receive 50% of user donations (BNB/USDT)</li>
-          <li><strong>Token Upside:</strong> Your game token can 100x-1000x if it goes viral (you buy early on bonding curve)</li>
-          <li><strong>Creator Economy:</strong> Build a fanbase → Monetize future games easier</li>
+          <li>Play meme games instantly — no wallet required</li>
+          <li>Discover new token/meme communities through gameplay</li>
+          <li>Share games to help creators reach new audiences</li>
+          <li>Earn PLAY points in future phases (non-financial rewards)</li>
         </ul>
+        <p>No trading, no bonding curve, no token speculation.</p>
+
+        <h3>For Creators</h3>
+        <p>Creators earn value through <strong>visibility, engagement, donations, and community growth</strong>.</p>
+        <p>You can:</p>
+        <ul>
+          <li><strong>Add your project's token/logo</strong> to any game</li>
+          <li>Use the game as a <strong>free marketing tool</strong></li>
+          <li>Add a custom ending story to promote your project</li>
+          <li>Link your Telegram / X / website</li>
+          <li>Receive donations from players (future feature)</li>
+          <li>Unlock rewards as your game hits play-count milestones</li>
+          <li>Build audience through shareable game URLs</li>
+        </ul>
+        <p>Creators do <strong>NOT</strong> need:</p>
+        <ul>
+          <li>To create tokens</li>
+          <li>To deploy smart contracts</li>
+          <li>To understand DeFi</li>
+          <li>To maintain liquidity</li>
+        </ul>
+        <p><strong>Zero risk. Maximum creativity.</strong></p>
       </section>
 
-      <!-- Create Your Game (AI-powered) -->
+      <!-- Create Your Game -->
       <section id="create-game">
-        <h2>🤖 Create Your Game with AI</h2>
-        <p>
-          No coding, no game dev experience needed. Our <strong>AI Game Builder</strong> generates playable games from text prompts in under 5 minutes!
-        </p>
-        
+        <h2>Create Your Game (No-Code Editor)</h2>
+        <p>MVP1 focuses on fast, template-based creation with optional AI assistance later.</p>
+
         <div class="step">
-          <h4>Step 1: Describe Your Game</h4>
-          <p>Type a simple description in plain English:</p>
-          <p><em>Example: "A zombie whack-a-mole game where zombies pop out of holes and you tap to hit them. Green background, scary music, 30-second timer."</em></p>
-        </div>
-        
-        <div class="step">
-          <h4>Step 2: AI Generates Game</h4>
-          <p>
-            Our AI engine (powered by advanced AI models) automatically creates:
-          </p>
+          <h4>Step 1 — Choose a Game Template</h4>
+          <p>Available templates (MVP1):</p>
           <ul style="margin-top:12px;margin-bottom:0;">
-            <li>✅ Game mechanics (tap, swipe, etc.)</li>
-            <li>✅ Sprite graphics & animations</li>
-            <li>✅ Sound effects & background music</li>
-            <li>✅ Scoring system & leaderboards</li>
-            <li>✅ Mobile-optimized HTML5 build</li>
+            <li>Flappy-style flying game</li>
+            <li>Pacman-style maze collector</li>
+            <li>Endless jumper</li>
+            <li>Tap-and-dodge arcade</li>
           </ul>
-          <p style="margin-top:12px;">
-            <strong>Preview instantly</strong> and test on your device before publishing!
-          </p>
-        </div>
-        
-        <div class="step">
-          <h4>Step 3: Fair Launch Token on 4meme</h4>
-          <p>Deploy a meme token with <strong>zero pre-allocation</strong>—truly fair for everyone!</p>
-          <ul style="margin-top:12px;margin-bottom:0;">
-            <li><strong>Name:</strong> "Pepe Flap Coin"</li>
-            <li><strong>Symbol:</strong> $PEPEFLAP</li>
-            <li><strong>Total Supply:</strong> 1,000,000,000 tokens (fixed, immutable)</li>
-          </ul>
-          <p style="margin-top:16px;"><strong>How It Works (Bonding Curve):</strong></p>
-          <ol style="margin-top:8px;">
-            <li><strong>Start:</strong> Token launches at $0.000001</li>
-            <li><strong>Buy:</strong> Users buy directly from bonding curve (price auto-increases)</li>
-            <li><strong>Sell:</strong> Users can sell back to curve anytime</li>
-            <li><strong>Graduation:</strong> When market cap hits <strong>$69,000</strong> → Auto-migrate to PancakeSwap DEX!</li>
-            <li><strong>Liquidity:</strong> All bonding curve funds become DEX liquidity (locked forever)</li>
-          </ol>
-          <p style="margin-top:16px;">
-            <em>✅ No presale, no team allocation, no rug risk. Everyone starts equal!</em>
-          </p>
-        </div>
-        
-        <div class="step">
-          <h4>Step 4: Publish & Go Live</h4>
-          <p>
-            Your game + token instantly appear on MemePlay. Start earning from:
-          </p>
-          <ul style="margin-top:12px;margin-bottom:0;">
-            <li>✅ Play count milestones</li>
-            <li>✅ User donations (receive 50%)</li>
-            <li>✅ Token appreciation (if you buy early)</li>
-          </ul>
+          <p style="margin-top:12px;">All templates are optimized for mobile portrait.</p>
         </div>
 
-        <div class="callout">
-          <strong>💡 Pro Tip:</strong> Games with strong meme appeal (trending topics, viral characters, funny names) 
-          perform 10x better. Think "Doge Jump", "Pepe Dash", "Wojak Survival" etc.
+        <div class="step">
+          <h4>Step 2 — Add Your Branding</h4>
+          <p>Customize:</p>
+          <ul style="margin-top:12px;margin-bottom:0;">
+            <li>Logo / token icon</li>
+            <li>Brand color palette</li>
+            <li>Background style</li>
+            <li>Character appearance</li>
+            <li>End-of-game story</li>
+            <li>Social links</li>
+          </ul>
+          <p style="margin-top:12px;">This transforms your game into a <strong>viral marketing asset</strong>.</p>
+        </div>
+
+        <div class="step">
+          <h4>Step 3 — Adjust Gameplay</h4>
+          <p>Tweak:</p>
+          <ul style="margin-top:12px;margin-bottom:0;">
+            <li>Speed</li>
+            <li>Difficulty</li>
+            <li>Map choice</li>
+            <li>Spawn frequency</li>
+            <li>Ghost/enemy behavior (for certain templates)</li>
+            <li>Sound on/off</li>
+          </ul>
+          <p style="margin-top:12px;">All changes are slider-based — no coding needed.</p>
+        </div>
+
+        <div class="step">
+          <h4>Step 4 — Publish & Share</h4>
+          <p>After preview:</p>
+          <ul style="margin-top:12px;margin-bottom:0;">
+            <li>Click <strong>Publish</strong></li>
+            <li>Receive unique URL (web + mobile-friendly)</li>
+            <li>Share on X / Telegram / Discord / websites</li>
+            <li>Players can start instantly</li>
+          </ul>
+          <p style="margin-top:12px;">MemePlay games are frictionless: no install, no wallet, no login.</p>
         </div>
       </section>
 
       <!-- Monetize Your Game -->
       <section id="monetize">
-        <h2>💎 Monetize Your Game</h2>
-        <p>
-          Creators earn through <strong>3 revenue streams</strong>—all automated, no manual payouts needed!
-        </p>
+        <h2>Monetize Your Game</h2>
+        <p>MemePlay supports creators through real community-driven value, not token speculation.</p>
 
-        <h3>1. Play Count Milestones (Platform Rewards)</h3>
-        <p>
-          Get rewarded as more users play your game. PLAY points are awarded automatically when you hit:
-        </p>
-        <table>
-          <thead>
-            <tr>
-              <th>Milestone</th>
-              <th>Total Plays Needed</th>
-              <th>PLAY Reward</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>🥉 Bronze Creator</td>
-              <td>1,000 plays</td>
-              <td>+500 PLAY</td>
-            </tr>
-            <tr>
-              <td>🥈 Silver Creator</td>
-              <td>5,000 plays</td>
-              <td>+3,000 PLAY</td>
-            </tr>
-            <tr>
-              <td>🥇 Gold Creator</td>
-              <td>10,000 plays</td>
-              <td>+10,000 PLAY</td>
-            </tr>
-            <tr>
-              <td>💎 Diamond Creator</td>
-              <td>50,000 plays</td>
-              <td>+50,000 PLAY</td>
-            </tr>
-            <tr>
-              <td>👑 Legend Creator</td>
-              <td>100,000 plays</td>
-              <td>+100,000 PLAY</td>
-            </tr>
-          </tbody>
-        </table>
-        <p>
-          <em>PLAY points are publicly displayed on the system and will be used for PLAY token conversion in the future.</em>
-        </p>
-
-        <h3>2. Donations (50/25/25 Revenue Share)</h3>
-        <p>
-          Players can donate BNB/USDT to support their favorite games. Split:
-        </p>
+        <h3>1. Play-Count Rewards (Future)</h3>
+        <p>Creators unlock milestones as players enjoy their game.</p>
+        <p>Example model:</p>
         <ul>
-          <li><strong>50% to Creator:</strong> Instant transfer to your wallet (no lock, withdraw anytime)</li>
-          <li><strong>25% to Token Burn:</strong> Platform uses it to buy & burn your game's token → Price support!</li>
-          <li><strong>25% to Research Pool:</strong> Funds MemePlay platform development & innovation</li>
+          <li>1,000 plays → Bronze reward + badge</li>
+          <li>5,000 plays → Silver + platform boost</li>
+          <li>10,000 plays → Gold + featured slot</li>
+          <li>50,000 plays → Diamond + high-level perks</li>
         </ul>
-        <p>
-          <strong>Trending Boost:</strong> Games with highest 24h donations appear at top of homepage → More visibility → More plays!
-        </p>
 
-        <h3>3. Token Appreciation (Biggest Upside)</h3>
-        <p>
-          This is where creators can make life-changing money. Since you know about your game/token before anyone else:
-        </p>
-        <ol>
-          <li><strong>Buy Early:</strong> Invest $500-$2,000 when market cap is low (e.g. $1,000 MC)</li>
-          <li><strong>Build Community:</strong> Promote your game on X, Telegram, TikTok → Players discover game</li>
-          <li><strong>Token Graduates:</strong> Market cap hits $69K → Token auto-migrates to PancakeSwap</li>
-          <li><strong>Viral Growth:</strong> If game goes viral, token can 10x-100x on DEX</li>
-        </ol>
-        <p>
-          <strong>Example ROI:</strong> Creator invests $1,000 at $5K MC (owns ~1% supply). Token graduates at $69K (13.8x). 
-          Then pumps to $500K MC on PancakeSwap (7.2x more). Final value: ~$100,000 from initial $1,000! 🚀
-        </p>
+        <h3>2. Donations (Future)</h3>
+        <p>Players can tip creators directly.</p>
+        <p>Suggested split:</p>
+        <ul>
+          <li>80% → Creator</li>
+          <li>20% → Platform development</li>
+        </ul>
+        <p>No token burning. No liquidity games.</p>
+
+        <h3>3. Brand Growth (Main Value)</h3>
+        <p>Every game is a small, interactive ad for your project.</p>
+        <p>Creators gain:</p>
+        <ul>
+          <li>More visibility</li>
+          <li>More followers</li>
+          <li>More social traffic</li>
+          <li>More community engagement</li>
+          <li>More viral reach</li>
+        </ul>
+        <p>This is the <strong>real upside</strong> — not price speculation.</p>
       </section>
 
-      <!-- Revenue Model -->
+      <!-- Platform Revenue Model -->
       <section id="revenue">
-        <h2>💎 Platform Revenue Model</h2>
-        
-        <h3>Platform Revenue Sources</h3>
-        <p>
-          The system's revenue comes from advertising, donations, and a small fee when releasing games (to avoid spam).
-        </p>
-
-        <h3>Ad Revenue Strategy:</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Ad Type</th>
-              <th>Placement</th>
-              <th>Revenue (per 1K impressions)</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              <td>Banner Ads</td>
-              <td>Top of game list</td>
-              <td>$2-5 CPM</td>
-            </tr>
-            <tr>
-              <td>In-Game Ads</td>
-              <td>During gameplay (non-intrusive)</td>
-              <td>$8-15 CPM</td>
-            </tr>
-            <tr>
-              <td>Post-Game Ads</td>
-              <td>After game over screen</td>
-              <td>$5-12 CPM</td>
-            </tr>
-            <tr>
-              <td>Sponsored Games</td>
-              <td>Featured slot on homepage</td>
-              <td>$500-2,000/day flat rate</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <h3>Token Economics (PLAY Token):</h3>
+        <h2>Platform Revenue Model</h2>
+        <p>MemePlay is designed as a sustainable consumer product.</p>
+        <p>Revenue sources (current + future):</p>
         <ul>
-          <li><strong>Total Supply:</strong> 100,000,000 PLAY (fixed, no inflation)</li>
-          <li><strong>Utility:</strong> Staking rewards, governance votes, airdrops</li>
+          <li>Featured slots for creators</li>
+          <li>Sponsored games from token communities</li>
+          <li>Optional donations (creator tips)</li>
+          <li>Anti-spam fees for mass publishing</li>
+          <li>Advertising (non-intrusive, optional)</li>
+          <li>PLAY token utility in later phases</li>
         </ul>
+        <p><strong>No per-game token.</strong></p>
+        <p><strong>No bonding curve revenue.</strong></p>
+        <p><strong>No artificial pump mechanics.</strong></p>
+      </section>
 
-        <div class="callout">
-          <strong>🎯 Goal:</strong> Build a real revenue-generating platform (not just token hype) so PLAY token has 
-          intrinsic value backed by actual business metrics (MAU, ad revenue, game count).
-        </div>
+      <!-- Token & On-Chain Features -->
+      <section id="token-launch">
+        <h2>Token & On-Chain Features (Later Phase)</h2>
+        <p>MVP1 is fully <strong>non-tokenized</strong> except for branding.</p>
+        <p>Creators DO NOT launch new tokens.</p>
+        <p>Future possibilities:</p>
+        <ul>
+          <li>PLAY token utility</li>
+          <li>Sponsored integrations</li>
+          <li>On-chain analytics for games</li>
+          <li>Creator staking for visibility</li>
+          <li>API for meme tokens to embed branded games</li>
+        </ul>
+        <p>Core promise remains:</p>
+        <p><strong>Fun, simple, viral UGC games.</strong></p>
       </section>
 
       <!-- Donation System -->
       <section id="donations">
-        <h2>❤️ How Donations Work</h2>
-        <p>
-          The <strong>donation system</strong> creates a win-win for creators, players, and token holders:
-        </p>
-
-        <h3>📊 Donation Flow:</h3>
+        <h2>❤️ How Donations Work (Future)</h2>
         <ol>
-          <li><strong>User Donates:</strong> Player clicks "Donate" button, sends $10 in BNB to game</li>
-          <li><strong>50/25/25 Split Happens Instantly:</strong>
+          <li>Player taps <strong>Donate</strong></li>
+          <li>Sends BNB/USDT</li>
+          <li>Split:
             <ul style="margin-top:12px;">
-              <li>$5 → Creator's wallet (withdraw anytime, no fees)</li>
-              <li>$2.5 → Smart contract → Buys game token on DEX → Burns it</li>
-              <li>$2.5 → MemePlay Research Pool (platform development)</li>
+              <li>80% → Creator</li>
+              <li>20% → Platform Development</li>
             </ul>
           </li>
-          <li><strong>Trending Boost:</strong> Game moves up homepage (sorted by 24h donation volume)</li>
-          <li><strong>Token Price Support:</strong> Every donation = buy pressure on token → Price rises!</li>
         </ol>
-
-        <h3>💡 Why This Model Works:</h3>
+        <p>Donors receive:</p>
         <ul>
-          <li><strong>Creator:</strong> Gets instant cash + indirect token price boost</li>
-          <li><strong>Token Holders:</strong> Every donation burns supply → Scarcity increases</li>
-          <li><strong>Platform:</strong> Donations drive engagement → More plays → More ad revenue</li>
-          <li><strong>Community:</strong> Top donors get badges/leaderboard spots → Social status!</li>
+          <li>Supporter badges</li>
+          <li>Leaderboard placement</li>
+          <li>Optional shout-outs</li>
         </ul>
-
-        <div class="highlight-box">
-          <strong>🔥 Example:</strong> "Pepe Dash" game gets $1,000 in donations in 24h.<br>
-          → Creator receives $500 cash<br>
-          → Platform buys $250 of $PEPEDASH token & burns it<br>
-          → $250 goes to MemePlay Research Pool<br>
-          → Game appears #1 on trending → +10,000 new players<br>
-          → $PEPEDASH price pumps 25% from burn + visibility<br>
-          → Creator's early token holdings 8x in value! 🚀
-        </div>
-      </section>
-
-      <!-- Token Launch (Bonding Curve) -->
-      <section id="token-launch">
-        <h2>🪙 Fair Launch Token (Bonding Curve Model)</h2>
-        
-        <p>
-          MemePlay uses the bonding curve of 4meme and lists tokens on the 4meme platform directly. 
-          <strong>No presale, no team allocation, no rug pulls!</strong>
-        </p>
-        
-        <h3>🎯 What is a Bonding Curve?</h3>
-        <p>
-          A <strong>bonding curve</strong> is a mathematical smart contract that automatically prices tokens based on supply bought. 
-          The more people buy, the higher the price—no manual market makers needed!
-        </p>
-
-        <h3>🚀 3-Phase Token Lifecycle:</h3>
-        
-        <div class="step">
-          <h4>Phase 1: Token Creation (1 Minute)</h4>
-          <p>When creating a game, you fill 3 simple fields:</p>
-          <ul>
-            <li><strong>Token Name:</strong> "Cat Jump Coin"</li>
-            <li><strong>Symbol:</strong> $CATJUMP (3-10 characters)</li>
-            <li><strong>Supply:</strong> 1,000,000,000 (recommended) or custom</li>
-          </ul>
-          <p><em>That's it! No allocation, no vesting, no complexity. Token deploys in 1 click.</em></p>
-        </div>
-        
-        <div class="step">
-          <h4>Phase 2: Bonding Curve Trading ($0 → $69K)</h4>
-          <p><strong>How it works:</strong></p>
-          <ul style="margin-top:12px;">
-            <li><strong>Starting Price:</strong> $0.000001 (Market Cap = $0)</li>
-            <li><strong>Anyone Buys:</strong> Price increases along mathematical curve</li>
-            <li><strong>Anyone Sells:</strong> Price decreases, funds returned from curve</li>
-            <li><strong>Creator Gets:</strong> Nothing upfront (fair launch!)</li>
-          </ul>
-          
-          <p style="margin-top:20px;"><strong>Price Evolution Example:</strong></p>
-          <table>
-            <thead>
-              <tr>
-                <th>Market Cap</th>
-                <th>Price/Token</th>
-                <th>Phase</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr>
-                <td>$100</td>
-                <td>$0.0000001</td>
-                <td>Early (highest risk, highest reward)</td>
-              </tr>
-              <tr>
-                <td>$1,000</td>
-                <td>$0.000001</td>
-                <td>Community forming</td>
-              </tr>
-              <tr>
-                <td>$10,000</td>
-                <td>$0.00001</td>
-                <td>Game gaining traction</td>
-              </tr>
-              <tr>
-                <td>$50,000</td>
-                <td>$0.00005</td>
-                <td>Near graduation 🔥</td>
-              </tr>
-              <tr>
-                <td><strong>$69,000</strong></td>
-                <td><strong>$0.000069</strong></td>
-                <td><strong>🎓 GRADUATES TO DEX!</strong></td>
-              </tr>
-            </tbody>
-          </table>
-
-          <p style="margin-top:16px;">
-            <strong>Key Benefit:</strong> Price transparency—everyone can see exact buy/sell price at any time. No front-running, no insider deals.
-          </p>
-        </div>
-        
-        <div class="step">
-          <h4>Phase 3: Auto-Graduation to PancakeSwap</h4>
-          <p>When market cap hits <strong>$69,000</strong>, the following happens AUTOMATICALLY:</p>
-          <ol style="margin-top:12px;">
-            <li>✅ Bonding curve smart contract closes (no more curve trading)</li>
-            <li>✅ ALL $69K liquidity migrates to PancakeSwap V2</li>
-            <li>✅ Token pair $CATJUMP/BNB is created on DEX</li>
-            <li>✅ Liquidity tokens (LP) are SENT TO BURN ADDRESS (locked forever, cannot rug)</li>
-            <li>✅ Free market trading begins—price now determined by supply/demand</li>
-          </ol>
-          
-          <p style="margin-top:16px;">
-            <strong>🎉 Graduation = Major Milestone!</strong> Your token is now a "real" meme coin, tradeable 24/7 on 
-            PancakeSwap alongside DOGE, SHIB, PEPE. No more bonding curve restrictions!
-          </p>
-        </div>
-
-        <h3>💰 How Creators Profit Without Pre-Allocation:</h3>
-        <p>
-          Even without receiving tokens upfront, creators have massive advantages:
-        </p>
-        <ul>
-          <li><strong>First Mover Advantage:</strong> You know about the token before ANYONE else. Buy $500-$2K when MC is $1K-$5K (cheapest price ever!)</li>
-          <li><strong>Game-Driven Demand:</strong> Your game funnels players to buy token → Organic demand → Price rises</li>
-          <li><strong>Marketing Control:</strong> Promote game on social media → More players → Token graduates faster</li>
-          <li><strong>Long-Term Upside:</strong> If game goes viral post-graduation, token can 100x-1000x on DEX</li>
-        </ul>
-
-        <div class="highlight-box">
-          <strong>💎 Real ROI Example:</strong><br><br>
-          
-          1. <strong>Creator buys early:</strong> Invests $1,000 when MC = $5,000 (owns ~1% of supply = 10M tokens @ $0.0001/token)<br>
-          2. <strong>Game spreads:</strong> X posts, Telegram, TikToks → 5,000 players discover game<br>
-          3. <strong>Token graduates:</strong> MC hits $69K → Creator's 10M tokens now worth $13,800 (13.8x!)<br>
-          4. <strong>Viral growth:</strong> Game gets featured on news sites → 100K players → MC pumps to $500K on DEX<br>
-          5. <strong>Final value:</strong> Creator's 10M tokens = $100,000 (100x from initial $1,000!) 🚀<br><br>
-          
-          <strong>PLUS:</strong> $5,000 from donations + 10,000 PLAY from milestones = <strong>Triple income stream!</strong>
-        </div>
-
-        <h3>🔒 Why Bonding Curve = 100% Rug-Proof:</h3>
-        <ul>
-          <li>✅ <strong>No team allocation</strong> → Creator can't dump pre-minted tokens</li>
-          <li>✅ <strong>Auto-locked liquidity</strong> → LP tokens burned on graduation, can't remove</li>
-          <li>✅ <strong>Transparent pricing</strong> → Mathematical curve, not manipulated by whales</li>
-          <li>✅ <strong>Instant liquidity</strong> → Always tradeable (on curve or DEX), no illiquid periods</li>
-          <li>✅ <strong>Fair for everyone</strong> → Creator and community buy at same curve prices</li>
-        </ul>
-
-        <div class="callout">
-          <strong>📊 Token Stats (Displayed on Each Game Card):</strong>
-          <ul style="margin-top:12px;margin-bottom:0;">
-            <li>Phase: "Bonding Curve (65% to DEX)" or "✅ Graduated"</li>
-            <li>Market Cap: $45,000 / $69,000</li>
-            <li>Price: $0.000045 (+234% 24h)</li>
-            <li>Holders: 312 wallets</li>
-            <li>Total Burned: 15M tokens ($675 worth)</li>
-            <li>Volume 24h: $12,500</li>
-          </ul>
-        </div>
+        <p><strong>No token price manipulation.</strong></p>
+        <p><strong>No auto buy/burn mechanics.</strong></p>
       </section>
 
       <!-- Roadmap -->
       <section id="roadmap">
-        <h2>🗺️ Roadmap</h2>
-        
-        <h3>Q4 2025 (Current - Launch Phase)</h3>
+        <h2>Roadmap (2025 → 2026)</h2>
+
+        <h3>Q4 2025 — MVP Launch</h3>
         <ul>
-          <li>✅ MVP Launch (AI game builder, 3 demo games)</li>
-          <li>✅ Bonding curve token system</li>
-          <li>✅ Basic leaderboards & achievements</li>
-          <li>🔄 Public Beta (1,000 users, 50 games)</li>
-          <li>🔄 Marketing push (X, Telegram, GameFi influencers)</li>
+          <li>Template Editor (Flappy + Pacman + 1 more)</li>
+          <li>Add-your-logo token branding</li>
+          <li>Game publishing + share links</li>
+          <li>Basic analytics dashboard</li>
         </ul>
 
-        <h3>Q1 2026 (Growth Phase)</h3>
+        <h3>Q1 2026 — Growth Phase</h3>
         <ul>
-          <li>🎯 10,000 users, 200 games</li>
-          <li>🎯 Mobile app (iOS/Android) with push notifications</li>
-          <li>🎯 Advanced AI builder (custom sprites, sound, difficulty curves)</li>
-          <li>🎯 Creator dashboard (analytics, earnings tracking)</li>
-          <li>🎯 Social features (friends, challenges, guilds)</li>
+          <li>Add 10 new templates</li>
+          <li>Mobile optimization</li>
+          <li>Play-count badges</li>
+          <li>Better creator dashboard</li>
         </ul>
 
-        <h3>Q2 2026 (Scale Phase)</h3>
+        <h3>Q2 2026 — Creator Economy</h3>
         <ul>
-          <li>🎯 50,000 users, 1,000 games</li>
-          <li>🎯 Multiplayer games (real-time, turn-based)</li>
-          <li>🎯 NFT integration (skins, power-ups, collectibles)</li>
-          <li>🎯 Governance DAO (PLAY token holders vote on features)</li>
-          <li>🎯 Cross-chain expansion (Polygon, Solana, TON)</li>
+          <li>Donation system launch</li>
+          <li>Featured slots</li>
+          <li>PLAY points utility</li>
+          <li>Template marketplace</li>
         </ul>
 
-        <h3>Q3-Q4 2026 (Ecosystem Phase)</h3>
+        <h3>Q3–Q4 2026 — Ecosystem Phase</h3>
         <ul>
-          <li>🎯 100,000+ users, 5,000+ games</li>
-          <li>🎯 MemePlay SDK (developers build advanced games)</li>
-          <li>🎯 Esports tournaments (cash prizes in PLAY/BNB)</li>
-          <li>🎯 Game Templates Marketplace (buy/sell game assets)</li>
-          <li>🎯 Partnerships with major GameFi projects (Gala, Immutable X)</li>
+          <li>API/SDK for meme communities</li>
+          <li>Partnerships with BNB Chain ecosystems</li>
+          <li>Optional token sponsorship programs</li>
+          <li>Multiplayer meme templates</li>
+          <li>Major creator events & competitions</li>
         </ul>
-
-        <div class="callout">
-          <strong>💡 Vision:</strong> By 2027, MemePlay becomes the <strong>#1 destination for casual GameFi</strong>, 
-          with millions of users playing hundreds of thousands of community-created games—all powered by blockchain rewards!
-        </div>
       </section>
 
       <!-- FAQ -->
       <section id="faq">
-        <h2>❓ Frequently Asked Questions</h2>
-        
-        <h3>Do I need crypto knowledge to play?</h3>
-        <p>
-          <strong>No!</strong> You can play all games without a wallet. Just visit memeplay.dev and start playing. 
-          To earn PLAY rewards or donate, you'll need to connect a wallet (MetaMask, Trust Wallet, etc.), but it's optional.
-        </p>
+        <h2>❓ FAQ</h2>
+
+        <h3>Do I need a wallet?</h3>
+        <p>No. Playing and creating games requires <strong>no wallet</strong>.</p>
+        <p>Wallet is only needed for donations (future).</p>
+
+        <h3>Do I need to create a token for my game?</h3>
+        <p><strong>No.</strong></p>
+        <p>MVP1 does not create new tokens.</p>
+        <p>Creators only <strong>attach their existing token/logo</strong>.</p>
+
+        <h3>Can I use MemePlay even if I don't have a token?</h3>
+        <p>Yes. You can use a brand, mascot, meme image, or any identity.</p>
 
         <h3>Can I edit my game after publishing?</h3>
-        <p>
-          <strong>Yes!</strong> Use the "Edit Game" button on your creator dashboard. Changes are live instantly. However, 
-          you cannot change the token (symbol, supply) after launch—only game code/graphics.
-        </p>
+        <p>Yes. You can update branding, gameplay, and story anytime.</p>
 
-        <h3>What happens if my game gets no plays?</h3>
-        <p>
-          <strong>No penalties!</strong> Games with 0 plays simply don't appear on homepage. You can delete and republish 
-          with a better concept. No financial loss (except small gas fees).
-        </p>
+        <h3>How do I earn from games?</h3>
+        <ul>
+          <li>Donations (future)</li>
+          <li>Play-count rewards</li>
+          <li>Community growth</li>
+          <li>Featured slots</li>
+        </ul>
 
-        <h3>Is the bonding curve safe? Can I lose money?</h3>
-        <p>
-          <strong>Yes, it's safe from rugs, but crypto is risky!</strong> Bonding curves eliminate rug pulls (no team tokens, 
-          auto-locked liquidity), but token price can still go down if people sell. Only invest what you can afford to lose!
-        </p>
+        <h3>Is MemePlay a gambling or GameFi platform?</h3>
+        <p>No.</p>
+        <p>No token speculation.</p>
+        <p>No bonding curve.</p>
+        <p>No trading.</p>
+        <p>No zero-sum mechanics.</p>
 
-        <h3>How do I cash out my earnings?</h3>
-        <p>
-          <strong>Three ways:</strong><br>
-          1. <strong>Donation earnings (BNB/USDT):</strong> Withdraw instantly to your wallet via dashboard<br>
-          2. <strong>PLAY rewards:</strong> Swap on PancakeSwap for BNB/USDT (coming soon)<br>
-          3. <strong>Game token:</strong> Sell on bonding curve (pre-graduation) or PancakeSwap (post-graduation)
-        </p>
-
-        <h3>Can I delete my game and token?</h3>
-        <p>
-          <strong>Game: Yes.</strong> You can hide/delete from MemePlay anytime.<br>
-          <strong>Token: No.</strong> Once deployed on blockchain, tokens are permanent (decentralized!). However, if it never 
-          graduates ($69K MC), it stays on bonding curve and fades into obscurity.
-        </p>
-
-        <h3>How does MemePlay compare to Telegram mini-apps?</h3>
-        <p>
-          <strong>Similar vibe, different focus:</strong><br>
-          • Telegram mini-apps = centralized, TON blockchain<br>
-          • MemePlay = decentralized, BSC blockchain, focuses on creator monetization + token fair launches<br>
-          Both are fun! We may integrate Telegram bots later for cross-platform play.
-        </p>
+        <h3>What makes MemePlay unique?</h3>
+        <ul>
+          <li>Fastest no-code meme game creator</li>
+          <li>Games as free marketing tools</li>
+          <li>Wallet-free onboarding</li>
+          <li>High virality</li>
+          <li>Safe, sustainable, non-speculative UX</li>
+        </ul>
       </section>
 
-      <div style="margin-top:80px; padding: 32px; background: rgba(255,182,66,0.05); border-radius: 16px; text-align: center;">
-        <h2 style="margin:0 0 16px 0; color:#ffb642;">Ready to Build Your Game?</h2>
-        <p style="font-size:18px; color:#d4d4d8; margin-bottom:24px;">
-          Join thousands of creators earning from their passion. No coding required!
-        </p>
-        <a href="../index.html" style="display:inline-block; background:linear-gradient(135deg, #ffb642, #ff8c42); color:#0f0f23; padding:16px 48px; border-radius:12px; text-decoration:none; font-weight:700; font-size:18px; box-shadow: 0 4px 16px rgba(255,182,66,0.4); opacity:0.6; pointer-events:none;">
-          🎮 Launch MemePlay (coming soon)
-        </a>
+      <hr>
+
+      <div class="callout" style="text-align: center; margin-top: 64px;">
+        <h2 style="margin:0 0 16px 0; color:#ffb642; border:none; padding:0;">MemePlay —</h2>
+        <p style="font-size:20px; color:#ffce7a; margin-bottom:8px;"><strong>The easiest place to create meme games.</strong></p>
+        <p style="font-size:20px; color:#ffce7a;"><strong>The smartest way to grow a community.</strong></p>
       </div>
     </main>
   </div>
@@ -858,4 +646,3 @@
   </script>
 </body>
 </html>
-
