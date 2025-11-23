@@ -77,11 +77,7 @@ let BRAND_CONFIG = {
   smartContract: '', // Smart contract address
   mapColor: '#1a1a2e', // Map wall color (default: dark blue)
   mapIndex: 0, // Selected map index (0 = Map 1, 1 = Map 2, etc.)
-  stories: [
-    'Congratulations! You collected all fragments!',
-    'Amazing! You completed the level!',
-    'Well done! Ready for the next challenge?'
-  ]
+  stories: [] // ✅ FIX: Empty array by default - only add stories when user enters them
 };
 
 // Get game ID from URL query param ONLY
@@ -117,18 +113,13 @@ function loadBrandConfig(gameIdOverride = null) {
       const parsed = JSON.parse(saved);
       BRAND_CONFIG = { ...BRAND_CONFIG, ...parsed };
       
-      // ✅ FIX: Ensure stories is always an array with at least default values
+      // ✅ FIX: Only keep stories that are actually set by user
+      // Don't fill with defaults - if user only set story 1, only use story 1
       if (!Array.isArray(BRAND_CONFIG.stories)) {
-        BRAND_CONFIG.stories = [
-          'Congratulations! You collected all fragments!',
-          'Amazing! You completed the level!',
-          'Well done! Ready for the next challenge?'
-        ];
+        BRAND_CONFIG.stories = [];
       }
-      // Ensure stories array has at least 3 items (fill with defaults if needed)
-      while (BRAND_CONFIG.stories.length < 3) {
-        BRAND_CONFIG.stories.push('Congratulations! You collected all fragments!');
-      }
+      // Remove empty stories (keep only stories with content)
+      BRAND_CONFIG.stories = BRAND_CONFIG.stories.filter(story => story && story.trim() !== '');
       
       console.log('[loadBrandConfig] Loaded config:', { 
         mapIndex: BRAND_CONFIG.mapIndex, 

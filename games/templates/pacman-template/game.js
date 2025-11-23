@@ -1856,22 +1856,27 @@ function gameOver() {
   isGameOver = true;
   gameState = 'gameOver';
   
-  // Show random story - FIX: Only random from stories that have content
+  // Show story - If only 1 story, show it directly. If 2+ stories, random from them
+  // ✅ FIX: Only use stories that are actually set (not defaults)
   const stories = Array.isArray(BRAND_CONFIG.stories) ? BRAND_CONFIG.stories : [];
+  
   // Filter out empty stories
   const validStories = stories.filter(story => story && story.trim() !== '');
   
   let randomStory = '';
-  if (validStories.length > 0) {
-    // Random from valid stories (1/3 if 3 stories, or 1/2 if 2 stories, or use the only one)
+  if (validStories.length === 1) {
+    // Only 1 story → show it directly (no random needed)
+    randomStory = validStories[0];
+    console.log('[GameOver] Only 1 story found, showing it directly:', randomStory);
+  } else if (validStories.length > 1) {
+    // 2+ stories → random from them (1/2 if 2 stories, 1/3 if 3 stories)
     const randomIndex = Math.floor(Math.random() * validStories.length);
     randomStory = validStories[randomIndex];
-  } else if (stories.length > 0 && stories[0]) {
-    // Fallback: Use first story if it exists (even if empty, better than nothing)
-    randomStory = stories[0];
+    console.log(`[GameOver] Random story selected: ${randomIndex + 1}/${validStories.length}`, randomStory);
   } else {
-    // Default fallback
+    // No valid stories → use default
     randomStory = 'Congratulations! You collected all fragments!';
+    console.log('[GameOver] No stories found, using default');
   }
   
   const gameOverScreen = document.querySelector('.game-over-screen');
@@ -2539,7 +2544,9 @@ function setupEditor() {
     story1Input.addEventListener('input', (e) => {
       const value = e.target.value.substring(0, MAX_STORY_LENGTH);
       e.target.value = value;
-      BRAND_CONFIG.stories[0] = value;
+      // ✅ FIX: Only keep story[0], remove story[1] and story[2] if they exist
+      // This ensures only 1 story is saved if user only enters story 1
+      BRAND_CONFIG.stories = value.trim() !== '' ? [value] : [];
       saveBrandConfig();
       updateCharCount(story1Input, story1Count, MAX_STORY_LENGTH);
     });

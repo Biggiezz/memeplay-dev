@@ -3045,31 +3045,155 @@
     const baseUrl = window.location.origin.replace(/\/$/, '')
     container.querySelectorAll('.game-card[data-user-created="true"]').forEach(card => card.remove())
 
-    const supabaseGames = await fetchSupabaseUserGames(baseUrl)
-    const games = supabaseGames.length > 0 ? supabaseGames : loadLocalUserGames(baseUrl)
+    // ✅ OPTIMIZATION 2: Priority loading - Check ?game= parameter first
+    const urlParams = new URLSearchParams(window.location.search)
+    const gameIdFromQuery = urlParams.get('game')
+    let priorityGame = null
+    let priorityGameActivated = false
 
-    console.log(`📊 [loadUserGames] Found ${games.length} total games (${supabaseGames.length} from Supabase, ${games.length - supabaseGames.length} from local)`)
+    if (gameIdFromQuery) {
+      console.log(`⚡ [PRIORITY] Loading game from ?game= parameter: ${gameIdFromQuery}`)
+      priorityGame = loadGameFromLocalStorage(gameIdFromQuery, baseUrl)
+      if (priorityGame) {
+        // Filter out old format
+        if (!priorityGame.gameId.startsWith('pacman-game-')) {
+          console.log(`⚡ [PRIORITY] Rendering priority game immediately: ${priorityGame.gameId}`)
+          renderUserGameCard(priorityGame, container)
+          priorityGameActivated = true
+          // Activate game immediately (<200ms)
+          setTimeout(() => {
+            if (typeof activateGame === 'function') {
+              console.log(`⚡ [PRIORITY] Activating priority game: ${priorityGame.gameId}`)
+              activateGame(priorityGame.gameId)
+            }
+          }, 50)
+        } else {
+          console.log(`⚠️ [PRIORITY] Priority game is old format, skipping: ${gameIdFromQuery}`)
+          priorityGame = null
+        }
+      } else {
+        console.log(`⚠️ [PRIORITY] Priority game not found in localStorage: ${gameIdFromQuery}`)
+      }
+    }
 
-    // ✅ FIX: Filter out old format Pacman games (pacman-game-*)
-    // NOTE: Only filter pacman-game-*, NOT pacman-* (new format is pacman-{number})
-    const filteredGames = games.filter(game => {
-      if (!game || !game.gameId) {
-        console.warn(`⚠️ [loadUserGames] Game missing gameId:`, game)
-        return false
-      }
-      // Only filter old format (pacman-game-*), keep new format (pacman-{number})
-      if (game.gameId.startsWith('pacman-game-')) {
-        console.log(`🗑️ [loadUserGames] Filtering out old format Pacman game: ${game.gameId}`)
-        return false
-      }
+    // ✅ OPTIMIZATION 1: Optimistic rendering - Load all games from localStorage first (<100ms)
+    const startTime = performance.now()
+    const localGames = loadLocalUserGames(baseUrl)
+    const localLoadTime = performance.now() - startTime
+    console.log(`⚡ [OPTIMISTIC] Loaded ${localGames.length} games from localStorage in ${localLoadTime.toFixed(2)}ms`)
+
+    // Filter out old format and priority game (already rendered)
+    const filteredLocalGames = localGames.filter(game => {
+      if (!game || !game.gameId) return false
+      if (game.gameId.startsWith('pacman-game-')) return false
+      if (priorityGameActivated && game.gameId === priorityGame?.gameId) return false // Skip if already rendered
       return true
     })
 
-    console.log(`✅ [loadUserGames] After filtering: ${filteredGames.length} games to render`)
+    // Render all local games immediately (optimistic)
+    if (filteredLocalGames.length > 0) {
+      console.log(`⚡ [OPTIMISTIC] Rendering ${filteredLocalGames.length} games from localStorage immediately`)
+      filteredLocalGames.forEach(game => {
+        // Skip if already rendered (priority game)
+        if (document.getElementById(game.gameId)) {
+          return
+        }
+        renderUserGameCard(game, container)
+      })
 
-    filteredGames.forEach(game => {
-      console.log(`🎮 [loadUserGames] Rendering game: ${game.gameId} (${game.title})`)
-      renderUserGameCard(game, container)
+      // ✅ OPTIMIZATION 1: Activate first game if no priority game (<1s)
+      if (!priorityGameActivated && filteredLocalGames.length > 0) {
+        const firstGame = filteredLocalGames[0]
+        setTimeout(() => {
+          if (typeof activateGame === 'function') {
+            console.log(`⚡ [OPTIMISTIC] Activating first game: ${firstGame.gameId}`)
+            activateGame(firstGame.gameId)
+          }
+        }, 100)
+      }
+    }
+
+    // ✅ Load Supabase games in background (non-blocking)
+    console.log(`🔄 [BACKGROUND] Loading games from Supabase in background...`)
+    const supabasePromise = fetchSupabaseUserGames(baseUrl).then(supabaseGames => {
+      console.log(`✅ [BACKGROUND] Supabase loaded ${supabaseGames.length} games`)
+      // ✅ DEBUG: Log game IDs to see what was loaded
+      if (supabaseGames.length > 0) {
+        const gameIds = supabaseGames.map(g => g.gameId).filter(Boolean)
+        console.log(`📋 [BACKGROUND] Supabase game IDs:`, gameIds)
+        const pacmanGames = gameIds.filter(id => id.startsWith('pacman-') && !id.startsWith('pacman-game-'))
+        if (pacmanGames.length > 0) {
+          console.log(`🎮 [BACKGROUND] Found ${pacmanGames.length} Pacman games:`, pacmanGames)
+        }
+      }
+      return supabaseGames
+    }).catch(error => {
+      console.error('❌ [BACKGROUND] Supabase load failed:', error)
+      console.error('❌ [BACKGROUND] Error details:', error.message, error.stack)
+      return []
+    })
+
+    // Wait for Supabase and merge with local games
+    const supabaseGames = await supabasePromise
+    const allGames = supabaseGames.length > 0 ? supabaseGames : localGames
+
+    // ✅ DEBUG: Log before merge
+    console.log(`📊 [MERGE] Before merge - Supabase: ${supabaseGames.length}, Local: ${localGames.length}`)
+
+    // Merge: Supabase games override local games (have more accurate data like likes, comments)
+    const gameMap = new Map()
+    // Add local games first
+    localGames.forEach(game => {
+      if (game.gameId && !game.gameId.startsWith('pacman-game-')) {
+        gameMap.set(game.gameId, game)
+        console.log(`📦 [MERGE] Added local game: ${game.gameId}`)
+      } else if (game.gameId && game.gameId.startsWith('pacman-game-')) {
+        console.log(`🗑️ [MERGE] Filtered out old format local game: ${game.gameId}`)
+      }
+    })
+    // Override with Supabase games (more accurate)
+    supabaseGames.forEach(game => {
+      if (game.gameId && !game.gameId.startsWith('pacman-game-')) {
+        gameMap.set(game.gameId, game)
+        console.log(`📦 [MERGE] Added/Updated Supabase game: ${game.gameId}`)
+      } else if (game.gameId && game.gameId.startsWith('pacman-game-')) {
+        console.log(`🗑️ [MERGE] Filtered out old format Supabase game: ${game.gameId}`)
+      }
+    })
+    const mergedGames = Array.from(gameMap.values())
+
+    console.log(`📊 [MERGE] Merged games: ${mergedGames.length} total (${supabaseGames.length} from Supabase, ${localGames.length} from local)`)
+    const pacmanMerged = mergedGames.filter(g => g.gameId && g.gameId.startsWith('pacman-') && !g.gameId.startsWith('pacman-game-'))
+    if (pacmanMerged.length > 0) {
+      console.log(`🎮 [MERGE] Pacman games after merge: ${pacmanMerged.length}`, pacmanMerged.map(g => g.gameId))
+    } else {
+      console.warn(`⚠️ [MERGE] No Pacman games found after merge! Check Supabase and localStorage.`)
+    }
+
+    // Update games that were already rendered (update likes, comments, etc.)
+    mergedGames.forEach(game => {
+      const existingCard = document.getElementById(game.gameId)
+      if (existingCard) {
+        // Update social counts if different
+        const likeCount = existingCard.querySelector('[data-label="likes"]')
+        const commentCount = existingCard.querySelector('[data-label="comments"]')
+        if (likeCount && game.likes > 0) {
+          likeCount.textContent = game.likes
+        }
+        if (commentCount && game.comments > 0) {
+          commentCount.textContent = game.comments
+        }
+        // Update plays count
+        if (typeof setPlaysLabelForCard === 'function' && Number.isFinite(game.plays)) {
+          setPlaysLabelForCard(game.gameId, game.plays)
+        }
+      } else {
+        // Render new games from Supabase that weren't in localStorage
+        if (!game.gameId.startsWith('pacman-game-')) {
+          console.log(`🆕 [MERGE] Rendering new game from Supabase: ${game.gameId}`)
+          renderUserGameCard(game, container)
+        }
+      }
     })
     
     // ✅ FIX: Remove any existing old format Pacman games from DOM
@@ -3080,12 +3204,43 @@
       card.remove()
     })
 
-    if (games.length > 0) {
-      console.log(`✅ Loaded ${games.length} user-created game(s) from ${games[0]?.source || 'local'}`)
+    const totalTime = performance.now() - startTime
+    if (mergedGames.length > 0) {
+      console.log(`✅ [COMPLETE] Loaded ${mergedGames.length} user-created game(s) in ${totalTime.toFixed(2)}ms (local: ${localLoadTime.toFixed(2)}ms, supabase: ${(totalTime - localLoadTime).toFixed(2)}ms)`)
     } else {
       console.log('ℹ️ No user-created games found')
     }
-    return games
+    return mergedGames
+  }
+
+  // ✅ OPTIMIZATION: Load single game from localStorage (for priority loading)
+  function loadGameFromLocalStorage(gameId, baseUrl) {
+    if (!gameId) return null
+    try {
+      const storageKey = `pacman_brand_config_${gameId}`
+      const saved = localStorage.getItem(storageKey)
+      if (!saved) return null
+      const config = JSON.parse(saved)
+      if (!config || !config.title) return null
+      
+      return {
+        source: 'localStorage',
+        gameId,
+        title: config.title || 'Pacman Game',
+        creator: config.title || 'Creator',
+        mapColor: config.mapColor || '#1a1a2e',
+        fragmentLogoUrl: config.fragmentLogoUrl || '',
+        stories: Array.isArray(config.stories) ? config.stories : [],
+        likes: 0,
+        comments: 0,
+        plays: 0,
+        templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+        publicUrl: `${baseUrl}/?game=${gameId}`
+      }
+    } catch (error) {
+      console.warn(`[loadGameFromLocalStorage] Failed to load game ${gameId}:`, error)
+      return null
+    }
   }
 
   function loadLocalUserGames(baseUrl) {
@@ -3098,6 +3253,7 @@
         const gameId = key.replace('pacman_brand_config_', '')
         const config = JSON.parse(localStorage.getItem(key) || '{}')
         if (!config || !config.title) continue
+        
         results.push({
           source: 'localStorage',
           gameId,
@@ -3105,12 +3261,12 @@
           creator: config.title || 'Creator',
           mapColor: config.mapColor || '#1a1a2e',
           fragmentLogoUrl: config.fragmentLogoUrl || '',
-          stories: config.stories || [],
+          stories: Array.isArray(config.stories) ? config.stories : [],
           likes: 0,
           comments: 0,
           plays: 0,
           templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
-          publicUrl: `${baseUrl}/#${gameId}`
+          publicUrl: `${baseUrl}/?game=${gameId}`
         })
       } catch (error) {
         console.warn('Failed to parse local game config:', key, error)
@@ -3162,6 +3318,7 @@
           if (!Array.isArray(stories)) {
             stories = []
           }
+          // Keep stories as-is (no normalization needed - game.js handles 1 story vs multiple stories)
           return {
             source: 'supabase',
             gameId,
@@ -3382,6 +3539,10 @@
       const hash = gameIdFromQuery || window.location.hash.slice(1)
       const isRecommended = currentFilter === 'Recommended'
       
+      // ✅ OPTIMIZATION: If game was already activated by priority loading, skip this
+      // Priority loading already activated the game, just need to scroll into view
+      const wasPriorityLoaded = gameIdFromQuery && document.getElementById(gameIdFromQuery)?.dataset?.gameState === 'active'
+      
       // Check if target game exists in all cards (including user-created games)
       const targetGameExists = hash && allCardsWithUserCreated.some(c => {
         const cardId = c.id || c.getAttribute('data-game-id')
@@ -3390,21 +3551,37 @@
       
       if (targetGameExists && !isRecommended) {
         // Only handle hash navigation if NOT in Recommended category
-        console.log('🔗 Hash/Query detected (not Recommended):', hash)
-        setTimeout(() => {
-          const targetCard = document.getElementById(hash) || allCardsWithUserCreated.find(c => {
-            const cardId = c.id || c.getAttribute('data-game-id')
-            return cardId === hash
-          })
-          if (targetCard) {
-            gameContainer.style.scrollSnapType = 'none'
-            targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
-            activateGame(hash)
-            setTimeout(() => {
-              gameContainer.style.scrollSnapType = 'y mandatory'
-            }, 1000)
-          }
-        }, 1000)
+        if (wasPriorityLoaded) {
+          // Game already activated by priority loading, just scroll into view
+          console.log('🔗 [PRIORITY] Game already activated, scrolling into view:', hash)
+          setTimeout(() => {
+            const targetCard = document.getElementById(hash)
+            if (targetCard && gameContainer) {
+              gameContainer.style.scrollSnapType = 'none'
+              targetCard.scrollIntoView({ behavior: 'smooth', block: 'center' })
+              setTimeout(() => {
+                gameContainer.style.scrollSnapType = 'y mandatory'
+              }, 1000)
+            }
+          }, 200)
+        } else {
+          // Normal hash navigation (not priority loaded)
+          console.log('🔗 Hash/Query detected (not Recommended):', hash)
+          setTimeout(() => {
+            const targetCard = document.getElementById(hash) || allCardsWithUserCreated.find(c => {
+              const cardId = c.id || c.getAttribute('data-game-id')
+              return cardId === hash
+            })
+            if (targetCard) {
+              gameContainer.style.scrollSnapType = 'none'
+              targetCard.scrollIntoView({ behavior: 'smooth', block: 'start' })
+              activateGame(hash)
+              setTimeout(() => {
+                gameContainer.style.scrollSnapType = 'y mandatory'
+              }, 1000)
+            }
+          }, 1000)
+        }
       } else if (hash && isRecommended) {
         console.log('🔗 Hash/Query detected in Recommended category, will be handled after sort:', hash)
       } else if (hash && !targetGameExists) {
@@ -5107,10 +5284,13 @@ window.addEventListener("beforeunload", stopGame);
   }
 
   window.addEventListener('message', async (event) => {
-    // DEBUG: Log ALL messages to see what's being received
+    // ✅ FIX: Only log messages that have type and gameId (filter out noise from extensions)
     const msgType = event.data?.type
     const msgGameId = event.data?.gameId
-    console.log('📨 [DEBUG] Parent received:', msgType, 'from', msgGameId, '| Origin:', event.origin);
+    // Only log if message has meaningful data (filter out undefined/extension messages)
+    if (msgType && msgGameId) {
+      console.log('📨 [DEBUG] Parent received:', msgType, 'from', msgGameId, '| Origin:', event.origin);
+    }
     
     // ✅ ONLY sync activeGame when game is ACTUALLY PLAYING (GAME_SCORE only!)
     // ❌ DON'T sync with GAME_START/RESTART (may send automatically on iframe load)
