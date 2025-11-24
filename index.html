@@ -3044,8 +3044,45 @@
     const baseUrl = window.location.origin.replace(/\/$/, '')
     container.querySelectorAll('.game-card[data-user-created="true"]').forEach(card => card.remove())
 
-    // ✅ CLEANUP: Filter out Pacman games created on localhost (they have localhost URLs in template_url/public_url)
-    // These games should not be displayed on production
+    // ✅ CLEANUP: Remove ALL existing Pacman games from production (one-time cleanup)
+    // After this cleanup, new games created on production will display normally
+    const isProduction = !window.location.origin.includes('localhost') && 
+                         !window.location.origin.includes('127.0.0.1') && 
+                         !window.location.origin.includes('192.168.')
+    
+    if (isProduction) {
+      console.log('🧹 [CLEANUP] Production detected - Removing all existing Pacman games for fresh start')
+      
+      // Remove all Pacman games from DOM
+      const allPacmanGames = container.querySelectorAll('.game-card[id^="pacman-"], .game-card[data-game-id^="pacman-"]')
+      allPacmanGames.forEach(card => {
+        const gameId = card.id || card.getAttribute('data-game-id') || ''
+        if (gameId && (gameId.startsWith('pacman-') || gameId.startsWith('pacman-game-'))) {
+          console.log(`🗑️ [CLEANUP] Removing Pacman game from DOM: ${gameId}`)
+          card.remove()
+        }
+      })
+      
+      // Delete all Pacman games from localStorage (keep creation logic intact)
+      const keysToDelete = []
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && key.startsWith('pacman_brand_config_')) {
+          const gameId = key.replace('pacman_brand_config_', '')
+          if (gameId.startsWith('pacman-') || gameId.startsWith('pacman-game-')) {
+            keysToDelete.push(key)
+          }
+        }
+      }
+      keysToDelete.forEach(key => {
+        localStorage.removeItem(key)
+        console.log(`🗑️ [CLEANUP] Deleted from localStorage: ${key}`)
+      })
+      
+      if (keysToDelete.length > 0) {
+        console.log(`✅ [CLEANUP] Removed ${keysToDelete.length} Pacman games from localStorage`)
+      }
+    }
 
     // ✅ OPTIMIZATION 2: Priority loading - Check ?game= parameter first
     const urlParams = new URLSearchParams(window.location.search)
@@ -3285,51 +3322,8 @@
       }
     })
     
-    // ✅ CLEANUP: Remove old format Pacman games and localhost games from DOM
-    const allPacmanGames = container.querySelectorAll('.game-card[id^="pacman-"], .game-card[data-game-id^="pacman-"]')
-    allPacmanGames.forEach(card => {
-      const gameId = card.id || card.getAttribute('data-game-id') || ''
-      if (gameId.startsWith('pacman-game-')) {
-        // Remove old format
-        console.log(`🗑️ Removing old format Pacman game from DOM: ${gameId}`)
-        card.remove()
-      } else if (gameId.startsWith('pacman-')) {
-        // Check if iframe src contains localhost (indicates local game)
-        const iframe = card.querySelector('iframe')
-        if (iframe && iframe.src) {
-          const isLocalGame = iframe.src.includes('localhost') || iframe.src.includes('127.0.0.1') || iframe.src.includes('192.168.')
-          if (isLocalGame) {
-            console.log(`🗑️ Removing localhost Pacman game from DOM: ${gameId} (iframe src: ${iframe.src.substring(0, 80)}...)`)
-            card.remove()
-          }
-        }
-      }
-    })
-    
-    // ✅ CLEANUP: Delete localhost Pacman games from localStorage (keep production games and creation logic)
-    const keysToDelete = []
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i)
-      if (key && key.startsWith('pacman_brand_config_')) {
-        try {
-          const gameId = key.replace('pacman_brand_config_', '')
-          if (gameId.startsWith('pacman-')) {
-            const configStr = localStorage.getItem(key)
-            if (configStr) {
-              const config = JSON.parse(configStr)
-              // Check if game was created on localhost by checking if we can infer from storage
-              // Since we can't check templateUrl from localStorage, we'll rely on Supabase filter
-              // But we can still clean up if needed
-            }
-          }
-        } catch (e) {
-          // Ignore parse errors
-        }
-      }
-    }
-    
-    // Note: localStorage cleanup will be handled by Supabase filter above
-    // Games with localhost URLs in Supabase will be filtered out
+    // ✅ CLEANUP: All Pacman games were already removed at the start of this function (production only)
+    // New games created on production will display normally after this cleanup
 
     const totalTime = performance.now() - startTime
     if (mergedGames.length > 0) {
