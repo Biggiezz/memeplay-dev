@@ -3050,8 +3050,17 @@
                          !window.location.origin.includes('127.0.0.1') && 
                          !window.location.origin.includes('192.168.')
     
-    if (isProduction) {
-      console.log('🧹 [CLEANUP] Production detected - Removing all existing Pacman games for fresh start')
+    // Run Pacman cleanup only once per browser to avoid repeated heavy scans
+    const PACMAN_CLEANUP_KEY = 'mp_pacman_cleanup_done_v2'
+    let shouldRunPacmanCleanup = false
+    try {
+      shouldRunPacmanCleanup = localStorage.getItem(PACMAN_CLEANUP_KEY) !== 'true'
+    } catch (err) {
+      shouldRunPacmanCleanup = !window.__memeplayPacmanCleanupDone
+    }
+
+    if (isProduction && shouldRunPacmanCleanup) {
+      console.log('🧹 [CLEANUP] Production detected - Removing existing Pacman games (one-time cleanup)')
       
       // Remove all Pacman games from DOM
       const allPacmanGames = container.querySelectorAll('.game-card[id^="pacman-"], .game-card[data-game-id^="pacman-"]')
@@ -3082,6 +3091,13 @@
       if (keysToDelete.length > 0) {
         console.log(`✅ [CLEANUP] Removed ${keysToDelete.length} Pacman games from localStorage`)
       }
+
+      try {
+        localStorage.setItem(PACMAN_CLEANUP_KEY, 'true')
+      } catch (_) {}
+      window.__memeplayPacmanCleanupDone = true
+    } else if (isProduction) {
+      console.log('⏭️ [CLEANUP] Skipped Pacman cleanup (already completed once)')
     }
 
     // ✅ OPTIMIZATION 2: Priority loading - Check ?game= parameter first
