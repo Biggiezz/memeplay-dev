@@ -2769,7 +2769,30 @@
   // ✅ CRITICAL: Explicitly disconnect realtime to prevent WebSocket connections
   // This prevents the "local network permission" popup on production
   if (supabase.realtime) {
-    supabase.realtime.disconnect();
+    try {
+      supabase.realtime.disconnect();
+      // Also remove all channels to ensure no subscriptions
+      if (supabase.realtime.channels) {
+        supabase.realtime.channels.forEach(channel => {
+          try {
+            channel.unsubscribe();
+          } catch (e) {
+            // Ignore errors
+          }
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to disconnect realtime:', e);
+    }
+  }
+  
+  // ✅ CRITICAL: Override realtime.connect to prevent any future connections
+  if (supabase.realtime && supabase.realtime.connect) {
+    const originalConnect = supabase.realtime.connect;
+    supabase.realtime.connect = function() {
+      console.warn('⚠️ Realtime connect blocked to prevent local network permission popup');
+      return null;
+    };
   }
 
   // Global state for current filter
@@ -3052,7 +3075,56 @@
 
     if (gameIdFromQuery) {
       console.log(`⚡ [PRIORITY] Loading game from ?game= parameter: ${gameIdFromQuery}`)
+      // ✅ FIX: Try localStorage first, then Supabase if not found
       priorityGame = loadGameFromLocalStorage(gameIdFromQuery, baseUrl)
+      
+      // If not found in localStorage, try to load from Supabase immediately
+      if (!priorityGame) {
+        console.log(`⚠️ [PRIORITY] Priority game not found in localStorage, trying Supabase...`)
+        try {
+          const { data, error } = await supabase
+            .from('user_games')
+            .select('*')
+            .eq('game_id', gameIdFromQuery)
+            .single()
+          
+          if (!error && data) {
+            // Parse stories if string
+            let stories = data.stories || []
+            if (typeof stories === 'string') {
+              try {
+                stories = JSON.parse(stories)
+              } catch (e) {
+                stories = []
+              }
+            }
+            if (!Array.isArray(stories)) {
+              stories = []
+            }
+            
+            priorityGame = {
+              source: 'supabase',
+              gameId: data.game_id || gameIdFromQuery,
+              title: data.title || 'Pacman Game',
+              creator: data.creator_name || data.creator_id || 'Creator',
+              mapColor: data.map_color || '#1a1a2e',
+              fragmentLogoUrl: data.fragment_logo_url || '',
+              stories: stories,
+              likes: data.likes_count ?? data.likes ?? 0,
+              comments: data.comments_count ?? data.comments ?? 0,
+              plays: data.plays_count ?? data.plays ?? 0,
+              templateUrl: data.template_url || `${baseUrl}/games/templates/pacman-template/index.html?game=${gameIdFromQuery}`,
+              publicUrl: data.public_url || `${baseUrl}/?game=${gameIdFromQuery}`
+            }
+            console.log(`✅ [PRIORITY] Found priority game in Supabase: ${priorityGame.gameId}`)
+          } else {
+            console.log(`⚠️ [PRIORITY] Priority game not found in Supabase either: ${gameIdFromQuery}`)
+          }
+        } catch (err) {
+          console.error(`❌ [PRIORITY] Error loading priority game from Supabase:`, err)
+        }
+      }
+      
       if (priorityGame) {
         // Filter out old format
         if (!priorityGame.gameId.startsWith('pacman-game-')) {
@@ -3070,8 +3142,6 @@
           console.log(`⚠️ [PRIORITY] Priority game is old format, skipping: ${gameIdFromQuery}`)
           priorityGame = null
         }
-      } else {
-        console.log(`⚠️ [PRIORITY] Priority game not found in localStorage: ${gameIdFromQuery}`)
       }
     }
 
