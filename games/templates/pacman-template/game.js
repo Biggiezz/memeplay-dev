@@ -112,6 +112,14 @@ async function syncGameToSupabase(gameId, context = 'manual-save') {
       return false;
     }
 
+    // ✅ BLOCK: Do not sync games created on localhost to production
+    const origin = window.location.origin.toLowerCase();
+    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.') || origin.includes('0.0.0.0');
+    if (isLocal) {
+      console.warn(`[Supabase] Game created on local (${origin}) - NOT syncing to production to prevent localhost URLs`);
+      return false;
+    }
+
     const baseUrl = window.location.origin.replace(/\/$/, '');
     const templateUrl = `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`;
     const publicUrl = buildPublicLinkUrl(gameId, true);

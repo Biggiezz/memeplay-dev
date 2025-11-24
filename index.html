@@ -3044,9 +3044,8 @@
     const baseUrl = window.location.origin.replace(/\/$/, '')
     container.querySelectorAll('.game-card[data-user-created="true"]').forEach(card => card.remove())
 
-    // ✅ CLEANUP: List of OLD Pacman games to remove (keep pacman-7848, pacman-2246, and allow new games)
-    // Only filter out these specific old games, new games will be allowed
-    const REMOVE_PACMAN_GAMES = [] // Add old game IDs here if needed to remove specific ones
+    // ✅ CLEANUP: Filter out Pacman games created on localhost (they have localhost URLs in template_url/public_url)
+    // These games should not be displayed on production
 
     // ✅ OPTIMIZATION 2: Priority loading - Check ?game= parameter first
     const urlParams = new URLSearchParams(window.location.search)
@@ -3140,10 +3139,14 @@
     const filteredLocalGames = localGames.filter(game => {
       if (!game || !game.gameId) return false
       if (game.gameId.startsWith('pacman-game-')) return false // Old format
-      // ✅ CLEANUP: Only filter out specific old games in REMOVE_PACMAN_GAMES list
-      if (game.gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(game.gameId)) {
-        console.log(`🗑️ Filtering out old Pacman game (in remove list): ${game.gameId}`)
-        return false
+      // ✅ CLEANUP: Filter out Pacman games created on localhost (check templateUrl)
+      if (game.gameId.startsWith('pacman-')) {
+        const templateUrl = game.templateUrl || ''
+        const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
+        if (isLocalGame) {
+          console.log(`🗑️ Filtering out Pacman game created on localhost: ${game.gameId} (templateUrl: ${templateUrl})`)
+          return false
+        }
       }
       if (priorityGameActivated && game.gameId === priorityGame?.gameId) return false // Skip if already rendered
       return true
@@ -3204,10 +3207,14 @@
     // Add local games first
     localGames.forEach(game => {
       if (game.gameId && !game.gameId.startsWith('pacman-game-')) {
-        // ✅ CLEANUP: Only filter out specific old games in REMOVE_PACMAN_GAMES list
-        if (game.gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(game.gameId)) {
-          console.log(`🗑️ [MERGE] Filtered out old Pacman game (in remove list): ${game.gameId}`)
-          return
+        // ✅ CLEANUP: Filter out Pacman games created on localhost
+        if (game.gameId.startsWith('pacman-')) {
+          const templateUrl = game.templateUrl || ''
+          const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
+          if (isLocalGame) {
+            console.log(`🗑️ [MERGE] Filtered out localhost Pacman game: ${game.gameId}`)
+            return
+          }
         }
         gameMap.set(game.gameId, game)
         console.log(`📦 [MERGE] Added local game: ${game.gameId}`)
@@ -3218,10 +3225,14 @@
     // Override with Supabase games (more accurate)
     supabaseGames.forEach(game => {
       if (game.gameId && !game.gameId.startsWith('pacman-game-')) {
-        // ✅ CLEANUP: Only filter out specific old games in REMOVE_PACMAN_GAMES list
-        if (game.gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(game.gameId)) {
-          console.log(`🗑️ [MERGE] Filtered out old Pacman game (in remove list): ${game.gameId}`)
-          return
+        // ✅ CLEANUP: Filter out Pacman games created on localhost (check template_url from Supabase)
+        if (game.gameId.startsWith('pacman-')) {
+          const templateUrl = game.templateUrl || ''
+          const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
+          if (isLocalGame) {
+            console.log(`🗑️ [MERGE] Filtered out localhost Pacman game from Supabase: ${game.gameId} (templateUrl: ${templateUrl})`)
+            return
+          }
         }
         gameMap.set(game.gameId, game)
         console.log(`📦 [MERGE] Added/Updated Supabase game: ${game.gameId}`)
@@ -3259,10 +3270,14 @@
       } else {
         // Render new games from Supabase that weren't in localStorage
         if (!game.gameId.startsWith('pacman-game-')) {
-          // ✅ CLEANUP: Only filter out specific old games in REMOVE_PACMAN_GAMES list
-          if (game.gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(game.gameId)) {
-            console.log(`🗑️ [MERGE] Filtered out old Pacman game (in remove list): ${game.gameId}`)
-            return
+          // ✅ CLEANUP: Filter out Pacman games created on localhost
+          if (game.gameId.startsWith('pacman-')) {
+            const templateUrl = game.templateUrl || ''
+            const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
+            if (isLocalGame) {
+              console.log(`🗑️ [MERGE] Filtered out localhost Pacman game: ${game.gameId}`)
+              return
+            }
           }
           console.log(`🆕 [MERGE] Rendering new game from Supabase: ${game.gameId}`)
           renderUserGameCard(game, container)
@@ -3270,7 +3285,7 @@
       }
     })
     
-    // ✅ CLEANUP: Remove old format Pacman games and specific old games from DOM
+    // ✅ CLEANUP: Remove old format Pacman games and localhost games from DOM
     const allPacmanGames = container.querySelectorAll('.game-card[id^="pacman-"], .game-card[data-game-id^="pacman-"]')
     allPacmanGames.forEach(card => {
       const gameId = card.id || card.getAttribute('data-game-id') || ''
@@ -3278,33 +3293,43 @@
         // Remove old format
         console.log(`🗑️ Removing old format Pacman game from DOM: ${gameId}`)
         card.remove()
-      } else if (gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(gameId)) {
-        // Remove specific old games in remove list
-        console.log(`🗑️ Removing old Pacman game from DOM (in remove list): ${gameId}`)
-        card.remove()
+      } else if (gameId.startsWith('pacman-')) {
+        // Check if iframe src contains localhost (indicates local game)
+        const iframe = card.querySelector('iframe')
+        if (iframe && iframe.src) {
+          const isLocalGame = iframe.src.includes('localhost') || iframe.src.includes('127.0.0.1') || iframe.src.includes('192.168.')
+          if (isLocalGame) {
+            console.log(`🗑️ Removing localhost Pacman game from DOM: ${gameId} (iframe src: ${iframe.src.substring(0, 80)}...)`)
+            card.remove()
+          }
+        }
       }
     })
     
-    // ✅ CLEANUP: Delete specific old Pacman games from localStorage (keep new games and creation logic)
+    // ✅ CLEANUP: Delete localhost Pacman games from localStorage (keep production games and creation logic)
     const keysToDelete = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key && key.startsWith('pacman_brand_config_')) {
-        const gameId = key.replace('pacman_brand_config_', '')
-        // Only delete if it's in the remove list
-        if (gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(gameId)) {
-          keysToDelete.push(key)
+        try {
+          const gameId = key.replace('pacman_brand_config_', '')
+          if (gameId.startsWith('pacman-')) {
+            const configStr = localStorage.getItem(key)
+            if (configStr) {
+              const config = JSON.parse(configStr)
+              // Check if game was created on localhost by checking if we can infer from storage
+              // Since we can't check templateUrl from localStorage, we'll rely on Supabase filter
+              // But we can still clean up if needed
+            }
+          }
+        } catch (e) {
+          // Ignore parse errors
         }
       }
     }
-    keysToDelete.forEach(key => {
-      localStorage.removeItem(key)
-      console.log(`🗑️ Deleted from localStorage: ${key}`)
-    })
     
-    if (keysToDelete.length > 0) {
-      console.log(`✅ Cleaned up ${keysToDelete.length} old Pacman games from localStorage`)
-    }
+    // Note: localStorage cleanup will be handled by Supabase filter above
+    // Games with localhost URLs in Supabase will be filtered out
 
     const totalTime = performance.now() - startTime
     if (mergedGames.length > 0) {
@@ -3421,6 +3446,16 @@
             stories = []
           }
           // Keep stories as-is (no normalization needed - game.js handles 1 story vs multiple stories)
+          const templateUrl = item.template_url || `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`
+          const publicUrl = item.public_url || `${baseUrl}/?game=${gameId}`
+          
+          // ✅ CLEANUP: Filter out games created on localhost (check template_url)
+          const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
+          if (isLocalGame) {
+            console.log(`🗑️ [fetchSupabaseUserGames] Filtering out localhost game: ${gameId} (template_url: ${templateUrl})`)
+            return null
+          }
+          
           return {
             source: 'supabase',
             gameId,
@@ -3432,8 +3467,8 @@
             likes: item.likes_count ?? item.likes ?? 0,
             comments: item.comments_count ?? item.comments ?? 0,
             plays: item.plays_count ?? item.plays ?? 0,
-            templateUrl: item.template_url || `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
-            publicUrl: item.public_url || `${baseUrl}/#${gameId}`
+            templateUrl: templateUrl,
+            publicUrl: publicUrl
           }
         })
         .filter(Boolean)
