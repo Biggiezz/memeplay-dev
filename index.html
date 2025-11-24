@@ -3044,8 +3044,9 @@
     const baseUrl = window.location.origin.replace(/\/$/, '')
     container.querySelectorAll('.game-card[data-user-created="true"]').forEach(card => card.remove())
 
-    // ✅ CLEANUP: Only keep specific Pacman games (pacman-7848, pacman-2246), remove others
-    const ALLOWED_PACMAN_GAMES = ['pacman-7848', 'pacman-2246']
+    // ✅ CLEANUP: List of OLD Pacman games to remove (keep pacman-7848, pacman-2246, and allow new games)
+    // Only filter out these specific old games, new games will be allowed
+    const REMOVE_PACMAN_GAMES = [] // Add old game IDs here if needed to remove specific ones
 
     // ✅ OPTIMIZATION 2: Priority loading - Check ?game= parameter first
     const urlParams = new URLSearchParams(window.location.search)
@@ -3136,13 +3137,12 @@
     console.log(`⚡ [OPTIMISTIC] Loaded ${localGames.length} games from localStorage in ${localLoadTime.toFixed(2)}ms`)
 
     // Filter out old format and priority game (already rendered)
-    // ✅ CLEANUP: Only keep specific Pacman games (pacman-7848, pacman-2246), remove others
     const filteredLocalGames = localGames.filter(game => {
       if (!game || !game.gameId) return false
       if (game.gameId.startsWith('pacman-game-')) return false // Old format
-      // ✅ CLEANUP: Filter out Pacman games except allowed ones
-      if (game.gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(game.gameId)) {
-        console.log(`🗑️ Filtering out Pacman game (not in allowed list): ${game.gameId}`)
+      // ✅ CLEANUP: Only filter out specific old games in REMOVE_PACMAN_GAMES list
+      if (game.gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(game.gameId)) {
+        console.log(`🗑️ Filtering out old Pacman game (in remove list): ${game.gameId}`)
         return false
       }
       if (priorityGameActivated && game.gameId === priorityGame?.gameId) return false // Skip if already rendered
@@ -3200,14 +3200,13 @@
     console.log(`📊 [MERGE] Before merge - Supabase: ${supabaseGames.length}, Local: ${localGames.length}`)
 
     // Merge: Supabase games override local games (have more accurate data like likes, comments)
-    // ✅ CLEANUP: Only keep specific Pacman games (pacman-7848, pacman-2246), remove others
     const gameMap = new Map()
     // Add local games first
     localGames.forEach(game => {
       if (game.gameId && !game.gameId.startsWith('pacman-game-')) {
-        // ✅ CLEANUP: Filter out Pacman games except allowed ones
-        if (game.gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(game.gameId)) {
-          console.log(`🗑️ [MERGE] Filtered out Pacman game (not in allowed list): ${game.gameId}`)
+        // ✅ CLEANUP: Only filter out specific old games in REMOVE_PACMAN_GAMES list
+        if (game.gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(game.gameId)) {
+          console.log(`🗑️ [MERGE] Filtered out old Pacman game (in remove list): ${game.gameId}`)
           return
         }
         gameMap.set(game.gameId, game)
@@ -3219,9 +3218,9 @@
     // Override with Supabase games (more accurate)
     supabaseGames.forEach(game => {
       if (game.gameId && !game.gameId.startsWith('pacman-game-')) {
-        // ✅ CLEANUP: Filter out Pacman games except allowed ones
-        if (game.gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(game.gameId)) {
-          console.log(`🗑️ [MERGE] Filtered out Pacman game (not in allowed list): ${game.gameId}`)
+        // ✅ CLEANUP: Only filter out specific old games in REMOVE_PACMAN_GAMES list
+        if (game.gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(game.gameId)) {
+          console.log(`🗑️ [MERGE] Filtered out old Pacman game (in remove list): ${game.gameId}`)
           return
         }
         gameMap.set(game.gameId, game)
@@ -3259,10 +3258,10 @@
         }
       } else {
         // Render new games from Supabase that weren't in localStorage
-        // ✅ CLEANUP: Filter out Pacman games except allowed ones
         if (!game.gameId.startsWith('pacman-game-')) {
-          if (game.gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(game.gameId)) {
-            console.log(`🗑️ [MERGE] Filtered out non-allowed Pacman game: ${game.gameId}`)
+          // ✅ CLEANUP: Only filter out specific old games in REMOVE_PACMAN_GAMES list
+          if (game.gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(game.gameId)) {
+            console.log(`🗑️ [MERGE] Filtered out old Pacman game (in remove list): ${game.gameId}`)
             return
           }
           console.log(`🆕 [MERGE] Rendering new game from Supabase: ${game.gameId}`)
@@ -3271,7 +3270,7 @@
       }
     })
     
-    // ✅ CLEANUP: Remove old format Pacman games and non-allowed Pacman games from DOM
+    // ✅ CLEANUP: Remove old format Pacman games and specific old games from DOM
     const allPacmanGames = container.querySelectorAll('.game-card[id^="pacman-"], .game-card[data-game-id^="pacman-"]')
     allPacmanGames.forEach(card => {
       const gameId = card.id || card.getAttribute('data-game-id') || ''
@@ -3279,21 +3278,21 @@
         // Remove old format
         console.log(`🗑️ Removing old format Pacman game from DOM: ${gameId}`)
         card.remove()
-      } else if (gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(gameId)) {
-        // Remove non-allowed Pacman games
-        console.log(`🗑️ Removing non-allowed Pacman game from DOM: ${gameId}`)
+      } else if (gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(gameId)) {
+        // Remove specific old games in remove list
+        console.log(`🗑️ Removing old Pacman game from DOM (in remove list): ${gameId}`)
         card.remove()
       }
     })
     
-    // ✅ CLEANUP: Delete non-allowed Pacman games from localStorage (keep allowed ones and creation logic)
+    // ✅ CLEANUP: Delete specific old Pacman games from localStorage (keep new games and creation logic)
     const keysToDelete = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (key && key.startsWith('pacman_brand_config_')) {
         const gameId = key.replace('pacman_brand_config_', '')
-        // Only delete if it's a Pacman game and not in allowed list
-        if (gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(gameId)) {
+        // Only delete if it's in the remove list
+        if (gameId.startsWith('pacman-') && REMOVE_PACMAN_GAMES.includes(gameId)) {
           keysToDelete.push(key)
         }
       }
@@ -3304,7 +3303,7 @@
     })
     
     if (keysToDelete.length > 0) {
-      console.log(`✅ Cleaned up ${keysToDelete.length} non-allowed Pacman games from localStorage`)
+      console.log(`✅ Cleaned up ${keysToDelete.length} old Pacman games from localStorage`)
     }
 
     const totalTime = performance.now() - startTime
