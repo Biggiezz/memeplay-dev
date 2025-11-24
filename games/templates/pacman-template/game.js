@@ -130,6 +130,7 @@ async function syncGameToSupabase(gameId, context = 'manual-save') {
       p_template_id: TEMPLATE_ID,
       p_title: BRAND_CONFIG.title || 'Pacman Game',
       p_map_color: BRAND_CONFIG.mapColor || '#1a1a2e',
+      p_map_index: BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0,
       p_fragment_logo_url: BRAND_CONFIG.fragmentLogoUrl || null,
       p_story_one: stories[0] || '',
       p_story_two: stories[1] || '',
@@ -150,6 +151,85 @@ async function syncGameToSupabase(gameId, context = 'manual-save') {
     return true;
   } catch (err) {
     console.error('[Supabase] Unexpected sync error:', err);
+    return false;
+  }
+}
+
+async function loadBrandConfigFromSupabase(gameId) {
+  if (!gameId) {
+    console.warn('[Supabase] Missing gameId, skip loading brand config from Supabase');
+    return false;
+  }
+  if (typeof getSupabaseClient !== 'function') {
+    console.warn('[Supabase] getSupabaseClient is unavailable');
+    return false;
+  }
+  try {
+    const supabase = await getSupabaseClient();
+    if (!supabase) {
+      console.warn('[Supabase] Client unavailable while loading brand config');
+      return false;
+    }
+    const { data, error } = await supabase.rpc('list_user_created_games', {
+      p_template_id: TEMPLATE_ID
+    });
+    if (error) {
+      console.error('[Supabase] list_user_created_games error:', error.message || error);
+      return false;
+    }
+    if (!Array.isArray(data)) {
+      console.warn('[Supabase] Unexpected response while loading brand config:', data);
+      return false;
+    }
+    const foundGame = data.find(item => {
+      const id = item?.game_id || item?.id;
+      return id === gameId;
+    });
+    if (!foundGame) {
+      console.warn(`[Supabase] Game ${gameId} not found when loading brand config`);
+      return false;
+    }
+    let stories = Array.isArray(foundGame.stories) ? foundGame.stories : [];
+    if (typeof foundGame.stories === 'string') {
+      try {
+        stories = JSON.parse(foundGame.stories);
+      } catch (err) {
+        console.warn('[Supabase] Failed to parse stories JSON:', err);
+        stories = [];
+      }
+    }
+    if (!Array.isArray(stories)) {
+      stories = [];
+    }
+    const legacyStories = [foundGame.story_one, foundGame.story_two, foundGame.story_three]
+      .filter(story => typeof story === 'string' && story.trim() !== '')
+      .map(story => story.trim());
+    if (legacyStories.length > 0) {
+      stories = [...stories, ...legacyStories];
+    }
+    const uniqueStories = stories
+      .map(story => (typeof story === 'string' ? story.trim() : ''))
+      .filter(story => story !== '');
+    const supabaseConfig = {
+      fragmentLogoUrl: foundGame.fragment_logo_url || '',
+      title: foundGame.title || 'Pacman Game',
+      mapColor: foundGame.map_color || '#1a1a2e',
+      mapIndex: Number.isInteger(foundGame.map_index) ? foundGame.map_index : 0,
+      stories: uniqueStories
+    };
+    BRAND_CONFIG = { ...BRAND_CONFIG, ...supabaseConfig };
+    saveBrandConfig(gameId);
+    if (BRAND_CONFIG.fragmentLogoUrl) {
+      const logo = new Image();
+      logo.onload = () => {
+        BRAND_CONFIG.fragmentLogo = logo;
+      };
+      logo.src = BRAND_CONFIG.fragmentLogoUrl;
+    }
+    console.log(`[Supabase] Loaded brand config for ${gameId} from Supabase`);
+    return true;
+  } catch (error) {
+    console.error('[Supabase] Unexpected error while loading brand config:', error);
     return false;
   }
 }
@@ -3212,7 +3292,7 @@ window.addEventListener('orientationchange', applyMobileGameScale);
 // INITIALIZE ON LOAD
 // ====================================
 
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   // Check if this is a public game link (has ?game= parameter) FIRST
   // Try multiple ways to get game ID
   let gameId = null;
@@ -3290,7 +3370,10 @@ window.addEventListener('DOMContentLoaded', () => {
     
     // ✅ FIX: Load brand config with correct gameId BEFORE initGame()
     // This ensures mapIndex is loaded from localStorage before initLevel() is called
-    loadBrandConfig(gameId); // Pass gameId explicitly to ensure correct loading
+    const hasLocalBrandConfig = loadBrandConfig(gameId);
+    if (!hasLocalBrandConfig) {
+      await loadBrandConfigFromSupabase(gameId);
+    }
     
     // Initialize game (this will start game loop)
     initGame();
@@ -3344,7 +3427,7 @@ window.addEventListener('DOMContentLoaded', () => {
     
   } else {
     // Double-check: Maybe game ID was added after initial load (Vercel rewrite delay)
-    setTimeout(() => {
+    setTimeout(async () => {
       const recheckGameId = typeof getGameId === 'function' ? getGameId() : (new URLSearchParams(window.location.search).get('game'));
       if (recheckGameId) {
         console.log('🔄 Found game ID on recheck:', recheckGameId);
@@ -3368,7 +3451,10 @@ window.addEventListener('DOMContentLoaded', () => {
         }
         if (!ctx || !canvas) {
           // ✅ FIX: Load brand config with correct gameId BEFORE initGame()
-          loadBrandConfig(recheckGameId); // Pass gameId explicitly
+          const recheckHasLocalConfig = loadBrandConfig(recheckGameId);
+          if (!recheckHasLocalConfig) {
+            await loadBrandConfigFromSupabase(recheckGameId);
+          }
           initGame();
         }
         

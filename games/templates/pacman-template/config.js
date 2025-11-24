@@ -136,11 +136,14 @@ function loadBrandConfig(gameIdOverride = null) {
         };
         img.src = BRAND_CONFIG.fragmentLogoUrl;
       }
+      return true;
     } catch (e) {
       console.error('Failed to load brand config:', e);
+      return false;
     }
   } else {
     console.log('[loadBrandConfig] No saved config found for:', storageKey);
+    return false;
   }
 }
 

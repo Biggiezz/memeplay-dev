@@ -3129,6 +3129,7 @@
                 creator: foundGame.creator_name || foundGame.creator_id || 'Creator',
                 mapColor: foundGame.map_color || '#1a1a2e',
                 fragmentLogoUrl: foundGame.fragment_logo_url || '',
+                mapIndex: Number.isInteger(foundGame.map_index) ? foundGame.map_index : 0,
                 stories: stories,
                 likes: foundGame.likes_count ?? foundGame.likes ?? 0,
                 comments: foundGame.comments_count ?? foundGame.comments ?? 0,
@@ -3137,6 +3138,7 @@
                 publicUrl: foundGame.public_url || `${baseUrl}/?game=${gameId}`
               }
               console.log(`✅ [PRIORITY] Found priority game in Supabase: ${priorityGame.gameId}`)
+              cachePacmanBrandConfig(priorityGame)
             } else {
               console.log(`⚠️ [PRIORITY] Priority game not found in Supabase: ${gameIdFromQuery}`)
             }
@@ -3351,6 +3353,7 @@
         creator: config.title || 'Creator',
         mapColor: config.mapColor || '#1a1a2e',
         fragmentLogoUrl: config.fragmentLogoUrl || '',
+        mapIndex: typeof config.mapIndex === 'number' ? config.mapIndex : 0,
         stories: Array.isArray(config.stories) ? config.stories : [],
         likes: 0,
         comments: 0,
@@ -3382,6 +3385,7 @@
           creator: config.title || 'Creator',
           mapColor: config.mapColor || '#1a1a2e',
           fragmentLogoUrl: config.fragmentLogoUrl || '',
+        mapIndex: typeof config.mapIndex === 'number' ? config.mapIndex : 0,
           stories: Array.isArray(config.stories) ? config.stories : [],
           likes: 0,
           comments: 0,
@@ -3394,6 +3398,25 @@
       }
     }
     return results
+  }
+
+  function cachePacmanBrandConfig(game) {
+    if (!game?.gameId) return
+    const id = game.gameId
+    if (!id.startsWith('pacman-') || id.startsWith('pacman-game-')) return
+    try {
+      const payload = {
+        fragmentLogoUrl: game.fragmentLogoUrl || '',
+        title: game.title || 'Pacman Game',
+        mapColor: game.mapColor || '#1a1a2e',
+        mapIndex: Number.isInteger(game.mapIndex) ? game.mapIndex : 0,
+        stories: Array.isArray(game.stories) ? game.stories : []
+      }
+      localStorage.setItem(`pacman_brand_config_${id}`, JSON.stringify(payload))
+      console.log(`[cachePacmanBrandConfig] Cached config for ${id}`)
+    } catch (error) {
+      console.warn('[cachePacmanBrandConfig] Failed to cache Pacman config:', error)
+    }
   }
 
   async function fetchSupabaseUserGames(baseUrl) {
@@ -3426,11 +3449,11 @@
             console.warn('⚠️ [fetchSupabaseUserGames] Item missing game_id:', item)
             return null
           }
-          // ✅ FIX: Parse stories if it's a string (JSON)
-          let stories = item.stories || []
-          if (typeof stories === 'string') {
+          // ✅ Parse stories from JSON or legacy columns
+          let stories = Array.isArray(item.stories) ? item.stories : []
+          if (typeof item.stories === 'string') {
             try {
-              stories = JSON.parse(stories)
+              stories = JSON.parse(item.stories)
             } catch (e) {
               console.warn('⚠️ [fetchSupabaseUserGames] Failed to parse stories as JSON:', e)
               stories = []
@@ -3439,9 +3462,18 @@
           if (!Array.isArray(stories)) {
             stories = []
           }
-          // Keep stories as-is (no normalization needed - game.js handles 1 story vs multiple stories)
+          const legacyStories = [item.story_one, item.story_two, item.story_three]
+            .filter(story => typeof story === 'string' && story.trim() !== '')
+            .map(story => story.trim())
+          if (legacyStories.length > 0) {
+            stories = [...stories, ...legacyStories]
+          }
+          const normalizedStories = stories
+            .map(story => (typeof story === 'string' ? story.trim() : ''))
+            .filter(story => story !== '')
           const templateUrl = item.template_url || `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`
           const publicUrl = item.public_url || `${baseUrl}/?game=${gameId}`
+          const mapIndex = Number.isInteger(item.map_index) ? item.map_index : 0
           
           // ✅ CLEANUP: Filter out games created on localhost (check template_url)
           const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
@@ -3450,20 +3482,24 @@
             return null
           }
           
-          return {
+          const game = {
             source: 'supabase',
             gameId,
             title: item.title || 'Pacman Game',
             creator: item.creator_name || item.creator_id || item.title || 'Creator',
             mapColor: item.map_color || '#1a1a2e',
             fragmentLogoUrl: item.fragment_logo_url || '',
-            stories: stories,
+            mapIndex,
+            stories: normalizedStories,
             likes: item.likes_count ?? item.likes ?? 0,
             comments: item.comments_count ?? item.comments ?? 0,
             plays: item.plays_count ?? item.plays ?? 0,
             templateUrl: templateUrl,
             publicUrl: publicUrl
           }
+          
+          cachePacmanBrandConfig(game)
+          return game
         })
         .filter(Boolean)
       console.log(`✅ [fetchSupabaseUserGames] Mapped ${mappedGames.length} valid games`)
@@ -6084,8 +6120,8 @@ window.addEventListener("beforeunload", stopGame);
                 const bestCardId = bestCard.id || bestCard.getAttribute('data-game-id') || ''
                 const bestCardIsPacman = bestCardId.startsWith('pacman-') || bestCardId === 'pacman-memeplay'
                 
-                const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]') ||
-                                          document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]')
+                const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]') ||
+                                          document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]')
                 const currentActiveGameId = currentActiveCard?.id || currentActiveCard?.getAttribute('data-game-id') || ''
                 const isCurrentActivePacman = currentActiveGameId && (
                   currentActiveGameId.startsWith('pacman-') || 
@@ -6128,7 +6164,7 @@ window.addEventListener("beforeunload", stopGame);
           
           // ✅ FIX: Check if current active game is Pacman
           const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]') ||
-                                    document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]')
+                                    document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]')
           const currentActiveGameId = currentActiveCard?.id || currentActiveCard?.getAttribute('data-game-id') || ''
           const isCurrentActivePacman = currentActiveGameId && (
             currentActiveGameId.startsWith('pacman-') || 
@@ -6243,8 +6279,8 @@ window.addEventListener("beforeunload", stopGame);
         
         // ✅ FIX: Tăng timeout khi scroll từ Pacman (300ms → 800ms)
         // snapTimer quá ngắn → force snap về Pacman trước khi scroll animation xong
-        const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]') ||
-                                  document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]')
+        const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]') ||
+                                  document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]')
         const currentActiveGameId = currentActiveCard?.id || currentActiveCard?.getAttribute('data-game-id') || ''
         const isCurrentActivePacman = currentActiveGameId && (
           currentActiveGameId.startsWith('pacman-') || 
@@ -6258,8 +6294,8 @@ window.addEventListener("beforeunload", stopGame);
         snapTimer = setTimeout(() => {
           // ✅ FIX CRITICAL: Check nếu current active game là Pacman - không force snap về nearest game
           // Điều này ngăn Pacman tự cuộn về màn hình khi đã scroll sang game khác
-          const currentActiveCard2 = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]') ||
-                                    document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '") + '"]')
+          const currentActiveCard2 = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]') ||
+                                    document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]')
           const currentActiveGameId2 = currentActiveCard2?.id || currentActiveCard2?.getAttribute('data-game-id') || ''
           const isCurrentActivePacman2 = currentActiveGameId2 && (
             currentActiveGameId2.startsWith('pacman-') || 
