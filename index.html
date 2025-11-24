@@ -2750,19 +2750,12 @@
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'
 
   // 3️⃣ Create "supabase" object for using RPC, queries, insert, etc.
-  // Disable realtime and WebSocket to prevent local network permission prompt
+  // ✅ FIX: Completely disable realtime to prevent local network permission prompt
   const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-    realtime: {
-      params: {
-        eventsPerSecond: 0
-      },
-      transport: 'websocket',
-      timeout: 20000
-    },
+    // NO realtime config - completely disabled
     global: {
       headers: {},
       fetch: (url, options = {}) => {
-        // Prevent WebSocket connections to local network
         return fetch(url, options);
       }
     },
@@ -2772,6 +2765,12 @@
       detectSessionInUrl: false
     }
   })
+  
+  // ✅ CRITICAL: Explicitly disconnect realtime to prevent WebSocket connections
+  // This prevents the "local network permission" popup on production
+  if (supabase.realtime) {
+    supabase.realtime.disconnect();
+  }
 
   // Global state for current filter
   let currentFilter = 'Recommended' // 'Recommended', 'Liked', 'Trending', 'Popular'

@@ -77,20 +77,23 @@ async function getSupabaseClient() {
   supabaseClientPromise = (async () => {
     try {
       const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
-      // Disable realtime to prevent local network permission prompt
+      // ✅ FIX: Completely disable realtime to prevent local network permission prompt
       // Client is created lazily only when needed (not on page load)
       const client = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-        realtime: {
-          params: {
-            eventsPerSecond: 0
-          }
-        },
+        // NO realtime config - completely disabled
         auth: {
           persistSession: false,
           autoRefreshToken: false,
           detectSessionInUrl: false
         }
       });
+      
+      // ✅ CRITICAL: Explicitly disconnect realtime to prevent WebSocket connections
+      // This prevents the "local network permission" popup on production
+      if (client.realtime) {
+        client.realtime.disconnect();
+      }
+      
       window.supabaseClient = client;
       return client;
     } catch (error) {
