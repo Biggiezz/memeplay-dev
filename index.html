@@ -2769,30 +2769,7 @@
   // ✅ CRITICAL: Explicitly disconnect realtime to prevent WebSocket connections
   // This prevents the "local network permission" popup on production
   if (supabase.realtime) {
-    try {
-      supabase.realtime.disconnect();
-      // Also remove all channels to ensure no subscriptions
-      if (supabase.realtime.channels) {
-        supabase.realtime.channels.forEach(channel => {
-          try {
-            channel.unsubscribe();
-          } catch (e) {
-            // Ignore errors
-          }
-        });
-      }
-    } catch (e) {
-      console.warn('Failed to disconnect realtime:', e);
-    }
-  }
-  
-  // ✅ CRITICAL: Override realtime.connect to prevent any future connections
-  if (supabase.realtime && supabase.realtime.connect) {
-    const originalConnect = supabase.realtime.connect;
-    supabase.realtime.connect = function() {
-      console.warn('⚠️ Realtime connect blocked to prevent local network permission popup');
-      return null;
-    };
+    supabase.realtime.disconnect();
   }
 
   // Global state for current filter
@@ -3075,53 +3052,75 @@
 
     if (gameIdFromQuery) {
       console.log(`⚡ [PRIORITY] Loading game from ?game= parameter: ${gameIdFromQuery}`)
-      // ✅ FIX: Try localStorage first, then Supabase if not found
       priorityGame = loadGameFromLocalStorage(gameIdFromQuery, baseUrl)
       
-      // If not found in localStorage, try to load from Supabase immediately
+      // ✅ FIX: If not found in localStorage, try Supabase immediately
       if (!priorityGame) {
         console.log(`⚠️ [PRIORITY] Priority game not found in localStorage, trying Supabase...`)
         try {
-          const { data, error } = await supabase
-            .from('user_games')
-            .select('*')
-            .eq('game_id', gameIdFromQuery)
-            .single()
+          const { data: rpcData, error: rpcError } = await supabase.rpc('list_user_created_games', {
+            p_template_id: 'pacman-template'
+          })
           
-          if (!error && data) {
-            // Parse stories if string
-            let stories = data.stories || []
-            if (typeof stories === 'string') {
-              try {
-                stories = JSON.parse(stories)
-              } catch (e) {
+          if (!rpcError && Array.isArray(rpcData)) {
+            const foundGame = rpcData.find(item => {
+              const gameId = item?.game_id || item?.id
+              return gameId === gameIdFromQuery
+            })
+            
+            if (foundGame) {
+              let stories = foundGame.stories || []
+              if (typeof stories === 'string') {
+                try {
+                  stories = JSON.parse(stories)
+                } catch (e) {
+                  stories = []
+                }
+              }
+              if (!Array.isArray(stories)) {
                 stories = []
               }
+              
+              const gameId = foundGame.game_id || foundGame.id || gameIdFromQuery
+              priorityGame = {
+                source: 'supabase',
+                gameId: gameId,
+                title: foundGame.title || 'Pacman Game',
+                creator: foundGame.creator_name || foundGame.creator_id || 'Creator',
+                mapColor: foundGame.map_color || '#1a1a2e',
+                fragmentLogoUrl: foundGame.fragment_logo_url || '',
+                stories: stories,
+                likes: foundGame.likes_count ?? foundGame.likes ?? 0,
+                comments: foundGame.comments_count ?? foundGame.comments ?? 0,
+                plays: foundGame.plays_count ?? foundGame.plays ?? 0,
+                templateUrl: foundGame.template_url || `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+                publicUrl: foundGame.public_url || `${baseUrl}/?game=${gameId}`
+              }
+              
+              // ✅ DEBUG: Log detailed info to compare with working games
+              console.log(`✅ [PRIORITY] Found in Supabase: ${priorityGame.gameId}`)
+              console.log(`📋 [PRIORITY] Game details:`, {
+                gameId: priorityGame.gameId,
+                title: priorityGame.title,
+                template_url: foundGame.template_url,
+                public_url: foundGame.public_url,
+                created_at: foundGame.created_at,
+                updated_at: foundGame.updated_at,
+                template_id: foundGame.template_id,
+                creator_id: foundGame.creator_id,
+                // Check if created on local or production
+                has_localhost: (foundGame.template_url?.includes('localhost') || foundGame.template_url?.includes('127.0.0.1')),
+                has_memeplay_dev: (foundGame.template_url?.includes('memeplay.dev') || foundGame.public_url?.includes('memeplay.dev'))
+              })
+            } else {
+              console.log(`⚠️ [PRIORITY] Game not found in Supabase RPC results`)
+              const allIds = rpcData.map(item => item?.game_id || item?.id).filter(Boolean)
+              const pacmanIds = allIds.filter(id => id.startsWith('pacman-') && !id.startsWith('pacman-game-'))
+              console.log(`📋 [PRIORITY] Available Pacman games in Supabase (${pacmanIds.length}):`, pacmanIds)
             }
-            if (!Array.isArray(stories)) {
-              stories = []
-            }
-            
-            priorityGame = {
-              source: 'supabase',
-              gameId: data.game_id || gameIdFromQuery,
-              title: data.title || 'Pacman Game',
-              creator: data.creator_name || data.creator_id || 'Creator',
-              mapColor: data.map_color || '#1a1a2e',
-              fragmentLogoUrl: data.fragment_logo_url || '',
-              stories: stories,
-              likes: data.likes_count ?? data.likes ?? 0,
-              comments: data.comments_count ?? data.comments ?? 0,
-              plays: data.plays_count ?? data.plays ?? 0,
-              templateUrl: data.template_url || `${baseUrl}/games/templates/pacman-template/index.html?game=${gameIdFromQuery}`,
-              publicUrl: data.public_url || `${baseUrl}/?game=${gameIdFromQuery}`
-            }
-            console.log(`✅ [PRIORITY] Found priority game in Supabase: ${priorityGame.gameId}`)
-          } else {
-            console.log(`⚠️ [PRIORITY] Priority game not found in Supabase either: ${gameIdFromQuery}`)
           }
         } catch (err) {
-          console.error(`❌ [PRIORITY] Error loading priority game from Supabase:`, err)
+          console.error(`❌ [PRIORITY] Error loading from Supabase:`, err)
         }
       }
       
@@ -3367,6 +3366,60 @@
         return []
       }
       console.log(`✅ [fetchSupabaseUserGames] Found ${data.length} games from Supabase`)
+      
+      // ✅ DEBUG: Log all Pacman games to compare working vs non-working
+      const pacmanGames = data.filter(item => {
+        const gameId = item?.game_id || item?.id
+        return gameId && gameId.startsWith('pacman-') && !gameId.startsWith('pacman-game-')
+      })
+      
+      if (pacmanGames.length > 0) {
+        console.log(`🎮 [fetchSupabaseUserGames] All Pacman games (${pacmanGames.length}):`, pacmanGames.map(g => ({
+          gameId: g.game_id || g.id,
+          title: g.title,
+          created_at: g.created_at,
+          updated_at: g.updated_at,
+          template_url: g.template_url,
+          public_url: g.public_url,
+          has_localhost: (g.template_url?.includes('localhost') || g.template_url?.includes('127.0.0.1')),
+          has_memeplay_dev: (g.template_url?.includes('memeplay.dev') || g.public_url?.includes('memeplay.dev'))
+        })))
+        
+        // ✅ Compare specific games
+        const workingGames = ['pacman-8062', 'pacman-5647', 'pacman-2246']
+        const nonWorkingGames = ['pacman-7549', 'pacman-3075']
+        
+        workingGames.forEach(gameId => {
+          const game = pacmanGames.find(g => (g.game_id || g.id) === gameId)
+          if (game) {
+            console.log(`✅ [COMPARE] WORKING game ${gameId}:`, {
+              template_url: game.template_url,
+              public_url: game.public_url,
+              created_at: game.created_at,
+              has_localhost: (game.template_url?.includes('localhost') || game.template_url?.includes('127.0.0.1')),
+              has_memeplay_dev: (game.template_url?.includes('memeplay.dev') || game.public_url?.includes('memeplay.dev'))
+            })
+          } else {
+            console.log(`⚠️ [COMPARE] WORKING game ${gameId} NOT FOUND in Supabase`)
+          }
+        })
+        
+        nonWorkingGames.forEach(gameId => {
+          const game = pacmanGames.find(g => (g.game_id || g.id) === gameId)
+          if (game) {
+            console.log(`❌ [COMPARE] NON-WORKING game ${gameId}:`, {
+              template_url: game.template_url,
+              public_url: game.public_url,
+              created_at: game.created_at,
+              has_localhost: (game.template_url?.includes('localhost') || game.template_url?.includes('127.0.0.1')),
+              has_memeplay_dev: (game.template_url?.includes('memeplay.dev') || game.public_url?.includes('memeplay.dev'))
+            })
+          } else {
+            console.log(`❌ [COMPARE] NON-WORKING game ${gameId} NOT FOUND in Supabase`)
+          }
+        })
+      }
+      
       const mappedGames = data
         .map(item => {
           const gameId = item?.game_id || item?.id
