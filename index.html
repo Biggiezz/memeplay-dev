@@ -3044,6 +3044,9 @@
     const baseUrl = window.location.origin.replace(/\/$/, '')
     container.querySelectorAll('.game-card[data-user-created="true"]').forEach(card => card.remove())
 
+    // ✅ CLEANUP: Only keep specific Pacman games (pacman-7848, pacman-2246), remove others
+    const ALLOWED_PACMAN_GAMES = ['pacman-7848', 'pacman-2246']
+
     // ✅ OPTIMIZATION 2: Priority loading - Check ?game= parameter first
     const urlParams = new URLSearchParams(window.location.search)
     const gameIdFromQuery = urlParams.get('game')
@@ -3133,9 +3136,15 @@
     console.log(`⚡ [OPTIMISTIC] Loaded ${localGames.length} games from localStorage in ${localLoadTime.toFixed(2)}ms`)
 
     // Filter out old format and priority game (already rendered)
+    // ✅ CLEANUP: Only keep specific Pacman games (pacman-7848, pacman-2246), remove others
     const filteredLocalGames = localGames.filter(game => {
       if (!game || !game.gameId) return false
-      if (game.gameId.startsWith('pacman-game-')) return false
+      if (game.gameId.startsWith('pacman-game-')) return false // Old format
+      // ✅ CLEANUP: Filter out Pacman games except allowed ones
+      if (game.gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(game.gameId)) {
+        console.log(`🗑️ Filtering out Pacman game (not in allowed list): ${game.gameId}`)
+        return false
+      }
       if (priorityGameActivated && game.gameId === priorityGame?.gameId) return false // Skip if already rendered
       return true
     })
@@ -3191,10 +3200,16 @@
     console.log(`📊 [MERGE] Before merge - Supabase: ${supabaseGames.length}, Local: ${localGames.length}`)
 
     // Merge: Supabase games override local games (have more accurate data like likes, comments)
+    // ✅ CLEANUP: Only keep specific Pacman games (pacman-7848, pacman-2246), remove others
     const gameMap = new Map()
     // Add local games first
     localGames.forEach(game => {
       if (game.gameId && !game.gameId.startsWith('pacman-game-')) {
+        // ✅ CLEANUP: Filter out Pacman games except allowed ones
+        if (game.gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(game.gameId)) {
+          console.log(`🗑️ [MERGE] Filtered out Pacman game (not in allowed list): ${game.gameId}`)
+          return
+        }
         gameMap.set(game.gameId, game)
         console.log(`📦 [MERGE] Added local game: ${game.gameId}`)
       } else if (game.gameId && game.gameId.startsWith('pacman-game-')) {
@@ -3204,6 +3219,11 @@
     // Override with Supabase games (more accurate)
     supabaseGames.forEach(game => {
       if (game.gameId && !game.gameId.startsWith('pacman-game-')) {
+        // ✅ CLEANUP: Filter out Pacman games except allowed ones
+        if (game.gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(game.gameId)) {
+          console.log(`🗑️ [MERGE] Filtered out Pacman game (not in allowed list): ${game.gameId}`)
+          return
+        }
         gameMap.set(game.gameId, game)
         console.log(`📦 [MERGE] Added/Updated Supabase game: ${game.gameId}`)
       } else if (game.gameId && game.gameId.startsWith('pacman-game-')) {
@@ -3239,20 +3259,53 @@
         }
       } else {
         // Render new games from Supabase that weren't in localStorage
+        // ✅ CLEANUP: Filter out Pacman games except allowed ones
         if (!game.gameId.startsWith('pacman-game-')) {
+          if (game.gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(game.gameId)) {
+            console.log(`🗑️ [MERGE] Filtered out non-allowed Pacman game: ${game.gameId}`)
+            return
+          }
           console.log(`🆕 [MERGE] Rendering new game from Supabase: ${game.gameId}`)
           renderUserGameCard(game, container)
         }
       }
     })
     
-    // ✅ FIX: Remove any existing old format Pacman games from DOM
-    const oldFormatGames = container.querySelectorAll('.game-card[id^="pacman-game-"], .game-card[data-game-id^="pacman-game-"]')
-    oldFormatGames.forEach(card => {
+    // ✅ CLEANUP: Remove old format Pacman games and non-allowed Pacman games from DOM
+    const allPacmanGames = container.querySelectorAll('.game-card[id^="pacman-"], .game-card[data-game-id^="pacman-"]')
+    allPacmanGames.forEach(card => {
       const gameId = card.id || card.getAttribute('data-game-id') || ''
-      console.log(`🗑️ Removing old format Pacman game from DOM: ${gameId}`)
-      card.remove()
+      if (gameId.startsWith('pacman-game-')) {
+        // Remove old format
+        console.log(`🗑️ Removing old format Pacman game from DOM: ${gameId}`)
+        card.remove()
+      } else if (gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(gameId)) {
+        // Remove non-allowed Pacman games
+        console.log(`🗑️ Removing non-allowed Pacman game from DOM: ${gameId}`)
+        card.remove()
+      }
     })
+    
+    // ✅ CLEANUP: Delete non-allowed Pacman games from localStorage (keep allowed ones and creation logic)
+    const keysToDelete = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('pacman_brand_config_')) {
+        const gameId = key.replace('pacman_brand_config_', '')
+        // Only delete if it's a Pacman game and not in allowed list
+        if (gameId.startsWith('pacman-') && !ALLOWED_PACMAN_GAMES.includes(gameId)) {
+          keysToDelete.push(key)
+        }
+      }
+    }
+    keysToDelete.forEach(key => {
+      localStorage.removeItem(key)
+      console.log(`🗑️ Deleted from localStorage: ${key}`)
+    })
+    
+    if (keysToDelete.length > 0) {
+      console.log(`✅ Cleaned up ${keysToDelete.length} non-allowed Pacman games from localStorage`)
+    }
 
     const totalTime = performance.now() - startTime
     if (mergedGames.length > 0) {
