@@ -5728,7 +5728,11 @@ window.addEventListener("beforeunload", stopGame);
           p_game_id: gameId,
           p_score: finalScore
         }
-        if (Number.isFinite(Number(level))) payload.p_level = Math.max(1, Math.trunc(Number(level)))
+        if (Number.isFinite(Number(level))) {
+          payload.p_level = Math.max(1, Math.trunc(Number(level)))
+        } else {
+          payload.p_level = 1
+        }
 
         console.log('📤 [SCORE] Submitting score immediately (keepalive):', payload)
         const { data, error } = await rpcWithKeepalive('submit_game_score', payload)

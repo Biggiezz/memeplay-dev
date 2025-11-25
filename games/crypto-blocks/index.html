@@ -293,6 +293,10 @@
   </div>
 
   <script>
+    // ✅ Detect embedded game ID from ?game=blocks-XXXX (like Pacman template)
+    const urlParams = new URLSearchParams(window.location.search);
+    const EMBEDDED_GAME_ID = urlParams.get('game') || 'crypto-blocks';
+
     const DEFAULT_LOGO_URL = 'assets/ui/mc_meme.png';
     const externalTheme = {
       mapColor: '#0a0a0a',
@@ -1583,10 +1587,10 @@ applyExternalTheme();
         // ✅ If running in iframe → use postMessage (MemePlay platform)
         window.parent.postMessage({
           type: 'GAME_SCORE',
-          gameId: 'crypto-blocks',
+          gameId: EMBEDDED_GAME_ID,
           score: gameState.score
         }, '*');
-        console.log('📤 [CRYPTO-BLOCKS] Sent score via postMessage (iframe):', gameState.score);
+        console.log('📤 [CRYPTO-BLOCKS] Sent score via postMessage (iframe):', gameState.score, 'for gameId:', EMBEDDED_GAME_ID);
       } else {
         // ✅ If NOT running in iframe → send directly to Supabase (mobile direct access)
         console.warn('⚠️ [CRYPTO-BLOCKS] Not in iframe, sending score directly to Supabase');
@@ -1619,8 +1623,9 @@ applyExternalTheme();
         const endpoint = `${SUPABASE_URL}/rest/v1/rpc/submit_game_score`;
         const scoreData = {
           p_user_id: userId,
-          p_game_id: 'crypto-blocks',
-          p_score: gameState.score
+          p_game_id: EMBEDDED_GAME_ID,
+          p_score: gameState.score,
+          p_level: 1
         };
         
         try {
@@ -1759,7 +1764,11 @@ applyExternalTheme();
       
       // Post message integration (for MemePlay platform)
       if (window.parent !== window) {
-        window.parent.postMessage({ type: 'GAME_START', gameId: 'crypto-blocks' }, '*');
+        window.parent.postMessage({
+          type: 'GAME_START',
+          gameId: EMBEDDED_GAME_ID
+        }, '*');
+        console.log('📤 [CRYPTO-BLOCKS] Sent GAME_START with gameId:', EMBEDDED_GAME_ID);
       }
     }
     

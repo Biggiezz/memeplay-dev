@@ -2587,6 +2587,8 @@ function setupEditor() {
   const fragmentLogoLoading = document.getElementById('fragmentLogoLoading');
   const mapColorButtons = document.querySelectorAll('.map-color-btn');
   const blocksWrapper = document.getElementById('blocksWrapper');
+  const gameWrapperEl = document.getElementById('gameWrapper');
+  const gameCanvasEl = document.getElementById('gameCanvas');
   const pacmanEditorPreview = document.getElementById('pacmanEditorPreview');
   const blocksEditorPreview = document.getElementById('blocksEditorPreview');
   const getActiveTemplate = () => {
@@ -2598,19 +2600,84 @@ function setupEditor() {
   document.body.dataset.template = getActiveTemplate();
   loadBlocksConfig();
   sendBlocksConfigToIframe('editor');
-  if (templateSelect) {
-    templateSelect.addEventListener('change', () => {
-      document.body.dataset.template = getActiveTemplate();
-      if (getActiveTemplate() === TEMPLATE_IDS.BLOCKS) {
-        sendBlocksConfigToIframe('editor');
+  const playTestHandlers = {
+    [TEMPLATE_IDS.PACMAN]: {
+      show({ scroll = false } = {}) {
         if (blocksWrapper) {
           blocksWrapper.style.display = 'none';
           blocksWrapper.style.visibility = 'hidden';
         }
-      } else if (blocksWrapper) {
+        if (gameWrapperEl) {
+          gameWrapperEl.style.display = 'flex';
+          gameWrapperEl.style.visibility = 'visible';
+          gameWrapperEl.style.opacity = '1';
+          if (scroll) {
+            gameWrapperEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      },
+      hide() {
+        if (gameWrapperEl && isMobileViewport()) {
+          gameWrapperEl.style.display = 'none';
+        }
+      }
+    },
+    [TEMPLATE_IDS.BLOCKS]: {
+      show({ scroll = false, sendConfig = true } = {}) {
+        if (gameWrapperEl) {
+          gameWrapperEl.style.display = 'none';
+        }
+        if (blocksWrapper) {
+          blocksWrapper.style.display = 'flex';
+          blocksWrapper.style.visibility = 'visible';
+          blocksWrapper.style.opacity = '1';
+          if (sendConfig !== false) {
+            const target = isMobileViewport() ? 'both' : 'editor';
+            sendBlocksConfigToIframe(target);
+          }
+          if (scroll) {
+            blocksWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      },
+      hide() {
+        if (blocksWrapper) {
+          blocksWrapper.style.display = 'none';
+          blocksWrapper.style.visibility = 'hidden';
+        }
+      }
+    }
+  };
+
+  const syncPlayTestStage = ({ scroll = false, sendConfig = false, reason = '' } = {}) => {
+    const isMobile = isMobileViewport();
+    const activeTemplate = getActiveTemplate();
+
+    if (!isMobile) {
+      playTestHandlers[TEMPLATE_IDS.PACMAN].show({ scroll: false });
+      if (activeTemplate !== TEMPLATE_IDS.BLOCKS && blocksWrapper) {
         blocksWrapper.style.display = 'none';
         blocksWrapper.style.visibility = 'hidden';
       }
+      return;
+    }
+
+    Object.entries(playTestHandlers).forEach(([templateId, handler]) => {
+      if (templateId === activeTemplate) {
+        handler.show({ scroll, sendConfig });
+      } else if (typeof handler.hide === 'function') {
+        handler.hide();
+      }
+    });
+  };
+
+  if (templateSelect) {
+    templateSelect.addEventListener('change', () => {
+      document.body.dataset.template = getActiveTemplate();
+      if (getActiveTemplate() === TEMPLATE_IDS.BLOCKS) {
+        sendBlocksConfigToIframe(isMobileViewport() ? 'both' : 'editor');
+      }
+      syncPlayTestStage({ scroll: true, sendConfig: true, reason: 'template-change' });
     });
   }
   if (saveBtn) {
@@ -2632,7 +2699,10 @@ function setupEditor() {
   };
 
   applyMobileGameLockState();
-  window.addEventListener('resize', applyMobileGameLockState);
+  window.addEventListener('resize', () => {
+    applyMobileGameLockState();
+    syncPlayTestStage({ scroll: false, sendConfig: false, reason: 'resize' });
+  });
 
   const unlockMobileGameIfNeeded = () => {
     if (isMobileViewport() && !mobileGameUnlocked) {
@@ -3079,12 +3149,7 @@ function setupEditor() {
           playTestBtn.textContent = 'Play Test ✓';
           playTestBtn.style.color = '#4ade80';
         }
-        sendBlocksConfigToIframe('both');
-        if (blocksWrapper) {
-          blocksWrapper.style.display = 'flex';
-          blocksWrapper.style.visibility = 'visible';
-          blocksWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        playTestHandlers[TEMPLATE_IDS.BLOCKS].show({ scroll: true, sendConfig: true });
         showSaveFlow(TEMPLATE_IDS.BLOCKS);
         return;
       }
@@ -3097,9 +3162,6 @@ function setupEditor() {
         const selectedMap = mapSelect ? parseInt(mapSelect.value) : currentLevel;
         
         // Ensure game wrapper is visible
-        const gameWrapperEl = document.getElementById('gameWrapper');
-        const gameCanvasEl = document.getElementById('gameCanvas');
-        
         if (gameWrapperEl) {
           gameWrapperEl.style.display = 'flex';
           gameWrapperEl.style.visibility = 'visible';
@@ -3238,6 +3300,8 @@ function setupEditor() {
       }
     });
   }
+
+  syncPlayTestStage({ scroll: false, sendConfig: true, reason: 'initial' });
   
   const applyBlocksSaveState = (gameId) => {
     if (saveBtn) {
