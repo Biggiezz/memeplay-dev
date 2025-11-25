@@ -57,6 +57,19 @@ const EMBEDDED_GAME_ID = typeof getGameId === 'function' ? getGameId() : null;
 const isPublicView = !!EMBEDDED_GAME_ID;
 
 const TEMPLATE_ID = 'pacman-template';
+const PRODUCTION_BASE_URL = 'https://memeplay.dev';
+const TEMPLATE_IDS = Object.freeze({
+  PACMAN: 'pacman',
+  BLOCKS: 'blocks-8x8'
+});
+const BLOCKS_STORAGE_PREFIX = 'blocks_brand_config_';
+const BLOCKS_LAST_ID_KEY = 'blocks_last_saved_game_id';
+let BLOCKS_CONFIG = {
+  story: '',
+  mapColor: '#0a0a0a',
+  fragmentLogoUrl: '',
+  fragmentLogo: null
+};
 const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ';
 let supabaseClientPromise = null;
@@ -112,17 +125,11 @@ async function syncGameToSupabase(gameId, context = 'manual-save') {
       return false;
     }
 
-    // ✅ BLOCK: Do not sync games created on localhost to production
     const origin = window.location.origin.toLowerCase();
     const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.') || origin.includes('0.0.0.0');
-    if (isLocal) {
-      console.warn(`[Supabase] Game created on local (${origin}) - NOT syncing to production to prevent localhost URLs`);
-      return false;
-    }
-
-    const baseUrl = window.location.origin.replace(/\/$/, '');
+    const baseUrl = isLocal ? PRODUCTION_BASE_URL : window.location.origin.replace(/\/$/, '');
     const templateUrl = `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`;
-    const publicUrl = buildPublicLinkUrl(gameId, true);
+    const publicUrl = buildPublicLinkUrl(gameId, { forceProduction: true, template: TEMPLATE_IDS.PACMAN });
     const stories = Array.isArray(BRAND_CONFIG.stories) ? BRAND_CONFIG.stories : [];
 
     const payload = {
@@ -234,6 +241,185 @@ async function loadBrandConfigFromSupabase(gameId) {
   }
 }
 
+function generateBlocksGameId() {
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  return `blocks-${randomSuffix}`;
+}
+
+function getBlocksStorageKey(gameId) {
+  const id = gameId || BLOCKS_CONFIG.gameId || localStorage.getItem(BLOCKS_LAST_ID_KEY);
+  return id ? `${BLOCKS_STORAGE_PREFIX}${id}` : 'blocks_brand_config';
+}
+
+function setBlocksFragmentLogo(url) {
+  if (!url) {
+    BLOCKS_CONFIG.fragmentLogoUrl = '';
+    BLOCKS_CONFIG.fragmentLogo = null;
+    return;
+  }
+  BLOCKS_CONFIG.fragmentLogoUrl = url;
+  const img = new Image();
+  img.onload = () => {
+    BLOCKS_CONFIG.fragmentLogo = img;
+  };
+  img.src = url;
+}
+
+function loadBlocksConfig(gameIdOverride = null) {
+  try {
+    const storageKey = getBlocksStorageKey(gameIdOverride);
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) {
+      return false;
+    }
+    if (gameIdOverride) {
+      BLOCKS_CONFIG.gameId = gameIdOverride;
+    } else if (!BLOCKS_CONFIG.gameId) {
+      const storedId = localStorage.getItem(BLOCKS_LAST_ID_KEY);
+      if (storedId) {
+        BLOCKS_CONFIG.gameId = storedId;
+      }
+    }
+    const parsed = JSON.parse(saved);
+    BLOCKS_CONFIG = {
+      ...BLOCKS_CONFIG,
+      story: typeof parsed.story === 'string' ? parsed.story : '',
+      mapColor: parsed.mapColor || '#0a0a0a',
+      fragmentLogoUrl: parsed.fragmentLogoUrl || ''
+    };
+    if (BLOCKS_CONFIG.fragmentLogoUrl) {
+      setBlocksFragmentLogo(BLOCKS_CONFIG.fragmentLogoUrl);
+    }
+    return true;
+  } catch (error) {
+    console.warn('[BlocksConfig] Failed to load config:', error);
+    return false;
+  }
+}
+
+function saveBlocksConfig(gameId = null) {
+  let id = gameId || BLOCKS_CONFIG.gameId || localStorage.getItem(BLOCKS_LAST_ID_KEY);
+  const storageKey = id ? `${BLOCKS_STORAGE_PREFIX}${id}` : 'blocks_brand_config';
+  const payload = {
+    fragmentLogoUrl: BLOCKS_CONFIG.fragmentLogoUrl || '',
+    story: typeof BLOCKS_CONFIG.story === 'string' ? BLOCKS_CONFIG.story : '',
+    mapColor: BLOCKS_CONFIG.mapColor || '#0a0a0a'
+  };
+  localStorage.setItem(storageKey, JSON.stringify(payload));
+  if (id) {
+    localStorage.setItem(BLOCKS_LAST_ID_KEY, id);
+    BLOCKS_CONFIG.gameId = id;
+  }
+  return id || null;
+}
+
+function ensureBlocksGameId() {
+  if (BLOCKS_CONFIG.gameId) {
+    return BLOCKS_CONFIG.gameId;
+  }
+  const saved = localStorage.getItem(BLOCKS_LAST_ID_KEY);
+  if (saved) {
+    BLOCKS_CONFIG.gameId = saved;
+    return saved;
+  }
+  const generated = generateBlocksGameId();
+  localStorage.setItem(BLOCKS_LAST_ID_KEY, generated);
+  BLOCKS_CONFIG.gameId = generated;
+  return generated;
+}
+
+function sendBlocksConfigToIframe(target = 'both') {
+  const payload = {
+    type: 'CRYPTO_BLOCKS_CONFIG',
+    payload: {
+      story: BLOCKS_CONFIG.story || '',
+      mapColor: BLOCKS_CONFIG.mapColor || '#0a0a0a',
+      logoUrl: BLOCKS_CONFIG.fragmentLogoUrl || ''
+    }
+  };
+  if (target === 'editor' || target === 'both') {
+    const editorFrame = document.getElementById('blocksEditorFrame');
+    if (editorFrame && editorFrame.contentWindow) {
+      editorFrame.contentWindow.postMessage(payload, '*');
+    }
+  }
+  if (target === 'game' || target === 'both') {
+    const gameFrame = document.getElementById('blocksGameFrame');
+    if (gameFrame && gameFrame.contentWindow) {
+      gameFrame.contentWindow.postMessage(payload, '*');
+    }
+  }
+}
+
+async function loadBlocksConfigFromSupabase(gameId) {
+  if (!gameId) return false;
+  try {
+    const supabase = await getSupabaseClient();
+    if (!supabase) return false;
+    const { data, error } = await supabase.rpc('list_user_created_games', {
+      p_template_id: TEMPLATE_IDS.BLOCKS
+    });
+    if (error) {
+      console.error('[BlocksTemplate] list_user_created_games error:', error.message || error);
+      return false;
+    }
+    if (!Array.isArray(data)) return false;
+    const found = data.find(item => {
+      const id = item?.game_id || item?.id;
+      return id === gameId;
+    });
+    if (!found) return false;
+    BLOCKS_CONFIG.story = found.story_one || '';
+    BLOCKS_CONFIG.mapColor = found.map_color || '#0a0a0a';
+    BLOCKS_CONFIG.fragmentLogoUrl = found.fragment_logo_url || '';
+    if (BLOCKS_CONFIG.fragmentLogoUrl) {
+      setBlocksFragmentLogo(BLOCKS_CONFIG.fragmentLogoUrl);
+    }
+    saveBlocksConfig(gameId);
+    return true;
+  } catch (error) {
+    console.error('[BlocksTemplate] Failed to load config from Supabase:', error);
+    return false;
+  }
+}
+
+async function syncBlocksGameToSupabase(gameId, context = 'manual-save') {
+  try {
+    const origin = window.location.origin.toLowerCase();
+    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.') || origin.includes('0.0.0.0');
+    const supabase = await getSupabaseClient();
+    if (!supabase) return false;
+    const baseUrl = isLocal ? PRODUCTION_BASE_URL : window.location.origin.replace(/\/$/, '');
+    const templateUrl = `${baseUrl}/games/crypto-blocks/index.html?game=${gameId}`;
+    const publicUrl = buildPublicLinkUrl(gameId, { forceProduction: true, template: TEMPLATE_IDS.BLOCKS });
+    const payload = {
+      p_game_id: gameId,
+      p_template_id: TEMPLATE_IDS.BLOCKS,
+      p_title: 'Blocks 8x8',
+      p_map_color: BLOCKS_CONFIG.mapColor || '#0a0a0a',
+      p_map_index: 0,
+      p_fragment_logo_url: BLOCKS_CONFIG.fragmentLogoUrl || null,
+      p_story_one: BLOCKS_CONFIG.story || '',
+      p_story_two: '',
+      p_story_three: '',
+      p_public_url: publicUrl,
+      p_template_url: templateUrl,
+      p_creator_id: getCreatorIdentifier(),
+      p_context: context
+    };
+    const { error } = await supabase.rpc('upsert_user_created_game', payload);
+    if (error) {
+      console.error('[BlocksTemplate] Supabase sync failed:', error.message || error);
+      return false;
+    }
+    console.log('[BlocksTemplate] Synced game to Supabase:', gameId);
+    return true;
+  } catch (error) {
+    console.error('[BlocksTemplate] Unexpected Supabase error:', error);
+    return false;
+  }
+}
+
 // Ghost AI state
 let ghostSpeedMultiplier = 0.25;          // starts at 25% of Pacman speed
 let firstFragmentEaten = false;           // track first fragment event
@@ -267,24 +453,29 @@ function slugify(text) {
     .replace(/(^-|-$)/g, '') || 'memeplay-project';
 }
 
-function buildPublicLinkUrl(gameId = null, forceProduction = false) {
+function buildPublicLinkUrl(gameId = null, options = {}) {
+  const { forceProduction = false, template = TEMPLATE_IDS.PACMAN } = options || {};
   let id = gameId;
-  console.log('[buildPublicLinkUrl] Input gameId:', gameId, 'type:', typeof gameId, 'forceProduction:', forceProduction);
+  console.log('[buildPublicLinkUrl] Input gameId:', gameId, 'type:', typeof gameId, 'forceProduction:', forceProduction, 'template:', template);
   
   if (!id || id === 'null' || id === 'undefined' || id === '') {
     console.warn('[buildPublicLinkUrl] gameId is invalid, generating new ID...');
-    if (typeof generateGameId === 'function') {
+    if (template === TEMPLATE_IDS.BLOCKS) {
+      id = generateBlocksGameId();
+    } else if (typeof generateGameId === 'function') {
       id = generateGameId();
     } else {
-      // Fallback: generate pacman-7420 format
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
       id = `pacman-${randomSuffix}`;
     }
     console.log('[buildPublicLinkUrl] Generated new ID:', id);
   }
   
-  const baseUrl = window.location.origin.replace(/\/$/, '');
-  console.log('[buildPublicLinkUrl] baseUrl from window.location.origin:', baseUrl);
+  const origin = window.location.origin.replace(/\/$/, '');
+  const originLower = origin.toLowerCase();
+  const isLocal = originLower.includes('localhost') || originLower.includes('127.0.0.1') || originLower.includes('192.168.') || originLower.includes('0.0.0.0');
+  const baseUrl = forceProduction ? PRODUCTION_BASE_URL : origin;
+  console.log('[buildPublicLinkUrl] baseUrl resolved:', baseUrl, '| isLocal:', isLocal, '| forceProduction:', forceProduction, '| template:', template);
   
   // ✅ FIXED: Use query parameter ?game=id instead of hash #id
   // This ensures the game appears on homepage and works with MemePlay routing system
@@ -2386,6 +2577,7 @@ function setupEditor() {
   const saveBtnMobile = document.getElementById('saveBtnMobile');
   const publicLinkBtn = document.getElementById('publicLinkBtn');
   const publicLinkBtnMobile = document.getElementById('publicLinkBtnMobile');
+  const templateSelect = document.getElementById('templateSelect');
   const mapSelect = document.getElementById('mapSelect');
   const titleInput = document.getElementById('titleInput');
   const story1Input = document.getElementById('story1Input');
@@ -2394,6 +2586,33 @@ function setupEditor() {
   const fragmentLogoPreview = document.getElementById('fragmentLogoPreview');
   const fragmentLogoLoading = document.getElementById('fragmentLogoLoading');
   const mapColorButtons = document.querySelectorAll('.map-color-btn');
+  const blocksWrapper = document.getElementById('blocksWrapper');
+  const pacmanEditorPreview = document.getElementById('pacmanEditorPreview');
+  const blocksEditorPreview = document.getElementById('blocksEditorPreview');
+  const getActiveTemplate = () => {
+    if (templateSelect && templateSelect.value === TEMPLATE_IDS.BLOCKS) {
+      return TEMPLATE_IDS.BLOCKS;
+    }
+    return TEMPLATE_IDS.PACMAN;
+  };
+  document.body.dataset.template = getActiveTemplate();
+  loadBlocksConfig();
+  sendBlocksConfigToIframe('editor');
+  if (templateSelect) {
+    templateSelect.addEventListener('change', () => {
+      document.body.dataset.template = getActiveTemplate();
+      if (getActiveTemplate() === TEMPLATE_IDS.BLOCKS) {
+        sendBlocksConfigToIframe('editor');
+        if (blocksWrapper) {
+          blocksWrapper.style.display = 'none';
+          blocksWrapper.style.visibility = 'hidden';
+        }
+      } else if (blocksWrapper) {
+        blocksWrapper.style.display = 'none';
+        blocksWrapper.style.visibility = 'hidden';
+      }
+    });
+  }
   if (saveBtn) {
     saveBtn.dataset.visible = 'false';
     saveBtn.dataset.saved = 'false';
@@ -2425,6 +2644,9 @@ function setupEditor() {
   const setPublicLinkEnabled = (enabled, btnElement = null) => {
     const btn = btnElement || publicLinkBtn;
     if (!btn) return;
+    if (!btn.dataset.template) {
+      btn.dataset.template = TEMPLATE_IDS.PACMAN;
+    }
     btn.dataset.enabled = enabled ? 'true' : 'false';
     if (enabled) {
       btn.style.opacity = '1';
@@ -2439,7 +2661,7 @@ function setupEditor() {
     }
   };
 
-  const showSaveFlow = () => {
+  const showSaveFlow = (templateId = TEMPLATE_IDS.PACMAN) => {
     const isMobile = isMobileViewport();
     
     if (isMobile) {
@@ -2452,11 +2674,13 @@ function setupEditor() {
         saveBtnMobile.dataset.saved = 'false';
         saveBtnMobile.textContent = '💾 Save';
         saveBtnMobile.style.background = '#ffb642';
+        saveBtnMobile.dataset.template = templateId;
       }
       if (publicLinkBtnMobile) {
         publicLinkBtnMobile.style.display = 'block';
         publicLinkBtnMobile.dataset.visible = 'true';
         publicLinkBtnMobile.textContent = '🔗 Get Public Link';
+        publicLinkBtnMobile.dataset.template = templateId;
         setPublicLinkEnabled(false, publicLinkBtnMobile);
       }
     } else {
@@ -2467,11 +2691,13 @@ function setupEditor() {
         saveBtn.dataset.saved = 'false';
         saveBtn.textContent = '💾 Save';
         saveBtn.style.background = '#ffb642';
+        saveBtn.dataset.template = templateId;
       }
       if (publicLinkBtn) {
         publicLinkBtn.style.display = 'block';
         publicLinkBtn.dataset.visible = 'true';
         publicLinkBtn.textContent = '🔗 Get Public Link';
+        publicLinkBtn.dataset.template = templateId;
         setPublicLinkEnabled(false);
       }
     }
@@ -2625,12 +2851,15 @@ function setupEditor() {
       });
     });
   }
+
   
   // Story inputs with character limit (50 chars)
   const MAX_STORY_LENGTH = 50;
   
   if (story1Input) {
-    story1Input.value = (BRAND_CONFIG.stories[0] || '').substring(0, MAX_STORY_LENGTH);
+    const initialStory = (BRAND_CONFIG.stories[0] || BLOCKS_CONFIG.story || '').substring(0, MAX_STORY_LENGTH);
+    story1Input.value = initialStory;
+    BLOCKS_CONFIG.story = initialStory;
     updateCharCount(story1Input, story1Count, MAX_STORY_LENGTH);
     story1Input.addEventListener('input', (e) => {
       const value = e.target.value.substring(0, MAX_STORY_LENGTH);
@@ -2639,6 +2868,9 @@ function setupEditor() {
       // This ensures only 1 story is saved if user only enters story 1
       BRAND_CONFIG.stories = value.trim() !== '' ? [value] : [];
       saveBrandConfig();
+      BLOCKS_CONFIG.story = value;
+      saveBlocksConfig(BLOCKS_CONFIG.gameId || null);
+      sendBlocksConfigToIframe('both');
       updateCharCount(story1Input, story1Count, MAX_STORY_LENGTH);
     });
   }
@@ -2684,6 +2916,9 @@ function setupEditor() {
                     BRAND_CONFIG.fragmentLogo = optimizedImg;
                     BRAND_CONFIG.fragmentLogoUrl = optimizedDataUrl;
                     saveBrandConfig();
+                    setBlocksFragmentLogo(optimizedDataUrl);
+                    saveBlocksConfig(BLOCKS_CONFIG.gameId || null);
+                    sendBlocksConfigToIframe('both');
                     
                     // Hide loading, show preview
                     if (fragmentLogoLoading) {
@@ -2838,6 +3073,21 @@ function setupEditor() {
       e.stopPropagation();
       
       console.log('🎮 Play Test clicked');
+      const activeTemplate = getActiveTemplate();
+      if (activeTemplate === TEMPLATE_IDS.BLOCKS) {
+        if (playTestBtn.textContent.trim() === 'Play Test') {
+          playTestBtn.textContent = 'Play Test ✓';
+          playTestBtn.style.color = '#4ade80';
+        }
+        sendBlocksConfigToIframe('both');
+        if (blocksWrapper) {
+          blocksWrapper.style.display = 'flex';
+          blocksWrapper.style.visibility = 'visible';
+          blocksWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+        showSaveFlow(TEMPLATE_IDS.BLOCKS);
+        return;
+      }
       
       const isMobile = isMobileViewport();
       
@@ -2873,7 +3123,7 @@ function setupEditor() {
         }
         
         // Show save & public link workflow after Play Test (mobile uses floating buttons)
-        showSaveFlow();
+        showSaveFlow(TEMPLATE_IDS.PACMAN);
         
         unlockMobileGameIfNeeded();
         
@@ -2984,14 +3234,69 @@ function setupEditor() {
         }
 
         // Show save & public link workflow after Play Test (desktop uses editor panel buttons)
-        showSaveFlow();
+        showSaveFlow(TEMPLATE_IDS.PACMAN);
       }
     });
   }
   
+  const applyBlocksSaveState = (gameId) => {
+    if (saveBtn) {
+      saveBtn.dataset.gameId = gameId;
+      saveBtn.dataset.saved = 'true';
+      saveBtn.dataset.template = TEMPLATE_IDS.BLOCKS;
+    }
+    if (saveBtnMobile) {
+      saveBtnMobile.dataset.gameId = gameId;
+      saveBtnMobile.dataset.saved = 'true';
+      saveBtnMobile.dataset.template = TEMPLATE_IDS.BLOCKS;
+    }
+    if (publicLinkBtn) {
+      publicLinkBtn.dataset.template = TEMPLATE_IDS.BLOCKS;
+    }
+    if (publicLinkBtnMobile) {
+      publicLinkBtnMobile.dataset.template = TEMPLATE_IDS.BLOCKS;
+    }
+  };
+
+  const handleBlocksSaveClick = async (button, isMobile = false) => {
+    if (button.dataset.visible !== 'true') {
+      return;
+    }
+    button.textContent = 'Saving...';
+    button.style.background = '#f6c94c';
+    const storyValue = story1Input ? story1Input.value.substring(0, 50) : '';
+    BLOCKS_CONFIG.story = storyValue;
+    if (!BLOCKS_CONFIG.fragmentLogoUrl && BRAND_CONFIG.fragmentLogoUrl) {
+      BLOCKS_CONFIG.fragmentLogoUrl = BRAND_CONFIG.fragmentLogoUrl;
+    }
+    const existingId = button.dataset.gameId && button.dataset.gameId.startsWith('blocks-')
+      ? button.dataset.gameId
+      : null;
+    const gameId = saveBlocksConfig(existingId || ensureBlocksGameId());
+    sendBlocksConfigToIframe('both');
+    applyBlocksSaveState(gameId);
+    button.textContent = '✅ Saved';
+    button.style.background = '#4ECDC4';
+    button.dataset.gameId = gameId;
+    button.dataset.saved = 'true';
+    button.dataset.template = TEMPLATE_IDS.BLOCKS;
+    setPublicLinkEnabled(true, publicLinkBtn);
+    if (publicLinkBtnMobile) {
+      setPublicLinkEnabled(true, publicLinkBtnMobile);
+    }
+    button.dataset.supabaseSync = 'pending';
+    const synced = await syncBlocksGameToSupabase(gameId, 'manual-save');
+    button.dataset.supabaseSync = synced ? 'success' : 'error';
+  };
+  
   // Save button handler (shared for desktop and mobile)
   const handleSaveClick = async (button, isMobile = false) => {
     if (button.dataset.visible !== 'true') {
+      return;
+    }
+    const activeTemplate = button.dataset.template || getActiveTemplate();
+    if (activeTemplate === TEMPLATE_IDS.BLOCKS) {
+      await handleBlocksSaveClick(button, isMobile);
       return;
     }
     // Title is auto-generated, ensure it's set
@@ -3052,11 +3357,13 @@ function setupEditor() {
     if (saveBtn) {
       saveBtn.dataset.gameId = gameId;
       saveBtn.dataset.saved = 'true';
+      saveBtn.dataset.template = TEMPLATE_IDS.PACMAN;
       console.log('💾 [SAVE] Desktop - gameId:', gameId, 'saved:', saveBtn.dataset.saved);
     }
     if (saveBtnMobile) {
       saveBtnMobile.dataset.gameId = gameId;
       saveBtnMobile.dataset.saved = 'true';
+      saveBtnMobile.dataset.template = TEMPLATE_IDS.PACMAN;
       console.log('💾 [SAVE] Mobile - gameId:', gameId, 'saved:', saveBtnMobile.dataset.saved);
     } else {
       console.warn('💾 [SAVE] Mobile - saveBtnMobile is null!');
@@ -3088,18 +3395,32 @@ function setupEditor() {
   }
   
   // Public Link button handler - FIXED for iOS Safari: Copy MUST happen in click event, no async before
+  const getLastSavedGameId = (templateId) => {
+    if (templateId === TEMPLATE_IDS.BLOCKS) {
+      if (saveBtn && saveBtn.dataset.template === TEMPLATE_IDS.BLOCKS && saveBtn.dataset.saved === 'true') {
+        return saveBtn.dataset.gameId;
+      }
+      if (saveBtnMobile && saveBtnMobile.dataset.template === TEMPLATE_IDS.BLOCKS && saveBtnMobile.dataset.saved === 'true') {
+        return saveBtnMobile.dataset.gameId;
+      }
+      return BLOCKS_CONFIG.gameId || localStorage.getItem(BLOCKS_LAST_ID_KEY);
+    }
+    if (saveBtn && (!saveBtn.dataset.template || saveBtn.dataset.template === TEMPLATE_IDS.PACMAN) && saveBtn.dataset.saved === 'true') {
+      return saveBtn.dataset.gameId;
+    }
+    if (saveBtnMobile && (!saveBtnMobile.dataset.template || saveBtnMobile.dataset.template === TEMPLATE_IDS.PACMAN) && saveBtnMobile.dataset.saved === 'true') {
+      return saveBtnMobile.dataset.gameId;
+    }
+    return localStorage.getItem('pacman_last_saved_game_id');
+  };
+
   const handlePublicLinkClick = (button) => {
     if (button.dataset.enabled !== 'true') {
       return;
     }
     
-    // ✅ CRITICAL FIX: Get gameId FIRST (synchronous only, no async)
-    let gameId = null;
-    if (saveBtnMobile && saveBtnMobile.dataset.gameId && saveBtnMobile.dataset.saved === 'true') {
-      gameId = String(saveBtnMobile.dataset.gameId);
-    } else if (saveBtn && saveBtn.dataset.gameId && saveBtn.dataset.saved === 'true') {
-      gameId = String(saveBtn.dataset.gameId);
-    }
+    const buttonTemplate = button.dataset.template || getActiveTemplate();
+    let gameId = button.dataset.gameId || getLastSavedGameId(buttonTemplate);
     
     if (!gameId) {
       alert('Please Save the game first before getting public link.');
@@ -3107,8 +3428,7 @@ function setupEditor() {
     }
     
     // ✅ CRITICAL FIX: Build link SYNCHRONOUSLY (no async, no API calls)
-    const baseUrl = window.location.origin.replace(/\/$/, '');
-    const linkToCopy = `${baseUrl}/?game=${gameId}`;
+    const linkToCopy = buildPublicLinkUrl(gameId, { forceProduction: false, template: buttonTemplate });
     
     // ✅ CRITICAL FIX: Copy IMMEDIATELY in click event (iOS Safari requirement)
     // Must use execCommand with VISIBLE textarea (not hidden) for iOS Safari
@@ -3192,6 +3512,9 @@ function setupEditor() {
     
     // ✅ Run async operations AFTER copy (background tasks)
     (async () => {
+      if (buttonTemplate === TEMPLATE_IDS.BLOCKS) {
+        return;
+      }
       // Title is auto-generated, ensure it's set
       if (!BRAND_CONFIG.title || BRAND_CONFIG.title === 'Pacman Game') {
         const timestamp = new Date().toLocaleString('en-US', { 
@@ -3324,6 +3647,44 @@ window.addEventListener('DOMContentLoaded', async () => {
   const gameCanvas = document.getElementById('gameCanvas');
   
   if (isPublicGame) {
+    const isBlocksPublicGame = typeof gameId === 'string' && gameId.startsWith('blocks-');
+    if (isBlocksPublicGame) {
+      console.log('🎮 Blocks public game mode - Game ID:', gameId);
+      const blocksWrapperEl = document.getElementById('blocksWrapper');
+      const blocksGameFrame = document.getElementById('blocksGameFrame');
+      const blocksEditorFrame = document.getElementById('blocksEditorFrame');
+      if (creatorScreen) {
+        creatorScreen.style.display = 'none';
+      }
+      if (editorContainer) {
+        editorContainer.classList.remove('active');
+        editorContainer.style.display = 'none';
+      }
+      if (editorToggle) {
+        editorToggle.style.display = 'none';
+      }
+      if (gameWrapper) {
+        gameWrapper.style.display = 'none';
+      }
+      document.body.classList.add('public-game-view');
+      document.body.dataset.template = TEMPLATE_IDS.BLOCKS;
+      const hasLocalBlocksConfig = loadBlocksConfig(gameId);
+      if (!hasLocalBlocksConfig) {
+        await loadBlocksConfigFromSupabase(gameId);
+      }
+      if (blocksEditorFrame) {
+        blocksEditorFrame.addEventListener('load', () => sendBlocksConfigToIframe('editor'), { once: true });
+      }
+      if (blocksGameFrame) {
+        blocksGameFrame.addEventListener('load', () => sendBlocksConfigToIframe('game'), { once: true });
+      }
+      sendBlocksConfigToIframe('both');
+      if (blocksWrapperEl) {
+        blocksWrapperEl.style.display = 'flex';
+        blocksWrapperEl.style.visibility = 'visible';
+      }
+      return;
+    }
     // ====================================
     // PUBLIC GAME MODE - Show game, hide editor
     // ====================================

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>MemePlay Template Editor</title>
+  <link rel="stylesheet" href="pacman-template/style.css">
+</head>
+<body>
+  <div id="creatorScreen">
+    <div id="editorContainer" class="editor-container">
+      <div class="editor-panel">
+        <h2 style="color: #FFFFFF; margin-bottom: 20px;">Game Editor</h2>
+        <div class="editor-group">
+          <label class="editor-label" for="templateSelect">Template</label>
+          <select id="templateSelect" class="editor-input">
+            <option value="pacman" selected>Pacman</option>
+            <option value="blocks-8x8">Blocks 8x8</option>
+          </select>
+        </div>
+        <div class="editor-group">
+          <label class="editor-label">Logo</label>
+          <input type="file" id="fragmentLogoInput" class="editor-file-input" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif">
+          <label for="fragmentLogoInput" class="editor-file-label">Upload Logo</label>
+          <div id="fragmentLogoLoading" style="display: none; color: #ffb642; font-size: 12px; margin-top: 5px;">Processing image...</div>
+          <img id="fragmentLogoPreview" class="logo-preview" alt="Fragment Logo Preview">
+        </div>
+        <div class="editor-group">
+          <label class="editor-label">Story 1 <span id="story1Count" class="char-count">0/50</span></label>
+          <textarea id="story1Input" class="editor-textarea" placeholder="Enter story text (max 50 characters)..." maxlength="50"></textarea>
+        </div>
+        <div class="editor-group template-section template-pacman">
+          <label class="editor-label">Map</label>
+          <select id="mapSelect" class="editor-input" style="cursor: pointer;">
+            <option value="1">Map 1</option>
+            <option value="2">Map 2</option>
+            <option value="3">Map 3</option>
+            <option value="4" class="disabled-option" disabled>Map 4</option>
+            <option value="5" class="disabled-option" disabled>Map 5</option>
+          </select>
+        </div>
+        <div class="editor-group template-section template-pacman">
+          <label class="editor-label">Map Color</label>
+          <div class="map-color-picker">
+            <button type="button" class="map-color-btn" data-color="#6B46C1" style="--color:#6B46C1;" aria-label="Purple map color" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#000000" style="--color:#000000;" aria-label="Black map color" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#8B4513" style="--color:#8B4513;" aria-label="Brown map color" aria-pressed="false"></button>
+          </div>
+        </div>
+        <button id="playTestBtn" class="editor-btn">Play Test</button>
+        <button id="closeEditorBtn" class="editor-btn secondary">Close Editor</button>
+        <button id="saveBtn" class="editor-btn" style="display: none; margin-top: 10px;">💾 Save</button>
+        <button id="publicLinkBtn" class="editor-btn disabled" style="display: none; margin-top: 10px;">🔗 Get Public Link</button>
+      </div>
+      <div class="editor-canvas">
+        <div id="pacmanEditorPreview" class="game-wrapper">
+          <canvas id="gameCanvasEditor" style="background: #0f0f1e;"></canvas>
+        </div>
+        <div id="blocksEditorPreview" class="blocks-editor-preview" style="display: none;">
+          <iframe
+            id="blocksEditorFrame"
+            src="../crypto-blocks/index.html"
+            title="Blocks 8x8 Preview"
+            width="720"
+            height="1000"
+            frameborder="0"
+            allowfullscreen>
+          </iframe>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="creator-floating-buttons">
+    <div class="button-row">
+      <button id="editorToggle" class="floating-btn icon-btn" title="Back">←</button>
+      <button id="closeHomeBtn" class="floating-btn icon-btn" title="Close">×</button>
+    </div>
+    <div class="button-row">
+      <button id="saveBtnMobile" class="floating-btn" style="display: none;">💾 Save</button>
+      <button id="publicLinkBtnMobile" class="floating-btn disabled" style="display: none;">🔗 Get Public Link</button>
+    </div>
+  </div>
+
+  <div id="gameWrapper">
+    <div class="game-wrapper">
+      <div id="pacmanGameView">
+        <div class="hud">
+          <div class="hud-left">
+            <div class="hud-info">
+              <div id="hudScore" class="hud-score">Score: 0</div>
+              <div id="hudLevel" class="hud-level">LV 1</div>
+            </div>
+          </div>
+        </div>
+        <canvas id="gameCanvas" width="700" height="730" tabindex="0"></canvas>
+        <button class="focus-toggle" aria-label="Toggle focus mode" aria-pressed="false" title="Toggle focus mode">⤢</button>
+        <div class="mobile-controls">
+          <div class="control-row">
+            <button id="btnUp" class="control-btn up">▲</button>
+          </div>
+          <div class="control-row">
+            <button id="btnLeft" class="control-btn">◄</button>
+            <button id="btnDown" class="control-btn">▼</button>
+            <button id="btnRight" class="control-btn">►</button>
+          </div>
+        </div>
+        <div class="game-over-screen">
+          <img id="gameOverLogo" class="game-over-logo" src="" alt="Fragment Logo" style="display: none;">
+          <div id="gameOverStory" class="game-over-story"></div>
+          <button id="restartBtn" class="restart-btn">Play Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="blocksWrapper" class="blocks-template-view" style="display: none;">
+    <iframe
+      id="blocksGameFrame"
+      src="../crypto-blocks/index.html"
+      title="Blocks 8x8"
+      width="720"
+      height="1000"
+      frameborder="0"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+  <script src="pacman-template/config.js"></script>
+  <script src="pacman-template/maps.js"></script>
+  <script>
+    window.IS_SHARED_TEMPLATE_EDITOR = true;
+  </script>
+  <script src="pacman-template/game.js"></script>
+</body>
+</html>
+

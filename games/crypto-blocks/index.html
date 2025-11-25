@@ -108,6 +108,28 @@
       z-index: 10;
     }
     
+    .story-banner {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0, 0, 0, 0.6);
+      border: 2px solid #ffb642;
+      border-radius: 12px;
+      padding: 12px 24px;
+      color: #ffb642;
+      font-size: 24px;
+      font-weight: 600;
+      max-width: 640px;
+      text-align: center;
+      z-index: 50;
+      display: none !important; /* Always hidden - story only shows in game over screen */
+    }
+    
+    .story-banner.show {
+      display: none !important; /* Override show class to keep it hidden */
+    }
+    
     .game-over {
       position: absolute;
       top: 50%;
@@ -154,6 +176,13 @@
       color: #fff;
       font-size: 24px;
       margin-bottom: 30px;
+    }
+    
+    .game-over-story {
+      color: #ffb642;
+      font-size: 22px;
+      margin-bottom: 30px;
+      white-space: pre-wrap;
     }
     
     .restart-btn {
@@ -248,9 +277,12 @@
       <canvas id="gameCanvas" width="720" height="1000"></canvas>
       <canvas id="uiCanvas" width="720" height="1000"></canvas>
       
+      <div id="storyBanner" class="story-banner"></div>
+      
       <div id="gameOver" class="game-over">
         <h2>Game Over!</h2>
         <p>Final Score: <span id="finalScore">0</span></p>
+        <div id="gameOverStory" class="game-over-story"></div>
         <button class="restart-btn" onclick="game.restart()">Restart</button>
       </div>
       
@@ -261,6 +293,68 @@
   </div>
 
   <script>
+    const DEFAULT_LOGO_URL = 'assets/ui/mc_meme.png';
+    const externalTheme = {
+      mapColor: '#0a0a0a',
+      logoUrl: DEFAULT_LOGO_URL,
+      story: ''
+    };
+    const mcImage = new Image();
+    let mcImageLoaded = false;
+    mcImage.onload = () => {
+      mcImageLoaded = true;
+    };
+    mcImage.onerror = (err) => {
+      console.warn('⚠️ [CRYPTO-BLOCKS] Failed to load mcImage:', err);
+    };
+    mcImage.src = DEFAULT_LOGO_URL;
+    
+    function applyExternalTheme() {
+      const container = document.getElementById('gameContainer');
+      if (container) {
+        const color = externalTheme.mapColor || '#0a0a0a';
+        container.style.background = color.startsWith('linear-gradient') ? color : color;
+      }
+      
+      if (externalTheme.logoUrl) {
+        mcImage.src = externalTheme.logoUrl;
+      } else {
+        mcImage.src = DEFAULT_LOGO_URL;
+      }
+      
+      // Story banner removed - only show story in game over screen
+      const banner = document.getElementById('storyBanner');
+      if (banner) {
+        banner.style.display = 'none';
+      }
+      
+      const gameOverStory = document.getElementById('gameOverStory');
+      if (gameOverStory) {
+        gameOverStory.textContent = externalTheme.story?.trim() || '';
+        gameOverStory.style.display = externalTheme.story ? 'block' : 'none';
+      }
+    }
+    
+    window.addEventListener('message', (event) => {
+      const data = event.data || event.message;
+      if (!data) return;
+      if (data.type === 'CRYPTO_BLOCKS_CONFIG') {
+        const payload = data.payload || {};
+        if (typeof payload.mapColor === 'string') {
+          externalTheme.mapColor = payload.mapColor || externalTheme.mapColor;
+        }
+        if (typeof payload.logoUrl === 'string') {
+          externalTheme.logoUrl = payload.logoUrl || DEFAULT_LOGO_URL;
+        }
+        if (typeof payload.story === 'string') {
+          externalTheme.story = payload.story || '';
+        }
+        applyExternalTheme();
+      }
+    });
+
+applyExternalTheme();
+    
     // ===== CONFIG =====
     const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
     
@@ -310,17 +404,6 @@
       // Center grid horizontally
       CONFIG.GRID_X = (720 - CONFIG.GRID_WIDTH) / 2;
     }
-    
-    // ===== MC WATERMARK IMAGE =====
-    const mcImage = new Image();
-    let mcImageLoaded = false;
-    mcImage.onload = () => {
-      mcImageLoaded = true;
-    };
-    mcImage.onerror = (err) => {
-      console.warn('⚠️ [CRYPTO-BLOCKS] Failed to load mcImage:', err);
-    };
-    mcImage.src = 'assets/ui/mc_meme.png';
     
     // ===== SHAPE LIBRARY =====
     // Each shape is an array of {x, y} offsets from center (0,0)
@@ -1864,6 +1947,28 @@
     drawGrid();
     drawUI();
     gameLoop();
+    
+    // ✅ Ensure "Tap to Start" overlay is visible when loaded in iframe (homepage)
+    // This ensures the gaming screen is always shown, not editor or other screens
+    // Run after a short delay to ensure all variables are initialized
+    setTimeout(() => {
+      const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+      if (tapToStartOverlay) {
+        // Remove 'hidden' class if present (ensure overlay is visible)
+        tapToStartOverlay.classList.remove('hidden');
+        // Reset gameStarted flag to ensure overlay shows
+        if (typeof gameStarted !== 'undefined') {
+          gameStarted = false;
+        }
+        // Ensure gameState.gameStarted is false
+        if (typeof gameState !== 'undefined' && gameState && typeof gameState.gameStarted !== 'undefined') {
+          gameState.gameStarted = false;
+        }
+        // Redraw to show overlay
+        drawGrid();
+        drawUI();
+      }
+    }, 100);
     
     // Post message integration (for MemePlay platform)
     // Moved to handleTapToStart() - only send when user actually starts

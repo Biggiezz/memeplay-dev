@@ -1,0 +1,241 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', 'Segoe UI', sans-serif;
+  background: #050505;
+  color: #fff;
+}
+
+#creatorScreen {
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 40px 24px 120px;
+}
+
+.editor-container {
+  display: flex;
+  gap: 24px;
+  width: 100%;
+  max-width: 1440px;
+}
+
+.editor-panel {
+  width: 320px;
+  background: #0f0f15;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 24px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.editor-title {
+  margin: 0;
+  font-size: 24px;
+  color: #ffb642;
+}
+
+.editor-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.editor-label {
+  font-size: 14px;
+  color: #b3b3c2;
+}
+
+.editor-input,
+.editor-textarea,
+.editor-file-label,
+select {
+  width: 100%;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: #14141f;
+  color: #fff;
+  font-size: 15px;
+}
+
+.editor-textarea {
+  resize: none;
+  min-height: 90px;
+}
+
+.editor-file-input {
+  display: none;
+}
+
+.editor-file-label {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.05);
+  border-style: dashed;
+}
+
+.logo-preview {
+  width: 100%;
+  border-radius: 16px;
+  margin-top: 12px;
+  display: none;
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.logo-preview.show {
+  display: block;
+}
+
+.editor-hint {
+  font-size: 12px;
+  color: #ffb642;
+}
+
+.map-color-picker {
+  display: flex;
+  gap: 12px;
+}
+
+.map-color-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  border: 2px solid transparent;
+  background: var(--color);
+  cursor: pointer;
+  transition: border-color 0.2s;
+}
+
+.map-color-btn[aria-pressed="true"] {
+  border-color: #ffb642;
+}
+
+.editor-btn {
+  border: none;
+  border-radius: 16px;
+  padding: 14px 18px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  background: linear-gradient(135deg, #ffb642, #ff8845);
+  color: #050505;
+  transition: opacity 0.2s;
+}
+
+.editor-btn.secondary {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.editor-btn.disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.editor-canvas {
+  flex: 1;
+  background: #050505;
+  border-radius: 32px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  padding: 12px;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.game-wrapper {
+  width: 720px;
+  height: 1000px;
+  border-radius: 28px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: #050505;
+}
+
+#blocksGameFrame {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.creator-floating-buttons {
+  display: none;
+}
+
+.char-count {
+  font-size: 12px;
+  color: #7d7d8c;
+  margin-left: 6px;
+}
+
+body.public-game-view .editor-panel,
+body.public-game-view .creator-floating-buttons {
+  display: none;
+}
+
+body.public-game-view #creatorScreen {
+  justify-content: center;
+}
+
+body.public-game-view .editor-canvas {
+  flex: 0 0 auto;
+}
+
+@media (max-width: 1280px) {
+  .editor-container {
+    flex-direction: column;
+  }
+  
+  .editor-panel {
+    width: 100%;
+  }
+  
+  .editor-canvas {
+    justify-content: flex-start;
+    overflow-x: auto;
+  }
+}
+
+@media (max-width: 992px) {
+  #creatorScreen {
+    padding: 24px 16px 140px;
+  }
+  
+  .creator-floating-buttons {
+    position: fixed;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .floating-btn {
+    border: none;
+    border-radius: 20px;
+    padding: 12px 18px;
+    background: linear-gradient(135deg, #ffb642, #ff8845);
+    color: #050505;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  
+  .floating-btn.disabled {
+    opacity: 0.4;
+    pointer-events: none;
+  }
+}
+

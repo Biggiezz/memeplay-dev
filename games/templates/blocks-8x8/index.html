@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Blocks 8x8 Template</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="creatorScreen">
+    <div class="editor-container">
+      <div class="editor-panel">
+        <h2 class="editor-title">Game Editor</h2>
+
+        <div class="editor-group">
+          <label class="editor-label" for="templateSelect">Template</label>
+          <select id="templateSelect" class="editor-input">
+            <option value="blocks-8x8" selected>Blocks 8x8</option>
+            <option value="pacman">Pacman</option>
+          </select>
+        </div>
+
+        <div class="editor-group">
+          <label class="editor-label" for="logoInput">Logo</label>
+          <input type="file" id="logoInput" class="editor-file-input" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif">
+          <label for="logoInput" class="editor-file-label">Upload Logo</label>
+          <div id="logoLoading" class="editor-hint" style="display:none;">Processing image...</div>
+          <img id="logoPreview" class="logo-preview" alt="Logo preview">
+        </div>
+
+        <div class="editor-group">
+          <label class="editor-label" for="storyInput">Story <span id="storyCount" class="char-count">0/50</span></label>
+          <textarea id="storyInput" class="editor-textarea" placeholder="Enter story text (max 50 characters)..." maxlength="50"></textarea>
+        </div>
+
+        <div class="editor-group">
+          <label class="editor-label">Grid Color</label>
+          <div class="map-color-picker">
+            <button type="button" class="map-color-btn" data-color="#0a0a0a" style="--color:#0a0a0a;" aria-label="Dark blue" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#1f1f1f" style="--color:#1f1f1f;" aria-label="Charcoal" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#3b1f3f" style="--color:#3b1f3f;" aria-label="Purple" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#2f1b0f" style="--color:#2f1b0f;" aria-label="Brown" aria-pressed="false"></button>
+          </div>
+        </div>
+
+        <button id="playTestBtn" class="editor-btn">Play Test</button>
+        <button id="saveBtn" class="editor-btn">Save</button>
+        <button id="publicLinkBtn" class="editor-btn secondary disabled">Get Public Link</button>
+      </div>
+
+      <div class="editor-canvas">
+        <div class="game-wrapper">
+          <iframe
+            id="blocksGameFrame"
+            title="Blocks 8x8"
+            width="720"
+            height="1000"
+            frameborder="0"
+            allowfullscreen
+            src="../../crypto-blocks/index.html">
+          </iframe>
+        </div>
+      </div>
+    </div>
+
+    <div class="creator-floating-buttons">
+      <div class="button-row">
+        <button id="saveBtnMobile" class="floating-btn" style="display: none;">Save</button>
+        <button id="publicLinkBtnMobile" class="floating-btn disabled" style="display: none;">Public Link</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
+
+
+

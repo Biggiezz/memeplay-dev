@@ -213,6 +213,30 @@ body.public-game-view #editorToggle {
   display: none !important;
 }
 
+/* ====================================
+   SHARED TEMPLATE EDITOR STATES
+   ==================================== */
+
+body[data-template="blocks-8x8"] #pacmanEditorPreview {
+  display: none !important;
+}
+
+body[data-template="blocks-8x8"] #blocksEditorPreview {
+  display: flex !important;
+}
+
+body[data-template="blocks-8x8"] .template-section.template-pacman {
+  display: none !important;
+}
+
+body[data-template="blocks-8x8"] .template-section.template-blocks {
+  display: flex !important;
+}
+
+body[data-template="blocks-8x8"] .creator-floating-buttons .floating-btn {
+  background: #f6c94c;
+}
+
 body.public-game-view #gameWrapper {
   display: flex !important;
   opacity: 1 !important;
@@ -466,6 +490,58 @@ body.public-game-view #gameWrapper {
   height: 730px;
   background: #0f0f1e;
   border: 1px solid rgba(255, 182, 66, 0.2);
+}
+
+#blocksEditorPreview {
+  display: none;
+  width: 100%;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.blocks-editor-preview {
+  width: 100%;
+  max-width: 720px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 12px;
+  background: #050505;
+  border-radius: 28px;
+  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  margin: 0 auto;
+}
+
+.blocks-editor-preview iframe {
+  width: min(100%, 720px);
+  aspect-ratio: 720 / 1000;
+  height: auto;
+  border: none;
+  border-radius: 20px;
+  background: #050505;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  transform-origin: top center;
+  display: block;
+}
+
+/* Blocks Play Test screen - same size as homepage */
+#blocksWrapper.blocks-template-view {
+  width: 100%;
+  max-width: 720px;
+  position: relative;
+  margin: 0 auto;
+  overflow: hidden;
+  background: #0a0a0a;
+}
+
+#blocksWrapper.blocks-template-view iframe {
+  width: min(100%, 720px);
+  aspect-ratio: 720 / 1000;
+  height: auto;
+  border: none;
+  display: block;
+  transform-origin: top center;
 }
 
 .editor-group {
