@@ -1970,6 +1970,9 @@
       if (currentActiveGame) keepIds.add(currentActiveGame)
       if (window.__memeplayPinnedGameId) keepIds.add(window.__memeplayPinnedGameId)
       if (window.__memeplayHighPriorityGameId) keepIds.add(window.__memeplayHighPriorityGameId)
+      if (window.__memeplayStickyVirtualIds && window.__memeplayStickyVirtualIds.size) {
+        window.__memeplayStickyVirtualIds.forEach(id => keepIds.add(id))
+      }
       
       const signature = `${windowInfo.startIndex}-${windowInfo.endIndex}-${Array.from(keepIds).join(',')}`
       if (signature === virtualScrollState.lastSignature) return windowInfo
@@ -4358,9 +4361,17 @@
         let initialFocusHandled = false
         const hasShareTarget = Boolean(latestQueryId || hash)
         if (targetCard && hasShareTarget) {
-          const finalGameId = targetCard.id || targetCard.getAttribute('data-game-id')
-          console.log(`🎯 [INITIAL] Scrolling to hash/query target: ${finalGameId}`)
-          initialFocusHandled = focusAfterSort(finalGameId, latestQueryId ? 'query after sort' : 'hash after sort')
+        const finalGameId = targetCard.id || targetCard.getAttribute('data-game-id')
+        window.__memeplayStickyVirtualIds = window.__memeplayStickyVirtualIds || new Set()
+        window.__memeplayStickyVirtualIds.add(finalGameId)
+        console.log(`🎯 [INITIAL] Scrolling to hash/query target: ${finalGameId}`)
+        initialFocusHandled = focusAfterSort(finalGameId, latestQueryId ? 'query after sort' : 'hash after sort')
+        if (initialFocusHandled) {
+          setTimeout(() => {
+            window.__memeplayStickyVirtualIds?.delete(finalGameId)
+            refreshVirtualVisibility('hash-focus')
+          }, 1200)
+        }
         }
         
         if (!initialFocusHandled && firstAfterSort) {
