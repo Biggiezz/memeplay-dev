@@ -2635,7 +2635,7 @@
       function runPeriodicScrollCheck() {
         if (scrollCheckPending) return
         
-        scrollCheckPending = true
+          scrollCheckPending = true
         
         // Use requestIdleCallback to avoid blocking game (especially on mobile)
         // Short timeout (300ms) ensures responsiveness even if browser is busy
@@ -3266,13 +3266,13 @@
         const isRecommended = currentFilter === 'Recommended'
         if (!isRecommended) {
           // Only activate first game if NOT in Recommended category
-          const firstGame = filteredLocalGames[0]
-          setTimeout(() => {
-            if (typeof activateGame === 'function') {
+        const firstGame = filteredLocalGames[0]
+        setTimeout(() => {
+          if (typeof activateGame === 'function') {
               console.log(`⚡ [OPTIMISTIC] Activating first game: ${firstGame.gameId} (category: ${currentFilter})`)
-              activateGame(firstGame.gameId)
-            }
-          }, 100)
+            activateGame(firstGame.gameId)
+          }
+        }, 100)
         } else {
           console.log(`⏭️ [OPTIMISTIC] Skipping first game activation (Recommended category - will sort by likes first)`)
         }
@@ -3473,28 +3473,28 @@
 
       if (key.startsWith(PACMAN_STORAGE_PREFIX) && key.length > PACMAN_STORAGE_PREFIX.length) {
         if (key === 'pacman_brand_config') continue
-        try {
+      try {
           const gameId = key.replace(PACMAN_STORAGE_PREFIX, '')
-          const config = JSON.parse(localStorage.getItem(key) || '{}')
-          if (!config || !config.title) continue
-          
-          results.push({
-            source: 'localStorage',
+        const config = JSON.parse(localStorage.getItem(key) || '{}')
+        if (!config || !config.title) continue
+        
+        results.push({
+          source: 'localStorage',
             templateId: PACMAN_TEMPLATE_ID,
-            gameId,
-            title: config.title || 'Pacman Game',
-            creator: config.title || 'Creator',
-            mapColor: config.mapColor || '#1a1a2e',
-            fragmentLogoUrl: config.fragmentLogoUrl || '',
+          gameId,
+          title: config.title || 'Pacman Game',
+          creator: config.title || 'Creator',
+          mapColor: config.mapColor || '#1a1a2e',
+          fragmentLogoUrl: config.fragmentLogoUrl || '',
             mapIndex: typeof config.mapIndex === 'number' ? config.mapIndex : 0,
-            stories: Array.isArray(config.stories) ? config.stories : [],
-            likes: 0,
-            comments: 0,
-            plays: 0,
-            templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
-            publicUrl: `${baseUrl}/?game=${gameId}`
-          })
-        } catch (error) {
+          stories: Array.isArray(config.stories) ? config.stories : [],
+          likes: 0,
+          comments: 0,
+          plays: 0,
+          templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+          publicUrl: `${baseUrl}/?game=${gameId}`
+        })
+      } catch (error) {
           console.warn('Failed to parse local Pacman game config:', key, error)
         }
         continue
@@ -3575,28 +3575,28 @@
     }
 
     const fetchByTemplate = async (templateId) => {
-      try {
-        const { data, error } = await supabase.rpc('list_user_created_games', {
+    try {
+      const { data, error } = await supabase.rpc('list_user_created_games', {
           p_template_id: templateId
-        })
-        if (error) {
+      })
+      if (error) {
           console.error(`❌ [fetchSupabaseUserGames] RPC error (${templateId}):`, error.message || error)
-          return []
-        }
+        return []
+      }
         if (!Array.isArray(data) || data.length === 0) {
           console.log(`ℹ️ [fetchSupabaseUserGames] No ${templateId} games found`)
-          return []
-        }
+        return []
+      }
 
         const isBlocksTemplate = templateId === BLOCKS_TEMPLATE_ID
 
         return data
-          .map(item => {
-            const gameId = item?.game_id || item?.id
-            if (!gameId) {
-              console.warn('⚠️ [fetchSupabaseUserGames] Item missing game_id:', item)
-              return null
-            }
+        .map(item => {
+          const gameId = item?.game_id || item?.id
+          if (!gameId) {
+            console.warn('⚠️ [fetchSupabaseUserGames] Item missing game_id:', item)
+            return null
+          }
 
             let stories = []
             if (isBlocksTemplate) {
@@ -3605,13 +3605,13 @@
             } else {
               stories = Array.isArray(item.stories) ? item.stories : []
               if (typeof item.stories === 'string') {
-                try {
+            try {
                   stories = JSON.parse(item.stories)
-                } catch (e) {
-                  console.warn('⚠️ [fetchSupabaseUserGames] Failed to parse stories as JSON:', e)
-                  stories = []
-                }
-              }
+            } catch (e) {
+              console.warn('⚠️ [fetchSupabaseUserGames] Failed to parse stories as JSON:', e)
+              stories = []
+            }
+          }
               if (!Array.isArray(stories)) stories = []
               const legacyStories = [item.story_one, item.story_two, item.story_three]
                 .filter(story => typeof story === 'string' && story.trim() !== '')
@@ -3628,27 +3628,27 @@
               ? `${baseUrl}/games/crypto-blocks/index.html?game=${gameId}`
               : `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`
             const templateUrl = item.template_url || defaultTemplateUrl
-            const publicUrl = item.public_url || `${baseUrl}/?game=${gameId}`
-
-            const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
-            if (isLocalGame) {
-              console.log(`🗑️ [fetchSupabaseUserGames] Filtering out localhost game: ${gameId} (template_url: ${templateUrl})`)
-              return null
-            }
-
+          const publicUrl = item.public_url || `${baseUrl}/?game=${gameId}`
+          
+          const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
+          if (isLocalGame) {
+            console.log(`🗑️ [fetchSupabaseUserGames] Filtering out localhost game: ${gameId} (template_url: ${templateUrl})`)
+            return null
+          }
+          
             const game = {
-              source: 'supabase',
+            source: 'supabase',
               templateId,
-              gameId,
+            gameId,
               title: item.title || (isBlocksTemplate ? 'Blocks 8x8 Game' : 'Pacman Game'),
               creator: item.creator_name || item.creator_id || item.title || (isBlocksTemplate ? 'Blocks 8x8' : 'Creator'),
               mapColor: item.map_color || (isBlocksTemplate ? '#0a0a0a' : '#1a1a2e'),
-              fragmentLogoUrl: item.fragment_logo_url || '',
+            fragmentLogoUrl: item.fragment_logo_url || '',
               mapIndex: isBlocksTemplate ? 0 : (Number.isInteger(item.map_index) ? item.map_index : 0),
               stories,
-              likes: item.likes_count ?? item.likes ?? 0,
-              comments: item.comments_count ?? item.comments ?? 0,
-              plays: item.plays_count ?? item.plays ?? 0,
+            likes: item.likes_count ?? item.likes ?? 0,
+            comments: item.comments_count ?? item.comments ?? 0,
+            plays: item.plays_count ?? item.plays ?? 0,
               templateUrl,
               publicUrl
             }
@@ -3657,15 +3657,15 @@
               cacheBlocksBrandConfig(game)
             } else {
               cachePacmanBrandConfig(game)
-            }
+          }
             return game
-          })
-          .filter(Boolean)
-      } catch (error) {
+        })
+        .filter(Boolean)
+    } catch (error) {
         console.error(`❌ [fetchSupabaseUserGames] Unexpected error (${templateId}):`, error)
-        return []
-      }
+      return []
     }
+  }
 
     const [pacmanGames, blocksGames] = await Promise.all([
       fetchByTemplate(PACMAN_TEMPLATE_ID),
@@ -3986,7 +3986,7 @@
         if (gameIdFromQuery) {
           console.log('🔗 Query detected in Recommended category - will handle without resort')
         } else {
-          console.log('🔗 Hash/Query detected in Recommended category, will be handled after sort:', hash)
+        console.log('🔗 Hash/Query detected in Recommended category, will be handled after sort:', hash)
         }
       } else if (hash && !targetGameExists) {
         console.log('⚠️ Hash/Query game not found in current games:', hash)
@@ -4058,17 +4058,17 @@
         })
         
         const handleAfterActivate = (targetId) => () => {
-          const secondAfterSort = sortedCards[1]?.id || sortedCards[1]?.getAttribute('data-game-id')
-          if (secondAfterSort && !isPacmanGame(secondAfterSort)) {
-            const secondCard = getGameCardElement(secondAfterSort)
-            if (secondCard) {
-              setGameState(secondAfterSort, GAME_STATES.WAITING)
-              loadGameIframe(secondAfterSort)
-            }
-          } else if (secondAfterSort && isPacmanGame(secondAfterSort)) {
-            console.log(`⏭️ [Pacman] Skipping preload of second Pacman game: ${secondAfterSort}`)
-          }
-          console.log(`✅ [INITIAL] Scrolled to target game: ${targetId} and activated`)
+                  const secondAfterSort = sortedCards[1]?.id || sortedCards[1]?.getAttribute('data-game-id')
+                  if (secondAfterSort && !isPacmanGame(secondAfterSort)) {
+                    const secondCard = getGameCardElement(secondAfterSort)
+                    if (secondCard) {
+                      setGameState(secondAfterSort, GAME_STATES.WAITING)
+                      loadGameIframe(secondAfterSort)
+                    }
+                  } else if (secondAfterSort && isPacmanGame(secondAfterSort)) {
+                    console.log(`⏭️ [Pacman] Skipping preload of second Pacman game: ${secondAfterSort}`)
+                  }
+                  console.log(`✅ [INITIAL] Scrolled to target game: ${targetId} and activated`)
         }
         
         // ✅ PRIORITY: Check ?game= parameter first (for direct links)
@@ -4105,7 +4105,22 @@
           console.log(`🎯 [INITIAL] Scrolling to target game: ${finalGameId} (from ${latestQueryId ? '?game=' : hash ? 'hash' : 'most likes'})`)
           focusAfterSort(finalGameId, latestQueryId ? 'query after sort' : (hash ? 'hash after sort' : 'top liked after sort'))
         } else if (firstAfterSort) {
+          console.log(`🎯 [INITIAL] No target game found, using first after sort: ${firstAfterSort}`)
           focusAfterSort(firstAfterSort, 'top liked default')
+        } else {
+          // ✅ FALLBACK: If no game found, try to activate first visible game card
+          console.warn('⚠️ [INITIAL] No game found after sort, trying fallback...')
+          const fallbackCard = Array.from(document.querySelectorAll('.game-card')).find(card => {
+            const cardId = card.id || card.getAttribute('data-game-id')
+            return cardId && card.style.display !== 'none'
+          })
+          if (fallbackCard) {
+            const fallbackId = fallbackCard.id || fallbackCard.getAttribute('data-game-id')
+            console.log(`🔄 [INITIAL] Fallback: Activating first visible game: ${fallbackId}`)
+            focusAfterSort(fallbackId, 'fallback first visible')
+          } else {
+            console.error('❌ [INITIAL] No game cards found in DOM!')
+          }
         }
         
         // Reinitialize after reordering
