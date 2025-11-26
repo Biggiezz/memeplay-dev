@@ -3868,6 +3868,14 @@
       // This ensures game with most likes is shown first
       const allCards = Array.from(document.querySelectorAll('.game-card'))
       const gameContainer = document.querySelector('.game-container')
+      
+      // ✅ DEBUG: Check if gameContainer exists
+      if (!gameContainer) {
+        console.error('❌ [INITIAL] game-container not found in DOM!')
+        console.log('Available containers:', document.querySelectorAll('[class*="container"]'))
+      } else {
+        console.log('✅ [INITIAL] game-container found')
+      }
 
       const focusGameCard = (targetGameId, {
         block = 'center',
@@ -3879,7 +3887,10 @@
         afterActivate = null
       } = {}) => {
         if (!targetGameId) return false
-        const targetCard = Array.from(container.querySelectorAll('.game-card')).find(card => {
+        
+        // ✅ FIX: Use container if exists, otherwise use document
+        const searchContainer = container || document
+        const targetCard = Array.from(searchContainer.querySelectorAll('.game-card')).find(card => {
           const cardId = card.id || card.getAttribute('data-game-id')
           return cardId === targetGameId
         })
@@ -4076,14 +4087,36 @@
         const latestQueryId = urlParams.get('game')
         const targetGameId = latestQueryId || hash || firstAfterSort
         
+        // ✅ DEBUG: Log target game selection
+        console.log(`🔍 [INITIAL] Target game selection:`, {
+          latestQueryId,
+          hash,
+          firstAfterSort,
+          targetGameId,
+          sortedCardsLength: sortedCards.length
+        })
+        
         // Check if target game exists in sorted cards
         const targetCard = sortedCards.find(card => {
           const cardId = card.id || card.getAttribute('data-game-id')
           return cardId === targetGameId
         })
         
+        // ✅ DEBUG: Log target card search
+        if (targetCard) {
+          const targetCardId = targetCard.id || targetCard.getAttribute('data-game-id')
+          console.log(`✅ [INITIAL] Target card found: ${targetCardId}`)
+        } else {
+          console.warn(`⚠️ [INITIAL] Target card NOT found for: ${targetGameId}`)
+          console.log(`Available sorted cards:`, sortedCards.slice(0, 3).map(c => c.id || c.getAttribute('data-game-id')))
+        }
+        
         const focusAfterSort = (finalGameId, originLabel) => {
-          if (!finalGameId) return
+          if (!finalGameId) {
+            console.warn(`⚠️ [FOCUS] No gameId provided for focusAfterSort`)
+            return
+          }
+          console.log(`🎯 [FOCUS] Attempting to focus: ${finalGameId} (${originLabel})`)
           const ok = focusGameCard(finalGameId, {
             block: 'center',
             behavior: 'auto',
@@ -4091,12 +4124,15 @@
             afterActivate: handleAfterActivate(finalGameId)
           })
           if (!ok && firstAfterSort && finalGameId !== firstAfterSort) {
+            console.warn(`⚠️ [FOCUS] focusGameCard failed for ${finalGameId}, trying fallback: ${firstAfterSort}`)
             focusGameCard(firstAfterSort, {
               block: 'center',
               behavior: 'auto',
               reason: 'fallback after sort',
               afterActivate: handleAfterActivate(firstAfterSort)
             })
+          } else if (!ok) {
+            console.error(`❌ [FOCUS] focusGameCard failed for ${finalGameId} and no fallback available`)
           }
         }
         
