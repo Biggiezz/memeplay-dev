@@ -4143,10 +4143,13 @@
             return
           }
           console.log(`🎯 [FOCUS] Attempting to focus: ${finalGameId} (${originLabel})`)
+          // ✅ FIX: Increase lock time to 6s to ensure observer doesn't activate different game
+          // Observer init after 2.5s, so 6s lock ensures it won't activate game thứ 2
           const ok = focusGameCard(finalGameId, {
             block: 'center',
             behavior: 'auto',
             reason: originLabel,
+            lockMs: 6000, // Increased from 4000ms to 6000ms
             afterActivate: handleAfterActivate(finalGameId)
           })
           if (!ok && firstAfterSort && finalGameId !== firstAfterSort) {
