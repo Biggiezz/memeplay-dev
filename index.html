@@ -4332,6 +4332,9 @@
             lockMs: 6000, // Increased from 4000ms to 6000ms
             afterActivate: handleAfterActivate(finalGameId)
           })
+          if (ok) {
+            refreshVirtualVisibility(`focus-${originLabel}`)
+          }
           if (!ok && firstAfterSort && finalGameId !== firstAfterSort) {
             console.warn(`⚠️ [FOCUS] focusGameCard failed for ${finalGameId}, trying fallback: ${firstAfterSort}`)
             focusGameCard(firstAfterSort, {
