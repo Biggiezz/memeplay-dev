@@ -2358,6 +2358,19 @@
           return
         }
         
+        // ✅ FIX: Don't activate different game if there's a pinned game (from focusGameCard)
+        const pinnedGameId = window.__memeplayPinnedGameId
+        if (pinnedGameId && gameId !== pinnedGameId) {
+          debugLog(`👁️ Observer: Skipping activation of ${gameId} (pinned game: ${pinnedGameId})`)
+          return
+        }
+        
+        // ✅ FIX: Don't activate different game if observer is locked
+        if (window.__memeplayLockObserverUntil && Date.now() < window.__memeplayLockObserverUntil) {
+          debugLog(`👁️ Observer: Skipping activation (locked until ${new Date(window.__memeplayLockObserverUntil).toLocaleTimeString()})`)
+          return
+        }
+        
         // Log all visible games for debugging (use deduplicated list)
         const visibleGames = visibleDeduped.map(e => {
           const rect = e.target.getBoundingClientRect();
