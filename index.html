@@ -4323,7 +4323,7 @@
         const focusAfterSort = (finalGameId, originLabel) => {
           if (!finalGameId) {
             console.warn(`⚠️ [FOCUS] No gameId provided for focusAfterSort`)
-            return
+            return false
           }
           console.log(`🎯 [FOCUS] Attempting to focus: ${finalGameId} (${originLabel})`)
           // ✅ FIX: Increase lock time to 6s to ensure observer doesn't activate different game
@@ -4349,16 +4349,26 @@
           } else if (!ok) {
             console.error(`❌ [FOCUS] focusGameCard failed for ${finalGameId} and no fallback available`)
           }
+          if (ok) {
+            refreshVirtualVisibility(`focus-${originLabel}`)
+          }
+          return ok
         }
         
-        if (targetGameId && targetCard && currentFilter === 'Recommended') {
+        let initialFocusHandled = false
+        const hasShareTarget = Boolean(latestQueryId || hash)
+        if (targetCard && hasShareTarget) {
           const finalGameId = targetCard.id || targetCard.getAttribute('data-game-id')
-          console.log(`🎯 [INITIAL] Scrolling to target game: ${finalGameId} (from ${latestQueryId ? '?game=' : hash ? 'hash' : 'most likes'})`)
-          focusAfterSort(finalGameId, latestQueryId ? 'query after sort' : (hash ? 'hash after sort' : 'top liked after sort'))
-        } else if (firstAfterSort) {
-          console.log(`🎯 [INITIAL] No target game found, using first after sort: ${firstAfterSort}`)
-          focusAfterSort(firstAfterSort, 'top liked default')
-        } else {
+          console.log(`🎯 [INITIAL] Scrolling to hash/query target: ${finalGameId}`)
+          initialFocusHandled = focusAfterSort(finalGameId, latestQueryId ? 'query after sort' : 'hash after sort')
+        }
+        
+        if (!initialFocusHandled && firstAfterSort) {
+          console.log(`🎯 [INITIAL] Using top liked after sort: ${firstAfterSort}`)
+          initialFocusHandled = focusAfterSort(firstAfterSort, 'top liked default')
+        }
+        
+        if (!initialFocusHandled) {
           // ✅ FALLBACK: If no game found, try to activate first visible game card
           console.warn('⚠️ [INITIAL] No game found after sort, trying fallback...')
           const fallbackCard = Array.from(document.querySelectorAll('.game-card')).find(card => {
