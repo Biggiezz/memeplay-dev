@@ -1981,6 +1981,7 @@
     }
   
     function activateGame(gameId, isPreload = false) {
+      console.log(`🎮 [ACTIVATE] activateGame called: ${gameId} (isPreload: ${isPreload})`)
       debugLog(`🚀 [activateGame] CALLED with gameId: ${gameId}, isPreload: ${isPreload}`)
       if (!gameId) {
         console.warn(`⚠️ [activateGame] gameId is null/undefined, returning early`)
