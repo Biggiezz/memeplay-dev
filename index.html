@@ -4037,6 +4037,9 @@
       container.innerHTML = wrapper ? wrapper.innerHTML : markup
       console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
       
+      // ✅ Apply virtual window immediately so hero + buffer remain visible while waiting for sort/data
+      refreshVirtualVisibility('initial-static')
+      
       // ✅ FIX: Remove old format Pacman games immediately after loading
       const oldFormatGames = container.querySelectorAll('.game-card[id^="pacman-game-"], .game-card[data-game-id^="pacman-game-"]')
       oldFormatGames.forEach(card => {
