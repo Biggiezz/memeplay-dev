@@ -2497,8 +2497,11 @@
             if (currentActiveGame) {
               const currentIndex = allCards.findIndex(card => card.id === currentActiveGame)
               if (currentIndex !== -1) {
-                const start = Math.max(0, currentIndex - 3)
-                const end = Math.min(allCards.length, currentIndex + 4)
+                // ✅ PERFORMANCE: Reduced check range from 7 games to 5 games (Step 4.1)
+                // Changed from: currentIndex - 3 to + 4 (7 games) → currentIndex - 2 to + 3 (5 games)
+                // This reduces CPU usage when checking scroll position
+                const start = Math.max(0, currentIndex - 2)  // 2 games above active
+                const end = Math.min(allCards.length, currentIndex + 3)  // 2 games below active (total: 5 games)
                 checkList = allCards.slice(start, end)
               }
             }
