@@ -2164,8 +2164,10 @@
 
     // Observe which game card is visible and activate early for snappier switching
   function initGameObserver() {
-    // Use more thresholds for better detection
-    const thresholds = [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0];
+    // ✅ PERFORMANCE: Reduced thresholds from 11 to 4 (Step 3)
+    // This reduces IntersectionObserver callback frequency by ~70%
+    // 4 thresholds are sufficient for accurate detection while saving CPU
+    const thresholds = [0, 0.3, 0.7, 1.0];
     const gameContainer = document.querySelector('.game-container');
     const observer = new IntersectionObserver((entries) => {
         if (window.__memeplayLockObserverUntil && Date.now() < window.__memeplayLockObserverUntil) {
@@ -2461,7 +2463,7 @@
         // ✅ FIX: Giảm rootMargin từ 500px → 200px để tránh detect Pacman khi đã scroll xa
         // rootMargin quá lớn → IntersectionObserver detect Pacman là "visible" ngay cả khi đã scroll xa 500px
         rootMargin: '200px 0px 200px 0px', // Preload games 200px above/below visible area (giảm từ 500px)
-        threshold: [0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0] // More thresholds for better detection
+        threshold: [0, 0.3, 0.7, 1.0] // ✅ PERFORMANCE: Reduced from 11 to 4 thresholds (Step 3)
       });
 
     const cards = document.querySelectorAll('.game-card')
