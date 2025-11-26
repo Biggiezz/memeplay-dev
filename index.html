@@ -2623,18 +2623,35 @@
       }
       window.addEventListener('scroll', checkScrollPosition, { passive: true })
       
-      // Limit scroll check frequency
+      // ✅ PERFORMANCE: Optimized scroll check frequency (Step 2)
+      // Increased interval from 200ms to 350ms to reduce CPU usage
+      // Use requestIdleCallback to avoid blocking game, but with short timeout for responsiveness
       let scrollCheckPending = false
       function runPeriodicScrollCheck() {
-        if (!scrollCheckPending) {
-          scrollCheckPending = true
+        if (scrollCheckPending) return
+        
+        scrollCheckPending = true
+        
+        // Use requestIdleCallback to avoid blocking game (especially on mobile)
+        // Short timeout (300ms) ensures responsiveness even if browser is busy
+        if (window.requestIdleCallback) {
+          window.requestIdleCallback(() => {
+            scrollCheckPending = false
+            checkScrollPosition()
+          }, { timeout: 300 })
+        } else {
+          // Fallback for browsers without requestIdleCallback
           setTimeout(() => {
             scrollCheckPending = false
             checkScrollPosition()
           }, 200)
         }
       }
-      setInterval(runPeriodicScrollCheck, 200)
+      
+      // ✅ PERFORMANCE: Increased interval from 200ms to 350ms
+      // This reduces CPU usage from 5 checks/sec to ~2.8 checks/sec
+      // IntersectionObserver still handles real-time activation, so UX remains smooth
+      setInterval(runPeriodicScrollCheck, 350)
     } catch (e) {
       console.warn('Error setting up scroll listeners:', e)
     }
