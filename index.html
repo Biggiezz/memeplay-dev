@@ -1844,9 +1844,9 @@
     
     // ========= VIRTUAL SCROLL HELPERS (Step 4.2) =========
     const VIRTUAL_SCROLL_DEFAULTS = Object.freeze({
-      bufferBefore: 2,
-      bufferAfter: 3,
-      minVisible: 5
+      bufferBefore: 4,
+      bufferAfter: 6,
+      minVisible: 12
     })
     
     const virtualScrollState = window.__memeplayVirtual || {}
@@ -1948,8 +1948,76 @@
       return result
     }
     
-    virtualScrollState.getVisibleWindow = computeViewportGameWindow
+    virtualScrollState.enabled = true
+    virtualScrollState.lastSignature = ''
+    virtualScrollState.hiddenCount = 0
     
+    function applyVirtualVisibility(windowInfo, { reason = '' } = {}) {
+      if (!virtualScrollState.enabled) return windowInfo
+      const cards = Array.from(document.querySelectorAll('.game-card'))
+      if (!cards.length) return windowInfo
+      
+      if (!windowInfo || !Array.isArray(windowInfo.ids) || windowInfo.ids.length === 0) {
+        if (virtualScrollState.lastSignature) {
+          cards.forEach(card => card.classList.remove('virtual-hidden'))
+          virtualScrollState.lastSignature = ''
+          virtualScrollState.hiddenCount = 0
+        }
+        return windowInfo
+      }
+      
+      const keepIds = new Set(windowInfo.ids)
+      if (currentActiveGame) keepIds.add(currentActiveGame)
+      if (window.__memeplayPinnedGameId) keepIds.add(window.__memeplayPinnedGameId)
+      if (window.__memeplayHighPriorityGameId) keepIds.add(window.__memeplayHighPriorityGameId)
+      
+      const signature = `${windowInfo.startIndex}-${windowInfo.endIndex}-${Array.from(keepIds).join(',')}`
+      if (signature === virtualScrollState.lastSignature) return windowInfo
+      virtualScrollState.lastSignature = signature
+      
+      let hiddenCount = 0
+      cards.forEach(card => {
+        const gid = card.id || card.dataset?.gameId
+        if (!gid) return
+        const shouldShow = keepIds.has(gid)
+        card.classList.toggle('virtual-hidden', !shouldShow)
+        if (!shouldShow) hiddenCount += 1
+      })
+      virtualScrollState.hiddenCount = hiddenCount
+      if (window.__DEBUG_SCROLL) {
+        debugLog(`🌓 [VIRTUAL] visible=${cards.length - hiddenCount}, hidden=${hiddenCount}, reason=${reason || 'auto'}`)
+      }
+      return windowInfo
+    }
+    
+    function refreshVirtualVisibility(reason = 'manual') {
+      if (!virtualScrollState.enabled) return null
+      const windowInfo = computeViewportGameWindow()
+      return applyVirtualVisibility(windowInfo, { reason })
+    }
+    
+    function setVirtualVisibilityEnabled(enabled) {
+      const next = Boolean(enabled)
+      if (virtualScrollState.enabled === next) return
+      virtualScrollState.enabled = next
+      if (!next) {
+        document.querySelectorAll('.game-card.virtual-hidden').forEach(card => card.classList.remove('virtual-hidden'))
+        virtualScrollState.lastSignature = ''
+        virtualScrollState.hiddenCount = 0
+      } else {
+        refreshVirtualVisibility('enable')
+      }
+    }
+    
+    virtualScrollState.getVisibleWindow = computeViewportGameWindow
+    virtualScrollState.applyVisibility = applyVirtualVisibility
+    virtualScrollState.refreshVisibility = refreshVirtualVisibility
+    virtualScrollState.setEnabled = setVirtualVisibilityEnabled
+    
+    
+    document.addEventListener('memeplay:active-game-changed', () => {
+      refreshVirtualVisibility('active-game-change')
+    })
     
     // ========= PACMAN CONTROL BRIDGE =========
     const PACMAN_ID_PREFIX = 'pacman-'
@@ -2735,6 +2803,8 @@
                 // }
               }
             }
+            
+            refreshVirtualVisibility('scroll-check')
           } catch (e) {
             if (window.__DEBUG_SCROLL) console.warn('Error in scroll check:', e)
           }
@@ -4313,6 +4383,7 @@
           console.log(`👁️ [INITIAL] Initializing observer, current active game: ${currentActive || 'none'}`)
           initGameObserver()
           console.log('✅ [INITIAL] Game observer initialized after sort and scroll')
+          refreshVirtualVisibility('after-observer-init')
         }, 2500) // Increased from 2000ms to 2500ms to ensure focusGameCard completes
       }).catch(error => {
         console.error('📊 [INITIAL] Sort failed:', error)

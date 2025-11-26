@@ -222,3 +222,6 @@ h2 {
 .game-card {
   margin-bottom: 60px; /* tăng khoảng cách giữa các game */
 }
+.game-card.virtual-hidden {
+  display: none !important;
+}
