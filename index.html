@@ -3259,15 +3259,23 @@
         renderUserGameCard(game, container)
       })
 
-      // ✅ OPTIMIZATION 1: Activate first game if no priority game (<1s)
+      // ✅ FIX: Don't activate first game if in "Recommended" category (will sort by likes after)
+      // Only activate first game if NOT in Recommended category (Liked, Trending, Popular)
+      // This prevents showing wrong game before sort completes
       if (!priorityGameActivated && filteredLocalGames.length > 0) {
-        const firstGame = filteredLocalGames[0]
-        setTimeout(() => {
-          if (typeof activateGame === 'function') {
-            console.log(`⚡ [OPTIMISTIC] Activating first game: ${firstGame.gameId}`)
-            activateGame(firstGame.gameId)
-          }
-        }, 100)
+        const isRecommended = currentFilter === 'Recommended'
+        if (!isRecommended) {
+          // Only activate first game if NOT in Recommended category
+          const firstGame = filteredLocalGames[0]
+          setTimeout(() => {
+            if (typeof activateGame === 'function') {
+              console.log(`⚡ [OPTIMISTIC] Activating first game: ${firstGame.gameId} (category: ${currentFilter})`)
+              activateGame(firstGame.gameId)
+            }
+          }, 100)
+        } else {
+          console.log(`⏭️ [OPTIMISTIC] Skipping first game activation (Recommended category - will sort by likes first)`)
+        }
       }
     }
 
