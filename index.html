@@ -1842,6 +1842,115 @@
         })
     }
     
+    // ========= VIRTUAL SCROLL HELPERS (Step 4.2) =========
+    const VIRTUAL_SCROLL_DEFAULTS = Object.freeze({
+      bufferBefore: 2,
+      bufferAfter: 3,
+      minVisible: 5
+    })
+    
+    const virtualScrollState = window.__memeplayVirtual || {}
+    virtualScrollState.defaults = VIRTUAL_SCROLL_DEFAULTS
+    window.__memeplayVirtual = virtualScrollState
+    
+    function computeViewportGameWindow(options = {}) {
+      const container = document.querySelector('.game-container')
+      const cards = container ? Array.from(container.querySelectorAll('.game-card')) : []
+      const totalCards = cards.length
+      const noContainerResult = {
+        startIndex: 0,
+        endIndex: -1,
+        ids: [],
+        totalCards,
+        visibleCount: 0,
+        reason: container ? 'no-cards' : 'no-container'
+      }
+      if (!container || !totalCards) {
+        virtualScrollState.lastWindow = noContainerResult
+        return noContainerResult
+      }
+      
+      const settings = {
+        bufferBefore: Number.isFinite(options.bufferBefore) ? options.bufferBefore : VIRTUAL_SCROLL_DEFAULTS.bufferBefore,
+        bufferAfter: Number.isFinite(options.bufferAfter) ? options.bufferAfter : VIRTUAL_SCROLL_DEFAULTS.bufferAfter,
+        minVisible: Number.isFinite(options.minVisible) ? options.minVisible : VIRTUAL_SCROLL_DEFAULTS.minVisible
+      }
+      
+      const containerRect = container.getBoundingClientRect()
+      const containerTop = containerRect.top
+      const containerBottom = containerRect.bottom
+      
+      let firstVisible = -1
+      let lastVisible = -1
+      cards.forEach((card, idx) => {
+        const rect = card.getBoundingClientRect()
+        const intersects = rect.bottom > containerTop && rect.top < containerBottom
+        if (intersects) {
+          if (firstVisible === -1) firstVisible = idx
+          lastVisible = idx
+        }
+      })
+      
+      if (firstVisible === -1) {
+        let closestIdx = 0
+        let minDistance = Infinity
+        const containerCenter = containerTop + (containerRect.height / 2)
+        cards.forEach((card, idx) => {
+          const rect = card.getBoundingClientRect()
+          const cardCenter = rect.top + rect.height / 2
+          const distance = Math.abs(cardCenter - containerCenter)
+          if (distance < minDistance) {
+            minDistance = distance
+            closestIdx = idx
+          }
+        })
+        firstVisible = closestIdx
+        lastVisible = closestIdx
+      }
+      
+      let startIndex = Math.max(0, firstVisible - settings.bufferBefore)
+      let endIndex = Math.min(totalCards - 1, lastVisible + settings.bufferAfter)
+      
+      const currentWindowSize = endIndex >= startIndex ? (endIndex - startIndex + 1) : 0
+      if (currentWindowSize < settings.minVisible) {
+        const deficit = settings.minVisible - currentWindowSize
+        const extendBefore = Math.min(startIndex, Math.floor(deficit / 2))
+        const extendAfter = deficit - extendBefore
+        startIndex = Math.max(0, startIndex - extendBefore)
+        endIndex = Math.min(totalCards - 1, endIndex + extendAfter)
+        if ((endIndex - startIndex + 1) < settings.minVisible) {
+          const remaining = settings.minVisible - (endIndex - startIndex + 1)
+          startIndex = Math.max(0, startIndex - remaining)
+        }
+      }
+      
+      if (endIndex < startIndex) {
+        endIndex = startIndex
+      }
+      
+      const ids = cards.slice(startIndex, endIndex + 1)
+        .map(card => card.id || card.dataset?.gameId)
+        .filter(Boolean)
+      
+      const result = {
+        startIndex,
+        endIndex,
+        totalCards,
+        ids,
+        visibleCount: Math.max(0, lastVisible - firstVisible + 1),
+        bufferBefore: settings.bufferBefore,
+        bufferAfter: settings.bufferAfter
+      }
+      virtualScrollState.lastWindow = result
+      if (window.__DEBUG_SCROLL) {
+        debugLog(`📐 [VIRTUAL] Visible window ${startIndex}-${endIndex} (viewport count: ${result.visibleCount}/${totalCards})`)
+      }
+      return result
+    }
+    
+    virtualScrollState.getVisibleWindow = computeViewportGameWindow
+    
+    
     // ========= PACMAN CONTROL BRIDGE =========
     const PACMAN_ID_PREFIX = 'pacman-'
     const pacmanKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'])
