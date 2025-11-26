@@ -359,18 +359,10 @@
       scroll-snap-stop: always;
       contain: layout;
     }
-    /* ✅ FIX: Điều chỉnh scroll-snap cho Pacman games - cân bằng giữa snap vào và scroll qua
-       - Giữ scroll-snap-align: center (để vẫn có thể snap vào Pacman)
-       - Chỉ thay đổi scroll-snap-stop: always → normal (cho phép scroll qua được, không force stop)
-       - Áp dụng cho tất cả Pacman games (bất kỳ vị trí nào: số 1, số 3, etc.)
+    /* ✅ REMOVED: scroll-snap-stop override for Pacman
+       - This was causing browser to snap back to Pacman when scrolling past game #6
+       - All games now use scroll-snap-stop: always for consistent behavior
     */
-    .game-card[id^="pacman-"],
-    .game-card[id="pacman-memeplay"],
-    .game-card[data-game-id^="pacman-"],
-    .game-card[data-game-id="pacman-memeplay"] {
-      scroll-snap-stop: normal !important;
-      /* Giữ scroll-snap-align: center để vẫn có thể snap vào Pacman */
-    }
     /* ✅ FIX: Ẩn và xóa các game Pacman có đường dẫn kiểu cũ (pacman-game-*) */
     .game-card[id^="pacman-game-"],
     .game-card[data-game-id^="pacman-game-"] {
