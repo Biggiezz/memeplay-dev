@@ -3899,20 +3899,28 @@
           return false
         }
         console.log(`🎯 [FOCUS] ${reason || 'direct'} → ${targetGameId}`)
-        if (gameContainer) {
-          const previousSnap = gameContainer.style.scrollSnapType
-          const previousBehavior = gameContainer.style.scrollBehavior
-          gameContainer.style.scrollSnapType = 'none'
-          gameContainer.style.scrollBehavior = behavior
+        
+        // ✅ FIX: Re-query gameContainer to ensure it exists after DOM reorder
+        const currentGameContainer = document.querySelector('.game-container')
+        if (!currentGameContainer) {
+          console.warn(`⚠️ [FOCUS] game-container not found in DOM, skipping scroll but will still activate game`)
+        } else {
+          const previousSnap = currentGameContainer.style.scrollSnapType
+          const previousBehavior = currentGameContainer.style.scrollBehavior
+          currentGameContainer.style.scrollSnapType = 'none'
+          currentGameContainer.style.scrollBehavior = behavior
           requestAnimationFrame(() => {
             try {
               targetCard.scrollIntoView({ behavior, block })
+              console.log(`✅ [FOCUS] scrollIntoView called for ${targetGameId}`)
             } catch (err) {
               console.warn('[FOCUS] scrollIntoView failed:', err)
             }
             setTimeout(() => {
-              gameContainer.style.scrollSnapType = previousSnap || 'y mandatory'
-              gameContainer.style.scrollBehavior = previousBehavior || 'smooth'
+              if (currentGameContainer) {
+                currentGameContainer.style.scrollSnapType = previousSnap || 'y mandatory'
+                currentGameContainer.style.scrollBehavior = previousBehavior || 'smooth'
+              }
             }, 800)
           })
         }
@@ -3923,10 +3931,12 @@
             window.__memeplayPinnedGameId = targetGameId
           }
           setTimeout(() => {
+            console.log(`🎮 [FOCUS] Activating game: ${targetGameId}`)
             activateGame(targetGameId)
             if (typeof afterActivate === 'function') {
               afterActivate()
             }
+            console.log(`✅ [FOCUS] Game activated: ${targetGameId}`)
           }, activateDelay)
           if (lockMs > 0) {
             setTimeout(() => {
@@ -3936,6 +3946,8 @@
               }
             }, lockMs + 200)
           }
+        } else {
+          console.warn(`⚠️ [FOCUS] activateGame function not available or activate=false`)
         }
         return true
       }
@@ -4167,10 +4179,14 @@
         
         // ✅ CRITICAL: Init observer ONLY after scroll complete
         // Wait for scroll animation (600ms) + buffer to ensure observer doesn't activate wrong game
+        // ✅ FIX: Increase delay to ensure focusGameCard completes first
         setTimeout(() => {
+          // ✅ DEBUG: Check which game is currently active before init observer
+          const currentActive = window.__memeplayActiveGame || document.querySelector('.game-card.is-playing')?.id
+          console.log(`👁️ [INITIAL] Initializing observer, current active game: ${currentActive || 'none'}`)
           initGameObserver()
           console.log('✅ [INITIAL] Game observer initialized after sort and scroll')
-        }, 2000)
+        }, 2500) // Increased from 2000ms to 2500ms to ensure focusGameCard completes
       }).catch(error => {
         console.error('📊 [INITIAL] Sort failed:', error)
         // Continue with original order if sort fails
