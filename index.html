@@ -2513,7 +2513,8 @@
               if (currentIndex !== -1) {
                 // ✅ PERFORMANCE: Reduced check range from 7 games to 5 games (Step 4.1)
                 // Changed from: currentIndex - 3 to + 4 (7 games) → currentIndex - 2 to + 3 (5 games)
-                // This reduces CPU usage when checking scroll position
+                // This reduces CPU usage when checking scroll position by ~28%
+                // Only check 5 games (2 above + active + 2 below) instead of 7 games
                 const start = Math.max(0, currentIndex - 2)  // 2 games above active
                 const end = Math.min(allCards.length, currentIndex + 3)  // 2 games below active (total: 5 games)
                 checkList = allCards.slice(start, end)
