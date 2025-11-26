@@ -6806,45 +6806,14 @@ window.addEventListener("beforeunload", stopGame);
 
       // ✅ FIXED: Longer timeout for smoother scroll animation
       // Force snap to nearest after inertial scrolling stops (prevents resting between cards)
-      let snapTimer = null;
-      sc.addEventListener('scroll', () => {
-        if (snapTimer) clearTimeout(snapTimer);
-        
-        // ✅ FIX: Tăng timeout khi scroll từ Pacman (300ms → 800ms)
-        // snapTimer quá ngắn → force snap về Pacman trước khi scroll animation xong
-        const currentActiveCard = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]') ||
-                                  document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]')
-        const currentActiveGameId = currentActiveCard?.id || currentActiveCard?.getAttribute('data-game-id') || ''
-        const isCurrentActivePacman = currentActiveGameId && (
-          currentActiveGameId.startsWith('pacman-') || 
-          currentActiveGameId === 'pacman-memeplay'
-        )
-        
-        // Nếu đang scroll từ Pacman → tăng timeout lên 800ms (để scroll animation xong)
-        // Nếu không phải Pacman → giữ 300ms như cũ
-        const timeout = isCurrentActivePacman ? 800 : 300;
-        
-        snapTimer = setTimeout(() => {
-          // ✅ FIX CRITICAL: Check nếu current active game là Pacman - không force snap về nearest game
-          // Điều này ngăn Pacman tự cuộn về màn hình khi đã scroll sang game khác
-          const currentActiveCard2 = document.querySelector('.game-card[id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]') ||
-                                    document.querySelector('.game-card[data-game-id="' + (window.__memeplayActiveGame || currentActiveGame || '') + '"]')
-          const currentActiveGameId2 = currentActiveCard2?.id || currentActiveCard2?.getAttribute('data-game-id') || ''
-          const isCurrentActivePacman2 = currentActiveGameId2 && (
-            currentActiveGameId2.startsWith('pacman-') || 
-            currentActiveGameId2 === 'pacman-memeplay'
-          )
-          
-          // Nếu đang scroll từ Pacman, không force snap về nearest game
-          if (isCurrentActivePacman2) {
-            return; // Không snap về game nào, để user scroll tự do
-          }
-          
-          recalc();
-          const idx = currentIndex();
-          scrollToIndex(idx);
-        }, timeout);
-      }, { passive: true });
+      // ✅ REMOVED: Force snap timer - This was causing jumping back to Pacman when scrolling past game #6
+      // CSS scroll-snap-type: y mandatory already handles snapping, no need for JS force snap
+      // The timer was calculating currentIndex() which could return Pacman even when user scrolled to game #6
+      // This caused scrollToIndex() to force scroll back to Pacman → jumping behavior
+      // let snapTimer = null;
+      // sc.addEventListener('scroll', () => {
+      //   ... (removed to prevent jumping)
+      // }, { passive: true });
     })();
   </script>
 
