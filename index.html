@@ -1744,6 +1744,17 @@
     const gameStateStore = new Map();
     window.MEMEPLAY_GAME_STATES = GAME_STATES;
     
+    // ✅ PERFORMANCE: Debug logging helpers (reduce console.log overhead on mobile)
+    // Set window.__DEBUG_SCROLL = true in console to enable debug logs
+    // Set window.__DEBUG_INFO = true to enable info logs
+    const debugLog = (...args) => {
+      if (window.__DEBUG_SCROLL) console.log(...args);
+    };
+    const infoLog = (...args) => {
+      if (window.__DEBUG_INFO) console.log(...args);
+    };
+    // console.error and console.warn are always enabled (critical for error tracking)
+    
     function getGameCardElement(gameId) {
       if (!gameId) return null;
       return document.getElementById(gameId) ||
@@ -1970,14 +1981,14 @@
     }
   
     function activateGame(gameId, isPreload = false) {
-      console.log(`🚀 [activateGame] CALLED with gameId: ${gameId}, isPreload: ${isPreload}`)
+      debugLog(`🚀 [activateGame] CALLED with gameId: ${gameId}, isPreload: ${isPreload}`)
       if (!gameId) {
         console.warn(`⚠️ [activateGame] gameId is null/undefined, returning early`)
         return
       }
       
       const allGames = getAllGameCards()
-      console.log(`📋 [activateGame] Found ${allGames.length} total games`)
+      debugLog(`📋 [activateGame] Found ${allGames.length} total games`)
       const currentIndex = allGames.findIndex(g => g.id === gameId)
       if (currentIndex === -1) {
         console.error(`❌ [activateGame] Game ${gameId} not found in allGames (available: ${allGames.map(g => g.id).join(', ')})`)
@@ -1999,18 +2010,18 @@
         
         // ✅ FIXED: For Pacman games, don't preload prev/next (only 1 Pacman should load)
         if (isCurrentPacman) {
-          console.log(`🎮 [Already Active] Pacman game ${gameId} is ACTIVE - No preload needed`)
+          debugLog(`🎮 [Already Active] Pacman game ${gameId} is ACTIVE - No preload needed`)
           return
         }
         
-        console.log(`🔄 Game ${gameId} already active (currentActiveGame: ${currentActiveGame}), ensuring prev/next are loaded...`)
+        debugLog(`🔄 Game ${gameId} already active (currentActiveGame: ${currentActiveGame}), ensuring prev/next are loaded...`)
         // Ensure prev/next are loaded (only for non-Pacman games)
         if (prevGameId && !isPacmanGame(prevGameId)) {
           const prevCard = getGameCardElement(prevGameId)
           if (prevCard) {
             setGameState(prevGameId, GAME_STATES.WAITING)
             const prevLoaded = loadGameIframe(prevGameId)
-            console.log(`📦 [Already Active] Preloaded prev game: ${prevGameId} (WAITING) - Loading: ${prevLoaded}`)
+            debugLog(`📦 [Already Active] Preloaded prev game: ${prevGameId} (WAITING) - Loading: ${prevLoaded}`)
           } else {
             console.error(`❌ [Already Active] Prev game card not found: ${prevGameId}`)
           }
@@ -2020,25 +2031,25 @@
           if (nextCard) {
             setGameState(nextGameId, GAME_STATES.WAITING)
             const nextLoaded = loadGameIframe(nextGameId)
-            console.log(`📦 [Already Active] Preloaded next game: ${nextGameId} (WAITING) - Loading: ${nextLoaded}`)
+            debugLog(`📦 [Already Active] Preloaded next game: ${nextGameId} (WAITING) - Loading: ${nextLoaded}`)
           } else {
             console.error(`❌ [Already Active] Next game card not found: ${nextGameId}`)
           }
         }
         // Still log that this game is active
-        console.log(`🎮 [Already Active] Game ${gameId} is ACTIVE | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
+        debugLog(`🎮 [Already Active] Game ${gameId} is ACTIVE | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
         return
       }
       
       // If we reach here, this is a NEW game being activated (different from currentActiveGame)
       if (currentActiveGame && currentActiveGame !== gameId) {
-        console.log(`🔄 Switching active game: ${currentActiveGame} → ${gameId}`)
+        debugLog(`🔄 Switching active game: ${currentActiveGame} → ${gameId}`)
       }
       
       // Games to keep loaded: active + prev + next (always 3 games)
       const gamesToKeep = [gameId, prevGameId, nextGameId].filter(Boolean)
-      console.log(`🔍 [activateGame] Game ${gameId} | Index: ${currentIndex}/${totalGames} | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
-      console.log(`🔍 Games to keep loaded: ${gamesToKeep.join(', ')}`)
+      debugLog(`🔍 [activateGame] Game ${gameId} | Index: ${currentIndex}/${totalGames} | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
+      debugLog(`🔍 Games to keep loaded: ${gamesToKeep.join(', ')}`)
       
       const isCurrentPacman = isPacmanGame(gameId)
       
@@ -2049,7 +2060,7 @@
         const allGamesToCheck = getAllGameCards()
         allGamesToCheck.forEach((game) => {
           if (game.id && isPacmanGame(game.id) && game.id !== gameId) {
-            console.log(`🗑️ [Pacman] Unloading other Pacman game: ${game.id}`)
+            debugLog(`🗑️ [Pacman] Unloading other Pacman game: ${game.id}`)
             unloadGameIframe(game.id)
           }
         })
@@ -2061,7 +2072,7 @@
         currentActiveGame = gameId
         try { window.__memeplayActiveGame = gameId } catch {}
         document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }))
-        console.log(`🎮 [Pacman] Activated game: ${gameId} (ACTIVE) - All other Pacman games unloaded`)
+        debugLog(`🎮 [Pacman] Activated game: ${gameId} (ACTIVE) - All other Pacman games unloaded`)
         return
       }
       
@@ -2078,17 +2089,17 @@
           setGameState(prevGameId, GAME_STATES.WAITING)
           const prevLoaded = loadGameIframe(prevGameId)
           const prevState = getGameState(prevGameId)
-          console.log(`📦 [IMMEDIATE] Preloaded prev game: ${prevGameId} (WAITING state: ${prevState}) - Loading: ${prevLoaded}`)
+          debugLog(`📦 [IMMEDIATE] Preloaded prev game: ${prevGameId} (WAITING state: ${prevState}) - Loading: ${prevLoaded}`)
           
           // Verify iframe is actually loading
           const prevIframe = prevCard.querySelector('iframe')
           if (prevIframe) {
             const iframeSrc = prevIframe.src || 'not set'
-            console.log(`   → Prev game iframe src: ${iframeSrc.substring(0, 80)}...`)
+            debugLog(`   → Prev game iframe src: ${iframeSrc.substring(0, 80)}...`)
           }
         }
       } else if (prevGameId && isPacmanGame(prevGameId)) {
-        console.log(`⏭️ [Pacman] Skipping preload of prev Pacman game: ${prevGameId}`)
+        debugLog(`⏭️ [Pacman] Skipping preload of prev Pacman game: ${prevGameId}`)
       } else {
         console.warn(`⚠️ No prev game for ${gameId}`)
       }
@@ -2103,17 +2114,17 @@
           setGameState(nextGameId, GAME_STATES.WAITING)
           const nextLoaded = loadGameIframe(nextGameId)
           const nextState = getGameState(nextGameId)
-          console.log(`📦 [IMMEDIATE] Preloaded next game: ${nextGameId} (WAITING state: ${nextState}) - Loading: ${nextLoaded}`)
+          debugLog(`📦 [IMMEDIATE] Preloaded next game: ${nextGameId} (WAITING state: ${nextState}) - Loading: ${nextLoaded}`)
           
           // Verify iframe is actually loading
           const nextIframe = nextCard.querySelector('iframe')
           if (nextIframe) {
             const iframeSrc = nextIframe.src || 'not set'
-            console.log(`   → Next game iframe src: ${iframeSrc.substring(0, 80)}...`)
+            debugLog(`   → Next game iframe src: ${iframeSrc.substring(0, 80)}...`)
           }
         }
       } else if (nextGameId && isPacmanGame(nextGameId)) {
-        console.log(`⏭️ [Pacman] Skipping preload of next Pacman game: ${nextGameId}`)
+        debugLog(`⏭️ [Pacman] Skipping preload of next Pacman game: ${nextGameId}`)
       } else {
         console.warn(`⚠️ No next game for ${gameId}`)
       }
@@ -2125,7 +2136,7 @@
       currentActiveGame = gameId
       try { window.__memeplayActiveGame = gameId } catch {}
       document.dispatchEvent(new CustomEvent('memeplay:active-game-changed', { detail: { gameId } }))
-      console.log(`🎮 Activated game: ${gameId} (ACTIVE) | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
+      debugLog(`🎮 Activated game: ${gameId} (ACTIVE) | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
       
       // ✅ FIXED: Don't unload games aggressively - only unload games very far away
       // This ensures games are visible when user scrolls to them
@@ -2158,14 +2169,12 @@
     const gameContainer = document.querySelector('.game-container');
     const observer = new IntersectionObserver((entries) => {
         if (window.__memeplayLockObserverUntil && Date.now() < window.__memeplayLockObserverUntil) {
-          if (window.__DEBUG_SCROLL) {
-            console.log(`👁️ Observer locked (until ${new Date(window.__memeplayLockObserverUntil).toLocaleTimeString()})`);
-          }
+          debugLog(`👁️ Observer locked (until ${new Date(window.__memeplayLockObserverUntil).toLocaleTimeString()})`);
           return
         }
         const visible = entries.filter(e => e.isIntersecting);
         if (!visible.length) {
-          if (window.__DEBUG_SCROLL) console.log('👁️ Observer: No visible games')
+          debugLog('👁️ Observer: No visible games')
           return
         }
         
@@ -2214,9 +2223,9 @@
         });
         // Log each game on separate lines for easier reading
         if (window.__DEBUG_SCROLL) {
-          console.log(`👁️ [DEBUG] Viewport center: ${Math.round(viewportCenter)}px, Found ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`);
+          debugLog(`👁️ [DEBUG] Viewport center: ${Math.round(viewportCenter)}px, Found ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`);
           visibleGamesDebug.forEach((game, idx) => {
-            console.log(`   ${idx + 1}. ${game.id}: ratio=${game.ratio}, dist=${game.distToCenter}, inViewport=${game.isInViewport}, top=${game.top}, bottom=${game.bottom}`);
+            debugLog(`   ${idx + 1}. ${game.id}: ratio=${game.ratio}, dist=${game.distToCenter}, inViewport=${game.isInViewport}, top=${game.top}, bottom=${game.bottom}`);
           });
         }
         
@@ -2357,11 +2366,11 @@
             distToCenter: Math.round(dist) + 'px'
           };
         });
-        if (window.__DEBUG_SCROLL) console.log(`👁️ Observer detected ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`, visibleGames)
+        debugLog(`👁️ Observer detected ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`, visibleGames)
         
         // Calculate final distance for logging (avoid Infinity)
         const finalDistance = isFinite(minDistanceToCenter) ? Math.round(minDistanceToCenter) : 'N/A'
-        if (window.__DEBUG_SCROLL) console.log(`👁️ Observer activating game: ${gameId} (intersection: ${(best.intersectionRatio * 100).toFixed(1)}%, distance to center: ${finalDistance}px, currentActiveGame: ${currentActiveGame})`)
+        debugLog(`👁️ Observer activating game: ${gameId} (intersection: ${(best.intersectionRatio * 100).toFixed(1)}%, distance to center: ${finalDistance}px, currentActiveGame: ${currentActiveGame})`)
         
         // WARNING: If rocket-bnb is not in visible list but is being played, scroll check should handle it
         if (gameId !== 'rocket-bnb' && currentActiveGame === 'rocket-bnb') {
@@ -2375,7 +2384,7 @@
         // Ngăn bug "game bị cắt mép trên" khi F5 hoặc quay lại từ editor
         if (currentActiveGame === gameId) {
           // Game đang active → không cần activate lại
-          if (window.__DEBUG_SCROLL) console.log(`🛡️ [OBSERVER] Game ${gameId} is already active - KEEP active`)
+          debugLog(`🛡️ [OBSERVER] Game ${gameId} is already active - KEEP active`)
           return
         }
         
@@ -2407,10 +2416,10 @@
               // Game đang active vẫn gần center → chỉ activate game mới nếu nó gần center hơn nhiều
               if (bestDistance < currentDistance - 150) {
                 // Game mới gần center hơn nhiều → cho phép activate
-                if (window.__DEBUG_SCROLL) console.log(`🔄 [OBSERVER] Game ${gameId} is much closer to center (${Math.round(bestDistance)}px vs ${Math.round(currentDistance)}px) - ALLOW activate`)
+                debugLog(`🔄 [OBSERVER] Game ${gameId} is much closer to center (${Math.round(bestDistance)}px vs ${Math.round(currentDistance)}px) - ALLOW activate`)
               } else {
                 // Game đang active vẫn gần center hơn → giữ nó active
-                if (window.__DEBUG_SCROLL) console.log(`🛡️ [OBSERVER] Current active game ${currentActiveGame} is ${Math.round(currentVisibleRatio * 100)}% visible and closer to center (${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px) - KEEP active`)
+                debugLog(`🛡️ [OBSERVER] Current active game ${currentActiveGame} is ${Math.round(currentVisibleRatio * 100)}% visible and closer to center (${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px) - KEEP active`)
                 return
               }
             }
@@ -2434,10 +2443,10 @@
             
             // Only activate if observer's game is significantly closer (within 100px difference)
             if (bestDistance < currentDistance - 100) {
-              if (window.__DEBUG_SCROLL) console.log(`👁️ Observer overriding scroll check: ${currentActiveGame} → ${gameId} (distances: ${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px)`)
+              debugLog(`👁️ Observer overriding scroll check: ${currentActiveGame} → ${gameId} (distances: ${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px)`)
               activateGame(gameId)
             } else {
-              if (window.__DEBUG_SCROLL) console.log(`👁️ Observer skipping (scroll check already activated closer game: ${currentActiveGame}, distance: ${Math.round(currentDistance)}px)`)
+              debugLog(`👁️ Observer skipping (scroll check already activated closer game: ${currentActiveGame}, distance: ${Math.round(currentDistance)}px)`)
             }
           } else {
             activateGame(gameId)
@@ -2575,17 +2584,17 @@
                       // Game đang active vẫn gần center → chỉ activate game mới nếu nó gần center hơn nhiều
                       if (distance < currentDistance - 150) {
                         // Game mới gần center hơn nhiều → cho phép activate
-                        if (window.__DEBUG_SCROLL) console.log(`🔄 [SCROLL CHECK] Game ${closestGame.id} is much closer to center (${Math.round(distance)}px vs ${Math.round(currentDistance)}px) - ALLOW activate`)
+                        debugLog(`🔄 [SCROLL CHECK] Game ${closestGame.id} is much closer to center (${Math.round(distance)}px vs ${Math.round(currentDistance)}px) - ALLOW activate`)
                       } else {
                         // Game đang active vẫn gần center hơn → giữ nó active
-                        if (window.__DEBUG_SCROLL) console.log(`🛡️ [SCROLL CHECK] Current active game ${currentActiveGame} is ${Math.round(currentVisibleRatio * 100)}% visible and closer to center (${Math.round(currentDistance)}px vs ${Math.round(distance)}px) - KEEP active`)
+                        debugLog(`🛡️ [SCROLL CHECK] Current active game ${currentActiveGame} is ${Math.round(currentVisibleRatio * 100)}% visible and closer to center (${Math.round(currentDistance)}px vs ${Math.round(distance)}px) - KEEP active`)
                         return // Giữ game đang active, không activate game khác
                       }
                     }
                   }
                 }
                 
-                if (window.__DEBUG_SCROLL) console.log(`📍 [SCROLL CHECK] Found game at center: ${closestGame.id} (distance: ${Math.round(distance)}px, currentActiveGame: ${currentActiveGame})`)
+                debugLog(`📍 [SCROLL CHECK] Found game at center: ${closestGame.id} (distance: ${Math.round(distance)}px, currentActiveGame: ${currentActiveGame})`)
                 activateGame(closestGame.id)
                 
                 // ✅ FIX: Không auto-focus Pacman từ checkScrollPosition - để tránh trigger snap về center
