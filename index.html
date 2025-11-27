@@ -1947,9 +1947,19 @@
       return result
     }
     
-    virtualScrollState.enabled = true
+    // ✅ FIX: Tắt virtual scroll trên mobile để tránh ẩn game → Observer không detect được → nhảy loạn
+    // Trên mobile không cần virtual scroll vì số lượng game không quá nhiều
+    virtualScrollState.enabled = !isMobile()
     virtualScrollState.lastSignature = ''
     virtualScrollState.hiddenCount = 0
+    
+    // ✅ FIX: Nếu trên mobile, đảm bảo tất cả game đều hiện (không bị ẩn)
+    if (isMobile()) {
+      // Remove virtual-hidden class từ tất cả game cards khi khởi tạo trên mobile
+      document.querySelectorAll('.game-card.virtual-hidden').forEach(card => {
+        card.classList.remove('virtual-hidden')
+      })
+    }
     
     function applyVirtualVisibility(windowInfo, { reason = '' } = {}) {
       if (!virtualScrollState.enabled) return windowInfo
