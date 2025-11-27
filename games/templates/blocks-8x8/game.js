@@ -71,7 +71,7 @@ function buildPublicLinkUrl(gameId = null) {
     id = generateBlocksGameId();
   }
   const baseUrl = window.location.origin.replace(/\/$/, '');
-  return `${baseUrl}/?game=${id}`;
+  return `${baseUrl}/play.html?game=${id}`;
 }
 
 async function syncGameToSupabase(gameId, context = 'manual-save') {

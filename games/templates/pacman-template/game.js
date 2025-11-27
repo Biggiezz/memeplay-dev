@@ -477,9 +477,9 @@ function buildPublicLinkUrl(gameId = null, options = {}) {
   const baseUrl = forceProduction ? PRODUCTION_BASE_URL : origin;
   console.log('[buildPublicLinkUrl] baseUrl resolved:', baseUrl, '| isLocal:', isLocal, '| forceProduction:', forceProduction, '| template:', template);
   
-  // ✅ FIXED: Use query parameter ?game=id instead of hash #id
-  // This ensures the game appears on homepage and works with MemePlay routing system
-  const publicUrl = `${baseUrl}/?game=${id}`;
+  // ✅ FIXED: Use play.html?game=id format to match homepage share links
+  // This ensures consistent routing and better performance in play mode
+  const publicUrl = `${baseUrl}/play.html?game=${id}`;
   console.log('[buildPublicLinkUrl] Final publicUrl:', publicUrl);
   
   return publicUrl;
