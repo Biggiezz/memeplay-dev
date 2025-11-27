@@ -3520,8 +3520,8 @@
         card.remove()
       })
       
-      // ✅ FIXED: Get all games and wait for sort before loading first game
-      // This ensures game with most likes is shown first
+      // ✅ OPTIMIZATION: Get all games and load first game IMMEDIATELY (before sort)
+      // Sort will happen in background and reorder DOM later
       const allCards = Array.from(document.querySelectorAll('.game-card'))
       const gameContainer = document.querySelector('.game-container')
       
@@ -3690,10 +3690,72 @@
         })
       }
       
-      // STEP 6: Sort games by likes FIRST, then load the game with most likes OR ?game= parameter
-      // ✅ CRITICAL: Sort BEFORE loading first game to ensure game with most likes is shown
+      // ✅ OPTIMIZATION: Load first game IMMEDIATELY (before sort) for faster initial display
+      // Sort will happen in background and reorder DOM later
       const shouldSkipInitialSort = Boolean(gameIdFromQuery)
-      console.log('📊 [INITIAL] Starting sort by likes (will load game with most likes after sort)...')
+      
+      // STEP 6A: Load first game IMMEDIATELY (optimistic load)
+      // Check for hash/query first, otherwise use first card in DOM
+      // Note: gameIdFromQuery, hash, isRecommended already defined in STEP 4
+      let firstGameToLoad = null
+      if (gameIdFromQuery) {
+        // Priority: ?game= parameter
+        const targetCard = allCards.find(card => {
+          const cardId = card.id || card.getAttribute('data-game-id')
+          return cardId === gameIdFromQuery
+        })
+        if (targetCard) {
+          firstGameToLoad = gameIdFromQuery
+          console.log(`⚡ [FAST LOAD] Loading priority game from ?game=: ${firstGameToLoad}`)
+        }
+      } else if (hash && !isRecommended) {
+        // Hash navigation (not Recommended)
+        const targetCard = allCards.find(card => {
+          const cardId = card.id || card.getAttribute('data-game-id')
+          return cardId === hash
+        })
+        if (targetCard) {
+          firstGameToLoad = hash
+          console.log(`⚡ [FAST LOAD] Loading game from hash: ${firstGameToLoad}`)
+        }
+      } else {
+        // Default: First card in DOM
+        const firstCard = allCards[0]
+        if (firstCard) {
+          firstGameToLoad = firstCard.id || firstCard.getAttribute('data-game-id')
+          console.log(`⚡ [FAST LOAD] Loading first game in DOM: ${firstGameToLoad}`)
+        }
+      }
+      
+      // Load first game immediately (if found)
+      if (firstGameToLoad) {
+        const firstCard = allCards.find(card => {
+          const cardId = card.id || card.getAttribute('data-game-id')
+          return cardId === firstGameToLoad
+        })
+        if (firstCard) {
+          // Scroll to game and activate immediately (fast load)
+          setTimeout(() => {
+            if (typeof focusGameCard === 'function') {
+              console.log(`⚡ [FAST LOAD] Focusing and activating game immediately: ${firstGameToLoad}`)
+              focusGameCard(firstGameToLoad, {
+                block: 'center',
+                behavior: 'auto',
+                reason: 'fast-load before sort',
+                lockMs: 3000, // Lock observer for 3s to prevent conflicts
+                activateDelay: 50
+              })
+            } else if (typeof activateGame === 'function') {
+              console.log(`⚡ [FAST LOAD] Activating game immediately: ${firstGameToLoad}`)
+              activateGame(firstGameToLoad)
+            }
+          }, 50)
+        }
+      }
+      
+      // STEP 6B: Sort games by likes in BACKGROUND (non-blocking)
+      // After sort completes, reorder DOM but don't scroll if game is already active
+      console.log('📊 [INITIAL] Starting sort by likes in background (game already loading)...')
       sortGamesByLikes(allCards).then(sortedCards => {
         if (!Array.isArray(sortedCards) || sortedCards.length === 0) {
           console.warn('📊 [INITIAL] Sort returned no cards, skipping reorder')
@@ -3714,27 +3776,39 @@
         
         console.log(`📊 [INITIAL] First game before sort: ${firstBeforeSort}, after sort: ${firstAfterSort}`)
         
+        // ✅ OPTIMIZATION: Check if game is already active before reordering
+        const currentActiveGameId = window.__memeplayActiveGame || document.querySelector('.game-card.is-playing')?.id
+        const isGameAlreadyActive = currentActiveGameId && sortedCards.some(card => {
+          const cardId = card.id || card.getAttribute('data-game-id')
+          return cardId === currentActiveGameId
+        })
+        
         if (shouldSkipInitialSort) {
           console.log('📊 [INITIAL] Skipping DOM reorder due to direct ?game target')
-          const locked = focusGameCard(gameIdFromQuery, {
-            reason: 'direct-link skip sort',
-            lockMs: 5000
-          })
-          if (!locked) {
-            const fallbackId = sortedCards[0]?.id || sortedCards[0]?.getAttribute('data-game-id')
-            focusGameCard(fallbackId, { reason: 'fallback after skip' })
-          }
+          // Game already loaded in STEP 6A, just init observer
           setTimeout(() => {
             initGameObserver()
-            console.log('✅ [INITIAL] Game observer initialized after direct-link focus')
-          }, 1200)
+            console.log('✅ [INITIAL] Game observer initialized after direct-link')
+          }, 500)
           return
         }
         
-        // Reorder DOM
+        // Reorder DOM (background - user already sees game)
         sortedCards.forEach(card => {
           container.appendChild(card)
         })
+        
+        // ✅ OPTIMIZATION: If game is already active, don't scroll again
+        // Just ensure it's in the right position after reorder
+        if (isGameAlreadyActive && currentActiveGameId) {
+          console.log(`📊 [INITIAL] Game ${currentActiveGameId} already active, skipping scroll after reorder`)
+          // Game is already active, just init observer
+          setTimeout(() => {
+            initGameObserver()
+            console.log('✅ [INITIAL] Game observer initialized after background sort (game already active)')
+          }, 500)
+          return
+        }
         
         const handleAfterActivate = (targetId) => () => {
                   const secondAfterSort = sortedCards[1]?.id || sortedCards[1]?.getAttribute('data-game-id')
@@ -3751,9 +3825,19 @@
         }
         
         // ✅ PRIORITY: Check ?game= parameter first (for direct links)
-        const urlParams = new URLSearchParams(window.location.search)
+        // Note: If game was already loaded in STEP 6A, we skip this
         const latestQueryId = urlParams.get('game')
         const targetGameId = latestQueryId || hash || firstAfterSort
+        
+        // ✅ OPTIMIZATION: If game is already active, skip focus (already loaded)
+        if (isGameAlreadyActive && currentActiveGameId === targetGameId) {
+          console.log(`📊 [INITIAL] Target game ${targetGameId} already active, skipping focus after sort`)
+          setTimeout(() => {
+            initGameObserver()
+            console.log('✅ [INITIAL] Game observer initialized after background sort (target already active)')
+          }, 500)
+          return
+        }
         
         // ✅ DEBUG: Log target game selection
         console.log(`🔍 [INITIAL] Target game selection:`, {
@@ -3853,9 +3937,8 @@
           window.initializeGameStates(allCardsReordered)
         }
         
-        // ✅ CRITICAL: Init observer ONLY after scroll complete
-        // Wait for scroll animation (600ms) + buffer to ensure observer doesn't activate wrong game
-        // ✅ FIX: Increase delay to ensure focusGameCard completes first
+        // ✅ OPTIMIZATION: Init observer after focus completes (reduced delay since game already loaded)
+        // Game was already loaded in STEP 6A, so we just need to wait for scroll to complete
         setTimeout(() => {
           // ✅ DEBUG: Check which game is currently active before init observer
           const currentActive = window.__memeplayActiveGame || document.querySelector('.game-card.is-playing')?.id
@@ -3863,7 +3946,7 @@
           initGameObserver()
           console.log('✅ [INITIAL] Game observer initialized after sort and scroll')
           // ✅ ARCHITECTURE: Removed virtual scroll
-        }, 2500) // Increased from 2000ms to 2500ms to ensure focusGameCard completes
+        }, 800) // Reduced from 2500ms to 800ms since game already loaded
       }).catch(error => {
         console.error('📊 [INITIAL] Sort failed:', error)
         // Continue with original order if sort fails

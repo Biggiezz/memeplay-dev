@@ -5,6 +5,10 @@ echo ============================================
 echo.
 echo Starting server with rewrite support on port 5500...
 echo.
+echo Server will be accessible from:
+echo   - Local: http://localhost:5500
+echo   - Mobile: http://192.168.1.4:5500 (same WiFi)
+echo.
 echo Short URLs will work:
 echo   http://localhost:5500/pacman-game-8041
 echo.
@@ -23,5 +27,7 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 REM Start server with serve.json config
-npx serve -s . -l 5500
+REM Bind to 0.0.0.0 to allow access from mobile devices on same network
+REM -C flag enables CORS for cross-origin requests
+npx serve -s . -l tcp://0.0.0.0:5500 -C
 
