@@ -333,9 +333,16 @@
       padding: 2px 0 28px;
       scrollbar-width: none !important;
       -ms-overflow-style: none !important;
-      /* ✅ Added: Smooth scroll animation */
-      scroll-behavior: smooth;
+      /* ✅ FIX Nguyên nhân 2: Tắt scroll-behavior: smooth trên mobile */
+      /* Trên mobile dùng auto để tránh animation kéo dài → Observer và checkScrollPosition xung đột */
+      scroll-behavior: auto;
       transition: scroll-behavior 0.3s ease;
+    }
+    /* ✅ FIX Nguyên nhân 2: Chỉ bật smooth scroll trên desktop */
+    @media (min-width: 769px) {
+      .game-container {
+        scroll-behavior: smooth;
+      }
     }
     .game-container.is-scrolling {
       scroll-snap-type: none;
@@ -2703,6 +2710,12 @@
     // This helps when IntersectionObserver misses the game
     let scrollCheckTimeout = null
     const checkScrollPosition = () => {
+      // ✅ FIX Nguyên nhân 1: Tắt checkScrollPosition trên mobile hoàn toàn
+      // Trên mobile chỉ dùng IntersectionObserver, không dùng checkScrollPosition
+      // Để tránh xung đột giữa 2 cơ chế activate game → gây nhảy loạn ở game #6+
+      if (isMobile()) {
+        return // Tắt hoàn toàn trên mobile
+      }
       try {
         if (scrollCheckTimeout) clearTimeout(scrollCheckTimeout)
         scrollCheckTimeout = setTimeout(() => {
@@ -2850,12 +2863,16 @@
     }
     
     // Check on scroll (only if container exists)
+    // ✅ FIX Nguyên nhân 1: Chỉ register scroll listeners trên desktop
+    // Trên mobile không cần checkScrollPosition vì chỉ dùng IntersectionObserver
     try {
-      const gameContainer = document.querySelector('.game-container')
-      if (gameContainer) {
-        gameContainer.addEventListener('scroll', checkScrollPosition, { passive: true })
+      if (!isMobile()) {
+        const gameContainer = document.querySelector('.game-container')
+        if (gameContainer) {
+          gameContainer.addEventListener('scroll', checkScrollPosition, { passive: true })
+        }
+        window.addEventListener('scroll', checkScrollPosition, { passive: true })
       }
-      window.addEventListener('scroll', checkScrollPosition, { passive: true })
       
       // ✅ PERFORMANCE: Optimized scroll check frequency (Step 2)
       // Increased interval from 200ms to 350ms to reduce CPU usage
@@ -2882,10 +2899,14 @@
         }
       }
       
-      // ✅ PERFORMANCE: Increased interval from 200ms to 350ms
-      // This reduces CPU usage from 5 checks/sec to ~2.8 checks/sec
-      // IntersectionObserver still handles real-time activation, so UX remains smooth
-      setInterval(runPeriodicScrollCheck, 350)
+      // ✅ FIX Nguyên nhân 1: Chỉ chạy periodic scroll check trên desktop
+      // Trên mobile không cần vì chỉ dùng IntersectionObserver
+      if (!isMobile()) {
+        // ✅ PERFORMANCE: Increased interval from 200ms to 350ms
+        // This reduces CPU usage from 5 checks/sec to ~2.8 checks/sec
+        // IntersectionObserver still handles real-time activation, so UX remains smooth
+        setInterval(runPeriodicScrollCheck, 350)
+      }
     } catch (e) {
       console.warn('Error setting up scroll listeners:', e)
     }
