@@ -2160,6 +2160,12 @@
         return
       }
       
+      // ✅ FIX #3: Helper function to detect mobile (inline để không phụ thuộc vào hàm khác)
+      const isMobileDevice = () => {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+               (window.innerWidth <= 768 && 'ontouchstart' in window)
+      }
+      
       const allGames = getAllGameCards()
       debugLog(`📋 [activateGame] Found ${allGames.length} total games`)
       const currentIndex = allGames.findIndex(g => g.id === gameId)
@@ -2187,8 +2193,26 @@
           return
         }
         
+        // ✅ FIX #3: Trên mobile, không preload prev (gây layout shift ngược) khi game đã active
+        // Chỉ preload next với delay để tránh layout shift
+        if (isMobileDevice()) {
+          // Mobile: Chỉ preload next với delay, không preload prev
+          if (nextGameId && !isPacmanGame(nextGameId)) {
+            const nextCard = getGameCardElement(nextGameId)
+            if (nextCard) {
+              setTimeout(() => {
+                setGameState(nextGameId, GAME_STATES.WAITING)
+                loadGameIframe(nextGameId)
+                debugLog(`📦 [Already Active - MOBILE] Preloaded next game: ${nextGameId} (WAITING) - Delayed to prevent layout shift`)
+              }, 500) // Delay 500ms để scroll animation hoàn tất
+            }
+          }
+          debugLog(`🎮 [Already Active - MOBILE] Game ${gameId} is ACTIVE - No prev preload to prevent layout shift`)
+          return
+        }
+        
         debugLog(`🔄 Game ${gameId} already active (currentActiveGame: ${currentActiveGame}), ensuring prev/next are loaded...`)
-        // Ensure prev/next are loaded (only for non-Pacman games)
+        // Desktop: Ensure prev/next are loaded (only for non-Pacman games)
         if (prevGameId && !isPacmanGame(prevGameId)) {
           const prevCard = getGameCardElement(prevGameId)
           if (prevCard) {
@@ -2249,57 +2273,73 @@
         return
       }
       
-      // For non-Pacman games: Load prev and next games IMMEDIATELY and set to WAITING state
-      // This ensures when user scrolls to them, they're already loaded and ready to play
-      
-      // Load prev game FIRST (user might scroll back) - but skip if it's a Pacman game
-      if (prevGameId && !isPacmanGame(prevGameId)) {
-        const prevCard = getGameCardElement(prevGameId)
-        if (!prevCard) {
-          console.error(`❌ Prev game card not found: ${prevGameId}`)
-        } else {
-          // Set state FIRST, then load (so UI shows WAITING state immediately)
-          setGameState(prevGameId, GAME_STATES.WAITING)
-          const prevLoaded = loadGameIframe(prevGameId)
-          const prevState = getGameState(prevGameId)
-          debugLog(`📦 [IMMEDIATE] Preloaded prev game: ${prevGameId} (WAITING state: ${prevState}) - Loading: ${prevLoaded}`)
-          
-          // Verify iframe is actually loading
-          const prevIframe = prevCard.querySelector('iframe')
-          if (prevIframe) {
-            const iframeSrc = prevIframe.src || 'not set'
-            debugLog(`   → Prev game iframe src: ${iframeSrc.substring(0, 80)}...`)
+      // ✅ FIX #3: Trên mobile, chỉ preload next game (không preload prev) và delay để giảm layout shift
+      // Preload prev gây layout shift ngược lên → Observer detect lại → nhảy loạn
+      // Preload next với delay → game vẫn load sẵn khi scroll xuống, nhưng không gây layout shift ngay
+      if (isMobileDevice()) {
+        // Mobile: Chỉ preload next game với delay, không preload prev
+        if (nextGameId && !isPacmanGame(nextGameId)) {
+          const nextCard = getGameCardElement(nextGameId)
+          if (nextCard) {
+            // Delay preload để tránh layout shift ngay lập tức
+            setTimeout(() => {
+              setGameState(nextGameId, GAME_STATES.WAITING)
+              loadGameIframe(nextGameId)
+              debugLog(`📦 [MOBILE - DELAYED] Preloaded next game: ${nextGameId} (WAITING) - Delayed to prevent layout shift`)
+            }, 500) // Delay 500ms để scroll animation hoàn tất trước
           }
         }
-      } else if (prevGameId && isPacmanGame(prevGameId)) {
-        debugLog(`⏭️ [Pacman] Skipping preload of prev Pacman game: ${prevGameId}`)
       } else {
-        console.warn(`⚠️ No prev game for ${gameId}`)
-      }
-      
-      // Load next game (user will scroll to it) - but skip if it's a Pacman game
-      if (nextGameId && !isPacmanGame(nextGameId)) {
-        const nextCard = getGameCardElement(nextGameId)
-        if (!nextCard) {
-          console.error(`❌ Next game card not found: ${nextGameId}`)
-        } else {
-          // Set state FIRST, then load (so UI shows WAITING state immediately)
-          setGameState(nextGameId, GAME_STATES.WAITING)
-          const nextLoaded = loadGameIframe(nextGameId)
-          const nextState = getGameState(nextGameId)
-          debugLog(`📦 [IMMEDIATE] Preloaded next game: ${nextGameId} (WAITING state: ${nextState}) - Loading: ${nextLoaded}`)
-          
-          // Verify iframe is actually loading
-          const nextIframe = nextCard.querySelector('iframe')
-          if (nextIframe) {
-            const iframeSrc = nextIframe.src || 'not set'
-            debugLog(`   → Next game iframe src: ${iframeSrc.substring(0, 80)}...`)
+        // Desktop: For non-Pacman games: Load prev and next games IMMEDIATELY (như cũ)
+        // Load prev game FIRST (user might scroll back) - but skip if it's a Pacman game
+        if (prevGameId && !isPacmanGame(prevGameId)) {
+          const prevCard = getGameCardElement(prevGameId)
+          if (!prevCard) {
+            console.error(`❌ Prev game card not found: ${prevGameId}`)
+          } else {
+            // Set state FIRST, then load (so UI shows WAITING state immediately)
+            setGameState(prevGameId, GAME_STATES.WAITING)
+            const prevLoaded = loadGameIframe(prevGameId)
+            const prevState = getGameState(prevGameId)
+            debugLog(`📦 [IMMEDIATE] Preloaded prev game: ${prevGameId} (WAITING state: ${prevState}) - Loading: ${prevLoaded}`)
+            
+            // Verify iframe is actually loading
+            const prevIframe = prevCard.querySelector('iframe')
+            if (prevIframe) {
+              const iframeSrc = prevIframe.src || 'not set'
+              debugLog(`   → Prev game iframe src: ${iframeSrc.substring(0, 80)}...`)
+            }
           }
+        } else if (prevGameId && isPacmanGame(prevGameId)) {
+          debugLog(`⏭️ [Pacman] Skipping preload of prev Pacman game: ${prevGameId}`)
+        } else {
+          console.warn(`⚠️ No prev game for ${gameId}`)
         }
-      } else if (nextGameId && isPacmanGame(nextGameId)) {
-        debugLog(`⏭️ [Pacman] Skipping preload of next Pacman game: ${nextGameId}`)
-      } else {
-        console.warn(`⚠️ No next game for ${gameId}`)
+        
+        // Load next game (user will scroll to it) - but skip if it's a Pacman game
+        if (nextGameId && !isPacmanGame(nextGameId)) {
+          const nextCard = getGameCardElement(nextGameId)
+          if (!nextCard) {
+            console.error(`❌ Next game card not found: ${nextGameId}`)
+          } else {
+            // Set state FIRST, then load (so UI shows WAITING state immediately)
+            setGameState(nextGameId, GAME_STATES.WAITING)
+            const nextLoaded = loadGameIframe(nextGameId)
+            const nextState = getGameState(nextGameId)
+            debugLog(`📦 [IMMEDIATE] Preloaded next game: ${nextGameId} (WAITING state: ${nextState}) - Loading: ${nextLoaded}`)
+            
+            // Verify iframe is actually loading
+            const nextIframe = nextCard.querySelector('iframe')
+            if (nextIframe) {
+              const iframeSrc = nextIframe.src || 'not set'
+              debugLog(`   → Next game iframe src: ${iframeSrc.substring(0, 80)}...`)
+            }
+          }
+        } else if (nextGameId && isPacmanGame(nextGameId)) {
+          debugLog(`⏭️ [Pacman] Skipping preload of next Pacman game: ${nextGameId}`)
+        } else {
+          console.warn(`⚠️ No next game for ${gameId}`)
+        }
       }
       
       // Load active game
