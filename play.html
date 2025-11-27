@@ -136,6 +136,10 @@
       cursor: pointer;
     }
     @keyframes spin { to { transform: rotate(360deg); } }
+    @media (max-width: 768px) {
+      .play-main { padding-top: 0; }
+      .play-single .game-card { margin-top: 8px; }
+    }
   </style>
 </head>
 <body class="play-mode-active" data-mode="play">

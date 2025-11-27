@@ -507,6 +507,28 @@ body::-webkit-scrollbar {
   }
 }
 
+@media (max-width: 768px) {
+  .leaderboard-box {
+    width: 100%;
+    padding: 22px 20px;
+  }
+  .leaderboard-item {
+    grid-template-columns: 60px 1fr 80px;
+    padding: 10px 14px;
+  }
+  .leaderboard-rank {
+    font-size: 15px;
+  }
+  .leaderboard-user {
+    font-size: 13px;
+    line-height: 1.2;
+    word-break: break-word;
+  }
+  .leaderboard-score {
+    font-size: 15px;
+  }
+}
+
 .icon-wrapper svg {
   width: 22px;
   height: 22px;
