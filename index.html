@@ -1852,7 +1852,8 @@
     virtualScrollState.defaults = VIRTUAL_SCROLL_DEFAULTS
     window.__memeplayVirtual = virtualScrollState
     
-    function computeViewportGameWindow(options = {}) {
+    // ✅ ARCHITECTURE: Removed computeViewportGameWindow - virtual scroll removed
+    function computeViewportGameWindow_DEPRECATED(options = {}) {
       const container = document.querySelector('.game-container')
       const cards = container ? Array.from(container.querySelectorAll('.game-card')) : []
       const totalCards = cards.length
@@ -1947,88 +1948,11 @@
       return result
     }
     
-    // ✅ FIX: Tắt virtual scroll trên mobile để tránh ẩn game → Observer không detect được → nhảy loạn
-    // Trên mobile không cần virtual scroll vì số lượng game không quá nhiều
-    virtualScrollState.enabled = !isMobile()
-    virtualScrollState.lastSignature = ''
-    virtualScrollState.hiddenCount = 0
-    
-    // ✅ FIX: Nếu trên mobile, đảm bảo tất cả game đều hiện (không bị ẩn)
-    if (isMobile()) {
-      // Remove virtual-hidden class từ tất cả game cards khi khởi tạo trên mobile
-      document.querySelectorAll('.game-card.virtual-hidden').forEach(card => {
-        card.classList.remove('virtual-hidden')
-      })
-    }
-    
-    function applyVirtualVisibility(windowInfo, { reason = '' } = {}) {
-      if (!virtualScrollState.enabled) return windowInfo
-      const cards = Array.from(document.querySelectorAll('.game-card'))
-      if (!cards.length) return windowInfo
-      
-      if (!windowInfo || !Array.isArray(windowInfo.ids) || windowInfo.ids.length === 0) {
-        if (virtualScrollState.lastSignature) {
-          cards.forEach(card => card.classList.remove('virtual-hidden'))
-          virtualScrollState.lastSignature = ''
-          virtualScrollState.hiddenCount = 0
-        }
-        return windowInfo
-      }
-      
-      const keepIds = new Set(windowInfo.ids)
-      if (currentActiveGame) keepIds.add(currentActiveGame)
-      if (window.__memeplayPinnedGameId) keepIds.add(window.__memeplayPinnedGameId)
-      if (window.__memeplayHighPriorityGameId) keepIds.add(window.__memeplayHighPriorityGameId)
-      if (window.__memeplayStickyVirtualIds && window.__memeplayStickyVirtualIds.size) {
-        window.__memeplayStickyVirtualIds.forEach(id => keepIds.add(id))
-      }
-      
-      const signature = `${windowInfo.startIndex}-${windowInfo.endIndex}-${Array.from(keepIds).join(',')}`
-      if (signature === virtualScrollState.lastSignature) return windowInfo
-      virtualScrollState.lastSignature = signature
-      
-      let hiddenCount = 0
-      cards.forEach(card => {
-        const gid = card.id || card.dataset?.gameId
-        if (!gid) return
-        const shouldShow = keepIds.has(gid)
-        card.classList.toggle('virtual-hidden', !shouldShow)
-        if (!shouldShow) hiddenCount += 1
-      })
-      virtualScrollState.hiddenCount = hiddenCount
-      if (window.__DEBUG_SCROLL) {
-        debugLog(`🌓 [VIRTUAL] visible=${cards.length - hiddenCount}, hidden=${hiddenCount}, reason=${reason || 'auto'}`)
-      }
-      return windowInfo
-    }
-    
-    function refreshVirtualVisibility(reason = 'manual') {
-      if (!virtualScrollState.enabled) return null
-      const windowInfo = computeViewportGameWindow()
-      return applyVirtualVisibility(windowInfo, { reason })
-    }
-    
-    function setVirtualVisibilityEnabled(enabled) {
-      const next = Boolean(enabled)
-      if (virtualScrollState.enabled === next) return
-      virtualScrollState.enabled = next
-      if (!next) {
-        document.querySelectorAll('.game-card.virtual-hidden').forEach(card => card.classList.remove('virtual-hidden'))
-        virtualScrollState.lastSignature = ''
-        virtualScrollState.hiddenCount = 0
-      } else {
-        refreshVirtualVisibility('enable')
-      }
-    }
-    
-    virtualScrollState.getVisibleWindow = computeViewportGameWindow
-    virtualScrollState.applyVisibility = applyVirtualVisibility
-    virtualScrollState.refreshVisibility = refreshVirtualVisibility
-    virtualScrollState.setEnabled = setVirtualVisibilityEnabled
-    
-    
-    document.addEventListener('memeplay:active-game-changed', () => {
-      refreshVirtualVisibility('active-game-change')
+    // ✅ ARCHITECTURE: Removed virtual scroll completely
+    // All games are always visible - simpler and Observer can detect all games
+    // Remove any existing virtual-hidden classes
+    document.querySelectorAll('.game-card.virtual-hidden').forEach(card => {
+      card.classList.remove('virtual-hidden')
     })
     
     // ========= PACMAN CONTROL BRIDGE =========
@@ -2210,48 +2134,19 @@
           return
         }
         
-        // ✅ FIX #3: Trên mobile, không preload prev (gây layout shift ngược) khi game đã active
-        // Chỉ preload next với delay để tránh layout shift
-        if (isMobileDevice()) {
-          // Mobile: Chỉ preload next với delay, không preload prev
-          if (nextGameId && !isPacmanGame(nextGameId)) {
-            const nextCard = getGameCardElement(nextGameId)
-            if (nextCard) {
-              setTimeout(() => {
-                setGameState(nextGameId, GAME_STATES.WAITING)
-                loadGameIframe(nextGameId)
-                debugLog(`📦 [Already Active - MOBILE] Preloaded next game: ${nextGameId} (WAITING) - Delayed to prevent layout shift`)
-              }, 500) // Delay 500ms để scroll animation hoàn tất
-            }
-          }
-          debugLog(`🎮 [Already Active - MOBILE] Game ${gameId} is ACTIVE - No prev preload to prevent layout shift`)
-          return
-        }
-        
-        debugLog(`🔄 Game ${gameId} already active (currentActiveGame: ${currentActiveGame}), ensuring prev/next are loaded...`)
-        // Desktop: Ensure prev/next are loaded (only for non-Pacman games)
-        if (prevGameId && !isPacmanGame(prevGameId)) {
-          const prevCard = getGameCardElement(prevGameId)
-          if (prevCard) {
-            setGameState(prevGameId, GAME_STATES.WAITING)
-            const prevLoaded = loadGameIframe(prevGameId)
-            debugLog(`📦 [Already Active] Preloaded prev game: ${prevGameId} (WAITING) - Loading: ${prevLoaded}`)
-          } else {
-            console.error(`❌ [Already Active] Prev game card not found: ${prevGameId}`)
-          }
-        }
+        // ✅ ARCHITECTURE: Simplified - only preload next with delay when game already active
+        // No prev preload to prevent layout shift
         if (nextGameId && !isPacmanGame(nextGameId)) {
           const nextCard = getGameCardElement(nextGameId)
           if (nextCard) {
-            setGameState(nextGameId, GAME_STATES.WAITING)
-            const nextLoaded = loadGameIframe(nextGameId)
-            debugLog(`📦 [Already Active] Preloaded next game: ${nextGameId} (WAITING) - Loading: ${nextLoaded}`)
-          } else {
-            console.error(`❌ [Already Active] Next game card not found: ${nextGameId}`)
+            setTimeout(() => {
+              setGameState(nextGameId, GAME_STATES.WAITING)
+              loadGameIframe(nextGameId)
+              debugLog(`📦 [Already Active] Preloaded next game: ${nextGameId} (WAITING) - Delayed to prevent layout shift`)
+            }, 500)
           }
         }
-        // Still log that this game is active
-        debugLog(`🎮 [Already Active] Game ${gameId} is ACTIVE | Prev: ${prevGameId || 'none'} | Next: ${nextGameId || 'none'}`)
+        debugLog(`🎮 [Already Active] Game ${gameId} is ACTIVE | Next: ${nextGameId || 'none'}`)
         return
       }
       
@@ -2290,72 +2185,18 @@
         return
       }
       
-      // ✅ FIX #3: Trên mobile, chỉ preload next game (không preload prev) và delay để giảm layout shift
-      // Preload prev gây layout shift ngược lên → Observer detect lại → nhảy loạn
-      // Preload next với delay → game vẫn load sẵn khi scroll xuống, nhưng không gây layout shift ngay
-      if (isMobileDevice()) {
-        // Mobile: Chỉ preload next game với delay, không preload prev
-        if (nextGameId && !isPacmanGame(nextGameId)) {
-          const nextCard = getGameCardElement(nextGameId)
-          if (nextCard) {
-            // Delay preload để tránh layout shift ngay lập tức
-            setTimeout(() => {
-              setGameState(nextGameId, GAME_STATES.WAITING)
-              loadGameIframe(nextGameId)
-              debugLog(`📦 [MOBILE - DELAYED] Preloaded next game: ${nextGameId} (WAITING) - Delayed to prevent layout shift`)
-            }, 500) // Delay 500ms để scroll animation hoàn tất trước
-          }
-        }
-      } else {
-        // Desktop: For non-Pacman games: Load prev and next games IMMEDIATELY (như cũ)
-        // Load prev game FIRST (user might scroll back) - but skip if it's a Pacman game
-        if (prevGameId && !isPacmanGame(prevGameId)) {
-          const prevCard = getGameCardElement(prevGameId)
-          if (!prevCard) {
-            console.error(`❌ Prev game card not found: ${prevGameId}`)
-          } else {
-            // Set state FIRST, then load (so UI shows WAITING state immediately)
-            setGameState(prevGameId, GAME_STATES.WAITING)
-            const prevLoaded = loadGameIframe(prevGameId)
-            const prevState = getGameState(prevGameId)
-            debugLog(`📦 [IMMEDIATE] Preloaded prev game: ${prevGameId} (WAITING state: ${prevState}) - Loading: ${prevLoaded}`)
-            
-            // Verify iframe is actually loading
-            const prevIframe = prevCard.querySelector('iframe')
-            if (prevIframe) {
-              const iframeSrc = prevIframe.src || 'not set'
-              debugLog(`   → Prev game iframe src: ${iframeSrc.substring(0, 80)}...`)
-            }
-          }
-        } else if (prevGameId && isPacmanGame(prevGameId)) {
-          debugLog(`⏭️ [Pacman] Skipping preload of prev Pacman game: ${prevGameId}`)
-        } else {
-          console.warn(`⚠️ No prev game for ${gameId}`)
-        }
-        
-        // Load next game (user will scroll to it) - but skip if it's a Pacman game
-        if (nextGameId && !isPacmanGame(nextGameId)) {
-          const nextCard = getGameCardElement(nextGameId)
-          if (!nextCard) {
-            console.error(`❌ Next game card not found: ${nextGameId}`)
-          } else {
-            // Set state FIRST, then load (so UI shows WAITING state immediately)
+      // ✅ ARCHITECTURE: Simplified preload - only preload next game with delay (no prev preload)
+      // Preload prev causes layout shift upward → Observer detects again → jumping
+      // Preload next with delay → game still loads ready when scrolling down, but doesn't cause layout shift immediately
+      if (nextGameId && !isPacmanGame(nextGameId)) {
+        const nextCard = getGameCardElement(nextGameId)
+        if (nextCard) {
+          // Delay preload to avoid immediate layout shift
+          setTimeout(() => {
             setGameState(nextGameId, GAME_STATES.WAITING)
-            const nextLoaded = loadGameIframe(nextGameId)
-            const nextState = getGameState(nextGameId)
-            debugLog(`📦 [IMMEDIATE] Preloaded next game: ${nextGameId} (WAITING state: ${nextState}) - Loading: ${nextLoaded}`)
-            
-            // Verify iframe is actually loading
-            const nextIframe = nextCard.querySelector('iframe')
-            if (nextIframe) {
-              const iframeSrc = nextIframe.src || 'not set'
-              debugLog(`   → Next game iframe src: ${iframeSrc.substring(0, 80)}...`)
-            }
-          }
-        } else if (nextGameId && isPacmanGame(nextGameId)) {
-          debugLog(`⏭️ [Pacman] Skipping preload of next Pacman game: ${nextGameId}`)
-        } else {
-          console.warn(`⚠️ No next game for ${gameId}`)
+            loadGameIframe(nextGameId)
+            debugLog(`📦 [DELAYED] Preloaded next game: ${nextGameId} (WAITING) - Delayed to prevent layout shift`)
+          }, 500) // Delay 500ms to let scroll animation complete first
         }
       }
       
@@ -2392,321 +2233,76 @@
       })
     }
 
-    // Observe which game card is visible and activate early for snappier switching
-  function initGameObserver() {
-    // ✅ PERFORMANCE: Reduced thresholds from 11 to 4 (Step 3)
-    // This reduces IntersectionObserver callback frequency by ~70%
-    // 4 thresholds are sufficient for accurate detection while saving CPU
-    const thresholds = [0, 0.3, 0.7, 1.0];
-    const gameContainer = document.querySelector('.game-container');
-    const observer = new IntersectionObserver((entries) => {
+    // ✅ ARCHITECTURE: Simplified IntersectionObserver - only find game closest to center and activate it
+    function initGameObserver() {
+      const thresholds = [0, 0.3, 0.7, 1.0];
+      const gameContainer = document.querySelector('.game-container');
+      const observer = new IntersectionObserver((entries) => {
+        // Skip if observer is locked (from focusGameCard)
         if (window.__memeplayLockObserverUntil && Date.now() < window.__memeplayLockObserverUntil) {
-          debugLog(`👁️ Observer locked (until ${new Date(window.__memeplayLockObserverUntil).toLocaleTimeString()})`);
           return
         }
+        
+        // Get visible games
         const visible = entries.filter(e => e.isIntersecting);
-        if (!visible.length) {
-          debugLog('👁️ Observer: No visible games')
-          return
-        }
+        if (!visible.length) return
         
         // Deduplicate: Keep only the entry with highest intersection ratio for each game
         const gameMap = new Map()
         visible.forEach(entry => {
           const gameId = entry.target.id
           if (!gameId) return
-          
           const existing = gameMap.get(gameId)
           if (!existing || entry.intersectionRatio > existing.intersectionRatio) {
             gameMap.set(gameId, entry)
           }
         })
         
-        // Convert back to array (now deduplicated)
         const visibleDeduped = Array.from(gameMap.values())
-
-        // IMPROVED: Find the game card closest to the center of the viewport
-        // This is more accurate than just using intersection ratio
-        let best = null;
-        let minDistanceToCenter = Infinity;
-        let bestInViewport = false;
+        if (!visibleDeduped.length) return
         
-        // Calculate viewport center - use window center if no container
+        // Find game closest to viewport center
         const viewportCenter = window.innerHeight / 2;
-        
-        // Log all visible games with their positions for debugging (use deduplicated list)
-        const visibleGamesDebug = visibleDeduped.map(e => {
-          const cardRect = e.target.getBoundingClientRect();
-          const cardTop = cardRect.top;
-          const cardBottom = cardRect.bottom;
-          const cardCenter = cardRect.top + cardRect.height / 2;
-          const distanceToCenter = Math.abs(cardCenter - viewportCenter);
-          const isInViewport = cardTop >= 0 && cardBottom <= window.innerHeight;
-          return {
-            id: e.target.id,
-            ratio: (e.intersectionRatio * 100).toFixed(1) + '%',
-            top: Math.round(cardTop),
-            bottom: Math.round(cardBottom),
-            center: Math.round(cardCenter),
-            viewportCenter: Math.round(viewportCenter),
-            distToCenter: Math.round(distanceToCenter) + 'px',
-            isInViewport: isInViewport
-          };
-        });
-        // Log each game on separate lines for easier reading
-        if (window.__DEBUG_SCROLL) {
-          debugLog(`👁️ [DEBUG] Viewport center: ${Math.round(viewportCenter)}px, Found ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`);
-          visibleGamesDebug.forEach((game, idx) => {
-            debugLog(`   ${idx + 1}. ${game.id}: ratio=${game.ratio}, dist=${game.distToCenter}, inViewport=${game.isInViewport}, top=${game.top}, bottom=${game.bottom}`);
-          });
-        }
+        let best = null;
+        let minDistance = Infinity;
         
         visibleDeduped.forEach(entry => {
-          const cardRect = entry.target.getBoundingClientRect();
-          const cardTop = cardRect.top;
-          const cardBottom = cardRect.bottom;
-          const cardCenter = cardRect.top + cardRect.height / 2;
-          const distanceToCenter = Math.abs(cardCenter - viewportCenter);
+          const rect = entry.target.getBoundingClientRect();
+          const cardCenter = rect.top + rect.height / 2;
+          const distance = Math.abs(cardCenter - viewportCenter);
           
-          // Check if game is in viewport (fully or partially visible)
-          const isInViewport = cardTop >= 0 && cardBottom <= window.innerHeight;
-          const isPartiallyInViewport = cardTop < window.innerHeight && cardBottom > 0; // Any part visible
-          const isMostlyInViewport = cardTop >= -100 && cardBottom <= window.innerHeight + 100;
-          
-          // Calculate visible height (how much of the game is actually visible)
-          const visibleTop = Math.max(cardTop, 0);
-          const visibleBottom = Math.min(cardBottom, window.innerHeight);
-          const visibleHeight = Math.max(0, visibleBottom - visibleTop);
-          const visibleRatio = visibleHeight / cardRect.height;
-          
-          // ✅ FIX: Điều chỉnh minRatio cho Pacman - cho phép game bị cắt mép một chút vẫn được activate
-          // Khi game bị cắt mép trên (F5 hoặc quay lại), intersectionRatio giảm → cần threshold thấp hơn
-          const gameId = entry.target.id || entry.target.getAttribute('data-game-id') || ''
-          const isPacman = gameId && (gameId.startsWith('pacman-') || gameId === 'pacman-memeplay')
-          // ✅ FIX: Nếu game đang active và vẫn visible một phần → ưu tiên giữ nó active
-          const isCurrentActive = gameId === currentActiveGame
-          // Giảm minRatio: Active Pacman chỉ cần 20%, Pacman khác 30% (thay vì 50%)
-          const minRatio = isPacman ? (isCurrentActive ? 0.2 : 0.3) : 0.3
-          
-          // Prefer game with good intersection ratio
-          // ✅ FIX: Nếu game đang active và vẫn visible một phần (> 10%) → vẫn được activate
-          if (entry.intersectionRatio > minRatio || (isCurrentActive && entry.intersectionRatio > 0.1)) {
-            // CRITICAL: Prioritize distance to center FIRST, then intersection ratio
-            // A game closer to center is more likely to be the one user is playing
-            // Even if it has slightly lower intersection ratio
-            
-            if (best === null) {
-              minDistanceToCenter = distanceToCenter;
-              best = entry;
-              bestInViewport = isInViewport;
-            } else {
-              // Calculate distance for current best
-              const bestRect = best.target.getBoundingClientRect();
-              const bestCenter = bestRect.top + bestRect.height / 2;
-              const bestDistance = Math.abs(bestCenter - viewportCenter);
-              
-              // PRIORITY 1: If one game is MUCH closer to center (difference > 200px), choose it
-              // This handles cases where a game is partially visible but closer to center
-              if (distanceToCenter < bestDistance - 200) {
-                // This game is significantly closer to center
-                minDistanceToCenter = distanceToCenter;
-                best = entry;
-                bestInViewport = isInViewport;
-              } else if (bestDistance < distanceToCenter - 200) {
-                // Current best is significantly closer, keep it
-                // Do nothing
-              } else {
-                // Games are similarly close to center (within 200px), prefer higher intersection ratio
-                if (entry.intersectionRatio > best.intersectionRatio + 0.1) {
-                  // This game has significantly higher intersection ratio
-                  minDistanceToCenter = distanceToCenter;
-                  best = entry;
-                  bestInViewport = isInViewport;
-                } else if (best.intersectionRatio > entry.intersectionRatio + 0.1) {
-                  // Current best has significantly higher intersection ratio, keep it
-                  // Do nothing
-                } else {
-                  // Similar intersection ratio, prefer one closer to center
-                  if (distanceToCenter < bestDistance) {
-                    minDistanceToCenter = distanceToCenter;
-                    best = entry;
-                    bestInViewport = isInViewport;
-                  }
-                }
-              }
-            }
+          // Only consider games with intersection ratio > 0.2 (at least 20% visible)
+          if (entry.intersectionRatio > 0.2 && distance < minDistance) {
+            minDistance = distance;
+            best = entry;
           }
         });
         
-        // Fallback: if no game found with good intersection, use highest intersection ratio
+        // Fallback: if no game with good intersection, use highest intersection ratio
         if (!best) {
           best = visibleDeduped.reduce((a, b) => a.intersectionRatio >= b.intersectionRatio ? a : b);
         }
         
         const gameId = best.target.id;
-        const isPacmanGame = isPacmanGameId(gameId)
-        // ✅ FIX #1: Disable IntersectionObserver focus khi scroll từ Pacman
-        // Chỉ focus khi user thực sự click vào Pacman (không phải scroll)
-        if (isPacmanGame) {
-          // Check nếu đang scroll TỪ Pacman sang game khác
-          const currentActiveGameId = window.__memeplayActiveGame || currentActiveGame || '';
-          const isCurrentActivePacman = currentActiveGameId && (
-            currentActiveGameId.startsWith('pacman-') || 
-            currentActiveGameId === 'pacman-memeplay'
-          );
-          
-          // Nếu current active là Pacman KHÁC với gameId đang visible → đang scroll TỪ Pacman
-          // Không focus để tránh trigger scroll về Pacman
-          if (isCurrentActivePacman && currentActiveGameId !== gameId) {
-            // Đang scroll từ Pacman sang game khác → không focus
-            return;
-          }
-          
-          // Delay focus để không trigger snap khi đang scroll
-          setTimeout(() => {
-            // Double-check: Chỉ focus nếu game vẫn là active game (không bị switch sang game khác)
-            // VÀ không phải đang scroll từ Pacman
-            const finalActiveGameId = window.__memeplayActiveGame || currentActiveGame || '';
-            const isStillActive = finalActiveGameId === gameId;
-            const isStillPacman = isPacmanGameId(finalActiveGameId);
-            
-            // Chỉ focus nếu:
-            // 1. Game vẫn là active game
-            // 2. Không phải đang scroll từ Pacman khác
-            if (isStillActive && isPacmanGameId(gameId) && (!isStillPacman || finalActiveGameId === gameId)) {
-              if (typeof window.focus === 'function') {
-                try { window.focus() } catch (_) {}
-              }
-              focusPacmanIframe(gameId, 'observer-visible')
-            }
-          }, 500)
-        }
+        if (!gameId) return
         
-        if (!gameId) {
-          console.warn('⚠️ Observer: Game card has no ID', best.target)
-          return
-        }
-        
-        // ✅ FIX: Don't activate different game if there's a pinned game (from focusGameCard)
+        // Skip if pinned game (from focusGameCard)
         const pinnedGameId = window.__memeplayPinnedGameId
         if (pinnedGameId && gameId !== pinnedGameId) {
-          debugLog(`👁️ Observer: Skipping activation of ${gameId} (pinned game: ${pinnedGameId})`)
           return
         }
         
-        // ✅ FIX: Don't activate different game if observer is locked
-        if (window.__memeplayLockObserverUntil && Date.now() < window.__memeplayLockObserverUntil) {
-          debugLog(`👁️ Observer: Skipping activation (locked until ${new Date(window.__memeplayLockObserverUntil).toLocaleTimeString()})`)
-          return
-        }
-        
-        // Log all visible games for debugging (use deduplicated list)
-        const visibleGames = visibleDeduped.map(e => {
-          const rect = e.target.getBoundingClientRect();
-          const center = rect.top + rect.height / 2;
-          const dist = Math.abs(center - viewportCenter);
-          return { 
-            id: e.target.id, 
-            ratio: (e.intersectionRatio * 100).toFixed(1) + '%',
-            distToCenter: Math.round(dist) + 'px'
-          };
-        });
-        debugLog(`👁️ Observer detected ${visibleDeduped.length} unique visible game(s) (${visible.length} total entries):`, visibleGames)
-        
-        // Calculate final distance for logging (avoid Infinity)
-        const finalDistance = isFinite(minDistanceToCenter) ? Math.round(minDistanceToCenter) : 'N/A'
-        debugLog(`👁️ Observer activating game: ${gameId} (intersection: ${(best.intersectionRatio * 100).toFixed(1)}%, distance to center: ${finalDistance}px, currentActiveGame: ${currentActiveGame})`)
-        
-        // WARNING: If rocket-bnb is not in visible list but is being played, scroll check should handle it
-        if (gameId !== 'rocket-bnb' && currentActiveGame === 'rocket-bnb') {
-          if (window.__DEBUG_SCROLL) console.warn(`⚠️ Observer detected ${gameId} but currentActiveGame is rocket-bnb - scroll check fallback should activate rocket-bnb`)
-        }
-        
-        // ✅ REMOVED: Pacman game check - Games should activate normally when scrolled to
-        // This was blocking games from activating, causing them to not display
-        
-        // ✅ FIX: Nếu game đang active và vẫn visible một phần → ưu tiên giữ nó active
-        // Ngăn bug "game bị cắt mép trên" khi F5 hoặc quay lại từ editor
+        // Skip if already active
         if (currentActiveGame === gameId) {
-          // Game đang active → không cần activate lại
-          debugLog(`🛡️ [OBSERVER] Game ${gameId} is already active - KEEP active`)
           return
         }
         
-        // ✅ FIX: Tính visible ratio và distance của game đang active để ưu tiên giữ nó active
-        // NHƯNG chỉ khi nó gần center - nếu game khác gần center hơn → cho phép activate game khác
-        if (currentActiveGame) {
-          const currentCard = getGameCardElement(currentActiveGame)
-          if (currentCard) {
-            const currentRect = currentCard.getBoundingClientRect()
-            const currentVisibleTop = Math.max(currentRect.top, 0)
-            const currentVisibleBottom = Math.min(currentRect.bottom, window.innerHeight)
-            const currentVisibleHeight = Math.max(0, currentVisibleBottom - currentVisibleTop)
-            const currentVisibleRatio = currentVisibleHeight / currentRect.height
-            
-            // Tính distance của game đang active đến center
-            const currentCenter = currentRect.top + currentRect.height / 2
-            const currentDistance = Math.abs(currentCenter - (window.innerHeight / 2))
-            
-            // Tính distance của game mới đến center
-            const bestRect = best.target.getBoundingClientRect()
-            const bestCenter = bestRect.top + bestRect.height / 2
-            const bestDistance = Math.abs(bestCenter - (window.innerHeight / 2))
-            
-            // ✅ FIX: Chỉ ưu tiên game đang active nếu:
-            // 1. Nó vẫn visible một phần (> 10%) VÀ
-            // 2. Nó gần center hơn game mới (hoặc game mới cách center > 200px)
-            // Nếu game mới gần center hơn nhiều (difference > 150px) → cho phép activate game mới
-            if (currentVisibleRatio > 0.1 && currentDistance < 200) {
-              // Game đang active vẫn gần center → chỉ activate game mới nếu nó gần center hơn nhiều
-              if (bestDistance < currentDistance - 150) {
-                // Game mới gần center hơn nhiều → cho phép activate
-                debugLog(`🔄 [OBSERVER] Game ${gameId} is much closer to center (${Math.round(bestDistance)}px vs ${Math.round(currentDistance)}px) - ALLOW activate`)
-              } else {
-                // Game đang active vẫn gần center hơn → giữ nó active
-                debugLog(`🛡️ [OBSERVER] Current active game ${currentActiveGame} is ${Math.round(currentVisibleRatio * 100)}% visible and closer to center (${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px) - KEEP active`)
-                return
-              }
-            }
-          }
-        }
-        
-        // Only activate if scroll check hasn't already activated a better game
-        // Scroll check runs every 200ms and is more reliable, so we only use observer as secondary
-        // Check if currentActiveGame is different - if scroll check already activated a game, don't override
-        if (currentActiveGame && currentActiveGame !== gameId) {
-          // Scroll check may have already activated the correct game, so check distance first
-          const currentGameCard = getGameCardElement(currentActiveGame)
-          if (currentGameCard) {
-            const currentRect = currentGameCard.getBoundingClientRect()
-            const currentCenter = currentRect.top + currentRect.height / 2
-            const currentDistance = Math.abs(currentCenter - (window.innerHeight / 2))
-            
-            const bestRect = best.target.getBoundingClientRect()
-            const bestCenter = bestRect.top + bestRect.height / 2
-            const bestDistance = Math.abs(bestCenter - (window.innerHeight / 2))
-            
-            // Only activate if observer's game is significantly closer (within 100px difference)
-            if (bestDistance < currentDistance - 100) {
-              debugLog(`👁️ Observer overriding scroll check: ${currentActiveGame} → ${gameId} (distances: ${Math.round(currentDistance)}px vs ${Math.round(bestDistance)}px)`)
-              activateGame(gameId)
-            } else {
-              debugLog(`👁️ Observer skipping (scroll check already activated closer game: ${currentActiveGame}, distance: ${Math.round(currentDistance)}px)`)
-            }
-          } else {
-            activateGame(gameId)
-          }
-        } else {
-          activateGame(gameId)
-        }
-    }, {
-        // Observe inside the snapping container (relative to container, not viewport)
-        // This is important because game cards scroll within the container
-        root: gameContainer || null, // Use container as root for proper intersection calculation
-        // ✅ FIX: Giảm rootMargin từ 500px → 200px để tránh detect Pacman khi đã scroll xa
-        // rootMargin quá lớn → IntersectionObserver detect Pacman là "visible" ngay cả khi đã scroll xa 500px
-        rootMargin: '200px 0px 200px 0px', // Preload games 200px above/below visible area (giảm từ 500px)
-        threshold: [0, 0.3, 0.7, 1.0] // ✅ PERFORMANCE: Reduced from 11 to 4 thresholds (Step 3)
+        // Activate the game
+        activateGame(gameId)
+      }, {
+        root: gameContainer || null,
+        rootMargin: '100px 0px 100px 0px', // Smaller margin for simpler detection
+        threshold: thresholds
       });
 
     const cards = document.querySelectorAll('.game-card')
@@ -2716,210 +2312,8 @@
       })
       if (window.__DEBUG_SCROLL) console.log('✅ Game observer initialized for', cards.length, 'games')
     
-    // FALLBACK: Also check scroll position to find game at center
-    // This helps when IntersectionObserver misses the game
-    let scrollCheckTimeout = null
-    const checkScrollPosition = () => {
-      // ✅ FIX Nguyên nhân 1: Tắt checkScrollPosition trên mobile hoàn toàn
-      // Trên mobile chỉ dùng IntersectionObserver, không dùng checkScrollPosition
-      // Để tránh xung đột giữa 2 cơ chế activate game → gây nhảy loạn ở game #6+
-      if (isMobile()) {
-        return // Tắt hoàn toàn trên mobile
-      }
-      try {
-        if (scrollCheckTimeout) clearTimeout(scrollCheckTimeout)
-        scrollCheckTimeout = setTimeout(() => {
-          try {
-            const viewportCenter = window.innerHeight / 2
-            const allCards = Array.from(document.querySelectorAll('.game-card'))
-              .filter(card => {
-                const cardId = card.id || card.getAttribute('data-game-id') || ''
-                // ✅ FIX: Loại bỏ các game Pacman có đường dẫn kiểu cũ (pacman-game-*)
-                if (cardId.startsWith('pacman-game-')) {
-                  return false
-                }
-                return true
-              })
-            if (!allCards.length) return // No cards yet
-            
-            let checkList = allCards
-            if (currentActiveGame) {
-              const currentIndex = allCards.findIndex(card => card.id === currentActiveGame)
-              if (currentIndex !== -1) {
-                // ✅ PERFORMANCE: Reduced check range from 7 games to 5 games (Step 4.1)
-                // Changed from: currentIndex - 3 to + 4 (7 games) → currentIndex - 2 to + 3 (5 games)
-                // This reduces CPU usage when checking scroll position by ~28%
-                // Only check 5 games (2 above + active + 2 below) instead of 7 games
-                const start = Math.max(0, currentIndex - 2)  // 2 games above active
-                const end = Math.min(allCards.length, currentIndex + 3)  // 2 games below active (total: 5 games)
-                checkList = allCards.slice(start, end)
-              }
-            }
-            
-            // ✅ FIX: Loại bỏ currentActiveGame khỏi checkList nếu nó là Pacman
-            // Ngăn checkScrollPosition detect lại Pacman khi đang scroll từ Pacman sang game khác
-            // Game 1 (index 0) có thể không bị vì scroll xuống nhanh chóng ra khỏi viewport
-            // Game 3 (index 2) vẫn nằm trong checkList → bị detect lại → scroll về
-            const currentActiveGameId = window.__memeplayActiveGame || currentActiveGame || '';
-            const isCurrentActivePacman = currentActiveGameId && (
-              currentActiveGameId.startsWith('pacman-') || 
-              currentActiveGameId === 'pacman-memeplay'
-            );
-            
-            // Nếu currentActiveGame là Pacman → loại bỏ nó khỏi checkList
-            if (isCurrentActivePacman && currentActiveGameId) {
-              checkList = checkList.filter(card => {
-                const cardId = card.id || card.getAttribute('data-game-id') || '';
-                return cardId !== currentActiveGameId; // Loại bỏ currentActiveGame
-              });
-            }
-            
-            let closestGame = null
-            let minDistance = Infinity
-            
-            checkList.forEach(card => {
-              try {
-                const rect = card.getBoundingClientRect()
-                const cardCenter = rect.top + rect.height / 2
-                const distance = Math.abs(cardCenter - viewportCenter)
-                
-                // ✅ FIX: Chỉ check games thực sự trong viewport (không dùng rootMargin như IntersectionObserver)
-                // Check if game is visible (any part in viewport) - KHÔNG tính rootMargin
-                const isVisible = rect.top < window.innerHeight && rect.bottom > 0
-                
-                // ✅ FIX: Thêm check distance - chỉ activate game nếu distance < 400px (không quá xa)
-                // Ngăn detect Pacman khi đã scroll xa (do rootMargin quá lớn)
-                const isCloseEnough = distance < 400; // Chỉ activate game nếu cách center < 400px
-                
-                if (isVisible && isCloseEnough && distance < minDistance) {
-                  minDistance = distance
-                  closestGame = card
-                }
-              } catch (e) {
-                console.warn('Error checking card:', e)
-              }
-            })
-            
-            if (closestGame && closestGame.id) {
-              // ✅ FIX: Không focus Pacman khi scroll - để tránh trigger snap về center
-              // Chỉ focus khi user click vào game (handle trong game click handler)
-              
-              if (closestGame.id !== currentActiveGame && typeof activateGame === 'function') {
-                // ✅ FIX: Tính visible ratio và distance để ưu tiên game đang active
-                // NHƯNG chỉ khi nó gần center - nếu game khác gần center hơn → cho phép activate game khác
-                const rect = closestGame.getBoundingClientRect()
-                const cardCenter = rect.top + rect.height / 2
-                const distance = Math.abs(cardCenter - viewportCenter)
-                
-                // Tính visible ratio của game mới
-                const visibleTop = Math.max(rect.top, 0)
-                const visibleBottom = Math.min(rect.bottom, window.innerHeight)
-                const visibleHeight = Math.max(0, visibleBottom - visibleTop)
-                const visibleRatio = visibleHeight / rect.height
-                
-                // ✅ FIX: Kiểm tra game đang active (nếu có)
-                if (currentActiveGame) {
-                  const currentCard = getGameCardElement(currentActiveGame)
-                  if (currentCard) {
-                    const currentRect = currentCard.getBoundingClientRect()
-                    const currentCenter = currentRect.top + currentRect.height / 2
-                    const currentDistance = Math.abs(currentCenter - viewportCenter)
-                    
-                    // Tính visible ratio của game đang active
-                    const currentVisibleTop = Math.max(currentRect.top, 0)
-                    const currentVisibleBottom = Math.min(currentRect.bottom, window.innerHeight)
-                    const currentVisibleHeight = Math.max(0, currentVisibleBottom - currentVisibleTop)
-                    const currentVisibleRatio = currentVisibleHeight / currentRect.height
-                    
-                    // ✅ FIX: Chỉ ưu tiên game đang active nếu:
-                    // 1. Nó vẫn visible một phần (> 10%) VÀ
-                    // 2. Nó gần center hơn game mới (hoặc game mới cách center > 200px)
-                    // Nếu game mới gần center hơn nhiều (difference > 150px) → cho phép activate game mới
-                    if (currentVisibleRatio > 0.1 && currentDistance < 200) {
-                      // Game đang active vẫn gần center → chỉ activate game mới nếu nó gần center hơn nhiều
-                      if (distance < currentDistance - 150) {
-                        // Game mới gần center hơn nhiều → cho phép activate
-                        debugLog(`🔄 [SCROLL CHECK] Game ${closestGame.id} is much closer to center (${Math.round(distance)}px vs ${Math.round(currentDistance)}px) - ALLOW activate`)
-                      } else {
-                        // Game đang active vẫn gần center hơn → giữ nó active
-                        debugLog(`🛡️ [SCROLL CHECK] Current active game ${currentActiveGame} is ${Math.round(currentVisibleRatio * 100)}% visible and closer to center (${Math.round(currentDistance)}px vs ${Math.round(distance)}px) - KEEP active`)
-                        return // Giữ game đang active, không activate game khác
-                      }
-                    }
-                  }
-                }
-                
-                debugLog(`📍 [SCROLL CHECK] Found game at center: ${closestGame.id} (distance: ${Math.round(distance)}px, currentActiveGame: ${currentActiveGame})`)
-                activateGame(closestGame.id)
-                
-                // ✅ FIX: Không auto-focus Pacman từ checkScrollPosition - để tránh trigger snap về center
-                // Chỉ focus khi user thực sự click vào game (handle trong game click handler)
-                // if (isPacmanGame(closestGame.id)) {
-                //   setTimeout(() => {
-                //     focusPacmanIframe(closestGame.id, 'scroll-center')
-                //   }, 300)
-                // }
-              }
-            }
-            
-            refreshVirtualVisibility('scroll-check')
-          } catch (e) {
-            if (window.__DEBUG_SCROLL) console.warn('Error in scroll check:', e)
-          }
-        }, 100) // Debounce 100ms
-      } catch (e) {
-        console.warn('Error setting up scroll check:', e)
-      }
-    }
-    
-    // Check on scroll (only if container exists)
-    // ✅ FIX Nguyên nhân 1: Chỉ register scroll listeners trên desktop
-    // Trên mobile không cần checkScrollPosition vì chỉ dùng IntersectionObserver
-    try {
-      if (!isMobile()) {
-        const gameContainer = document.querySelector('.game-container')
-        if (gameContainer) {
-          gameContainer.addEventListener('scroll', checkScrollPosition, { passive: true })
-        }
-        window.addEventListener('scroll', checkScrollPosition, { passive: true })
-      }
-      
-      // ✅ PERFORMANCE: Optimized scroll check frequency (Step 2)
-      // Increased interval from 200ms to 350ms to reduce CPU usage
-      // Use requestIdleCallback to avoid blocking game, but with short timeout for responsiveness
-      let scrollCheckPending = false
-      function runPeriodicScrollCheck() {
-        if (scrollCheckPending) return
-        
-          scrollCheckPending = true
-        
-        // Use requestIdleCallback to avoid blocking game (especially on mobile)
-        // Short timeout (300ms) ensures responsiveness even if browser is busy
-        if (window.requestIdleCallback) {
-          window.requestIdleCallback(() => {
-            scrollCheckPending = false
-            checkScrollPosition()
-          }, { timeout: 300 })
-        } else {
-          // Fallback for browsers without requestIdleCallback
-          setTimeout(() => {
-            scrollCheckPending = false
-            checkScrollPosition()
-          }, 200)
-        }
-      }
-      
-      // ✅ FIX Nguyên nhân 1: Chỉ chạy periodic scroll check trên desktop
-      // Trên mobile không cần vì chỉ dùng IntersectionObserver
-      if (!isMobile()) {
-        // ✅ PERFORMANCE: Increased interval from 200ms to 350ms
-        // This reduces CPU usage from 5 checks/sec to ~2.8 checks/sec
-        // IntersectionObserver still handles real-time activation, so UX remains smooth
-        setInterval(runPeriodicScrollCheck, 350)
-      }
-    } catch (e) {
-      console.warn('Error setting up scroll listeners:', e)
-    }
+    // ✅ ARCHITECTURE: Removed checkScrollPosition completely
+    // Only use IntersectionObserver to activate games - simpler and more reliable
   }
     
     // Dropdown nav logic
@@ -4103,8 +3497,7 @@
       container.innerHTML = wrapper ? wrapper.innerHTML : markup
       console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
       
-      // ✅ Apply virtual window immediately so hero + buffer remain visible while waiting for sort/data
-      refreshVirtualVisibility('initial-static')
+      // ✅ ARCHITECTURE: Removed virtual scroll - all games always visible
       
       // ✅ FIX: Remove old format Pacman games immediately after loading
       const oldFormatGames = container.querySelectorAll('.game-card[id^="pacman-game-"], .game-card[data-game-id^="pacman-game-"]')
@@ -4146,7 +3539,7 @@
         activate = true,
         activateDelay = 150,
         reason = '',
-        lockMs = 4000,
+        lockMs = 1000, // ✅ ARCHITECTURE: Reduced lock time from 4000ms to 1000ms
         afterActivate = null
       } = {}) => {
         if (!targetGameId) return false
@@ -4401,9 +3794,7 @@
             lockMs: 6000, // Increased from 4000ms to 6000ms
             afterActivate: handleAfterActivate(finalGameId)
           })
-          if (ok) {
-            refreshVirtualVisibility(`focus-${originLabel}`)
-          }
+          // ✅ ARCHITECTURE: Removed virtual scroll
           if (!ok && firstAfterSort && finalGameId !== firstAfterSort) {
             console.warn(`⚠️ [FOCUS] focusGameCard failed for ${finalGameId}, trying fallback: ${firstAfterSort}`)
             focusGameCard(firstAfterSort, {
@@ -4415,9 +3806,7 @@
           } else if (!ok) {
             console.error(`❌ [FOCUS] focusGameCard failed for ${finalGameId} and no fallback available`)
           }
-          if (ok) {
-            refreshVirtualVisibility(`focus-${originLabel}`)
-          }
+          // ✅ ARCHITECTURE: Removed virtual scroll
           return ok
         }
         
@@ -4432,7 +3821,7 @@
         if (initialFocusHandled) {
           setTimeout(() => {
             window.__memeplayStickyVirtualIds?.delete(finalGameId)
-            refreshVirtualVisibility('hash-focus')
+            // ✅ ARCHITECTURE: Removed virtual scroll
           }, 1200)
         }
         }
@@ -4473,7 +3862,7 @@
           console.log(`👁️ [INITIAL] Initializing observer, current active game: ${currentActive || 'none'}`)
           initGameObserver()
           console.log('✅ [INITIAL] Game observer initialized after sort and scroll')
-          refreshVirtualVisibility('after-observer-init')
+          // ✅ ARCHITECTURE: Removed virtual scroll
         }, 2500) // Increased from 2000ms to 2500ms to ensure focusGameCard completes
       }).catch(error => {
         console.error('📊 [INITIAL] Sort failed:', error)
@@ -6818,75 +6207,7 @@ window.addEventListener("beforeunload", stopGame);
     })();
   </script>
 
-  <!-- Swipe navigation: up/down moves to next/prev game (loops) -->
-  <script>
-    (function swipeNavigation(){
-      const sc = document.querySelector('.game-container');
-      const cards = Array.from(document.querySelectorAll('.game-card'));
-      if (!cards.length) return;
-
-      let tops = [];
-      function recalc(){
-        tops = cards.map(el => el.offsetTop);
-      }
-      function currentIndex(){
-        const y = sc.scrollTop + sc.clientHeight * 0.25; // focus upper quarter
-        let best = 0, bestDiff = Infinity;
-        for (let i=0;i<tops.length;i++){
-          const d = Math.abs(tops[i]-y);
-          if (d < bestDiff){ best = i; bestDiff = d; }
-        }
-        return best;
-      }
-      function scrollToIndex(i){
-        const n = cards.length;
-        const idx = ((i % n) + n) % n; // safe modulo
-        const y = tops[idx] ?? 0;
-        sc.scrollTo({ top: y, behavior: 'smooth' });
-      }
-
-      recalc();
-      window.addEventListener('resize', recalc, { passive: true });
-      window.addEventListener('orientationchange', recalc, { passive: true });
-
-      let startY = 0, moved = false;
-      const THRESHOLD = 60; // px - chỉ cần vuốt 60px là chuyển game
-
-      sc.addEventListener('touchstart', (e) => {
-        if (!e.touches || !e.touches.length) return;
-        startY = e.touches[0].clientY; 
-        moved = false;
-      }, { passive: true });
-
-      sc.addEventListener('touchmove', (e) => {
-        moved = true;
-      }, { passive: true });
-
-      sc.addEventListener('touchend', (e) => {
-        if (!moved) return;
-        const endY = (e.changedTouches && e.changedTouches[0]) ? e.changedTouches[0].clientY : startY;
-        const dy = endY - startY; // down = positive
-        
-        // ✅ Chỉ cần vuốt 60px (lên hoặc xuống) là chuyển game
-        if (Math.abs(dy) < THRESHOLD) return;
-
-        const cur = currentIndex();
-        if (dy < 0) scrollToIndex(cur + 1); // swipe up -> next game
-        else scrollToIndex(cur - 1);        // swipe down -> prev game
-      }, { passive: true });
-
-      // ✅ FIXED: Longer timeout for smoother scroll animation
-      // Force snap to nearest after inertial scrolling stops (prevents resting between cards)
-      // ✅ REMOVED: Force snap timer - This was causing jumping back to Pacman when scrolling past game #6
-      // CSS scroll-snap-type: y mandatory already handles snapping, no need for JS force snap
-      // The timer was calculating currentIndex() which could return Pacman even when user scrolled to game #6
-      // This caused scrollToIndex() to force scroll back to Pacman → jumping behavior
-      // let snapTimer = null;
-      // sc.addEventListener('scroll', () => {
-      //   ... (removed to prevent jumping)
-      // }, { passive: true });
-    })();
-  </script>
+  <!-- ✅ ARCHITECTURE: Removed swipe navigation - use CSS scroll-snap instead -->
 
   <script>
     ;(function initWalletOverlay(){
