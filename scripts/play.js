@@ -888,6 +888,48 @@ async function renderGameCard(gameId) {
   }
 }
 
+// Listen for GAME_SCORE messages from game iframes to save scores to leaderboard
+window.addEventListener('message', async (event) => {
+  if (event.data?.type === 'GAME_SCORE') {
+    const { gameId, score, level } = event.data
+    if (!gameId || typeof score !== 'number') return
+
+    const finalScore = Math.max(0, Math.trunc(score))
+    console.log(`[PLAY MODE] Received score: ${finalScore} for ${gameId}`)
+
+    try {
+      const payload = {
+        p_user_id: userId,
+        p_game_id: gameId,
+        p_score: finalScore,
+        p_level: Number.isFinite(Number(level)) ? Math.max(1, Math.trunc(Number(level))) : 1
+      }
+
+      const { data, error } = await supabase.rpc('submit_game_score', payload)
+
+      if (error) {
+        console.error('[PLAY MODE] Score submission error:', error)
+        return
+      }
+
+      let result = data
+      if (Array.isArray(data)) {
+        result = data.length > 0 ? data[0] : null
+      }
+
+      if (result && typeof result === 'object') {
+        if (result.is_new_best) {
+          console.log(`🏆 [PLAY MODE] New high score! Rank #${result.user_rank}/${result.total_players || 'N/A'}`)
+        } else {
+          console.log(`✓ [PLAY MODE] Score submitted. Best: ${result.best_score || 'N/A'}, Rank: #${result.user_rank || 'N/A'}`)
+        }
+      }
+    } catch (err) {
+      console.error('[PLAY MODE] Submit score error:', err)
+    }
+  }
+})
+
 function initPlayMode() {
   const url = new URL(window.location.href)
   const gameFromQuery = normalizeId(url.searchParams.get('game') || '')
