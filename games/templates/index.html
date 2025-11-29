@@ -16,6 +16,7 @@
           <select id="templateSelect" class="editor-input">
             <option value="pacman" selected>Pacman</option>
             <option value="blocks-8x8">Blocks 8x8</option>
+            <option value="wall-bounce-bird">Wall Bounce Bird</option>
           </select>
         </div>
         <div class="editor-group">
@@ -47,6 +48,14 @@
             <button type="button" class="map-color-btn" data-color="#8B4513" style="--color:#8B4513;" aria-label="Brown map color" aria-pressed="false"></button>
           </div>
         </div>
+        <div class="editor-group template-section template-wall-bounce-bird" style="display: none;">
+          <label class="editor-label">Background Color</label>
+          <div class="map-color-picker">
+            <button type="button" class="map-color-btn" data-color="#b8e0d2" style="--color:#b8e0d2;" aria-label="Mint green background" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#98fb98" style="--color:#98fb98;" aria-label="Pale green background" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#87ceeb" style="--color:#87ceeb;" aria-label="Sky blue background" aria-pressed="false"></button>
+          </div>
+        </div>
         <button id="playTestBtn" class="editor-btn">Play Test</button>
         <button id="closeEditorBtn" class="editor-btn secondary">Close Editor</button>
         <button id="saveBtn" class="editor-btn" style="display: none; margin-top: 10px;">💾 Save</button>
@@ -61,6 +70,17 @@
             id="blocksEditorFrame"
             src="../crypto-blocks/index.html"
             title="Blocks 8x8 Preview"
+            width="720"
+            height="1000"
+            frameborder="0"
+            allowfullscreen>
+          </iframe>
+        </div>
+        <div id="wallBounceBirdEditorPreview" class="wall-bounce-bird-editor-preview" style="display: none;">
+          <iframe
+            id="wallBounceBirdEditorFrame"
+            src="../wall-bounce-bird/index.html"
+            title="Wall Bounce Bird Preview"
             width="720"
             height="1000"
             frameborder="0"
@@ -119,6 +139,18 @@
       id="blocksGameFrame"
       src="../crypto-blocks/index.html"
       title="Blocks 8x8"
+      width="720"
+      height="1000"
+      frameborder="0"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+  <div id="wallBounceBirdWrapper" class="wall-bounce-bird-template-view" style="display: none;">
+    <iframe
+      id="wallBounceBirdGameFrame"
+      src="../wall-bounce-bird/index.html"
+      title="Wall Bounce Bird"
       width="720"
       height="1000"
       frameborder="0"

@@ -60,13 +60,22 @@ const TEMPLATE_ID = 'pacman-template';
 const PRODUCTION_BASE_URL = 'https://memeplay.dev';
 const TEMPLATE_IDS = Object.freeze({
   PACMAN: 'pacman',
-  BLOCKS: 'blocks-8x8'
+  BLOCKS: 'blocks-8x8',
+  WALL_BOUNCE_BIRD: 'wall-bounce-bird'
 });
 const BLOCKS_STORAGE_PREFIX = 'blocks_brand_config_';
 const BLOCKS_LAST_ID_KEY = 'blocks_last_saved_game_id';
 let BLOCKS_CONFIG = {
   story: '',
   mapColor: '#0a0a0a',
+  fragmentLogoUrl: '',
+  fragmentLogo: null
+};
+const WALL_BOUNCE_BIRD_STORAGE_PREFIX = 'wall_bounce_bird_config_';
+const WALL_BOUNCE_BIRD_LAST_ID_KEY = 'wall_bounce_bird_last_saved_game_id';
+let WALL_BOUNCE_BIRD_CONFIG = {
+  story: '',
+  backgroundColor: '#87ceeb',
   fragmentLogoUrl: '',
   fragmentLogo: null
 };
@@ -328,6 +337,48 @@ function ensureBlocksGameId() {
   return generated;
 }
 
+// Wall Bounce Bird helper functions
+function generateWallBounceBirdGameId() {
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  return `wall-bounce-bird-${randomSuffix}`;
+}
+
+function getWallBounceBirdStorageKey(gameId) {
+  const id = gameId || WALL_BOUNCE_BIRD_CONFIG.gameId || localStorage.getItem(WALL_BOUNCE_BIRD_LAST_ID_KEY);
+  return id ? `${WALL_BOUNCE_BIRD_STORAGE_PREFIX}${id}` : 'wall_bounce_bird_config';
+}
+
+function saveWallBounceBirdConfig(gameId = null) {
+  let id = gameId || WALL_BOUNCE_BIRD_CONFIG.gameId || localStorage.getItem(WALL_BOUNCE_BIRD_LAST_ID_KEY);
+  const storageKey = id ? `${WALL_BOUNCE_BIRD_STORAGE_PREFIX}${id}` : 'wall_bounce_bird_config';
+  const payload = {
+    fragmentLogoUrl: WALL_BOUNCE_BIRD_CONFIG.fragmentLogoUrl || '',
+    story: typeof WALL_BOUNCE_BIRD_CONFIG.story === 'string' ? WALL_BOUNCE_BIRD_CONFIG.story : '',
+    backgroundColor: WALL_BOUNCE_BIRD_CONFIG.backgroundColor || '#87ceeb'
+  };
+  localStorage.setItem(storageKey, JSON.stringify(payload));
+  if (id) {
+    localStorage.setItem(WALL_BOUNCE_BIRD_LAST_ID_KEY, id);
+    WALL_BOUNCE_BIRD_CONFIG.gameId = id;
+  }
+  return id || null;
+}
+
+function ensureWallBounceBirdGameId() {
+  if (WALL_BOUNCE_BIRD_CONFIG.gameId) {
+    return WALL_BOUNCE_BIRD_CONFIG.gameId;
+  }
+  const saved = localStorage.getItem(WALL_BOUNCE_BIRD_LAST_ID_KEY);
+  if (saved) {
+    WALL_BOUNCE_BIRD_CONFIG.gameId = saved;
+    return saved;
+  }
+  const generated = generateWallBounceBirdGameId();
+  localStorage.setItem(WALL_BOUNCE_BIRD_LAST_ID_KEY, generated);
+  WALL_BOUNCE_BIRD_CONFIG.gameId = generated;
+  return generated;
+}
+
 function sendBlocksConfigToIframe(target = 'both') {
   const payload = {
     type: 'CRYPTO_BLOCKS_CONFIG',
@@ -345,6 +396,29 @@ function sendBlocksConfigToIframe(target = 'both') {
   }
   if (target === 'game' || target === 'both') {
     const gameFrame = document.getElementById('blocksGameFrame');
+    if (gameFrame && gameFrame.contentWindow) {
+      gameFrame.contentWindow.postMessage(payload, '*');
+    }
+  }
+}
+
+function sendWallBounceBirdConfigToIframe(target = 'both') {
+  const payload = {
+    type: 'WALL_BOUNCE_BIRD_CONFIG',
+    payload: {
+      story: WALL_BOUNCE_BIRD_CONFIG.story || '',
+      backgroundColor: WALL_BOUNCE_BIRD_CONFIG.backgroundColor || '#87ceeb',
+      logoUrl: WALL_BOUNCE_BIRD_CONFIG.fragmentLogoUrl || ''
+    }
+  };
+  if (target === 'editor' || target === 'both') {
+    const editorFrame = document.getElementById('wallBounceBirdEditorFrame');
+    if (editorFrame && editorFrame.contentWindow) {
+      editorFrame.contentWindow.postMessage(payload, '*');
+    }
+  }
+  if (target === 'game' || target === 'both') {
+    const gameFrame = document.getElementById('wallBounceBirdGameFrame');
     if (gameFrame && gameFrame.contentWindow) {
       gameFrame.contentWindow.postMessage(payload, '*');
     }
@@ -420,6 +494,46 @@ async function syncBlocksGameToSupabase(gameId, context = 'manual-save') {
   }
 }
 
+async function syncWallBounceBirdToSupabase(gameId, context = 'manual-save') {
+  try {
+    const origin = window.location.origin.toLowerCase();
+    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.') || origin.includes('0.0.0.0');
+    const supabase = await getSupabaseClient();
+    if (!supabase) {
+      console.warn('[WallBounceBird] Supabase client unavailable, skip sync');
+      return false;
+    }
+    const baseUrl = isLocal ? PRODUCTION_BASE_URL : window.location.origin.replace(/\/$/, '');
+    const templateUrl = `${baseUrl}/games/wall-bounce-bird/index.html?game=${gameId}`;
+    const publicUrl = buildPublicLinkUrl(gameId, { forceProduction: true, template: TEMPLATE_IDS.WALL_BOUNCE_BIRD });
+    const payload = {
+      p_game_id: gameId,
+      p_template_id: TEMPLATE_IDS.WALL_BOUNCE_BIRD,
+      p_title: WALL_BOUNCE_BIRD_CONFIG.story ? `Wall Bounce Bird – ${WALL_BOUNCE_BIRD_CONFIG.story.slice(0, 24)}` : 'Wall Bounce Bird Game',
+      p_map_color: WALL_BOUNCE_BIRD_CONFIG.backgroundColor || '#87ceeb',
+      p_map_index: 0,
+      p_fragment_logo_url: WALL_BOUNCE_BIRD_CONFIG.fragmentLogoUrl || null,
+      p_story_one: WALL_BOUNCE_BIRD_CONFIG.story || '',
+      p_story_two: '',
+      p_story_three: '',
+      p_public_url: publicUrl,
+      p_template_url: templateUrl,
+      p_creator_id: getCreatorIdentifier(),
+      p_context: context
+    };
+    const { error } = await supabase.rpc('upsert_user_created_game', payload);
+    if (error) {
+      console.error('[WallBounceBird] Supabase sync failed:', error.message || error);
+      return false;
+    }
+    console.log('[WallBounceBird] Synced game to Supabase:', gameId);
+    return true;
+  } catch (error) {
+    console.error('[WallBounceBird] Unexpected Supabase error:', error);
+    return false;
+  }
+}
+
 // Ghost AI state
 let ghostSpeedMultiplier = 0.25;          // starts at 25% of Pacman speed
 let firstFragmentEaten = false;           // track first fragment event
@@ -462,6 +576,8 @@ function buildPublicLinkUrl(gameId = null, options = {}) {
     console.warn('[buildPublicLinkUrl] gameId is invalid, generating new ID...');
     if (template === TEMPLATE_IDS.BLOCKS) {
       id = generateBlocksGameId();
+    } else if (template === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+      id = generateWallBounceBirdGameId();
     } else if (typeof generateGameId === 'function') {
       id = generateGameId();
     } else {
@@ -2592,20 +2708,33 @@ function setupEditor() {
   const pacmanEditorPreview = document.getElementById('pacmanEditorPreview');
   const blocksEditorPreview = document.getElementById('blocksEditorPreview');
   const getActiveTemplate = () => {
-    if (templateSelect && templateSelect.value === TEMPLATE_IDS.BLOCKS) {
-      return TEMPLATE_IDS.BLOCKS;
-    }
+    if (!templateSelect) return TEMPLATE_IDS.PACMAN;
+    const value = templateSelect.value;
+    if (value === TEMPLATE_IDS.BLOCKS) return TEMPLATE_IDS.BLOCKS;
+    if (value === TEMPLATE_IDS.WALL_BOUNCE_BIRD) return TEMPLATE_IDS.WALL_BOUNCE_BIRD;
     return TEMPLATE_IDS.PACMAN;
   };
   document.body.dataset.template = getActiveTemplate();
   loadBlocksConfig();
   sendBlocksConfigToIframe('editor');
+  const wallBounceBirdWrapper = document.getElementById('wallBounceBirdWrapper');
+  const wallBounceBirdEditorPreview = document.getElementById('wallBounceBirdEditorPreview');
+  const creatorFloatingButtons = document.querySelector('.creator-floating-buttons');
+  const scrollToBirdControls = () => {
+    if (creatorFloatingButtons && isMobileViewport()) {
+      creatorFloatingButtons.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
   const playTestHandlers = {
     [TEMPLATE_IDS.PACMAN]: {
       show({ scroll = false } = {}) {
         if (blocksWrapper) {
           blocksWrapper.style.display = 'none';
           blocksWrapper.style.visibility = 'hidden';
+        }
+        if (wallBounceBirdWrapper) {
+          wallBounceBirdWrapper.style.display = 'none';
+          wallBounceBirdWrapper.style.visibility = 'hidden';
         }
         if (gameWrapperEl) {
           gameWrapperEl.style.display = 'flex';
@@ -2627,6 +2756,10 @@ function setupEditor() {
         if (gameWrapperEl) {
           gameWrapperEl.style.display = 'none';
         }
+        if (wallBounceBirdWrapper) {
+          wallBounceBirdWrapper.style.display = 'none';
+          wallBounceBirdWrapper.style.visibility = 'hidden';
+        }
         if (blocksWrapper) {
           blocksWrapper.style.display = 'flex';
           blocksWrapper.style.visibility = 'visible';
@@ -2646,6 +2779,39 @@ function setupEditor() {
           blocksWrapper.style.visibility = 'hidden';
         }
       }
+    },
+    [TEMPLATE_IDS.WALL_BOUNCE_BIRD]: {
+      show({ scroll = false, sendConfig = true } = {}) {
+        // ✅ FIX: Ẩn tất cả template khác trước
+        if (gameWrapperEl) {
+          gameWrapperEl.style.display = 'none';
+          gameWrapperEl.style.visibility = 'hidden';
+          gameWrapperEl.style.opacity = '0';
+        }
+        if (blocksWrapper) {
+          blocksWrapper.style.display = 'none';
+          blocksWrapper.style.visibility = 'hidden';
+        }
+        // ✅ FIX: Show Wall Bounce Bird
+        if (wallBounceBirdWrapper) {
+          wallBounceBirdWrapper.style.display = 'flex';
+          wallBounceBirdWrapper.style.visibility = 'visible';
+          wallBounceBirdWrapper.style.opacity = '1';
+          if (sendConfig !== false) {
+            const target = isMobileViewport() ? 'both' : 'game';
+            sendWallBounceBirdConfigToIframe(target);
+          }
+          if (scroll) {
+            wallBounceBirdWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      },
+      hide() {
+        if (wallBounceBirdWrapper) {
+          wallBounceBirdWrapper.style.display = 'none';
+          wallBounceBirdWrapper.style.visibility = 'hidden';
+        }
+      }
     }
   };
 
@@ -2654,17 +2820,43 @@ function setupEditor() {
     const activeTemplate = getActiveTemplate();
 
     if (!isMobile) {
+      // ✅ FIX: Show only the active template, hide all others
+      if (activeTemplate === TEMPLATE_IDS.BLOCKS) {
+        playTestHandlers[TEMPLATE_IDS.BLOCKS].show({ scroll: false, sendConfig });
+        if (gameWrapperEl) {
+          gameWrapperEl.style.display = 'none';
+        }
+        if (wallBounceBirdWrapper) {
+          wallBounceBirdWrapper.style.display = 'none';
+          wallBounceBirdWrapper.style.visibility = 'hidden';
+        }
+      } else if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+        playTestHandlers[TEMPLATE_IDS.WALL_BOUNCE_BIRD].show({ scroll: false, sendConfig });
+        if (gameWrapperEl) {
+          gameWrapperEl.style.display = 'none';
+        }
+        if (blocksWrapper) {
+          blocksWrapper.style.display = 'none';
+          blocksWrapper.style.visibility = 'hidden';
+        }
+      } else {
+        // Default to PACMAN
       playTestHandlers[TEMPLATE_IDS.PACMAN].show({ scroll: false });
-      if (activeTemplate !== TEMPLATE_IDS.BLOCKS && blocksWrapper) {
+        if (blocksWrapper) {
         blocksWrapper.style.display = 'none';
         blocksWrapper.style.visibility = 'hidden';
+        }
+        if (wallBounceBirdWrapper) {
+          wallBounceBirdWrapper.style.display = 'none';
+          wallBounceBirdWrapper.style.visibility = 'hidden';
+        }
       }
       return;
     }
 
     Object.entries(playTestHandlers).forEach(([templateId, handler]) => {
       if (templateId === activeTemplate) {
-        handler.show({ scroll, sendConfig });
+        handler.show({ scroll: false, sendConfig: false });
       } else if (typeof handler.hide === 'function') {
         handler.hide();
       }
@@ -2674,18 +2866,74 @@ function setupEditor() {
   if (templateSelect) {
     templateSelect.addEventListener('change', () => {
       document.body.dataset.template = getActiveTemplate();
-      if (getActiveTemplate() === TEMPLATE_IDS.BLOCKS) {
-        sendBlocksConfigToIframe(isMobileViewport() ? 'both' : 'editor');
+      const activeTemplate = getActiveTemplate();
+      
+      // ✅ Reset gameId when switching to Wall Bounce Bird to create new game (avoid cache)
+      if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+        // Clear old gameId to force new game creation
+        WALL_BOUNCE_BIRD_CONFIG.gameId = null;
+        localStorage.removeItem(WALL_BOUNCE_BIRD_LAST_ID_KEY);
+        if (saveBtn) {
+          saveBtn.dataset.gameId = '';
+          saveBtn.dataset.saved = 'false';
+        }
+        if (saveBtnMobile) {
+          saveBtnMobile.dataset.gameId = '';
+          saveBtnMobile.dataset.saved = 'false';
+        }
+        // Clear public link state
+        if (publicLinkBtn) {
+          publicLinkBtn.dataset.enabled = 'false';
+          publicLinkBtn.dataset.gameId = '';
+        }
+        if (publicLinkBtnMobile) {
+          publicLinkBtnMobile.dataset.enabled = 'false';
+          publicLinkBtnMobile.dataset.gameId = '';
+        }
       }
+      
+      // Show/hide preview containers
+      if (pacmanEditorPreview) {
+        pacmanEditorPreview.style.display = activeTemplate === TEMPLATE_IDS.PACMAN ? 'block' : 'none';
+      }
+      if (blocksEditorPreview) {
+        blocksEditorPreview.style.display = activeTemplate === TEMPLATE_IDS.BLOCKS ? 'block' : 'none';
+      }
+      if (wallBounceBirdEditorPreview) {
+        wallBounceBirdEditorPreview.style.display = activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD ? 'block' : 'none';
+      }
+      
+      // Show/hide template-specific sections
+      document.querySelectorAll('.template-section').forEach(el => {
+        el.style.display = 'none';
+      });
+      if (activeTemplate === TEMPLATE_IDS.PACMAN) {
+        document.querySelectorAll('.template-pacman').forEach(el => {
+          el.style.display = 'block';
+        });
+      } else if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+        document.querySelectorAll('.template-wall-bounce-bird').forEach(el => {
+          el.style.display = 'block';
+        });
+      }
+      
+      // Send config to iframe
+      if (activeTemplate === TEMPLATE_IDS.BLOCKS) {
+        sendBlocksConfigToIframe(isMobileViewport() ? 'both' : 'editor');
+      } else if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+        sendWallBounceBirdConfigToIframe(isMobileViewport() ? 'both' : 'editor');
+      }
+
+      // Reset save & public link buttons until Play Test is run again
       syncPlayTestStage({ scroll: true, sendConfig: true, reason: 'template-change' });
     });
   }
   if (saveBtn) {
-    saveBtn.dataset.visible = 'false';
+    saveBtn.dataset.visible = 'true';
     saveBtn.dataset.saved = 'false';
   }
   if (publicLinkBtn) {
-    publicLinkBtn.dataset.visible = 'false';
+    publicLinkBtn.dataset.visible = 'true';
     publicLinkBtn.dataset.enabled = 'false';
   }
 
@@ -2768,7 +3016,7 @@ function setupEditor() {
         publicLinkBtn.dataset.visible = 'true';
         publicLinkBtn.textContent = '🔗 Get Public Link';
         publicLinkBtn.dataset.template = templateId;
-        setPublicLinkEnabled(false);
+        setPublicLinkEnabled(false, publicLinkBtn);
       }
     }
   };
@@ -2939,8 +3187,10 @@ function setupEditor() {
       BRAND_CONFIG.stories = value.trim() !== '' ? [value] : [];
       saveBrandConfig();
       BLOCKS_CONFIG.story = value;
+      WALL_BOUNCE_BIRD_CONFIG.story = value;
       saveBlocksConfig(BLOCKS_CONFIG.gameId || null);
       sendBlocksConfigToIframe('both');
+      sendWallBounceBirdConfigToIframe('game');
       updateCharCount(story1Input, story1Count, MAX_STORY_LENGTH);
     });
   }
@@ -2989,6 +3239,9 @@ function setupEditor() {
                     setBlocksFragmentLogo(optimizedDataUrl);
                     saveBlocksConfig(BLOCKS_CONFIG.gameId || null);
                     sendBlocksConfigToIframe('both');
+                    WALL_BOUNCE_BIRD_CONFIG.fragmentLogoUrl = optimizedDataUrl;
+                    WALL_BOUNCE_BIRD_CONFIG.fragmentLogo = optimizedImg;
+                    sendWallBounceBirdConfigToIframe('game');
                     
                     // Hide loading, show preview
                     if (fragmentLogoLoading) {
@@ -3036,6 +3289,39 @@ function setupEditor() {
         reader.readAsDataURL(file);
       }
     });
+  }
+  
+  // Wall Bounce Bird background color picker
+  const wallBounceBirdColorButtons = document.querySelectorAll('.template-wall-bounce-bird .map-color-btn');
+  if (wallBounceBirdColorButtons.length > 0) {
+    // Set default color
+    WALL_BOUNCE_BIRD_CONFIG.backgroundColor = '#87ceeb';
+    
+    // Highlight selected color
+    const highlightSelectedColor = (selectedColor) => {
+      wallBounceBirdColorButtons.forEach(btn => {
+        if (btn.dataset.color === selectedColor) {
+          btn.classList.add('active');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.remove('active');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      });
+    };
+    
+    // Handle color selection
+    wallBounceBirdColorButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const selectedColor = btn.dataset.color;
+        WALL_BOUNCE_BIRD_CONFIG.backgroundColor = selectedColor;
+        sendWallBounceBirdConfigToIframe('both');
+        highlightSelectedColor(selectedColor);
+      });
+    });
+    
+    // Highlight default color on load (#87ceeb is now the third button)
+    highlightSelectedColor('#87ceeb');
   }
   
   // Map selection
@@ -3154,150 +3440,42 @@ function setupEditor() {
         return;
       }
       
-      const isMobile = isMobileViewport();
-      
-      if (isMobile) {
-        // ✅ Mobile: Keep original behavior (show game wrapper)
-        // Get selected map from dropdown
-        const selectedMap = mapSelect ? parseInt(mapSelect.value) : currentLevel;
-        
-        // Ensure game wrapper is visible
-        if (gameWrapperEl) {
-          gameWrapperEl.style.display = 'flex';
-          gameWrapperEl.style.visibility = 'visible';
-          gameWrapperEl.style.opacity = '1';
-          // Force reflow to ensure browser recognizes the display change
-          void gameWrapperEl.offsetHeight;
-          void gameWrapperEl.getBoundingClientRect(); // Additional reflow trigger
+      if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+        if (playTestBtn.textContent.trim() === 'Play Test') {
+          playTestBtn.textContent = 'Play Test ✓';
+          playTestBtn.style.color = '#4ade80';
         }
-        if (gameCanvasEl) {
-          gameCanvasEl.style.display = 'block';
-          gameCanvasEl.style.visibility = 'visible';
-          gameCanvasEl.style.opacity = '1';
-          // Force reflow to ensure browser recognizes the display change
-          void gameCanvasEl.offsetHeight;
-          void gameCanvasEl.getBoundingClientRect(); // Additional reflow trigger
-        }
-        
-        // Trigger a resize event to force browser to recalculate layout
-        if (window.dispatchEvent) {
-          window.dispatchEvent(new Event('resize'));
-        }
-        
-        // Show save & public link workflow after Play Test (mobile uses floating buttons)
-        showSaveFlow(TEMPLATE_IDS.PACMAN);
-        
+        playTestHandlers[TEMPLATE_IDS.WALL_BOUNCE_BIRD].show({ scroll: true, sendConfig: true });
+        showSaveFlow(TEMPLATE_IDS.WALL_BOUNCE_BIRD);
         unlockMobileGameIfNeeded();
-        
-        // Reset game state but keep selected map
-        isGameOver = false;
-        gameState = 'playing';
-        score = 0;
-        
-        // Reset ghost AI state
-        ghostSpeedMultiplier = 0.25; // Start at 25% of Pacman speed
-        firstFragmentEaten = false;
-        ghostFreezeTimer = 0;
-        ghostGlowTimer = 0;
-        ghostGlowState = 'none';
-        ghostPendingBoost = 0;
-        
-        // ✅ FIX: Load map được chọn từ dropdown (giữ nguyên level, chỉ load map mới)
-        initLevel(currentLevel);
-        
-        // ✅ FIX: Auto-focus canvas để có thể điều khiển Pacman ngay lập tức (Mobile)
-        if (gameCanvasEl) {
-          // Use setTimeout to ensure canvas is fully rendered before focusing
-          setTimeout(() => {
-            gameCanvasEl.focus();
-            console.log('[Pacman] Canvas auto-focused for keyboard input after Play Test (Mobile)');
-          }, 200); // Delay longer for mobile to ensure unlock completes
+        scrollToBirdControls();
+        return;
+      }
+      
+      const isMobile = isMobileViewport();
+      if (isMobile) {
+        playTestHandlers[activeTemplate].show({ scroll: true, sendConfig: true });
+        showSaveFlow(activeTemplate);
+        unlockMobileGameIfNeeded();
+        if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+          scrollToBirdControls();
         }
-        
-        // Force reflow and render immediately
-        if (gameWrapperEl) {
-          void gameWrapperEl.offsetHeight; // Force reflow
-        }
-        if (ctx && canvas) {
-          // Use requestAnimationFrame to ensure render happens after reflow
-          requestAnimationFrame(() => {
-            render();
-            // Force another render after a short delay to ensure everything is painted
-            setTimeout(() => {
-              if (ctx && canvas) {
-                render();
-              }
-            }, 50);
-          });
-        }
-
-        // Scroll to game area (mobile)
-        if (gameWrapperEl) {
-          // Mobile: wait for unlock, then scroll
-          const scrollToGame = () => {
-            // Ensure game is unlocked and visible
-            if (document.body.classList.contains('mobile-game-locked')) {
-              setTimeout(scrollToGame, 50);
               return;
             }
             
-            // Ensure gameWrapper is visible
-            if (gameWrapperEl.style.display === 'none') {
-              gameWrapperEl.style.display = 'flex';
-            }
-            
-            // Wait for layout update
-            requestAnimationFrame(() => {
-              requestAnimationFrame(() => {
-                // Calculate scroll position
-                const rect = gameWrapperEl.getBoundingClientRect();
-                const scrollTop = window.pageYOffset || document.documentElement.scrollTop || document.body.scrollTop;
-                const elementTop = rect.top + scrollTop;
-                
-                // Scroll to game area
-                window.scrollTo({
-                  top: Math.max(0, elementTop - 20),
-                  behavior: 'smooth'
-                });
-                
-                // Also try scrollIntoView as backup
-                setTimeout(() => {
-                  gameWrapperEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                  applyMobileGameScale();
-                  
-                  // Force render after scroll
-                  if (ctx && canvas) {
-                    render();
-                  }
-                }, 100);
-              });
-            });
-          };
-          
-          // Start scrolling after unlock
-          setTimeout(scrollToGame, 300);
-        }
-      } else {
-        // ✅ Desktop: Only add checkmark and show Save/Get Public Link in editor panel
-        // Add checkmark to Play Test button
         if (playTestBtn.textContent.trim() === 'Play Test') {
           playTestBtn.textContent = 'Play Test ✓';
-          playTestBtn.style.color = '#4ade80'; // Green color for checkmark
+        playTestBtn.style.color = '#4ade80';
         }
 
-        // ✅ FIX: Auto-focus canvas để có thể điều khiển Pacman ngay lập tức (Desktop)
         const gameCanvasEl = document.getElementById('gameCanvas');
         if (gameCanvasEl) {
-          // Use setTimeout to ensure canvas is fully rendered before focusing
           setTimeout(() => {
             gameCanvasEl.focus();
-            console.log('[Pacman] Canvas auto-focused for keyboard input after Play Test (Desktop)');
+          console.log('[Pacman] Canvas auto-focused for keyboard input (Desktop)');
           }, 100);
         }
-
-        // Show save & public link workflow after Play Test (desktop uses editor panel buttons)
         showSaveFlow(TEMPLATE_IDS.PACMAN);
-      }
     });
   }
 
@@ -3352,6 +3530,63 @@ function setupEditor() {
     const synced = await syncBlocksGameToSupabase(gameId, 'manual-save');
     button.dataset.supabaseSync = synced ? 'success' : 'error';
   };
+
+  const applyWallBounceBirdSaveState = (gameId) => {
+    if (saveBtn) {
+      saveBtn.dataset.gameId = gameId;
+      saveBtn.dataset.saved = 'true';
+      saveBtn.dataset.template = TEMPLATE_IDS.WALL_BOUNCE_BIRD;
+    }
+    if (saveBtnMobile) {
+      saveBtnMobile.dataset.gameId = gameId;
+      saveBtnMobile.dataset.saved = 'true';
+      saveBtnMobile.dataset.template = TEMPLATE_IDS.WALL_BOUNCE_BIRD;
+    }
+    if (publicLinkBtn) {
+      publicLinkBtn.dataset.template = TEMPLATE_IDS.WALL_BOUNCE_BIRD;
+      publicLinkBtn.dataset.gameId = gameId; // ✅ FIX: Set gameId để có thể dùng trực tiếp
+    }
+    if (publicLinkBtnMobile) {
+      publicLinkBtnMobile.dataset.template = TEMPLATE_IDS.WALL_BOUNCE_BIRD;
+      publicLinkBtnMobile.dataset.gameId = gameId; // ✅ FIX: Set gameId để có thể dùng trực tiếp
+    }
+  };
+
+  const handleWallBounceBirdSaveClick = async (button, isMobile = false) => {
+    if (button.dataset.visible !== 'true') {
+      return;
+    }
+    button.textContent = 'Saving...';
+    button.style.background = '#f6c94c';
+    const storyValue = story1Input ? story1Input.value.substring(0, 50) : '';
+    WALL_BOUNCE_BIRD_CONFIG.story = storyValue;
+    if (!WALL_BOUNCE_BIRD_CONFIG.fragmentLogoUrl && BRAND_CONFIG.fragmentLogoUrl) {
+      WALL_BOUNCE_BIRD_CONFIG.fragmentLogoUrl = BRAND_CONFIG.fragmentLogoUrl;
+    }
+    // ✅ Always generate NEW gameId when saving (don't reuse old one to avoid cache issues)
+    // Only reuse if button already has a saved gameId (user is updating existing game)
+    const existingId = button.dataset.gameId && button.dataset.gameId.startsWith('wall-bounce-bird-') && button.dataset.saved === 'true'
+      ? button.dataset.gameId
+      : null;
+    // ✅ If no existing saved game, generate new gameId to reset all counts
+    const gameId = existingId || generateWallBounceBirdGameId();
+    saveWallBounceBirdConfig(gameId);
+    sendWallBounceBirdConfigToIframe('both');
+    applyWallBounceBirdSaveState(gameId);
+    button.textContent = '✅ Saved';
+    button.style.background = '#4ECDC4';
+    button.dataset.gameId = gameId;
+    button.dataset.saved = 'true';
+    button.dataset.template = TEMPLATE_IDS.WALL_BOUNCE_BIRD;
+    setPublicLinkEnabled(true, publicLinkBtn);
+    if (publicLinkBtnMobile) {
+      setPublicLinkEnabled(true, publicLinkBtnMobile);
+    }
+    // ✅ Sync to Supabase so game can be accessed from other devices
+    button.dataset.supabaseSync = 'pending';
+    const synced = await syncWallBounceBirdToSupabase(gameId, 'manual-save');
+    button.dataset.supabaseSync = synced ? 'success' : 'failed';
+  };
   
   // Save button handler (shared for desktop and mobile)
   const handleSaveClick = async (button, isMobile = false) => {
@@ -3361,6 +3596,10 @@ function setupEditor() {
     const activeTemplate = button.dataset.template || getActiveTemplate();
     if (activeTemplate === TEMPLATE_IDS.BLOCKS) {
       await handleBlocksSaveClick(button, isMobile);
+      return;
+    }
+    if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+      await handleWallBounceBirdSaveClick(button, isMobile);
       return;
     }
     // Title is auto-generated, ensure it's set
@@ -3469,6 +3708,16 @@ function setupEditor() {
       }
       return BLOCKS_CONFIG.gameId || localStorage.getItem(BLOCKS_LAST_ID_KEY);
     }
+    if (templateId === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+      if (saveBtn && saveBtn.dataset.template === TEMPLATE_IDS.WALL_BOUNCE_BIRD && saveBtn.dataset.saved === 'true') {
+        return saveBtn.dataset.gameId;
+      }
+      if (saveBtnMobile && saveBtnMobile.dataset.template === TEMPLATE_IDS.WALL_BOUNCE_BIRD && saveBtnMobile.dataset.saved === 'true') {
+        return saveBtnMobile.dataset.gameId;
+      }
+      return WALL_BOUNCE_BIRD_CONFIG.gameId || localStorage.getItem(WALL_BOUNCE_BIRD_LAST_ID_KEY);
+    }
+    // Default to PACMAN
     if (saveBtn && (!saveBtn.dataset.template || saveBtn.dataset.template === TEMPLATE_IDS.PACMAN) && saveBtn.dataset.saved === 'true') {
       return saveBtn.dataset.gameId;
     }
@@ -3485,6 +3734,26 @@ function setupEditor() {
     
     const buttonTemplate = button.dataset.template || getActiveTemplate();
     let gameId = button.dataset.gameId || getLastSavedGameId(buttonTemplate);
+    
+    // ✅ DEBUG: Log để kiểm tra
+    console.log('[handlePublicLinkClick] Debug:', {
+      buttonId: button.id,
+      buttonDatasetTemplate: button.dataset.template,
+      buttonDatasetGameId: button.dataset.gameId,
+      getActiveTemplateResult: getActiveTemplate(),
+      buttonTemplate,
+      gameId,
+      saveBtnDataset: saveBtn ? {
+        template: saveBtn.dataset.template,
+        gameId: saveBtn.dataset.gameId,
+        saved: saveBtn.dataset.saved
+      } : null,
+      saveBtnMobileDataset: saveBtnMobile ? {
+        template: saveBtnMobile.dataset.template,
+        gameId: saveBtnMobile.dataset.gameId,
+        saved: saveBtnMobile.dataset.saved
+      } : null
+    });
     
     if (!gameId) {
       alert('Please Save the game first before getting public link.');
@@ -3577,6 +3846,27 @@ function setupEditor() {
     // ✅ Run async operations AFTER copy (background tasks)
     (async () => {
       if (buttonTemplate === TEMPLATE_IDS.BLOCKS) {
+        return;
+      }
+      if (buttonTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+        // Ensure game is saved
+        const isSaved = (saveBtn && saveBtn.dataset.saved === 'true') || 
+                        (saveBtnMobile && saveBtnMobile.dataset.saved === 'true');
+        if (!isSaved) {
+          const savedId = saveWallBounceBirdConfig(ensureWallBounceBirdGameId());
+          if (saveBtn) {
+            saveBtn.dataset.gameId = savedId;
+            saveBtn.dataset.saved = 'true';
+          }
+          if (saveBtnMobile) {
+            saveBtnMobile.dataset.gameId = savedId;
+            saveBtnMobile.dataset.saved = 'true';
+          }
+        }
+        // Sync to Supabase (background)
+        button.dataset.supabaseSync = 'pending';
+        await syncWallBounceBirdToSupabase(gameId, 'public-link');
+        button.dataset.supabaseSync = 'success';
         return;
       }
       // Title is auto-generated, ensure it's set

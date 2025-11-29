@@ -20,23 +20,33 @@
       user-select: none;
       touch-action: none;
     }
+    body {
+      position: relative;
+    }
+    .game-container {
+      position: relative;
+      width: min(100vw, 720px);
+      margin: 0 auto;
+      height: auto;
+    }
     canvas {
       display: block;
       width: min(100vw, 720px);
-      height: auto;
+      aspect-ratio: 720 / 1000;
       max-height: 100vh;
       margin: 0 auto;
       background: #87ceeb;
       border-radius: 28px;
       box-shadow: 0 30px 120px rgba(0,0,0,0.35);
       touch-action: none;
+      object-fit: contain;
     }
     .hud {
       position: absolute;
       top: 20px;
       left: 50%;
       transform: translateX(-50%);
-      width: min(720px, calc(100vw - 32px));
+      width: 100%;
       display: flex;
       justify-content: space-between;
       font-weight: 700;
@@ -45,6 +55,12 @@
       text-shadow: 0 4px 14px rgba(0,0,0,0.45);
       pointer-events: none;
       z-index: 5;
+    }
+    #scoreLabel {
+      position: relative;
+      left: 50px;
+      top: 10px;
+      font-size: clamp(27.2px, 3.4vw, 40.8px); /* 70% larger than default */
     }
     .overlay {
       position: absolute;
@@ -76,7 +92,8 @@
       color: #ffd447;
     }
     .overlay-card p { margin: 0; line-height: 1.5; color: #e6ecff; }
-    .overlay-card button {
+    .overlay-card button,
+    #startBtn {
       padding: 14px 22px;
       border-radius: 12px;
       border: none;
@@ -87,50 +104,126 @@
       cursor: pointer;
       box-shadow: 0 12px 30px rgba(255,148,55,0.35);
       transition: transform 0.2s ease;
+      animation: blink 1.5s ease-in-out infinite;
     }
-    .overlay-card button:active { transform: scale(0.96); }
+    .overlay-card button:active,
+    #startBtn:active { transform: scale(0.96); }
+    @keyframes blink {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
     .promo-text {
       font-style: italic;
       color: #c8d6ff;
       font-size: 15px;
       opacity: 0.9;
     }
+    .game-over-logo {
+      width: 120px;
+      height: 120px;
+      border-radius: 50%;
+      border: 3px solid #ffd447;
+      object-fit: contain;
+      margin: 0 auto 20px;
+      display: block;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px;
+    }
     @media (max-width: 768px) {
       .hud { top: 12px; font-size: 16px; }
-      canvas { width: calc(100vw - 16px); }
+      canvas { 
+        width: calc(100vw - 16px);
+        aspect-ratio: 720 / 1000;
+        max-height: calc(100vh - 24px);
+      }
       .overlay-card { padding: 24px; }
+      .game-over-logo {
+        width: 80px;
+        height: 80px;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="hud" id="hud" aria-live="polite">
-    <span id="scoreLabel">Score: 0</span>
-    <span id="bestLabel">Best: 0</span>
-  </div>
-  <canvas id="game" width="720" height="1000"></canvas>
+  <div class="game-container">
+    <div class="hud" id="hud" aria-live="polite">
+      <span id="scoreLabel">Score: 0</span>
+    </div>
+    <canvas id="game" width="720" height="1000" style="height: 100%;"></canvas>
 
-  <div class="overlay" id="startOverlay">
-    <div class="overlay-card">
-      <h1>WALL BOUNCE</h1>
-      <p>Tap anywhere to launch the bird, then keep bouncing between walls, dodge spikes, and grab energy pills for bonus points.</p>
+    <div class="overlay" id="startOverlay">
       <button id="startBtn">Tap to Start</button>
     </div>
-  </div>
 
-  <div class="overlay hidden" id="gameOverOverlay">
-    <div class="overlay-card">
-      <h1>GAME OVER</h1>
-      <p id="finalScoreText">Score: 0</p>
-      <p class="promo-text" id="promoText"></p>
-      <button id="retryBtn">Play Again</button>
+    <div class="overlay hidden" id="gameOverOverlay">
+      <div class="overlay-card">
+        <h1>GAME OVER</h1>
+        <img id="gameOverLogo" class="game-over-logo" src="" alt="Logo" style="display: none;">
+        <p id="finalScoreText">Score: 0</p>
+        <p class="promo-text" id="promoText"></p>
+        <button id="retryBtn">Play Again</button>
+      </div>
     </div>
   </div>
 
   <script>
+    // ✅ Get gameId from URL (like Pacman and Blocks 8x8)
+    function getGameId() {
+      const url = new URL(window.location.href);
+      const gameIdFromQuery = url.searchParams.get('game');
+      if (gameIdFromQuery) return gameIdFromQuery;
+      return null;
+    }
+    const EMBEDDED_GAME_ID = getGameId() || 'wall-bounce-bird';
+    
+    // ✅ FIX: Load config from localStorage khi khởi động (giống Pacman/Blocks) - Đảm bảo hoạt động trên mobile
+    function loadBrandConfigFromLocalStorage(gameId) {
+      if (!gameId || gameId === 'wall-bounce-bird') return false;
+      const storageKey = `wall_bounce_bird_config_${gameId}`;
+      const saved = localStorage.getItem(storageKey);
+      if (!saved) return false;
+      
+      try {
+        const config = JSON.parse(saved);
+        if (!config) return false;
+        
+        // Apply background color
+        if (config.backgroundColor) {
+          state.backgroundColor = config.backgroundColor;
+        }
+        
+        // Apply logo
+        if (config.fragmentLogoUrl) {
+          state.customLogo = config.fragmentLogoUrl;
+          const logoImg = new Image();
+          logoImg.onload = () => {
+            state.customLogoImage = logoImg;
+          };
+          logoImg.onerror = () => {
+            state.customLogoImage = null;
+          };
+          logoImg.src = config.fragmentLogoUrl;
+        }
+        
+        // Apply story
+        if (config.story) {
+          state.customStory = config.story;
+        }
+        
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+    
+    // ✅ Load config ngay khi khởi động (trước khi resetGame)
+    if (EMBEDDED_GAME_ID && EMBEDDED_GAME_ID !== 'wall-bounce-bird') {
+      loadBrandConfigFromLocalStorage(EMBEDDED_GAME_ID);
+    }
+    
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d', { desynchronized: true });
     const scoreLabel = document.getElementById('scoreLabel');
-    const bestLabel = document.getElementById('bestLabel');
     const startOverlay = document.getElementById('startOverlay');
     const gameOverOverlay = document.getElementById('gameOverOverlay');
     const finalScoreText = document.getElementById('finalScoreText');
@@ -152,35 +245,125 @@
       GRAVITY: 0.6,
       JUMP_FORCE: -10,
       HORIZONTAL_SPEED: 6,
-      WALL_OFFSET: 60,
-      BIRD_SIZE: 50,
+      WALL_OFFSET: 0,
+      BIRD_SIZE: 115,
+      BIRD_HITBOX_SIZE: 55,
       SPIKE_SIZE: 40,
       TOP_SPIKE_HEIGHT: 30,
       PILL_SIZE: 56,
       PILL_POINTS: 5,
-      PARTICLES: { desktop: 8, mobile: 2 },
-      PILL_AREA: { minX: 150, maxX: 570, minY: 200, maxY: 600 }
+      PARTICLES: { desktop: 8, mobile: 2 }, // Reduced for better performance
+      PILL_AREA: { minX: 150, maxX: 570, minY: 200, maxY: 600 },
+      DEBUG_HITBOXES: false // Disabled - hitboxes removed after testing
     };
 
     const state = {
       running: false,
       started: false,
+      gameOver: false, // Flag to prevent floatIdleBird when game is over
       score: 0,
-      best: Number(localStorage.getItem('wallBounceBest') || '0'),
       bird: null,
       spikesLeft: [],
       spikesRight: [],
       topSpikes: [],
       bottomSpikes: [],
+      cachedTopBottomCanvas: null, // Cached canvas for top and bottom spikes (static)
       pill: null,
       particles: [],
       scoreTexts: [],
       lastBounceTime: 0,
-      difficultyStart: 0,
-      maxSpikes: 3
+      spikesLeftCount: 2,
+      spikesRightCount: 2,
+      customLogo: null,      // Logo from editor (used for pill)
+      customLogoImage: null,  // Loaded logo image object
+      customStory: null,     // Story from editor
+      backgroundColor: '#87ceeb',  // Background color from editor
+      perfStats: {
+        collisionTime: 0,
+        frameCount: 0,
+        totalCollisionTime: 0,
+        particlesTime: 0,
+        scoreTextsTime: 0,
+        totalParticlesTime: 0,
+        totalScoreTextsTime: 0
+      }
     };
 
     const isMobile = /Mobi|Android/i.test(navigator.userAgent);
+
+    const birdImage = new Image();
+    let birdImageLoaded = false;
+    let birdImageRatio = 1;
+    // Cached flipped images for better performance (no transform needed each frame)
+    let birdImageLeft = null;
+    let birdImageRight = null;
+    
+    // Load and process original image
+    const originalBirdImage = new Image();
+    originalBirdImage.src = 'bird.webp';
+    originalBirdImage.onload = () => {
+      // Process image to remove white background while preserving eye colors
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = originalBirdImage.width;
+      tempCanvas.height = originalBirdImage.height;
+      const tempCtx = tempCanvas.getContext('2d');
+      
+      // Draw original image
+      tempCtx.drawImage(originalBirdImage, 0, 0);
+      
+      // Get image data
+      const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      const data = imageData.data;
+      
+      // Process pixels: make white background transparent, preserve eye colors
+      for (let i = 0; i < data.length; i += 4) {
+        const r = data[i];
+        const g = data[i + 1];
+        const b = data[i + 2];
+        
+        // Check if pixel is white (background)
+        // Use threshold to detect white: r, g, b all > 250
+        // This preserves eye white which might have slight variations or black pixels nearby
+        if (r > 250 && g > 250 && b > 250) {
+          // Make white background transparent
+          data[i + 3] = 0; // Set alpha to 0
+        }
+        // All other pixels (red body, green wing/tail, white/black eye) remain unchanged
+      }
+      
+      // Put processed image data back
+      tempCtx.putImageData(imageData, 0, 0);
+      
+      // Load processed image into birdImage
+      birdImage.onload = () => {
+        birdImageLoaded = true;
+        if (birdImage.width && birdImage.height) {
+          birdImageRatio = birdImage.width / birdImage.height;
+          
+          // Create cached flipped images (left and right) for better performance
+          const cacheCanvas = document.createElement('canvas');
+          cacheCanvas.width = birdImage.width;
+          cacheCanvas.height = birdImage.height;
+          const cacheCtx = cacheCanvas.getContext('2d');
+          
+          // Create right-facing image (normal)
+          cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
+          cacheCtx.drawImage(birdImage, 0, 0);
+          birdImageRight = new Image();
+          birdImageRight.src = cacheCanvas.toDataURL('image/png');
+          
+          // Create left-facing image (flipped horizontally)
+          cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
+          cacheCtx.setTransform(-1, 0, 0, 1, birdImage.width, 0);
+          cacheCtx.drawImage(birdImage, 0, 0);
+          cacheCtx.setTransform(1, 0, 0, 1, 0, 0);
+          birdImageLeft = new Image();
+          birdImageLeft.src = cacheCanvas.toDataURL('image/png');
+        }
+      };
+      birdImage.src = tempCanvas.toDataURL('image/png');
+    };
+
 
     class Bird {
       constructor() {
@@ -189,72 +372,96 @@
         this.vx = 0;
         this.vy = 0;
         this.size = CONFIG.BIRD_SIZE;
+        this.hitboxSize = CONFIG.BIRD_HITBOX_SIZE;
+        // Hitbox offset to align with bird center
+        this.hitboxOffsetX = 0;
+        this.hitboxOffsetY = 4; // Offset down 4px to center hitbox with bird
         this.active = false;
         this.direction = 1;
       }
       update(dt) {
         if (!this.active) return;
+        // Stop updating if game is over (freeze bird at collision position)
+        if (state.running === false) return;
         this.vy += CONFIG.GRAVITY * dt;
         this.x += this.vx * dt;
         this.y += this.vy * dt;
 
+        // Boundary check: prevent bird from going too far, but don't trigger game over
+        // Actual collision with spikes is checked in checkCollisions()
         const half = this.size / 2;
-        if (this.y - half < CONFIG.TOP_SPIKE_HEIGHT) {
-          this.y = CONFIG.TOP_SPIKE_HEIGHT + half;
-          triggerGameOver();
-          return;
+        if (this.y - half < 0) {
+          this.y = half;
         }
-        if (this.y + half > CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT) {
-          this.y = CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT - half;
-          triggerGameOver();
-          return;
+        if (this.y + half > CONFIG.HEIGHT) {
+          this.y = CONFIG.HEIGHT - half;
         }
 
-        if (this.x - half <= CONFIG.WALL_OFFSET) {
-          this.x = CONFIG.WALL_OFFSET + half;
+        const hitboxHalf = this.hitboxSize / 2;
+        const birdCenterX = this.x + this.hitboxOffsetX;
+        if (birdCenterX - hitboxHalf <= CONFIG.WALL_OFFSET) {
+          this.x = CONFIG.WALL_OFFSET + hitboxHalf - this.hitboxOffsetX;
           wallBounce(1);
-        } else if (this.x + half >= CONFIG.WIDTH - CONFIG.WALL_OFFSET) {
-          this.x = CONFIG.WIDTH - CONFIG.WALL_OFFSET - half;
+        } else if (birdCenterX + hitboxHalf >= CONFIG.WIDTH - CONFIG.WALL_OFFSET) {
+          this.x = CONFIG.WIDTH - CONFIG.WALL_OFFSET - hitboxHalf - this.hitboxOffsetX;
           wallBounce(-1);
         }
       }
       draw() {
         const half = this.size / 2;
-        ctx.save();
-        ctx.translate(this.x, this.y);
-        ctx.scale(this.direction, 1);
+        
+        if (birdImageLoaded && birdImageLeft && birdImageRight) {
+          // Optimized: Use cached flipped images instead of transform (much faster)
+          // Bird image is centered at (this.x, this.y)
+          const drawHeight = this.size;
+          const drawWidth = this.size * birdImageRatio;
+          // direction = 1 means flip (left), direction = -1 means no flip (right)
+          // This matches the old logic: setTransform(-direction, ...) where -1 flips and 1 doesn't
+          const imageToDraw = this.direction === 1 ? birdImageLeft : birdImageRight;
+          // Center the image at bird position
+          ctx.drawImage(imageToDraw, this.x - drawWidth / 2, this.y - drawHeight / 2, drawWidth, drawHeight);
+        } else if (birdImageLoaded) {
+          // Fallback: Use transform if cached images not ready yet
+          ctx.setTransform(-this.direction, 0, 0, 1, this.x, this.y);
+          const drawHeight = this.size;
+          const drawWidth = this.size * birdImageRatio;
+          ctx.drawImage(birdImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
+          ctx.setTransform(1, 0, 0, 1, 0, 0);
+        } else {
+          ctx.fillStyle = '#d93232';
+          ctx.beginPath();
+          ctx.roundRect(-half, -half, this.size, this.size, 18);
+          ctx.fill();
 
-        ctx.fillStyle = '#d93232';
-        ctx.beginPath();
-        ctx.roundRect(-half, -half, this.size, this.size, 18);
-        ctx.fill();
+          ctx.fillStyle = '#f5a623';
+          ctx.beginPath();
+          ctx.moveTo(half - 10, -10);
+          ctx.lineTo(half + 15, -2);
+          ctx.lineTo(half - 10, 6);
+          ctx.closePath();
+          ctx.fill();
 
-        ctx.fillStyle = '#f5a623';
-        ctx.beginPath();
-        ctx.moveTo(half - 10, -10);
-        ctx.lineTo(half + 15, -2);
-        ctx.lineTo(half - 10, 6);
-        ctx.closePath();
-        ctx.fill();
+          ctx.fillStyle = '#ffd447';
+          ctx.beginPath();
+          ctx.moveTo(-half + 8, -half + 6);
+          ctx.lineTo(-half + 20, -half - 8);
+          ctx.lineTo(-half + 32, -half + 10);
+          ctx.closePath();
+          ctx.fill();
 
-        ctx.fillStyle = '#ffd447';
-        ctx.beginPath();
-        ctx.moveTo(-half + 8, -half + 6);
-        ctx.lineTo(-half + 20, -half - 8);
-        ctx.lineTo(-half + 32, -half + 10);
-        ctx.closePath();
-        ctx.fill();
+          ctx.fillStyle = '#fff';
+          ctx.beginPath();
+          ctx.arc(half - 18, -10, 10, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.fillStyle = '#000';
+          ctx.beginPath();
+          ctx.arc(half - 15, -10, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
 
-        ctx.fillStyle = '#fff';
-        ctx.beginPath();
-        ctx.arc(half - 18, -10, 10, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.fillStyle = '#000';
-        ctx.beginPath();
-        ctx.arc(half - 15, -10, 4, 0, Math.PI * 2);
-        ctx.fill();
+        // Reset transform instead of restore (faster)
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
 
-        ctx.restore();
       }
     }
 
@@ -267,28 +474,53 @@
         ctx.fillStyle = '#737373';
         ctx.beginPath();
         if (this.side === 'left') {
-          ctx.moveTo(CONFIG.WALL_OFFSET, this.y);
-          ctx.lineTo(CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE, this.y - CONFIG.SPIKE_SIZE / 2);
-          ctx.lineTo(CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE, this.y + CONFIG.SPIKE_SIZE / 2);
+          ctx.moveTo(CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE, this.y);
+          ctx.lineTo(CONFIG.WALL_OFFSET, this.y - CONFIG.SPIKE_SIZE / 2);
+          ctx.lineTo(CONFIG.WALL_OFFSET, this.y + CONFIG.SPIKE_SIZE / 2);
         } else {
-          ctx.moveTo(CONFIG.WIDTH - CONFIG.WALL_OFFSET, this.y);
-          ctx.lineTo(CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE, this.y - CONFIG.SPIKE_SIZE / 2);
-          ctx.lineTo(CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE, this.y + CONFIG.SPIKE_SIZE / 2);
+          ctx.moveTo(CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE, this.y);
+          ctx.lineTo(CONFIG.WIDTH - CONFIG.WALL_OFFSET, this.y - CONFIG.SPIKE_SIZE / 2);
+          ctx.lineTo(CONFIG.WIDTH - CONFIG.WALL_OFFSET, this.y + CONFIG.SPIKE_SIZE / 2);
         }
         ctx.closePath();
         ctx.fill();
+
       }
       hit(bird) {
+        // Early exit: Quick distance check before expensive collision calculation
+        // Calculate bird center position
+        const birdCenterX = bird.x + bird.hitboxOffsetX;
+        const birdCenterY = bird.y + bird.hitboxOffsetY;
+        
+        // Calculate spike center position
+        const spikeX = this.side === 'left'
+          ? CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE / 2
+          : CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE / 2;
+        const spikeY = this.y;
+        
+        // Calculate distance squared (avoid sqrt for performance)
+        const dx = birdCenterX - spikeX;
+        const dy = birdCenterY - spikeY;
+        const maxDist = bird.hitboxSize / 2 + CONFIG.SPIKE_SIZE;
+        const maxDistSquared = maxDist * maxDist;
+        const distSquared = dx * dx + dy * dy;
+        
+        // If too far away, definitely no collision - skip expensive calculation
+        if (distSquared > maxDistSquared) {
+          return false;
+        }
+        
+        // Close enough - perform detailed triangle collision check
         const tri = this.side === 'left'
           ? [
-              { x: CONFIG.WALL_OFFSET, y: this.y },
-              { x: CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE, y: this.y - CONFIG.SPIKE_SIZE / 2 },
-              { x: CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE, y: this.y + CONFIG.SPIKE_SIZE / 2 }
+              { x: CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE, y: this.y },
+              { x: CONFIG.WALL_OFFSET, y: this.y - CONFIG.SPIKE_SIZE / 2 },
+              { x: CONFIG.WALL_OFFSET, y: this.y + CONFIG.SPIKE_SIZE / 2 }
             ]
           : [
-              { x: CONFIG.WIDTH - CONFIG.WALL_OFFSET, y: this.y },
-              { x: CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE, y: this.y - CONFIG.SPIKE_SIZE / 2 },
-              { x: CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE, y: this.y + CONFIG.SPIKE_SIZE / 2 }
+              { x: CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE, y: this.y },
+              { x: CONFIG.WIDTH - CONFIG.WALL_OFFSET, y: this.y - CONFIG.SPIKE_SIZE / 2 },
+              { x: CONFIG.WIDTH - CONFIG.WALL_OFFSET, y: this.y + CONFIG.SPIKE_SIZE / 2 }
             ];
         return intersectsCircleTriangle(bird, tri);
       }
@@ -310,22 +542,39 @@
         if (!this.active) return;
         ctx.save();
         ctx.translate(this.x, this.y);
-        const grd = ctx.createRadialGradient(0, 0, 6, 0, 0, this.size / 2);
-        grd.addColorStop(0, '#fff6d1');
-        grd.addColorStop(0.5, '#ffd447');
-        grd.addColorStop(1, '#f05a28');
-        ctx.fillStyle = grd;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.restore();
+        
+        // If custom logo is available, draw logo instead of gradient pill
+        if (state.customLogoImage && state.customLogoImage.complete) {
+          ctx.drawImage(
+            state.customLogoImage,
+            -this.size / 2,
+            -this.size / 2,
+            this.size,
+            this.size
+          );
+        } else {
+          // Default gradient pill
+          const grd = ctx.createRadialGradient(0, 0, 6, 0, 0, this.size / 2);
+          grd.addColorStop(0, '#fff6d1');
+          grd.addColorStop(0.5, '#ffd447');
+          grd.addColorStop(1, '#f05a28');
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // Reset transform instead of restore (faster)
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
       }
       hit(bird) {
         if (!this.active) return false;
-        const dx = bird.x - this.x;
-        const dy = bird.y - this.y;
+        const birdCenterX = bird.x + bird.hitboxOffsetX;
+        const birdCenterY = bird.y + bird.hitboxOffsetY;
+        const dx = birdCenterX - this.x;
+        const dy = birdCenterY - this.y;
         const dist = Math.hypot(dx, dy);
-        return dist < (bird.size / 2 + this.size / 2 - 6);
+        return dist < (bird.hitboxSize / 2 + this.size / 2);
       }
     }
 
@@ -334,11 +583,11 @@
         this.x = x;
         this.y = y;
         const angle = Math.random() * Math.PI * 2;
-        const speed = rand(1, 4);
+        const speed = rand(1.6, 6.4);
         this.vx = Math.cos(angle) * speed;
         this.vy = Math.sin(angle) * speed;
-        this.life = 0.3;
-        this.maxLife = 0.3;
+        this.life = 0.48;
+        this.maxLife = 0.48;
       }
       update(dt) {
         this.life -= dt / 60;
@@ -346,11 +595,8 @@
         this.y += this.vy + 0.15;
       }
       draw() {
-        if (this.life <= 0) return;
-        ctx.globalAlpha = Math.max(this.life / this.maxLife, 0);
-        ctx.fillStyle = '#fff';
-        ctx.fillRect(this.x, this.y, 3, 3);
-        ctx.globalAlpha = 1;
+        // Drawing is now handled in batch in the main loop for better performance
+        // This method is kept for compatibility but not used
       }
     }
 
@@ -377,13 +623,26 @@
     }
 
     function intersectsCircleTriangle(bird, [v1, v2, v3]) {
-      const center = { x: bird.x, y: bird.y };
-      const r = bird.size / 2 - 4;
+      const center = { 
+        x: bird.x + bird.hitboxOffsetX, 
+        y: bird.y + bird.hitboxOffsetY 
+      };
+      const r = bird.hitboxSize / 2;
+      
+      // Check if circle center is inside triangle
       if (pointInTriangle(center, v1, v2, v3)) return true;
+      
+      // Check if any triangle vertex is inside circle
+      const dist1 = Math.hypot(center.x - v1.x, center.y - v1.y);
+      const dist2 = Math.hypot(center.x - v2.x, center.y - v2.y);
+      const dist3 = Math.hypot(center.x - v3.x, center.y - v3.y);
+      if (dist1 < r || dist2 < r || dist3 < r) return true;
+      
+      // Check if circle intersects any triangle edge
       return (
-        distancePointToSegment(center, v1, v2) < r ||
-        distancePointToSegment(center, v2, v3) < r ||
-        distancePointToSegment(center, v3, v1) < r
+        distancePointToSegment(center, v1, v2) <= r ||
+        distancePointToSegment(center, v2, v3) <= r ||
+        distancePointToSegment(center, v3, v1) <= r
       );
     }
 
@@ -411,19 +670,32 @@
 
     function resetGame() {
       state.score = 0;
+      state.gameOver = false; // Reset game over flag
+      // Keep customLogo, customStory, backgroundColor from editor (don't reset)
       state.spikesLeft = [];
       state.spikesRight = [];
       state.topSpikes = createRowSpikes(true);
       state.bottomSpikes = createRowSpikes(false);
+      // Cache top and bottom spikes (static, don't change)
+      cacheTopBottomSpikes();
       state.particles = [];
       state.scoreTexts = [];
       state.pill = new Pill();
-      state.difficultyStart = performance.now();
-      state.maxSpikes = 3;
+      state.spikesLeftCount = 2;
+      state.spikesRightCount = 2;
       state.lastBounceTime = 0;
       state.bird = new Bird();
+      state.perfStats = {
+        collisionTime: 0,
+        frameCount: 0,
+        totalCollisionTime: 0,
+        particlesTime: 0,
+        scoreTextsTime: 0,
+        totalParticlesTime: 0,
+        totalScoreTextsTime: 0
+      };
       scoreLabel.textContent = 'Score: 0';
-      bestLabel.textContent = `Best: ${Math.max(state.best, 0)}`;
+      spawnWallSpikes(false);
     }
 
     function createRowSpikes(top) {
@@ -435,14 +707,62 @@
       return spikes;
     }
 
-    function spawnWallSpikes() {
-      state.spikesLeft = generateSideSpikes('left');
-      state.spikesRight = generateSideSpikes('right');
+    // Cache top and bottom spikes to offscreen canvas (only draw once, reuse every frame)
+    function cacheTopBottomSpikes() {
+      const cacheCanvas = document.createElement('canvas');
+      cacheCanvas.width = CONFIG.WIDTH;
+      cacheCanvas.height = CONFIG.HEIGHT;
+      const cacheCtx = cacheCanvas.getContext('2d');
+      
+      cacheCtx.fillStyle = '#4d4d4d';
+      
+      // Draw top spikes
+      for (let i = 0; i < state.topSpikes.length; i++) {
+        const spike = state.topSpikes[i];
+        cacheCtx.beginPath();
+        cacheCtx.moveTo(spike.x, 0);
+        cacheCtx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.TOP_SPIKE_HEIGHT);
+        cacheCtx.lineTo(spike.x + CONFIG.SPIKE_SIZE, 0);
+        cacheCtx.closePath();
+        cacheCtx.fill();
+      }
+      
+      // Draw bottom spikes
+      for (let i = 0; i < state.bottomSpikes.length; i++) {
+        const spike = state.bottomSpikes[i];
+        cacheCtx.beginPath();
+        cacheCtx.moveTo(spike.x, CONFIG.HEIGHT);
+        cacheCtx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT);
+        cacheCtx.lineTo(spike.x + CONFIG.SPIKE_SIZE, CONFIG.HEIGHT);
+        cacheCtx.closePath();
+        cacheCtx.fill();
+      }
+      
+      state.cachedTopBottomCanvas = cacheCanvas;
     }
 
-    function generateSideSpikes(side) {
+    function spawnWallSpikes(shouldIncrease = true) {
+      if (shouldIncrease) {
+        const totalSpikes = state.spikesLeftCount + state.spikesRightCount;
+        if (totalSpikes < 14) {
+          const randomSide = Math.random() < 0.5 ? 'left' : 'right';
+          if (randomSide === 'left' && state.spikesLeftCount < 7) {
+            state.spikesLeftCount++;
+          } else if (randomSide === 'right' && state.spikesRightCount < 7) {
+            state.spikesRightCount++;
+          } else if (state.spikesLeftCount < 7) {
+            state.spikesLeftCount++;
+          } else if (state.spikesRightCount < 7) {
+            state.spikesRightCount++;
+          }
+        }
+      }
+      state.spikesLeft = generateSideSpikes('left', state.spikesLeftCount);
+      state.spikesRight = generateSideSpikes('right', state.spikesRightCount);
+    }
+
+    function generateSideSpikes(side, count) {
       const spikes = [];
-      const count = Math.min(7, Math.floor(rand(2, state.maxSpikes + 1)));
       const used = [];
       for (let i = 0; i < count; i++) {
         let y;
@@ -457,6 +777,7 @@
       return spikes;
     }
 
+
     function wallBounce(nextDir) {
       const bird = state.bird;
       bird.direction = nextDir;
@@ -464,7 +785,6 @@
       bird.vy = -Math.abs(CONFIG.HORIZONTAL_SPEED);
       state.score += 1;
       scoreLabel.textContent = `Score: ${state.score}`;
-      bestLabel.textContent = `Best: ${Math.max(state.best, state.score)}`;
       spawnParticles(bird.x, bird.y);
       spawnPill();
       setTimeout(spawnWallSpikes, 200);
@@ -498,41 +818,127 @@
       if (!state.running) return;
       state.running = false;
       state.started = false;
-      window.parent?.postMessage({ type: 'GAME_SCORE', gameId: 'wall-bounce-bird', score: state.score }, '*');
-      finalScoreText.textContent = `Score: ${state.score}`;
-      promoText.textContent = PROMOS[Math.floor(Math.random() * PROMOS.length)];
-      gameOverOverlay.classList.remove('hidden');
-      if (state.score > state.best) {
-        state.best = state.score;
-        localStorage.setItem('wallBounceBest', String(state.best));
+      state.gameOver = true; // Add flag to prevent floatIdleBird from running
+      if (state.bird) {
+        state.bird.active = false;
+        state.bird.vx = 0;
+        state.bird.vy = 0;
       }
-      bestLabel.textContent = `Best: ${state.best}`;
+      
+      // ✅ Send GAME_OVER to stop timer and grant rewards (like Pacman and Blocks 8x8)
+      window.parent?.postMessage({ type: 'GAME_OVER', gameId: EMBEDDED_GAME_ID }, '*');
+      // ✅ Send score to leaderboard with correct gameId
+      window.parent?.postMessage({ 
+        type: 'GAME_SCORE', 
+        gameId: EMBEDDED_GAME_ID, 
+        score: state.score,
+        level: 1
+      }, '*');
+      finalScoreText.textContent = `Score: ${state.score}`;
+      
+      // Update logo if available from editor
+      const logoImg = document.getElementById('gameOverLogo');
+      if (state.customLogo && logoImg) {
+        logoImg.src = state.customLogo;
+        logoImg.style.display = 'block';
+      } else if (logoImg) {
+        logoImg.style.display = 'none';
+      }
+      
+      // Update story if available from editor, otherwise use random promo
+      if (state.customStory) {
+        promoText.textContent = state.customStory;
+      } else {
+        promoText.textContent = PROMOS[Math.floor(Math.random() * PROMOS.length)];
+      }
+      
+      gameOverOverlay.classList.remove('hidden');
     }
 
     function checkCollisions() {
       const bird = state.bird;
       if (!bird || !bird.active) return;
-      const sideSpikes = [...state.spikesLeft, ...state.spikesRight];
-      for (const spike of sideSpikes) {
-        if (spike.hit(bird)) {
-          triggerGameOver();
-          return;
+      
+      // Đo performance: Bắt đầu đo thời gian
+      const startTime = performance.now();
+      
+      // Optimized: Pre-calculate bird position once
+      const birdCenterX = bird.x + bird.hitboxOffsetX;
+      const birdCenterY = bird.y + bird.hitboxOffsetY;
+      const birdHitboxRadius = bird.hitboxSize / 2;
+      
+      // Optimized: Use 2 separate loops, don't create new array
+      // Only check spikes that are potentially in range (X and Y position check)
+      for (const spike of state.spikesLeft) {
+        // Quick Y-axis check before expensive hit() calculation
+        const dy = Math.abs(birdCenterY - spike.y);
+        if (dy < birdHitboxRadius + CONFIG.SPIKE_SIZE) {
+          // Quick X-axis check: left spikes are on the left wall
+          const spikeX = CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE / 2;
+          const dx = Math.abs(birdCenterX - spikeX);
+          if (dx < birdHitboxRadius + CONFIG.SPIKE_SIZE) {
+            if (spike.hit(bird)) {
+              // Freeze bird immediately at collision position
+              bird.active = false;
+              bird.vx = 0;
+              bird.vy = 0;
+              triggerGameOver();
+              return;
+            }
+          }
         }
       }
+      for (const spike of state.spikesRight) {
+        // Quick Y-axis check before expensive hit() calculation
+        const dy = Math.abs(birdCenterY - spike.y);
+        if (dy < birdHitboxRadius + CONFIG.SPIKE_SIZE) {
+          // Quick X-axis check: right spikes are on the right wall
+          const spikeX = CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE / 2;
+          const dx = Math.abs(birdCenterX - spikeX);
+          if (dx < birdHitboxRadius + CONFIG.SPIKE_SIZE) {
+            if (spike.hit(bird)) {
+              // Freeze bird immediately at collision position
+              bird.active = false;
+              bird.vx = 0;
+              bird.vy = 0;
+              triggerGameOver();
+              return;
+            }
+          }
+        }
+      }
+      
+      // Check collision with top spikes: simple Y position check
+      // Hitbox is a horizontal line at TOP_SPIKE_HEIGHT
+      if (birdCenterY - birdHitboxRadius <= 34) {
+        bird.active = false;
+        bird.vx = 0;
+        bird.vy = 0;
+        triggerGameOver();
+        return;
+      }
+      
+      // Check collision with bottom spikes: simple Y position check
+      // Hitbox is a horizontal line at HEIGHT - TOP_SPIKE_HEIGHT
+      if (birdCenterY + birdHitboxRadius > CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT) {
+        bird.active = false;
+        bird.vx = 0;
+        bird.vy = 0;
+        triggerGameOver();
+        return;
+      }
+      
       if (state.pill && state.pill.hit(bird)) {
         state.score += CONFIG.PILL_POINTS;
         scoreLabel.textContent = `Score: ${state.score}`;
-        bestLabel.textContent = `Best: ${Math.max(state.best, state.score)}`;
         state.scoreTexts.push(new ScoreText(state.pill.x, state.pill.y, '+5'));
         state.pill.active = false;
       }
-    }
-
-    function updateDifficulty(now) {
-      const elapsed = (now - state.difficultyStart) / 1000;
-      if (elapsed <= 3) return;
-      const extra = Math.floor((elapsed - 3) / 5);
-      state.maxSpikes = Math.min(7, 3 + extra);
+      
+      // Đo performance: Kết thúc và lưu kết quả
+      const endTime = performance.now();
+      const duration = endTime - startTime;
+      state.perfStats.totalCollisionTime += duration;
     }
 
     let lastTime = 0;
@@ -541,29 +947,97 @@
       const dt = Math.min((timestamp - lastTime) || 16.7, 32) / (1000 / 60);
       lastTime = timestamp;
 
-      ctx.fillStyle = '#87ceeb';
+      // Use custom background color from editor
+      ctx.fillStyle = state.backgroundColor || '#87ceeb';
       ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
 
       drawWallsAndRows();
-      state.spikesLeft.forEach(spike => spike.draw());
-      state.spikesRight.forEach(spike => spike.draw());
+      // Only draw left and right spikes (they change, top/bottom are cached)
+      for (let i = 0; i < state.spikesLeft.length; i++) {
+        state.spikesLeft[i].draw();
+      }
+      for (let i = 0; i < state.spikesRight.length; i++) {
+        state.spikesRight[i].draw();
+      }
 
       if (state.running) {
-        state.bird.update(dt);
-        updateDifficulty(timestamp);
+        // Check collisions first, then update (prevents bird moving after collision)
         checkCollisions();
-      } else if (!state.started) {
+        // Only update if still running (collision might have stopped the game)
+        if (state.running && state.bird.active) {
+          state.bird.update(dt);
+        }
+      } else if (!state.started && !state.gameOver) {
+        // Only float bird if game hasn't started AND game hasn't ended
         floatIdleBird(timestamp);
       }
 
       if (state.pill) state.pill.draw();
       state.bird.draw();
 
-      state.particles = state.particles.filter(p => p.life > 0);
-      state.particles.forEach(p => { p.update(dt); p.draw(); });
+      // Tối ưu: Reverse loop để remove an toàn, không tạo array mới
+      const particlesStartTime = performance.now();
+      // Batch update particles
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const p = state.particles[i];
+        if (p.life <= 0) {
+          state.particles.splice(i, 1);
+        } else {
+          p.update(dt);
+        }
+      }
+      // Batch draw particles (optimized: single loop, minimize state changes)
+      if (state.particles.length > 0) {
+        ctx.save();
+        ctx.fillStyle = '#fff';
+        let currentAlpha = -1;
+        for (let i = 0; i < state.particles.length; i++) {
+          const p = state.particles[i];
+          if (p.life > 0) {
+            const alpha = Math.min(Math.max(p.life / p.maxLife, 0) * 1.6, 1);
+            // Only set globalAlpha if it changed (reduces state changes)
+            if (Math.abs(alpha - currentAlpha) > 0.01) {
+              ctx.globalAlpha = alpha;
+              currentAlpha = alpha;
+            }
+            ctx.fillRect(p.x, p.y, 5, 5);
+          }
+        }
+        ctx.globalAlpha = 1;
+        ctx.restore();
+      }
+      state.perfStats.particlesTime = performance.now() - particlesStartTime;
+      state.perfStats.totalParticlesTime += state.perfStats.particlesTime;
 
-      state.scoreTexts = state.scoreTexts.filter(t => t.life > 0);
-      state.scoreTexts.forEach(t => { t.update(dt); t.draw(); });
+      const scoreTextsStartTime = performance.now();
+      for (let i = state.scoreTexts.length - 1; i >= 0; i--) {
+        const t = state.scoreTexts[i];
+        if (t.life <= 0) {
+          state.scoreTexts.splice(i, 1);
+        } else {
+          t.update(dt);
+          t.draw();
+        }
+      }
+      state.perfStats.scoreTextsTime = performance.now() - scoreTextsStartTime;
+      state.perfStats.totalScoreTextsTime += state.perfStats.scoreTextsTime;
+
+      // Tăng frameCount và log performance mỗi 60 frames (~1 giây)
+      if (state.running) {
+        state.perfStats.frameCount++;
+        if (state.perfStats.frameCount % 60 === 0) {
+          const avgCollisionTime = state.perfStats.totalCollisionTime / 60;
+          const avgParticlesTime = state.perfStats.totalParticlesTime / 60;
+          const avgScoreTextsTime = state.perfStats.totalScoreTextsTime / 60;
+          const totalSpikes = state.spikesLeft.length + state.spikesRight.length;
+          console.log(`[Performance] Collision: ${avgCollisionTime.toFixed(3)}ms (${totalSpikes} spikes) | Particles: ${avgParticlesTime.toFixed(3)}ms (${state.particles.length}) | ScoreTexts: ${avgScoreTextsTime.toFixed(3)}ms (${state.scoreTexts.length})`);
+          // Reset sau khi log
+          state.perfStats.totalCollisionTime = 0;
+          state.perfStats.totalParticlesTime = 0;
+          state.perfStats.totalScoreTextsTime = 0;
+          state.perfStats.frameCount = 0;
+        }
+      }
     }
 
     function floatIdleBird(time) {
@@ -572,27 +1046,32 @@
     }
 
     function drawWallsAndRows() {
-      ctx.fillStyle = '#0f1c2f';
-      ctx.fillRect(0, 0, CONFIG.WALL_OFFSET, CONFIG.HEIGHT);
-      ctx.fillRect(CONFIG.WIDTH - CONFIG.WALL_OFFSET, 0, CONFIG.WALL_OFFSET, CONFIG.HEIGHT);
-
-      ctx.fillStyle = '#4d4d4d';
-      state.topSpikes.forEach(spike => {
-        ctx.beginPath();
-        ctx.moveTo(spike.x, CONFIG.TOP_SPIKE_HEIGHT);
-        ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, 0);
-        ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE, CONFIG.TOP_SPIKE_HEIGHT);
-        ctx.closePath();
-        ctx.fill();
-      });
-      state.bottomSpikes.forEach(spike => {
-        ctx.beginPath();
-        ctx.moveTo(spike.x, CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT);
-        ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.HEIGHT);
-        ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE, CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT);
-        ctx.closePath();
-        ctx.fill();
-      });
+      // Optimized: Draw cached top and bottom spikes from offscreen canvas (much faster)
+      if (state.cachedTopBottomCanvas) {
+        ctx.drawImage(state.cachedTopBottomCanvas, 0, 0);
+      } else {
+        // Fallback: Draw manually if cache not ready
+        ctx.fillStyle = '#4d4d4d';
+        for (let i = 0; i < state.topSpikes.length; i++) {
+          const spike = state.topSpikes[i];
+          ctx.beginPath();
+          ctx.moveTo(spike.x, 0);
+          ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.TOP_SPIKE_HEIGHT);
+          ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE, 0);
+          ctx.closePath();
+          ctx.fill();
+        }
+        for (let i = 0; i < state.bottomSpikes.length; i++) {
+          const spike = state.bottomSpikes[i];
+          ctx.beginPath();
+          ctx.moveTo(spike.x, CONFIG.HEIGHT);
+          ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT);
+          ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE, CONFIG.HEIGHT);
+          ctx.closePath();
+          ctx.fill();
+        }
+      }
+      
     }
 
     startBtn.addEventListener('click', beginGame);
@@ -622,8 +1101,56 @@
       state.started = true;
       startOverlay.classList.add('hidden');
       gameOverOverlay.classList.add('hidden');
-      window.parent?.postMessage({ type: 'GAME_START', gameId: 'wall-bounce-bird' }, '*');
+      // ✅ Send GAME_START to track play count and start timer (like Pacman and Blocks 8x8)
+      window.parent?.postMessage({ type: 'GAME_START', gameId: EMBEDDED_GAME_ID }, '*');
       handleJump();
+    }
+
+    // Listen for messages from parent (template editor)
+    window.addEventListener('message', function(event) {
+      if (event.data && event.data.type === 'WALL_BOUNCE_BIRD_CONFIG' && event.data.payload) {
+        const config = event.data.payload;
+        
+        // Update background color
+        if (config.backgroundColor) {
+          state.backgroundColor = config.backgroundColor;
+        }
+        
+        // Update logo (load image for pill replacement)
+        if (config.logoUrl) {
+          state.customLogo = config.logoUrl;
+          // Load logo image for pill
+          const logoImg = new Image();
+          logoImg.onload = () => {
+            state.customLogoImage = logoImg;
+          };
+          logoImg.onerror = () => {
+            console.error('Failed to load custom logo for pill');
+            state.customLogoImage = null;
+          };
+          logoImg.src = config.logoUrl;
+        } else {
+          state.customLogo = null;
+          state.customLogoImage = null;
+        }
+        
+        // Update story
+        if (config.story) {
+          state.customStory = config.story;
+        } else {
+          state.customStory = null;
+        }
+      }
+    });
+
+    // ✅ FIX: Load config từ localStorage TRƯỚC khi resetGame (đảm bảo config được apply ngay trên mobile)
+    if (EMBEDDED_GAME_ID && EMBEDDED_GAME_ID !== 'wall-bounce-bird') {
+      const configLoaded = loadBrandConfigFromLocalStorage(EMBEDDED_GAME_ID);
+      if (configLoaded) {
+        // Force initial draw với loaded config
+        ctx.fillStyle = state.backgroundColor || '#87ceeb';
+        ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+      }
     }
 
     resetGame();

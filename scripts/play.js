@@ -4,8 +4,10 @@ const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'
 const PACMAN_TEMPLATE_ID = 'pacman-template'
 const BLOCKS_TEMPLATE_ID = 'blocks-8x8'
+const WALL_BOUNCE_BIRD_TEMPLATE_ID = 'wall-bounce-bird'
 const PACMAN_STORAGE_PREFIX = 'pacman_brand_config_'
 const BLOCKS_STORAGE_PREFIX = 'blocks_brand_config_'
+const WALL_BOUNCE_BIRD_STORAGE_PREFIX = 'wall_bounce_bird_config_'
 
 const playLogo = document.getElementById('playLogo')
 const playHomeBtn = document.getElementById('playHomeBtn')
@@ -99,6 +101,10 @@ const REWARD_VALUES = { 10: 100, 60: 300, 300: 1000 }
 const MAX_ACCUM_SECONDS = 300
 let currentShareGameId = null
 
+// ✅ Queue achievements to show after game over (giống homepage)
+const pendingAchievements = {}
+let isGameOver = false // Flag to prevent showing rewards during gameplay
+
 const buildShareUrl = (gameId) => {
   if (!gameId) return `${window.location.origin}/`
   return `${window.location.origin}/play.html?game=${encodeURIComponent(gameId)}`
@@ -157,6 +163,10 @@ function getGameSeconds(gameId) {
   return lsGetInt(`mp_game_seconds_${gameId}`)
 }
 
+function setGameSeconds(gameId, seconds) {
+  lsSetInt(`mp_game_seconds_${gameId}`, Math.min(seconds, MAX_ACCUM_SECONDS))
+}
+
 function getGameAwards(gameId) {
   try {
     const raw = localStorage.getItem(`mp_game_awards_${gameId}`)
@@ -164,6 +174,10 @@ function getGameAwards(gameId) {
   } catch {
     return {}
   }
+}
+
+function setGameAwards(gameId, awardsObj) {
+  localStorage.setItem(`mp_game_awards_${gameId}`, JSON.stringify(awardsObj || {}))
 }
 
 const formatCount = (num) => {
@@ -355,6 +369,7 @@ async function fetchStaticGameMarkup(gameId) {
 function guessTemplateFromId(gameId) {
   if (!gameId) return null
   if (gameId.startsWith('blocks-')) return BLOCKS_TEMPLATE_ID
+  if (gameId.startsWith('wall-bounce-bird-')) return WALL_BOUNCE_BIRD_TEMPLATE_ID
   if (gameId.startsWith('pacman-')) return PACMAN_TEMPLATE_ID
   return null
 }
@@ -399,6 +414,24 @@ function loadGameFromLocalStorage(gameId) {
         templateUrl: `${window.location.origin.replace(/\/$/, '')}/games/crypto-blocks/index.html?game=${gameId}`
       }
     }
+    if (gameId.startsWith('wall-bounce-bird-')) {
+      const raw = localStorage.getItem(`${WALL_BOUNCE_BIRD_STORAGE_PREFIX}${gameId}`)
+      if (!raw) return null
+      const config = JSON.parse(raw)
+      return {
+        gameId,
+        templateId: WALL_BOUNCE_BIRD_TEMPLATE_ID,
+        title: config?.story ? `Wall Bounce Bird – ${config.story.slice(0, 24)}` : 'Wall Bounce Bird Game',
+        creator: 'Wall Bounce Bird',
+        likes: 0,
+        comments: 0,
+        plays: 0,
+        stories: config?.story ? [config.story] : [],
+        backgroundColor: config?.backgroundColor || '#87ceeb',
+        fragmentLogoUrl: config?.fragmentLogoUrl || '',
+        templateUrl: `${window.location.origin.replace(/\/$/, '')}/games/wall-bounce-bird/index.html?game=${gameId}`
+      }
+    }
     const raw = localStorage.getItem(`${PACMAN_STORAGE_PREFIX}${gameId}`)
     if (!raw) return null
     const config = JSON.parse(raw)
@@ -426,7 +459,7 @@ async function fetchGameFromSupabase(gameId) {
   if (!gameId) return null
   const templateCandidates = guessTemplateFromId(gameId)
     ? [guessTemplateFromId(gameId)]
-    : [PACMAN_TEMPLATE_ID, BLOCKS_TEMPLATE_ID]
+    : [PACMAN_TEMPLATE_ID, BLOCKS_TEMPLATE_ID, WALL_BOUNCE_BIRD_TEMPLATE_ID]
 
   for (const templateId of templateCandidates) {
     try {
@@ -440,8 +473,9 @@ async function fetchGameFromSupabase(gameId) {
       if (!match) continue
 
       const isBlocks = templateId === BLOCKS_TEMPLATE_ID
+      const isWallBounceBird = templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID
       const stories = (() => {
-        if (isBlocks) {
+        if (isBlocks || isWallBounceBird) {
           const story = typeof match.story_one === 'string' ? match.story_one.trim() : ''
           return story ? [story] : []
         }
@@ -459,18 +493,21 @@ async function fetchGameFromSupabase(gameId) {
 
       const defaultPath = isBlocks
         ? `/games/crypto-blocks/index.html?game=${gameId}`
+        : isWallBounceBird
+        ? `/games/wall-bounce-bird/index.html?game=${gameId}`
         : `/games/templates/pacman-template/index.html?game=${gameId}`
 
       return {
         gameId,
         templateId,
-        title: match.title || (isBlocks ? 'Blocks 8x8 Game' : 'Pacman Game'),
+        title: match.title || (isBlocks ? 'Blocks 8x8 Game' : isWallBounceBird ? 'Wall Bounce Bird Game' : 'Pacman Game'),
         creator: match.creator_name || match.creator_id || match.title || 'Creator',
         likes: match.likes_count ?? match.likes ?? 0,
         comments: match.comments_count ?? match.comments ?? 0,
         plays: match.plays_count ?? match.plays ?? 0,
         stories,
-        mapColor: match.map_color || (isBlocks ? '#0a0a0a' : '#1a1a2e'),
+        mapColor: match.map_color || (isBlocks ? '#0a0a0a' : isWallBounceBird ? '#87ceeb' : '#1a1a2e'),
+        backgroundColor: match.background_color || (isWallBounceBird ? '#87ceeb' : undefined),
         fragmentLogoUrl: match.fragment_logo_url || '',
         templateUrl: sanitizeTemplateUrl(match.template_url, defaultPath)
       }
@@ -483,15 +520,18 @@ async function fetchGameFromSupabase(gameId) {
 
 function buildUserGameCard(game) {
   const isBlocks = game.templateId === BLOCKS_TEMPLATE_ID || game.gameId.startsWith('blocks-')
+  const isWallBounceBird = game.templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID || game.gameId.startsWith('wall-bounce-bird-')
   const card = document.createElement('div')
   card.className = 'game-card play-mode-card'
   card.id = game.gameId
   card.dataset.gameId = game.gameId
   card.dataset.userCreated = 'true'
-  card.dataset.templateId = isBlocks ? BLOCKS_TEMPLATE_ID : PACMAN_TEMPLATE_ID
+  card.dataset.templateId = isBlocks ? BLOCKS_TEMPLATE_ID : isWallBounceBird ? WALL_BOUNCE_BIRD_TEMPLATE_ID : PACMAN_TEMPLATE_ID
 
   const defaultPath = isBlocks
     ? `/games/crypto-blocks/index.html?game=${game.gameId}`
+    : isWallBounceBird
+    ? `/games/wall-bounce-bird/index.html?game=${game.gameId}`
     : `/games/templates/pacman-template/index.html?game=${game.gameId}`
   const templateUrl = sanitizeTemplateUrl(game.templateUrl, defaultPath)
   if (!templateUrl) return null
@@ -587,6 +627,31 @@ function buildUserGameCard(game) {
     }
   }
 
+  if (isWallBounceBird) {
+    const iframe = card.querySelector('iframe')
+    if (iframe) {
+      const payload = {
+        type: 'WALL_BOUNCE_BIRD_CONFIG',
+        payload: {
+          story: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : '',
+          backgroundColor: game.backgroundColor || game.mapColor || '#87ceeb',
+          logoUrl: game.fragmentLogoUrl || ''
+        }
+      }
+      const sendConfig = () => {
+        try {
+          iframe.contentWindow?.postMessage(payload, '*')
+        } catch (err) {
+          console.warn('[PLAY MODE] Wall Bounce Bird config postMessage failed:', err)
+        }
+      }
+      iframe.addEventListener('load', () => {
+        sendConfig()
+        setTimeout(sendConfig, 300)
+      })
+    }
+  }
+
   return card
 }
 
@@ -632,25 +697,38 @@ function renderHeartState(card, gameId, isLiked) {
 async function hydrateSocialCounts(gameId, card) {
   if (!gameId || !card) return
   try {
+    // ✅ Initialize to 0 first (for new games)
     const likeWrapper = card.querySelector('.icon-wrapper[data-role="like"]')
     const commentWrapper = card.querySelector('.icon-wrapper[data-role="comment"]')
-
     const likeCountEl = ensureIconCount(likeWrapper)
     const commentCountEl = ensureIconCount(commentWrapper)
+    
+    // ✅ Reset to 0 first to avoid showing cached data
+    if (likeCountEl) likeCountEl.textContent = '0'
+    if (commentCountEl) commentCountEl.textContent = '0'
+    setPlaysLabel(card, gameId, 0)
 
     const [socialRes, playsRes] = await Promise.allSettled([
       supabase.rpc('get_social_counts', { p_game_id: gameId }),
       supabase.rpc('get_game_play_count', { p_game_id: gameId })
     ])
 
+    // ✅ Only update if RPC returns valid data (not from cache/old game)
     if (socialRes.status === 'fulfilled' && !socialRes.value.error) {
       const data = socialRes.value.data || {}
-      if (likeCountEl) likeCountEl.textContent = String(Math.max(0, data.likes ?? 0))
-      if (commentCountEl) commentCountEl.textContent = String(Math.max(0, data.comments ?? 0))
+      // Verify data is for this specific gameId (not cached)
+      if (data && typeof data.likes === 'number') {
+        if (likeCountEl) likeCountEl.textContent = String(Math.max(0, data.likes))
+      }
+      if (data && typeof data.comments === 'number') {
+        if (commentCountEl) commentCountEl.textContent = String(Math.max(0, data.comments))
+      }
     }
 
     if (playsRes.status === 'fulfilled' && !playsRes.value.error) {
-      const totalPlays = (playsRes.value.data && playsRes.value.data.total_plays) || 0
+      const totalPlays = (playsRes.value.data && typeof playsRes.value.data.total_plays === 'number') 
+        ? Math.max(0, playsRes.value.data.total_plays) 
+        : 0
       setPlaysLabel(card, gameId, totalPlays)
     }
 
@@ -888,8 +966,357 @@ async function renderGameCard(gameId) {
   }
 }
 
-// Listen for GAME_SCORE messages from game iframes to save scores to leaderboard
+// ✅ Timer and rewards tracking (like app.js)
+let activeGame = null
+let activeStartTime = 0
+let progressInterval = null
+
+function startGame(gameId) {
+  if (activeGame && activeGame !== gameId) stopGame()
+  clearInterval(progressInterval)
+  progressInterval = null
+  activeGame = gameId
+  activeStartTime = Date.now()
+  isGameOver = false // ✅ Reset flag when starting new game
+  console.log(`[PLAY MODE] ▶️ Game ${gameId} started`)
+  
+  const activeCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
+  if (activeCard) activeCard.classList.add('is-playing')
+  
+  // Update progress every 5 seconds
+  progressInterval = setInterval(() => {
+    if (!activeGame || !activeStartTime) return
+    updateProgress()
+  }, 5000)
+  
+  function updateProgress() {
+    if (!activeGame || !activeStartTime) return
+    const sessionSeconds = Math.max(0, Math.floor((Date.now() - activeStartTime) / 1000))
+    const prevTotal = getGameSeconds(activeGame)
+    const previewTotal = Math.min(prevTotal + sessionSeconds, MAX_ACCUM_SECONDS)
+    
+    // Check for threshold rewards during play
+    const awardedMap = getGameAwards(activeGame)
+    const crossedNow = []
+    for (const t of REWARD_THRESHOLDS) {
+      if (prevTotal < t && previewTotal >= t && !awardedMap[t]) {
+        awardedMap[t] = true
+        crossedNow.push(t)
+      }
+    }
+    if (crossedNow.length) {
+      setGameAwards(activeGame, awardedMap)
+      let grant = 0
+      for (const t of crossedNow) grant += REWARD_VALUES[t]
+      if (grant > 0) {
+        const last = crossedNow[crossedNow.length - 1]
+        console.log(`🎁 [PLAY MODE] Reward unlocked: +${grant} PLAY for ${last}s threshold!`)
+        // ✅ Queue achievement to show after game over (không show ngay)
+        showPlayAward(grant, `${last}s`, true)
+      }
+    }
+    
+    console.log(`[PLAY MODE] ⏳ ${activeGame}: session ${sessionSeconds}s · total ${previewTotal}/${MAX_ACCUM_SECONDS}s`)
+  }
+}
+
+// ✅ Create confetti animation (giống homepage)
+function createConfetti() {
+  const canvas = document.getElementById('confettiCanvas')
+  if (!canvas) return
+  const ctx = canvas.getContext('2d')
+  canvas.width = window.innerWidth
+  canvas.height = window.innerHeight
+  
+  const particles = []
+  const colors = ['#ffb642', '#ff9000', '#ffd700', '#ff6b6b', '#4ecdc4']
+  
+  for (let i = 0; i < 100; i++) {
+    particles.push({
+      x: canvas.width / 2,
+      y: (canvas.height * 0.5) - 50,
+      vx: (Math.random() - 0.5) * 10,
+      vy: (Math.random() - 1) * 15,
+      color: colors[Math.floor(Math.random() * colors.length)],
+      size: Math.random() * 8 + 4,
+      rotation: Math.random() * 360,
+      rotationSpeed: (Math.random() - 0.5) * 10
+    })
+  }
+  
+  function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height)
+    let active = false
+    
+    particles.forEach(p => {
+      p.vy += 0.3 // Gravity
+      p.x += p.vx
+      p.y += p.vy
+      p.rotation += p.rotationSpeed
+      
+      if (p.y < canvas.height + 50) {
+        active = true
+        ctx.save()
+        ctx.translate(p.x, p.y)
+        ctx.rotate(p.rotation * Math.PI / 180)
+        ctx.fillStyle = p.color
+        ctx.fillRect(-p.size/2, -p.size/2, p.size, p.size)
+        ctx.restore()
+      }
+    })
+    
+    if (active) requestAnimationFrame(animate)
+    else canvas.style.opacity = '0'
+  }
+  
+  canvas.style.opacity = '1'
+  animate()
+  
+  setTimeout(() => {
+    canvas.style.opacity = '0'
+  }, 3000)
+}
+
+// ✅ Show achievement toast (giống homepage)
+function showAchievementToast(achievementName, count, total, reward) {
+  const toast = document.getElementById('achievementToast')
+  const nameEl = document.getElementById('achievementName')
+  const rewardEl = document.getElementById('achievementReward')
+  
+  if (!toast) return
+  
+  // ✅ "10s Play Reward" doesn't show (x/3) because it's not a 1-time achievement
+  const showProgress = achievementName !== '10s Play Reward'
+  nameEl.textContent = showProgress ? `⭐ ${achievementName} (${count}/${total})` : `⭐ ${achievementName}`
+  rewardEl.textContent = `+${reward} PLAY`
+  
+  toast.classList.add('show')
+  
+  // Auto-dismiss after 5s
+  const autoHideTimeout = setTimeout(() => {
+    toast.classList.remove('show')
+  }, 5000)
+  
+  // Store timeout ID so X button can cancel it
+  toast.dataset.autoHideTimeout = autoHideTimeout
+}
+
+// ✅ Setup achievement toast close button
+document.addEventListener('DOMContentLoaded', () => {
+  const closeBtn = document.getElementById('achievementToastClose')
+  const toast = document.getElementById('achievementToast')
+  
+  if (closeBtn && toast) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+      if (toast.dataset.autoHideTimeout) {
+        clearTimeout(parseInt(toast.dataset.autoHideTimeout))
+      }
+      toast.classList.remove('show')
+    }, { capture: true })
+    
+    closeBtn.addEventListener('touchend', (e) => {
+      e.stopPropagation()
+      e.preventDefault()
+      if (toast.dataset.autoHideTimeout) {
+        clearTimeout(parseInt(toast.dataset.autoHideTimeout))
+      }
+      toast.classList.remove('show')
+    }, { capture: true, passive: false })
+  }
+})
+
+// ✅ Show PLAY reward (giống homepage - queue để show sau game over)
+function showPlayAward(amount, label, isNewAchievement = false) {
+  if (!amount || amount <= 0) return
+  
+  // ✅ Update total earned plays (giống homepage)
+  const newTotal = lsGetInt('mp_total_earned_plays') + amount
+  lsSetInt('mp_total_earned_plays', newTotal)
+  
+  // ✅ If new achievement, QUEUE to show after game over (giống homepage)
+  if (isNewAchievement && activeGame) {
+    const achievedCount = Object.values(getGameAwards(activeGame)).filter(Boolean).length
+    const achievementNames = { 10: '10s Play Reward', 60: 'Engaged', 300: 'Champion' }
+    const threshold = parseInt(label.replace('s', ''))
+    
+    // Add to pending queue (không show ngay)
+    if (!pendingAchievements[activeGame]) {
+      pendingAchievements[activeGame] = []
+    }
+    pendingAchievements[activeGame].push({
+      name: achievementNames[threshold] || 'Reward',
+      count: achievedCount,
+      reward: amount,
+      threshold
+    })
+    
+    console.log(`🎖️ Achievement queued: ${achievementNames[threshold]} (+${amount} PLAY)`)
+    console.log('   → Will show Toast after game over')
+  }
+}
+
+// ✅ Show all pending achievements for a game (chỉ sau game over)
+function showPendingAchievements(gameId) {
+  // SECURITY: Only allow showing achievements after game over
+  if (!isGameOver) {
+    console.warn('⚠️ [SECURITY] showPendingAchievements called during gameplay - BLOCKED! Must wait for game over.')
+    return
+  }
+  
+  const achievements = pendingAchievements[gameId]
+  if (!achievements || achievements.length === 0) {
+    return
+  }
+  
+  console.log(`🎉 Showing ${achievements.length} pending achievement(s) for ${gameId}`)
+  
+  // Sort by threshold (10 → 60 → 300)
+  achievements.sort((a, b) => a.threshold - b.threshold)
+  
+  // Show each achievement with delay
+  achievements.forEach((ach, index) => {
+    setTimeout(() => {
+      // 1. Fireworks explosion
+      createConfetti()
+      
+      // 2. Toast center
+      showAchievementToast(ach.name, ach.count, 3, ach.reward)
+      
+      console.log(`🎊 Achievement shown: ${ach.name} (+${ach.reward} PLAY)`)
+    }, index * 2500) // Each achievement 2.5s apart
+  })
+  
+  // Clear queue after showing
+  delete pendingAchievements[gameId]
+  
+  // Reset flag after showing (for next game)
+  setTimeout(() => {
+    isGameOver = false
+  }, achievements.length * 2500 + 1000)
+}
+
+async function stopGame() {
+  if (!activeGame || !activeStartTime) return
+  
+  const seconds = Math.floor((Date.now() - activeStartTime) / 1000)
+  if (seconds > 0) {
+    console.log(`[PLAY MODE] ⏱ Played ${seconds}s on ${activeGame}`)
+    
+    // Calculate accumulated time and threshold rewards
+    const prevTotal = getGameSeconds(activeGame)
+    const nextTotalRaw = prevTotal + seconds
+    const prevCapped = Math.min(prevTotal, MAX_ACCUM_SECONDS)
+    const nextCapped = Math.min(nextTotalRaw, MAX_ACCUM_SECONDS)
+    setGameSeconds(activeGame, nextCapped)
+    
+    const awardedMap = getGameAwards(activeGame)
+    const newlyAwarded = []
+    for (const t of REWARD_THRESHOLDS) {
+      if (prevCapped < t && nextCapped >= t && !awardedMap[t]) {
+        awardedMap[t] = true
+        newlyAwarded.push(t)
+      }
+    }
+    if (newlyAwarded.length) {
+      setGameAwards(activeGame, awardedMap)
+      let grant = 0
+      for (const t of newlyAwarded) grant += REWARD_VALUES[t]
+      if (grant > 0) {
+        const last = newlyAwarded[newlyAwarded.length - 1]
+        console.log(`🎁 [PLAY MODE] Rewards unlocked: +${grant} PLAY for thresholds: ${newlyAwarded.join(', ')}s`)
+        // ✅ Queue achievement to show after game over (không show ngay)
+        showPlayAward(grant, `${last}s`, true)
+      }
+    }
+    
+    // ✅ Track playtime and grant rewards in Supabase
+    try {
+      const { data, error } = await supabase.rpc('track_playtime_and_reward', {
+        p_user_id: userId,
+        p_game_id: activeGame,
+        p_seconds: seconds
+      })
+      if (error) {
+        console.warn('[PLAY MODE] track_playtime_and_reward error:', error)
+      } else {
+        console.log(`[PLAY MODE] 🎮 Playtime tracked: ${seconds}s, reward result:`, data)
+      }
+    } catch (err) {
+      console.error('[PLAY MODE] track_playtime_and_reward error:', err)
+    }
+    
+    // ✅ Increment play count if eligible
+    if (seconds >= 3) {
+      try {
+        const { data, error } = await supabase.rpc('increment_play_count', {
+          p_user_id: userId,
+          p_game_id: activeGame,
+          p_seconds: seconds
+        })
+        if (error) {
+          console.warn('[PLAY MODE] increment_play_count error:', error)
+        } else {
+          const totalPlays = (data && typeof data.total_plays === 'number') ? data.total_plays : undefined
+          if (totalPlays != null) {
+            const card = document.querySelector(`.game-card[data-game-id="${activeGame}"]`)
+            if (card) {
+              setPlaysLabel(card, activeGame, totalPlays)
+            }
+            console.log(`[PLAY MODE] 📊 Play count updated: ${totalPlays} for ${activeGame}`)
+          }
+        }
+      } catch (err) {
+        console.error('[PLAY MODE] increment_play_count error:', err)
+      }
+    }
+    
+    // Update rewards panel if leaderboard is open
+    if (leaderboardOverlay?.dataset.gameId === activeGame) {
+      renderRewardsPanel(activeGame)
+    }
+  }
+  
+  clearInterval(progressInterval)
+  progressInterval = null
+  const gameId = activeGame
+  activeGame = null
+  activeStartTime = 0
+  
+  const activeCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
+  if (activeCard) activeCard.classList.remove('is-playing')
+}
+
+// Listen for GAME_START, GAME_OVER, and GAME_SCORE messages
 window.addEventListener('message', async (event) => {
+  // ✅ Handle GAME_START to start timer
+  if (event.data?.type === 'GAME_START' && event.data?.gameId) {
+    const { gameId } = event.data
+    console.log(`[PLAY MODE] GAME_START received for ${gameId}`)
+    startGame(gameId)
+    return
+  }
+  
+  // ✅ Handle GAME_OVER to stop timer and grant rewards
+  if (event.data?.type === 'GAME_OVER' && event.data?.gameId) {
+    const { gameId } = event.data
+    console.log(`[PLAY MODE] GAME_OVER received for ${gameId}`)
+    
+    // ✅ Set flag to allow showing achievements
+    isGameOver = true
+    
+    // ✅ Stop timer and grant rewards
+    await stopGame()
+    
+    // ✅ Show pending achievements after game over
+    setTimeout(() => {
+      showPendingAchievements(gameId)
+    }, 500) // Small delay to ensure game over UI is shown
+    
+    return
+  }
+  
   if (event.data?.type === 'GAME_SCORE') {
     const { gameId, score, level } = event.data
     if (!gameId || typeof score !== 'number') return
@@ -927,6 +1354,9 @@ window.addEventListener('message', async (event) => {
     } catch (err) {
       console.error('[PLAY MODE] Submit score error:', err)
     }
+    
+    // ✅ Stop timer and grant rewards when game ends
+    await stopGame()
   }
 })
 

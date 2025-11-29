@@ -234,6 +234,130 @@
     </div>
   </div>
 
+  <!-- Achievement Toast (giống homepage) -->
+  <div id="achievementToast" class="achievement-toast">
+    <button id="achievementToastClose" class="achievement-toast-close" aria-label="Close">×</button>
+    <div class="achievement-toast-title">🎉 Reward Earned!</div>
+    <div class="achievement-toast-subtitle" id="achievementName">⭐ 10s Play Reward</div>
+    <div class="achievement-toast-reward" id="achievementReward">+100 PLAY</div>
+  </div>
+
+  <!-- Confetti Canvas -->
+  <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
+
+  <style>
+    /* Achievement Toast Styles (giống homepage) */
+    .achievement-toast {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      z-index: 999999 !important;
+      background: linear-gradient(135deg, rgba(255, 182, 66, 1) 0%, rgba(255, 144, 0, 1) 100%);
+      border: 4px solid #ffb642;
+      border-radius: 24px;
+      padding: 24px 32px;
+      text-align: center;
+      box-shadow: 0 20px 80px rgba(255, 182, 66, 0.9), 0 0 100px rgba(255, 144, 0, 0.7);
+      opacity: 0;
+      transform-origin: center;
+      transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      pointer-events: none;
+      backdrop-filter: blur(10px);
+      max-width: 90%;
+      min-width: 280px;
+    }
+    .achievement-toast-close {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 32px;
+      height: 32px;
+      border: none;
+      background: rgba(0, 0, 0, 0.2);
+      color: #fff;
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease;
+      pointer-events: all !important;
+      z-index: 10;
+    }
+    .achievement-toast-close:hover {
+      background: rgba(0, 0, 0, 0.4);
+    }
+    .achievement-toast.show {
+      opacity: 1 !important;
+      transform: translate(-50%, -50%) scale(1) !important;
+      animation: bounceIn 0.6s ease-out;
+      pointer-events: all !important;
+    }
+    .achievement-toast-title {
+      font-size: 36px;
+      font-weight: 800;
+      color: #000;
+      margin-bottom: 16px;
+      text-shadow: 0 3px 8px rgba(255,255,255,0.5);
+      letter-spacing: 1px;
+    }
+    .achievement-toast-subtitle {
+      font-size: 24px;
+      font-weight: 700;
+      color: #1a1a1a;
+      margin-bottom: 12px;
+    }
+    .achievement-toast-reward {
+      font-size: 48px;
+      font-weight: 900;
+      color: #fff;
+      text-shadow: 0 4px 12px rgba(0,0,0,0.7), 0 0 20px rgba(255,255,255,0.3);
+      letter-spacing: 2px;
+    }
+    @keyframes bounceIn {
+      0% { transform: translate(-50%, -50%) scale(0.3); opacity: 0; }
+      50% { transform: translate(-50%, -50%) scale(1.05); }
+      70% { transform: translate(-50%, -50%) scale(0.9); }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+    @media (max-width: 480px) {
+      .achievement-toast {
+        padding: 20px 24px;
+        min-width: 260px;
+        max-width: 85%;
+        border-radius: 16px;
+      }
+      .achievement-toast-title {
+        font-size: 28px;
+        margin-bottom: 12px;
+      }
+      .achievement-toast-subtitle {
+        font-size: 18px;
+        margin-bottom: 8px;
+      }
+      .achievement-toast-reward {
+        font-size: 36px;
+        letter-spacing: 1px;
+      }
+    }
+    /* Confetti Canvas */
+    .confetti-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 999998;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+  </style>
+
   <script type="module" src="scripts/play.js"></script>
 </body>
 </html>

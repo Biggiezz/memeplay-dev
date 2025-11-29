@@ -28,6 +28,14 @@
     supabase.realtime.disconnect();
   }
 
+  // ✅ Template IDs (matching play.js)
+  const PACMAN_TEMPLATE_ID = 'pacman-template'
+  const BLOCKS_TEMPLATE_ID = 'blocks-8x8'
+  const WALL_BOUNCE_BIRD_TEMPLATE_ID = 'wall-bounce-bird'
+  const PACMAN_STORAGE_PREFIX = 'pacman_brand_config_'
+  const BLOCKS_STORAGE_PREFIX = 'blocks_brand_config_'
+  const WALL_BOUNCE_BIRD_STORAGE_PREFIX = 'wall_bounce_bird_config_'
+
   // Global state for current filter
   let currentFilter = 'Recommended' // 'Recommended', 'Liked', 'Trending', 'Popular'
   
@@ -632,6 +640,7 @@
   function loadGameFromLocalStorage(gameId, baseUrl) {
     if (!gameId) return null
     const isBlocksGame = typeof gameId === 'string' && gameId.startsWith('blocks-')
+    const isWallBounceBirdGame = typeof gameId === 'string' && gameId.startsWith('wall-bounce-bird-')
     try {
       if (isBlocksGame) {
         const storageKey = `${BLOCKS_STORAGE_PREFIX}${gameId}`
@@ -656,6 +665,34 @@
           comments: 0,
           plays: 0,
           templateUrl: `${baseUrl}/games/crypto-blocks/index.html?game=${gameId}`,
+          publicUrl: `${baseUrl}/?game=${gameId}`
+        }
+      }
+
+      if (isWallBounceBirdGame) {
+        const storageKey = `wall_bounce_bird_config_${gameId}`
+        const saved = localStorage.getItem(storageKey)
+        if (!saved) return null
+        const config = JSON.parse(saved)
+        if (!config) return null
+
+        const storyText = typeof config.story === 'string' ? config.story : ''
+
+        return {
+          source: 'localStorage',
+          templateId: WALL_BOUNCE_BIRD_TEMPLATE_ID,
+          gameId,
+          title: storyText ? `Wall Bounce Bird – ${storyText.slice(0, 24)}` : 'Wall Bounce Bird Game',
+          creator: 'Wall Bounce Bird',
+          mapColor: config.backgroundColor || config.mapColor || '#87ceeb',
+          backgroundColor: config.backgroundColor || config.mapColor || '#87ceeb',
+          fragmentLogoUrl: config.fragmentLogoUrl || '',
+          mapIndex: 0,
+          stories: storyText ? [storyText] : [],
+          likes: 0,
+          comments: 0,
+          plays: 0,
+          templateUrl: `${baseUrl}/games/wall-bounce-bird/index.html?game=${gameId}`,
           publicUrl: `${baseUrl}/?game=${gameId}`
         }
       }
@@ -751,6 +788,38 @@
         } catch (error) {
           console.warn('Failed to parse local Blocks game config:', key, error)
         }
+        continue
+      }
+
+      if (key.startsWith(WALL_BOUNCE_BIRD_STORAGE_PREFIX) && key.length > WALL_BOUNCE_BIRD_STORAGE_PREFIX.length) {
+        if (key === 'wall_bounce_bird_config') continue
+        try {
+          const gameId = key.replace(WALL_BOUNCE_BIRD_STORAGE_PREFIX, '')
+          const config = JSON.parse(localStorage.getItem(key) || '{}')
+          if (!config) continue
+          const storyText = typeof config.story === 'string' ? config.story : ''
+          
+          results.push({
+            source: 'localStorage',
+            templateId: WALL_BOUNCE_BIRD_TEMPLATE_ID,
+            gameId,
+            title: storyText ? `Wall Bounce Bird – ${storyText.slice(0, 24)}` : 'Wall Bounce Bird Game',
+            creator: 'Wall Bounce Bird',
+            mapColor: config.backgroundColor || config.mapColor || '#87ceeb',
+            backgroundColor: config.backgroundColor || config.mapColor || '#87ceeb',
+            fragmentLogoUrl: config.fragmentLogoUrl || '',
+            mapIndex: 0,
+            stories: storyText ? [storyText] : [],
+            likes: 0,
+            comments: 0,
+            plays: 0,
+            templateUrl: `${baseUrl}/games/wall-bounce-bird/index.html?game=${gameId}`,
+            publicUrl: `${baseUrl}/?game=${gameId}`
+          })
+        } catch (error) {
+          console.warn('Failed to parse local Wall Bounce Bird game config:', key, error)
+        }
+        continue
       }
     }
     return results
@@ -792,6 +861,23 @@
     }
   }
 
+  function cacheWallBounceBirdBrandConfig(game) {
+    if (!game?.gameId || !game.gameId.startsWith('wall-bounce-bird-')) return
+    try {
+      const payload = {
+        fragmentLogoUrl: game.fragmentLogoUrl || '',
+        story: Array.isArray(game.stories) && game.stories.length > 0
+          ? game.stories[0]
+          : (typeof game.story === 'string' ? game.story : ''),
+        backgroundColor: game.backgroundColor || game.mapColor || '#87ceeb'
+      }
+      localStorage.setItem(`wall_bounce_bird_config_${game.gameId}`, JSON.stringify(payload))
+      console.log(`[cacheWallBounceBirdBrandConfig] Cached Wall Bounce Bird config for ${game.gameId}`)
+    } catch (error) {
+      console.warn('[cacheWallBounceBirdBrandConfig] Failed to cache Wall Bounce Bird config:', error)
+    }
+  }
+
   async function fetchSupabaseUserGames(baseUrl) {
     if (typeof supabase === 'undefined') {
       console.warn('⚠️ [fetchSupabaseUserGames] Supabase client not available')
@@ -813,6 +899,7 @@
       }
 
         const isBlocksTemplate = templateId === BLOCKS_TEMPLATE_ID
+        const isWallBounceBirdTemplate = templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID
 
         return data
         .map(item => {
@@ -823,7 +910,7 @@
           }
 
             let stories = []
-            if (isBlocksTemplate) {
+            if (isBlocksTemplate || isWallBounceBirdTemplate) {
               const story = typeof item.story_one === 'string' ? item.story_one.trim() : ''
               if (story) stories.push(story)
             } else {
@@ -850,6 +937,8 @@
 
             const defaultTemplateUrl = isBlocksTemplate
               ? `${baseUrl}/games/crypto-blocks/index.html?game=${gameId}`
+              : isWallBounceBirdTemplate
+              ? `${baseUrl}/games/wall-bounce-bird/index.html?game=${gameId}`
               : `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`
             const templateUrl = item.template_url || defaultTemplateUrl
           const publicUrl = item.public_url || `${baseUrl}/?game=${gameId}`
@@ -864,11 +953,11 @@
             source: 'supabase',
               templateId,
             gameId,
-              title: item.title || (isBlocksTemplate ? 'Blocks 8x8 Game' : 'Pacman Game'),
-              creator: item.creator_name || item.creator_id || item.title || (isBlocksTemplate ? 'Blocks 8x8' : 'Creator'),
-              mapColor: item.map_color || (isBlocksTemplate ? '#0a0a0a' : '#1a1a2e'),
+              title: item.title || (isBlocksTemplate ? 'Blocks 8x8 Game' : isWallBounceBirdTemplate ? 'Wall Bounce Bird Game' : 'Pacman Game'),
+              creator: item.creator_name || item.creator_id || item.title || (isBlocksTemplate ? 'Blocks 8x8' : isWallBounceBirdTemplate ? 'Wall Bounce Bird' : 'Creator'),
+              mapColor: item.map_color || (isBlocksTemplate ? '#0a0a0a' : isWallBounceBirdTemplate ? '#87ceeb' : '#1a1a2e'),
             fragmentLogoUrl: item.fragment_logo_url || '',
-              mapIndex: isBlocksTemplate ? 0 : (Number.isInteger(item.map_index) ? item.map_index : 0),
+              mapIndex: (isBlocksTemplate || isWallBounceBirdTemplate) ? 0 : (Number.isInteger(item.map_index) ? item.map_index : 0),
               stories,
             likes: item.likes_count ?? item.likes ?? 0,
             comments: item.comments_count ?? item.comments ?? 0,
@@ -877,8 +966,16 @@
               publicUrl
             }
 
+            // ✅ Add backgroundColor for Wall Bounce Bird (must match play.js)
+            if (isWallBounceBirdTemplate) {
+              game.backgroundColor = item.map_color || '#87ceeb'
+            }
+
             if (isBlocksTemplate) {
               cacheBlocksBrandConfig(game)
+            } else if (isWallBounceBirdTemplate) {
+              // ✅ Cache Wall Bounce Bird config (similar to Blocks)
+              cacheWallBounceBirdBrandConfig(game)
             } else {
               cachePacmanBrandConfig(game)
           }
@@ -891,12 +988,13 @@
     }
   }
 
-    const [pacmanGames, blocksGames] = await Promise.all([
+    const [pacmanGames, blocksGames, wallBounceBirdGames] = await Promise.all([
       fetchByTemplate(PACMAN_TEMPLATE_ID),
-      fetchByTemplate(BLOCKS_TEMPLATE_ID)
+      fetchByTemplate(BLOCKS_TEMPLATE_ID),
+      fetchByTemplate(WALL_BOUNCE_BIRD_TEMPLATE_ID)
     ])
 
-    return [...pacmanGames, ...blocksGames]
+    return [...pacmanGames, ...blocksGames, ...wallBounceBirdGames]
   }
 
   function renderUserGameCard(game, container) {
@@ -920,7 +1018,8 @@
     gameCard.setAttribute('data-user-created', 'true')
     gameCard.setAttribute('data-source', game.source || 'unknown')
     const isBlocksGame = (game.templateId === BLOCKS_TEMPLATE_ID) || (game.gameId && game.gameId.startsWith('blocks-'))
-    gameCard.setAttribute('data-template-id', isBlocksGame ? BLOCKS_TEMPLATE_ID : (game.templateId || PACMAN_TEMPLATE_ID))
+    const isWallBounceBirdGame = (game.templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID) || (game.gameId && game.gameId.startsWith('wall-bounce-bird-'))
+    gameCard.setAttribute('data-template-id', isBlocksGame ? BLOCKS_TEMPLATE_ID : isWallBounceBirdGame ? WALL_BOUNCE_BIRD_TEMPLATE_ID : (game.templateId || PACMAN_TEMPLATE_ID))
 
     const baseUrl = window.location.origin.replace(/\/$/, '')
     const sanitizeUrl = (url, fallbackPath) => {
@@ -943,6 +1042,8 @@
 
     const defaultPath = isBlocksGame
       ? `/games/crypto-blocks/index.html?game=${game.gameId}`
+      : isWallBounceBirdGame
+      ? `/games/wall-bounce-bird/index.html?game=${game.gameId}`
       : `/games/templates/pacman-template/index.html?game=${game.gameId}`
     let templateUrl = sanitizeUrl(game.templateUrl, defaultPath)
     if (!templateUrl) {
@@ -1046,6 +1147,29 @@
       iframeEl.addEventListener('load', () => {
         sendBlocksConfig()
         setTimeout(sendBlocksConfig, 300)
+      })
+    }
+    
+    // ✅ Send Wall Bounce Bird config to iframe (similar to Blocks)
+    if (isWallBounceBirdGame && iframeEl) {
+      const wallBounceBirdPayload = {
+        type: 'WALL_BOUNCE_BIRD_CONFIG',
+        payload: {
+          story: (Array.isArray(game.stories) && game.stories.length > 0) ? game.stories[0] : '',
+          backgroundColor: game.backgroundColor || game.mapColor || '#87ceeb',
+          logoUrl: game.fragmentLogoUrl || '' // ✅ Game file expects logoUrl, not fragmentLogoUrl
+        }
+      }
+      const sendWallBounceBirdConfig = () => {
+        try {
+          iframeEl.contentWindow?.postMessage(wallBounceBirdPayload, '*')
+        } catch (err) {
+          console.warn('[Wall Bounce Bird card] Failed to send config:', err)
+        }
+      }
+      iframeEl.addEventListener('load', () => {
+        sendWallBounceBirdConfig()
+        setTimeout(sendWallBounceBirdConfig, 300)
       })
     }
 
