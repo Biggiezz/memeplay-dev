@@ -3609,7 +3609,7 @@ function setupEditor() {
       sendBlocksConfigToIframe('both');
       sendWallBounceBirdConfigToIframe('game');
       saveBlowBubbleConfig(BLOW_BUBBLE_CONFIG.gameId || null);
-      sendBlowBubbleConfigToIframe('both');
+      sendBlowBubbleConfigToIframe(isMobileViewport() ? 'both' : 'editor');
       updateCharCount(story1Input, story1Count, MAX_STORY_LENGTH);
     });
   }
@@ -3654,7 +3654,7 @@ function setupEditor() {
                   BLOW_BUBBLE_CONFIG.fragmentLogoUrl = processedDataUrl;
                   BLOW_BUBBLE_CONFIG.fragmentLogo = processedImg;
                   saveBlowBubbleConfig(BLOW_BUBBLE_CONFIG.gameId || null);
-                  sendBlowBubbleConfigToIframe('both');
+                  sendBlowBubbleConfigToIframe(isMobileViewport() ? 'both' : 'editor');
                   
                   // Hide loading, show preview
                   if (fragmentLogoLoading) {
@@ -3802,7 +3802,7 @@ function setupEditor() {
         const selectedColor = btn.dataset.color;
         BLOW_BUBBLE_CONFIG.backgroundColor = selectedColor;
         saveBlowBubbleConfig(BLOW_BUBBLE_CONFIG.gameId || null);
-        sendBlowBubbleConfigToIframe('both');
+        sendBlowBubbleConfigToIframe(isMobileViewport() ? 'both' : 'editor');
         
         highlightSelectedColor(selectedColor);
       });
@@ -4090,7 +4090,7 @@ function setupEditor() {
       : null;
     const gameId = existingId || generateBlowBubbleGameId();
     saveBlowBubbleConfig(gameId);
-    sendBlowBubbleConfigToIframe('both');
+    sendBlowBubbleConfigToIframe(isMobileViewport() ? 'both' : 'editor');
     applyBlowBubbleSaveState(gameId);
     button.textContent = '✅ Saved';
     button.style.background = '#4ECDC4';
