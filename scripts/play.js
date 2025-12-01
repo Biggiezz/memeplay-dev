@@ -5,9 +5,11 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 const PACMAN_TEMPLATE_ID = 'pacman-template'
 const BLOCKS_TEMPLATE_ID = 'blocks-8x8'
 const WALL_BOUNCE_BIRD_TEMPLATE_ID = 'wall-bounce-bird'
+const BLOW_BUBBLE_TEMPLATE_ID = 'blow-bubble'
 const PACMAN_STORAGE_PREFIX = 'pacman_brand_config_'
 const BLOCKS_STORAGE_PREFIX = 'blocks_brand_config_'
 const WALL_BOUNCE_BIRD_STORAGE_PREFIX = 'wall_bounce_bird_config_'
+const BLOW_BUBBLE_STORAGE_PREFIX = 'blow_bubble_config_'
 
 const playLogo = document.getElementById('playLogo')
 const playHomeBtn = document.getElementById('playHomeBtn')
@@ -194,7 +196,10 @@ const shortAddrLeaderboard = (addr) => {
 
 const formatScore = (score, gameId) => {
   const num = Number(score) || 0
-  if (gameId === 'wojak-btc-blast') return num + '%'
+  // Format as percentage for games that use % (wojak-btc-blast, blow-bubble games)
+  if (gameId === 'wojak-btc-blast' || (gameId && gameId.startsWith('blow-bubble-'))) {
+    return num + '%'
+  }
   return formatCount(num)
 }
 
@@ -370,18 +375,32 @@ function guessTemplateFromId(gameId) {
   if (!gameId) return null
   if (gameId.startsWith('blocks-')) return BLOCKS_TEMPLATE_ID
   if (gameId.startsWith('wall-bounce-bird-')) return WALL_BOUNCE_BIRD_TEMPLATE_ID
+  if (gameId.startsWith('blow-bubble-')) {
+    console.log(`[PLAY MODE] 🎯 Detected blow-bubble game: ${gameId}`)
+    return BLOW_BUBBLE_TEMPLATE_ID
+  }
   if (gameId.startsWith('pacman-')) return PACMAN_TEMPLATE_ID
+  console.log(`[PLAY MODE] ⚠️ Could not guess template from gameId: ${gameId}`)
   return null
 }
 
 function sanitizeTemplateUrl(url, fallbackPath = '') {
   const baseUrl = window.location.origin.replace(/\/$/, '')
+  const isLocal = ['127.0.0.1', 'localhost', '192.168.', '0.0.0.0'].some(host => 
+    window.location.hostname.includes(host)
+  )
+  
   if (!url) return fallbackPath ? `${baseUrl}${fallbackPath}` : ''
   let final = url
   if (/^https?:\/\//i.test(final)) {
     try {
       const parsed = new URL(final)
-      if (['127.0.0.1', 'localhost'].includes(parsed.hostname)) {
+      // ✅ FIX: Convert production URL to local when running locally
+      if (isLocal && (parsed.hostname.includes('memeplay.dev') || parsed.hostname.includes('127.0.0.1') || parsed.hostname.includes('localhost'))) {
+        parsed.protocol = window.location.protocol
+        parsed.host = window.location.host
+        final = parsed.toString()
+      } else if (['127.0.0.1', 'localhost'].includes(parsed.hostname)) {
         parsed.protocol = window.location.protocol
         parsed.host = window.location.host
         final = parsed.toString()
@@ -432,6 +451,29 @@ function loadGameFromLocalStorage(gameId) {
         templateUrl: `${window.location.origin.replace(/\/$/, '')}/games/wall-bounce-bird/index.html?game=${gameId}`
       }
     }
+    if (gameId.startsWith('blow-bubble-')) {
+      const storageKey = `${BLOW_BUBBLE_STORAGE_PREFIX}${gameId}`
+      console.log(`[PLAY MODE] 🔍 Checking localStorage for Blow Bubble game: ${gameId} (key: ${storageKey})`)
+      const raw = localStorage.getItem(storageKey)
+      if (!raw) {
+        console.log(`[PLAY MODE] ⚠️ Blow Bubble game not found in localStorage: ${storageKey}`)
+        return null
+      }
+      const config = JSON.parse(raw)
+      return {
+        gameId,
+        templateId: BLOW_BUBBLE_TEMPLATE_ID,
+        title: config?.story ? `Blow Bubble – ${config.story.slice(0, 24)}` : 'Blow Bubble Game',
+        creator: 'Blow Bubble',
+        likes: 0,
+        comments: 0,
+        plays: 0,
+        stories: config?.story ? [config.story] : [],
+        backgroundColor: config?.backgroundColor || '#87CEEB',
+        fragmentLogoUrl: config?.fragmentLogoUrl || '',
+        templateUrl: `${window.location.origin.replace(/\/$/, '')}/games/blow-bubble/index.html?game=${gameId}`
+      }
+    }
     const raw = localStorage.getItem(`${PACMAN_STORAGE_PREFIX}${gameId}`)
     if (!raw) return null
     const config = JSON.parse(raw)
@@ -459,23 +501,46 @@ async function fetchGameFromSupabase(gameId) {
   if (!gameId) return null
   const templateCandidates = guessTemplateFromId(gameId)
     ? [guessTemplateFromId(gameId)]
-    : [PACMAN_TEMPLATE_ID, BLOCKS_TEMPLATE_ID, WALL_BOUNCE_BIRD_TEMPLATE_ID]
+    : [PACMAN_TEMPLATE_ID, BLOCKS_TEMPLATE_ID, WALL_BOUNCE_BIRD_TEMPLATE_ID, BLOW_BUBBLE_TEMPLATE_ID]
 
   for (const templateId of templateCandidates) {
     try {
+      console.log(`[PLAY MODE] 🔍 Checking Supabase template: ${templateId} for game: ${gameId}`)
       const { data, error } = await supabase.rpc('list_user_created_games', { p_template_id: templateId })
       if (error) {
         console.warn(`[PLAY MODE] Supabase RPC failed (${templateId}):`, error.message || error)
         continue
       }
-      if (!Array.isArray(data)) continue
-      const match = data.find(item => (item?.game_id || item?.id) === gameId)
-      if (!match) continue
+      if (!Array.isArray(data)) {
+        console.log(`[PLAY MODE] ⚠️ Supabase returned non-array for ${templateId}`)
+        continue
+      }
+      console.log(`[PLAY MODE] 📋 Found ${data.length} games in template ${templateId}`)
+      // Log all game IDs found for debugging
+      const foundGameIds = data.map(item => item?.game_id || item?.id).filter(Boolean)
+      console.log(`[PLAY MODE] 📋 Game IDs found in Supabase:`, foundGameIds)
+      console.log(`[PLAY MODE] 🔍 Looking for game ID: ${gameId}`)
+      
+      const match = data.find(item => {
+        const itemId = item?.game_id || item?.id
+        const matches = itemId === gameId
+        if (!matches && itemId) {
+          console.log(`[PLAY MODE] ⚠️ Mismatch: Supabase has "${itemId}" but looking for "${gameId}"`)
+        }
+        return matches
+      })
+      if (!match) {
+        console.log(`[PLAY MODE] ⚠️ Game ${gameId} not found in template ${templateId}`)
+        console.log(`[PLAY MODE] ⚠️ Available game IDs: ${foundGameIds.join(', ')}`)
+        continue
+      }
+      console.log(`[PLAY MODE] ✅ Found game ${gameId} in template ${templateId}`)
 
       const isBlocks = templateId === BLOCKS_TEMPLATE_ID
       const isWallBounceBird = templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID
+      const isBlowBubble = templateId === BLOW_BUBBLE_TEMPLATE_ID
       const stories = (() => {
-        if (isBlocks || isWallBounceBird) {
+        if (isBlocks || isWallBounceBird || isBlowBubble) {
           const story = typeof match.story_one === 'string' ? match.story_one.trim() : ''
           return story ? [story] : []
         }
@@ -495,21 +560,47 @@ async function fetchGameFromSupabase(gameId) {
         ? `/games/crypto-blocks/index.html?game=${gameId}`
         : isWallBounceBird
         ? `/games/wall-bounce-bird/index.html?game=${gameId}`
+        : isBlowBubble
+        ? `/games/blow-bubble/index.html?game=${gameId}`
         : `/games/templates/pacman-template/index.html?game=${gameId}`
+      
+      const finalTemplateUrl = sanitizeTemplateUrl(match.template_url, defaultPath)
+      
+      console.log(`[PLAY MODE] 🎮 Building game config for ${gameId}:`, {
+        templateId,
+        isBlowBubble,
+        defaultPath,
+        hasStory: stories.length > 0,
+        backgroundColor: match.background_color || match.map_color,
+        matchTemplateUrl: match.template_url,
+        finalTemplateUrl: finalTemplateUrl
+      })
+      
+      // ✅ FIX: Force correct templateUrl for blow-bubble games
+      const correctedTemplateUrl = isBlowBubble && !finalTemplateUrl.includes('/blow-bubble/')
+        ? `${window.location.origin.replace(/\/$/, '')}${defaultPath}`
+        : finalTemplateUrl
+      
+      if (isBlowBubble && correctedTemplateUrl !== finalTemplateUrl) {
+        console.warn(`[PLAY MODE] ⚠️ Corrected templateUrl from Supabase:`, {
+          original: finalTemplateUrl,
+          corrected: correctedTemplateUrl
+        })
+      }
 
       return {
         gameId,
         templateId,
-        title: match.title || (isBlocks ? 'Blocks 8x8 Game' : isWallBounceBird ? 'Wall Bounce Bird Game' : 'Pacman Game'),
+        title: match.title || (isBlocks ? 'Blocks 8x8 Game' : isWallBounceBird ? 'Wall Bounce Bird Game' : isBlowBubble ? 'Blow Bubble Game' : 'Pacman Game'),
         creator: match.creator_name || match.creator_id || match.title || 'Creator',
         likes: match.likes_count ?? match.likes ?? 0,
         comments: match.comments_count ?? match.comments ?? 0,
         plays: match.plays_count ?? match.plays ?? 0,
         stories,
-        mapColor: match.map_color || (isBlocks ? '#0a0a0a' : isWallBounceBird ? '#87ceeb' : '#1a1a2e'),
-        backgroundColor: match.background_color || (isWallBounceBird ? '#87ceeb' : undefined),
+        mapColor: match.map_color || (isBlocks ? '#0a0a0a' : isWallBounceBird ? '#87ceeb' : isBlowBubble ? '#87CEEB' : '#1a1a2e'),
+        backgroundColor: match.background_color || (isBlowBubble ? match.map_color : (isWallBounceBird ? '#87ceeb' : undefined)) || (isBlowBubble ? '#87CEEB' : undefined),
         fragmentLogoUrl: match.fragment_logo_url || '',
-        templateUrl: sanitizeTemplateUrl(match.template_url, defaultPath)
+        templateUrl: correctedTemplateUrl
       }
     } catch (err) {
       console.error('[PLAY MODE] Supabase fetch error:', err)
@@ -521,17 +612,20 @@ async function fetchGameFromSupabase(gameId) {
 function buildUserGameCard(game) {
   const isBlocks = game.templateId === BLOCKS_TEMPLATE_ID || game.gameId.startsWith('blocks-')
   const isWallBounceBird = game.templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID || game.gameId.startsWith('wall-bounce-bird-')
+  const isBlowBubble = game.templateId === BLOW_BUBBLE_TEMPLATE_ID || game.gameId.startsWith('blow-bubble-')
   const card = document.createElement('div')
   card.className = 'game-card play-mode-card'
   card.id = game.gameId
   card.dataset.gameId = game.gameId
   card.dataset.userCreated = 'true'
-  card.dataset.templateId = isBlocks ? BLOCKS_TEMPLATE_ID : isWallBounceBird ? WALL_BOUNCE_BIRD_TEMPLATE_ID : PACMAN_TEMPLATE_ID
+  card.dataset.templateId = isBlocks ? BLOCKS_TEMPLATE_ID : isWallBounceBird ? WALL_BOUNCE_BIRD_TEMPLATE_ID : isBlowBubble ? BLOW_BUBBLE_TEMPLATE_ID : PACMAN_TEMPLATE_ID
 
   const defaultPath = isBlocks
     ? `/games/crypto-blocks/index.html?game=${game.gameId}`
     : isWallBounceBird
     ? `/games/wall-bounce-bird/index.html?game=${game.gameId}`
+    : isBlowBubble
+    ? `/games/blow-bubble/index.html?game=${game.gameId}`
     : `/games/templates/pacman-template/index.html?game=${game.gameId}`
   const templateUrl = sanitizeTemplateUrl(game.templateUrl, defaultPath)
   if (!templateUrl) return null
@@ -643,6 +737,31 @@ function buildUserGameCard(game) {
           iframe.contentWindow?.postMessage(payload, '*')
         } catch (err) {
           console.warn('[PLAY MODE] Wall Bounce Bird config postMessage failed:', err)
+        }
+      }
+      iframe.addEventListener('load', () => {
+        sendConfig()
+        setTimeout(sendConfig, 300)
+      })
+    }
+  }
+
+  if (isBlowBubble) {
+    const iframe = card.querySelector('iframe')
+    if (iframe) {
+      const payload = {
+        type: 'BLOW_BUBBLE_CONFIG',
+        payload: {
+          story: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : '',
+          backgroundColor: game.backgroundColor || game.mapColor || '#87CEEB',
+          logoUrl: game.fragmentLogoUrl || ''
+        }
+      }
+      const sendConfig = () => {
+        try {
+          iframe.contentWindow?.postMessage(payload, '*')
+        } catch (err) {
+          console.warn('[PLAY MODE] Blow Bubble config postMessage failed:', err)
         }
       }
       iframe.addEventListener('load', () => {
@@ -905,9 +1024,12 @@ async function renderGameCard(gameId) {
     return
   }
 
+  console.log(`[PLAY MODE] 🔍 Loading game: ${gameId}`)
+
   try {
     const staticCard = await fetchStaticGameMarkup(gameId)
     if (staticCard) {
+      console.log(`[PLAY MODE] ✅ Found in static list: ${gameId}`)
       const cloned = staticCard.cloneNode(true)
       cloned.classList.add('play-mode-card')
       markCardActive(cloned)
@@ -931,6 +1053,7 @@ async function renderGameCard(gameId) {
 
     const localGame = loadGameFromLocalStorage(gameId)
     if (localGame) {
+      console.log(`[PLAY MODE] ✅ Found in localStorage: ${gameId}`)
       const card = buildUserGameCard(localGame)
       if (!card) throw new Error('Failed to render local game.')
       markCardActive(card)
@@ -942,9 +1065,11 @@ async function renderGameCard(gameId) {
       setLoaderVisible(false)
       return
     }
+    console.log(`[PLAY MODE] ⚠️ Not found in localStorage, checking Supabase...`)
 
     const remoteGame = await fetchGameFromSupabase(gameId)
     if (remoteGame) {
+      console.log(`[PLAY MODE] ✅ Found in Supabase: ${gameId}`)
       const card = buildUserGameCard(remoteGame)
       if (!card) throw new Error('Unable to render remote game.')
       markCardActive(card)
@@ -955,6 +1080,15 @@ async function renderGameCard(gameId) {
       await hydrateSocialCounts(gameId, card)
       setLoaderVisible(false)
       return
+    }
+    console.error(`[PLAY MODE] ❌ Game not found: ${gameId}`)
+    console.error(`[PLAY MODE] Checked: static list, localStorage, Supabase`)
+    
+    // Provide helpful error message based on game type
+    const isBlowBubble = gameId.startsWith('blow-bubble-')
+    if (isBlowBubble) {
+      console.error(`[PLAY MODE] 💡 Tip: Make sure you clicked "Save" button in the template editor to sync this game to Supabase.`)
+      console.error(`[PLAY MODE] 💡 If you just created this game, go back to the editor and click "Save" again.`)
     }
 
     throw new Error('Game not found in the catalog.')
@@ -970,6 +1104,7 @@ async function renderGameCard(gameId) {
 let activeGame = null
 let activeStartTime = 0
 let progressInterval = null
+let playCountIncremented = false // ✅ Flag to ensure play count is only incremented once per game session
 
 function startGame(gameId) {
   if (activeGame && activeGame !== gameId) stopGame()
@@ -978,6 +1113,7 @@ function startGame(gameId) {
   activeGame = gameId
   activeStartTime = Date.now()
   isGameOver = false // ✅ Reset flag when starting new game
+  playCountIncremented = false // ✅ Reset play count flag for new game session
   console.log(`[PLAY MODE] ▶️ Game ${gameId} started`)
   
   const activeCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
@@ -1247,8 +1383,10 @@ async function stopGame() {
       console.error('[PLAY MODE] track_playtime_and_reward error:', err)
     }
     
-    // ✅ Increment play count if eligible
-    if (seconds >= 3) {
+    // ✅ Increment play count if eligible (ONLY ONCE per game session)
+    if (seconds >= 3 && !playCountIncremented) {
+      playCountIncremented = true // ✅ Mark as incremented to prevent duplicate calls
+      console.log(`[PLAY MODE] 📊 Incrementing play count for ${activeGame} (played ${seconds}s)`)
       try {
         const { data, error } = await supabase.rpc('increment_play_count', {
           p_user_id: userId,
@@ -1257,6 +1395,7 @@ async function stopGame() {
         })
         if (error) {
           console.warn('[PLAY MODE] increment_play_count error:', error)
+          playCountIncremented = false // ✅ Reset flag on error so it can be retried
         } else {
           const totalPlays = (data && typeof data.total_plays === 'number') ? data.total_plays : undefined
           if (totalPlays != null) {
@@ -1264,12 +1403,15 @@ async function stopGame() {
             if (card) {
               setPlaysLabel(card, activeGame, totalPlays)
             }
-            console.log(`[PLAY MODE] 📊 Play count updated: ${totalPlays} for ${activeGame}`)
+            console.log(`[PLAY MODE] 📊 Play count updated: ${totalPlays} for ${activeGame} (1 play counted for ${seconds}s session)`)
           }
         }
       } catch (err) {
         console.error('[PLAY MODE] increment_play_count error:', err)
+        playCountIncremented = false // ✅ Reset flag on error so it can be retried
       }
+    } else if (seconds >= 3 && playCountIncremented) {
+      console.log(`[PLAY MODE] ⚠️ Play count already incremented for this session (${seconds}s), skipping duplicate increment`)
     }
     
     // Update rewards panel if leaderboard is open

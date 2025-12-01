@@ -61,7 +61,8 @@ const PRODUCTION_BASE_URL = 'https://memeplay.dev';
 const TEMPLATE_IDS = Object.freeze({
   PACMAN: 'pacman',
   BLOCKS: 'blocks-8x8',
-  WALL_BOUNCE_BIRD: 'wall-bounce-bird'
+  WALL_BOUNCE_BIRD: 'wall-bounce-bird',
+  BLOW_BUBBLE: 'blow-bubble'
 });
 const BLOCKS_STORAGE_PREFIX = 'blocks_brand_config_';
 const BLOCKS_LAST_ID_KEY = 'blocks_last_saved_game_id';
@@ -76,6 +77,14 @@ const WALL_BOUNCE_BIRD_LAST_ID_KEY = 'wall_bounce_bird_last_saved_game_id';
 let WALL_BOUNCE_BIRD_CONFIG = {
   story: '',
   backgroundColor: '#87ceeb',
+  fragmentLogoUrl: '',
+  fragmentLogo: null
+};
+const BLOW_BUBBLE_STORAGE_PREFIX = 'blow_bubble_config_';
+const BLOW_BUBBLE_LAST_ID_KEY = 'blow_bubble_last_saved_game_id';
+let BLOW_BUBBLE_CONFIG = {
+  story: '',
+  backgroundColor: '#87CEEB',
   fragmentLogoUrl: '',
   fragmentLogo: null
 };
@@ -422,6 +431,196 @@ function sendWallBounceBirdConfigToIframe(target = 'both') {
     if (gameFrame && gameFrame.contentWindow) {
       gameFrame.contentWindow.postMessage(payload, '*');
     }
+  }
+}
+
+// Blow Bubble helper functions
+function generateBlowBubbleGameId() {
+  const randomSuffix = Math.floor(1000 + Math.random() * 9000);
+  return `blow-bubble-${randomSuffix}`;
+}
+
+function getBlowBubbleStorageKey(gameId) {
+  const id = gameId || BLOW_BUBBLE_CONFIG.gameId || localStorage.getItem(BLOW_BUBBLE_LAST_ID_KEY);
+  return id ? `${BLOW_BUBBLE_STORAGE_PREFIX}${id}` : 'blow_bubble_config';
+}
+
+function setBlowBubbleFragmentLogo(url) {
+  if (!url) {
+    BLOW_BUBBLE_CONFIG.fragmentLogoUrl = '';
+    BLOW_BUBBLE_CONFIG.fragmentLogo = null;
+    return;
+  }
+  BLOW_BUBBLE_CONFIG.fragmentLogoUrl = url;
+  const img = new Image();
+  img.onload = () => {
+    BLOW_BUBBLE_CONFIG.fragmentLogo = img;
+  };
+  img.src = url;
+}
+
+function loadBlowBubbleConfig(gameIdOverride = null) {
+  try {
+    const storageKey = getBlowBubbleStorageKey(gameIdOverride);
+    const saved = localStorage.getItem(storageKey);
+    if (!saved) {
+      return false;
+    }
+    if (gameIdOverride) {
+      BLOW_BUBBLE_CONFIG.gameId = gameIdOverride;
+    } else if (!BLOW_BUBBLE_CONFIG.gameId) {
+      const storedId = localStorage.getItem(BLOW_BUBBLE_LAST_ID_KEY);
+      if (storedId) {
+        BLOW_BUBBLE_CONFIG.gameId = storedId;
+      }
+    }
+    const parsed = JSON.parse(saved);
+    BLOW_BUBBLE_CONFIG = {
+      ...BLOW_BUBBLE_CONFIG,
+      story: typeof parsed.story === 'string' ? parsed.story : '',
+      backgroundColor: parsed.backgroundColor || '#87CEEB',
+      fragmentLogoUrl: parsed.fragmentLogoUrl || ''
+    };
+    if (BLOW_BUBBLE_CONFIG.fragmentLogoUrl) {
+      setBlowBubbleFragmentLogo(BLOW_BUBBLE_CONFIG.fragmentLogoUrl);
+    }
+    return true;
+  } catch (error) {
+    console.warn('[BlowBubbleConfig] Failed to load config:', error);
+    return false;
+  }
+}
+
+function saveBlowBubbleConfig(gameId = null) {
+  let id = gameId || BLOW_BUBBLE_CONFIG.gameId || localStorage.getItem(BLOW_BUBBLE_LAST_ID_KEY);
+  const storageKey = id ? `${BLOW_BUBBLE_STORAGE_PREFIX}${id}` : 'blow_bubble_config';
+  const payload = {
+    fragmentLogoUrl: BLOW_BUBBLE_CONFIG.fragmentLogoUrl || '',
+    story: typeof BLOW_BUBBLE_CONFIG.story === 'string' ? BLOW_BUBBLE_CONFIG.story : '',
+    backgroundColor: BLOW_BUBBLE_CONFIG.backgroundColor || '#87CEEB'
+  };
+  localStorage.setItem(storageKey, JSON.stringify(payload));
+  if (id) {
+    localStorage.setItem(BLOW_BUBBLE_LAST_ID_KEY, id);
+    BLOW_BUBBLE_CONFIG.gameId = id;
+  }
+  return id || null;
+}
+
+function ensureBlowBubbleGameId() {
+  if (BLOW_BUBBLE_CONFIG.gameId) {
+    return BLOW_BUBBLE_CONFIG.gameId;
+  }
+  const saved = localStorage.getItem(BLOW_BUBBLE_LAST_ID_KEY);
+  if (saved) {
+    BLOW_BUBBLE_CONFIG.gameId = saved;
+    return saved;
+  }
+  const generated = generateBlowBubbleGameId();
+  localStorage.setItem(BLOW_BUBBLE_LAST_ID_KEY, generated);
+  BLOW_BUBBLE_CONFIG.gameId = generated;
+  return generated;
+}
+
+function sendBlowBubbleConfigToIframe(target = 'both') {
+  const payload = {
+    type: 'BLOW_BUBBLE_CONFIG',
+    payload: {
+      story: BLOW_BUBBLE_CONFIG.story || '',
+      backgroundColor: BLOW_BUBBLE_CONFIG.backgroundColor || '#87CEEB',
+      logoUrl: BLOW_BUBBLE_CONFIG.fragmentLogoUrl || ''
+    }
+  };
+  if (target === 'editor' || target === 'both') {
+    const editorFrame = document.getElementById('blowBubbleEditorFrame');
+    if (editorFrame && editorFrame.contentWindow) {
+      editorFrame.contentWindow.postMessage(payload, '*');
+    }
+  }
+  if (target === 'game' || target === 'both') {
+    const gameFrame = document.getElementById('blowBubbleGameFrame');
+    if (gameFrame && gameFrame.contentWindow) {
+      gameFrame.contentWindow.postMessage(payload, '*');
+    }
+  }
+}
+
+async function loadBlowBubbleConfigFromSupabase(gameId) {
+  if (!gameId) return false;
+  try {
+    const supabase = await getSupabaseClient();
+    if (!supabase) return false;
+    const { data, error } = await supabase.rpc('list_user_created_games', {
+      p_template_id: TEMPLATE_IDS.BLOW_BUBBLE
+    });
+    if (error) {
+      console.error('[BlowBubbleTemplate] list_user_created_games error:', error.message || error);
+      return false;
+    }
+    if (!Array.isArray(data)) return false;
+    const found = data.find(item => {
+      const id = item?.game_id || item?.id;
+      return id === gameId;
+    });
+    if (!found) return false;
+    BLOW_BUBBLE_CONFIG.story = found.story_one || '';
+    BLOW_BUBBLE_CONFIG.backgroundColor = found.map_color || '#87CEEB';
+    BLOW_BUBBLE_CONFIG.fragmentLogoUrl = found.fragment_logo_url || '';
+    if (BLOW_BUBBLE_CONFIG.fragmentLogoUrl) {
+      setBlowBubbleFragmentLogo(BLOW_BUBBLE_CONFIG.fragmentLogoUrl);
+    }
+    saveBlowBubbleConfig(gameId);
+    return true;
+  } catch (error) {
+    console.error('[BlowBubbleTemplate] Failed to load config from Supabase:', error);
+    return false;
+  }
+}
+
+async function syncBlowBubbleGameToSupabase(gameId, context = 'manual-save') {
+  try {
+    const origin = window.location.origin.toLowerCase();
+    const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.') || origin.includes('0.0.0.0');
+    const supabase = await getSupabaseClient();
+    if (!supabase) return false;
+    const baseUrl = isLocal ? PRODUCTION_BASE_URL : window.location.origin.replace(/\/$/, '');
+    const templateUrl = `${baseUrl}/games/blow-bubble/index.html?game=${gameId}`;
+    const publicUrl = buildPublicLinkUrl(gameId, { forceProduction: true, template: TEMPLATE_IDS.BLOW_BUBBLE });
+    const payload = {
+      p_game_id: gameId,
+      p_template_id: TEMPLATE_IDS.BLOW_BUBBLE,
+      p_title: BLOW_BUBBLE_CONFIG.story ? `Blow Bubble – ${BLOW_BUBBLE_CONFIG.story.slice(0, 24)}` : 'Blow Bubble Game',
+      p_map_color: BLOW_BUBBLE_CONFIG.backgroundColor || '#87CEEB',
+      p_map_index: 0,
+      p_fragment_logo_url: BLOW_BUBBLE_CONFIG.fragmentLogoUrl || null,
+      p_story_one: BLOW_BUBBLE_CONFIG.story || '',
+      p_story_two: '',
+      p_story_three: '',
+      p_public_url: publicUrl,
+      p_template_url: templateUrl,
+      p_creator_id: getCreatorIdentifier(),
+      p_context: context
+    };
+    console.log('[BlowBubbleTemplate] 📤 Sending to Supabase:', {
+      gameId: payload.p_game_id,
+      templateId: payload.p_template_id,
+      title: payload.p_title,
+      hasStory: !!payload.p_story_one,
+      hasLogo: !!payload.p_fragment_logo_url
+    });
+    
+    const { data, error } = await supabase.rpc('upsert_user_created_game', payload);
+    if (error) {
+      console.error('[BlowBubbleTemplate] ❌ Supabase upsert error:', error.message || error);
+      console.error('[BlowBubbleTemplate] Error details:', error);
+      return false;
+    }
+    
+    console.log('[BlowBubbleTemplate] ✅ Supabase upsert success:', data);
+    return true;
+  } catch (error) {
+    console.error('[BlowBubbleTemplate] Failed to sync to Supabase:', error);
+    return false;
   }
 }
 
@@ -2466,6 +2665,33 @@ function notifyParentGameStart(source = 'auto') {
 // BACKGROUND REMOVAL
 // ====================================
 
+// Process logo for Blow Bubble: crop to circle and resize to 138px
+function processBlowBubbleLogo(img, callback) {
+  const TARGET_SIZE = 138; // BUBBLE_SIZE
+  const canvas = document.createElement('canvas');
+  canvas.width = TARGET_SIZE;
+  canvas.height = TARGET_SIZE;
+  const ctx = canvas.getContext('2d');
+  
+  // Calculate crop size (use smaller dimension to maintain aspect ratio)
+  const size = Math.min(img.width, img.height);
+  const sourceX = (img.width - size) / 2;
+  const sourceY = (img.height - size) / 2;
+  
+  // Draw circular mask
+  ctx.save();
+  ctx.beginPath();
+  ctx.arc(TARGET_SIZE / 2, TARGET_SIZE / 2, TARGET_SIZE / 2, 0, Math.PI * 2);
+  ctx.clip();
+  
+  // Draw image centered and scaled
+  ctx.drawImage(img, sourceX, sourceY, size, size, 0, 0, TARGET_SIZE, TARGET_SIZE);
+  ctx.restore();
+  
+  // Return as PNG to preserve transparency
+  callback(canvas.toDataURL('image/png'));
+}
+
 function processLogoImage(img, removeBackground, callback) {
   // Always remove background automatically for all logos
   // Remove background using edge detection and corner color sampling
@@ -2712,13 +2938,65 @@ function setupEditor() {
     const value = templateSelect.value;
     if (value === TEMPLATE_IDS.BLOCKS) return TEMPLATE_IDS.BLOCKS;
     if (value === TEMPLATE_IDS.WALL_BOUNCE_BIRD) return TEMPLATE_IDS.WALL_BOUNCE_BIRD;
+    if (value === TEMPLATE_IDS.BLOW_BUBBLE) return TEMPLATE_IDS.BLOW_BUBBLE;
     return TEMPLATE_IDS.PACMAN;
   };
   document.body.dataset.template = getActiveTemplate();
   loadBlocksConfig();
   sendBlocksConfigToIframe('editor');
+  loadBlowBubbleConfig();
+  sendBlowBubbleConfigToIframe('editor');
   const wallBounceBirdWrapper = document.getElementById('wallBounceBirdWrapper');
   const wallBounceBirdEditorPreview = document.getElementById('wallBounceBirdEditorPreview');
+  const blowBubbleWrapper = document.getElementById('blowBubbleWrapper');
+  const blowBubbleEditorPreview = document.getElementById('blowBubbleEditorPreview');
+  
+  // Initialize preview visibility for smooth switching (preload all iframes)
+  const initialTemplate = getActiveTemplate();
+  if (pacmanEditorPreview) {
+    if (initialTemplate === TEMPLATE_IDS.PACMAN) {
+      pacmanEditorPreview.style.visibility = 'visible';
+      pacmanEditorPreview.style.opacity = '1';
+      pacmanEditorPreview.style.position = 'relative';
+    } else {
+      pacmanEditorPreview.style.visibility = 'hidden';
+      pacmanEditorPreview.style.opacity = '0';
+      pacmanEditorPreview.style.position = 'absolute';
+    }
+  }
+  if (blocksEditorPreview) {
+    if (initialTemplate === TEMPLATE_IDS.BLOCKS) {
+      blocksEditorPreview.style.visibility = 'visible';
+      blocksEditorPreview.style.opacity = '1';
+      blocksEditorPreview.style.position = 'relative';
+    } else {
+      blocksEditorPreview.style.visibility = 'hidden';
+      blocksEditorPreview.style.opacity = '0';
+      blocksEditorPreview.style.position = 'absolute';
+    }
+  }
+  if (wallBounceBirdEditorPreview) {
+    if (initialTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+      wallBounceBirdEditorPreview.style.visibility = 'visible';
+      wallBounceBirdEditorPreview.style.opacity = '1';
+      wallBounceBirdEditorPreview.style.position = 'relative';
+    } else {
+      wallBounceBirdEditorPreview.style.visibility = 'hidden';
+      wallBounceBirdEditorPreview.style.opacity = '0';
+      wallBounceBirdEditorPreview.style.position = 'absolute';
+    }
+  }
+  if (blowBubbleEditorPreview) {
+    if (initialTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+      blowBubbleEditorPreview.style.visibility = 'visible';
+      blowBubbleEditorPreview.style.opacity = '1';
+      blowBubbleEditorPreview.style.position = 'relative';
+    } else {
+      blowBubbleEditorPreview.style.visibility = 'hidden';
+      blowBubbleEditorPreview.style.opacity = '0';
+      blowBubbleEditorPreview.style.position = 'absolute';
+    }
+  }
   const creatorFloatingButtons = document.querySelector('.creator-floating-buttons');
   const scrollToBirdControls = () => {
     if (creatorFloatingButtons && isMobileViewport()) {
@@ -2792,6 +3070,10 @@ function setupEditor() {
           blocksWrapper.style.display = 'none';
           blocksWrapper.style.visibility = 'hidden';
         }
+        if (blowBubbleWrapper) {
+          blowBubbleWrapper.style.display = 'none';
+          blowBubbleWrapper.style.visibility = 'hidden';
+        }
         // ✅ FIX: Show Wall Bounce Bird
         if (wallBounceBirdWrapper) {
           wallBounceBirdWrapper.style.display = 'flex';
@@ -2810,6 +3092,43 @@ function setupEditor() {
         if (wallBounceBirdWrapper) {
           wallBounceBirdWrapper.style.display = 'none';
           wallBounceBirdWrapper.style.visibility = 'hidden';
+        }
+      }
+    },
+    [TEMPLATE_IDS.BLOW_BUBBLE]: {
+      show({ scroll = false, sendConfig = true } = {}) {
+        // Ẩn tất cả template khác trước
+        if (gameWrapperEl) {
+          gameWrapperEl.style.display = 'none';
+          gameWrapperEl.style.visibility = 'hidden';
+          gameWrapperEl.style.opacity = '0';
+        }
+        if (blocksWrapper) {
+          blocksWrapper.style.display = 'none';
+          blocksWrapper.style.visibility = 'hidden';
+        }
+        if (wallBounceBirdWrapper) {
+          wallBounceBirdWrapper.style.display = 'none';
+          wallBounceBirdWrapper.style.visibility = 'hidden';
+        }
+        // Show Blow Bubble
+        if (blowBubbleWrapper) {
+          blowBubbleWrapper.style.display = 'flex';
+          blowBubbleWrapper.style.visibility = 'visible';
+          blowBubbleWrapper.style.opacity = '1';
+          if (sendConfig !== false) {
+            const target = isMobileViewport() ? 'both' : 'game';
+            sendBlowBubbleConfigToIframe(target);
+          }
+          if (scroll) {
+            blowBubbleWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      },
+      hide() {
+        if (blowBubbleWrapper) {
+          blowBubbleWrapper.style.display = 'none';
+          blowBubbleWrapper.style.visibility = 'hidden';
         }
       }
     }
@@ -2838,6 +3157,23 @@ function setupEditor() {
         if (blocksWrapper) {
           blocksWrapper.style.display = 'none';
           blocksWrapper.style.visibility = 'hidden';
+        }
+        if (blowBubbleWrapper) {
+          blowBubbleWrapper.style.display = 'none';
+          blowBubbleWrapper.style.visibility = 'hidden';
+        }
+      } else if (activeTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+        playTestHandlers[TEMPLATE_IDS.BLOW_BUBBLE].show({ scroll: false, sendConfig });
+        if (gameWrapperEl) {
+          gameWrapperEl.style.display = 'none';
+        }
+        if (blocksWrapper) {
+          blocksWrapper.style.display = 'none';
+          blocksWrapper.style.visibility = 'hidden';
+        }
+        if (wallBounceBirdWrapper) {
+          wallBounceBirdWrapper.style.display = 'none';
+          wallBounceBirdWrapper.style.visibility = 'hidden';
         }
       } else {
         // Default to PACMAN
@@ -2892,15 +3228,75 @@ function setupEditor() {
         }
       }
       
-      // Show/hide preview containers
+      // ✅ Reset gameId when switching to Blow Bubble to create new game (avoid cache)
+      if (activeTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+        // Clear old gameId to force new game creation
+        BLOW_BUBBLE_CONFIG.gameId = null;
+        localStorage.removeItem(BLOW_BUBBLE_LAST_ID_KEY);
+        if (saveBtn) {
+          saveBtn.dataset.gameId = '';
+          saveBtn.dataset.saved = 'false';
+        }
+        if (saveBtnMobile) {
+          saveBtnMobile.dataset.gameId = '';
+          saveBtnMobile.dataset.saved = 'false';
+        }
+        // Clear public link state
+        if (publicLinkBtn) {
+          publicLinkBtn.dataset.enabled = 'false';
+          publicLinkBtn.dataset.gameId = '';
+        }
+        if (publicLinkBtnMobile) {
+          publicLinkBtnMobile.dataset.enabled = 'false';
+          publicLinkBtnMobile.dataset.gameId = '';
+        }
+      }
+      
+      // Show/hide preview containers with smooth transition
+      // Use visibility + opacity + position for preloading (iframes stay loaded)
       if (pacmanEditorPreview) {
-        pacmanEditorPreview.style.display = activeTemplate === TEMPLATE_IDS.PACMAN ? 'block' : 'none';
+        if (activeTemplate === TEMPLATE_IDS.PACMAN) {
+          pacmanEditorPreview.style.visibility = 'visible';
+          pacmanEditorPreview.style.opacity = '1';
+          pacmanEditorPreview.style.position = 'relative';
+        } else {
+          pacmanEditorPreview.style.visibility = 'hidden';
+          pacmanEditorPreview.style.opacity = '0';
+          pacmanEditorPreview.style.position = 'absolute';
+        }
       }
       if (blocksEditorPreview) {
-        blocksEditorPreview.style.display = activeTemplate === TEMPLATE_IDS.BLOCKS ? 'block' : 'none';
+        if (activeTemplate === TEMPLATE_IDS.BLOCKS) {
+          blocksEditorPreview.style.visibility = 'visible';
+          blocksEditorPreview.style.opacity = '1';
+          blocksEditorPreview.style.position = 'relative';
+        } else {
+          blocksEditorPreview.style.visibility = 'hidden';
+          blocksEditorPreview.style.opacity = '0';
+          blocksEditorPreview.style.position = 'absolute';
+        }
       }
       if (wallBounceBirdEditorPreview) {
-        wallBounceBirdEditorPreview.style.display = activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD ? 'block' : 'none';
+        if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
+          wallBounceBirdEditorPreview.style.visibility = 'visible';
+          wallBounceBirdEditorPreview.style.opacity = '1';
+          wallBounceBirdEditorPreview.style.position = 'relative';
+        } else {
+          wallBounceBirdEditorPreview.style.visibility = 'hidden';
+          wallBounceBirdEditorPreview.style.opacity = '0';
+          wallBounceBirdEditorPreview.style.position = 'absolute';
+        }
+      }
+      if (blowBubbleEditorPreview) {
+        if (activeTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+          blowBubbleEditorPreview.style.visibility = 'visible';
+          blowBubbleEditorPreview.style.opacity = '1';
+          blowBubbleEditorPreview.style.position = 'relative';
+        } else {
+          blowBubbleEditorPreview.style.visibility = 'hidden';
+          blowBubbleEditorPreview.style.opacity = '0';
+          blowBubbleEditorPreview.style.position = 'absolute';
+        }
       }
       
       // Show/hide template-specific sections
@@ -2915,6 +3311,24 @@ function setupEditor() {
         document.querySelectorAll('.template-wall-bounce-bird').forEach(el => {
           el.style.display = 'block';
         });
+      } else if (activeTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+        document.querySelectorAll('.template-blow-bubble').forEach(el => {
+          el.style.display = 'block';
+        });
+      }
+      
+      // Set template on save buttons when switching templates
+      if (saveBtn) {
+        saveBtn.dataset.template = activeTemplate;
+      }
+      if (saveBtnMobile) {
+        saveBtnMobile.dataset.template = activeTemplate;
+      }
+      if (publicLinkBtn) {
+        publicLinkBtn.dataset.template = activeTemplate;
+      }
+      if (publicLinkBtnMobile) {
+        publicLinkBtnMobile.dataset.template = activeTemplate;
       }
       
       // Send config to iframe
@@ -2922,6 +3336,8 @@ function setupEditor() {
         sendBlocksConfigToIframe(isMobileViewport() ? 'both' : 'editor');
       } else if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
         sendWallBounceBirdConfigToIframe(isMobileViewport() ? 'both' : 'editor');
+      } else if (activeTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+        sendBlowBubbleConfigToIframe(isMobileViewport() ? 'both' : 'editor');
       }
 
       // Reset save & public link buttons until Play Test is run again
@@ -3188,9 +3604,12 @@ function setupEditor() {
       saveBrandConfig();
       BLOCKS_CONFIG.story = value;
       WALL_BOUNCE_BIRD_CONFIG.story = value;
+      BLOW_BUBBLE_CONFIG.story = value;
       saveBlocksConfig(BLOCKS_CONFIG.gameId || null);
       sendBlocksConfigToIframe('both');
       sendWallBounceBirdConfigToIframe('game');
+      saveBlowBubbleConfig(BLOW_BUBBLE_CONFIG.gameId || null);
+      sendBlowBubbleConfigToIframe('both');
       updateCharCount(story1Input, story1Count, MAX_STORY_LENGTH);
     });
   }
@@ -3225,7 +3644,41 @@ function setupEditor() {
         reader.onload = (event) => {
           const img = new Image();
           img.onload = () => {
-            // Always remove background automatically
+            const activeTemplate = getActiveTemplate();
+            
+            // Blow Bubble: crop to circle and resize to 138px
+            if (activeTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+              processBlowBubbleLogo(img, (processedDataUrl) => {
+                const processedImg = new Image();
+                processedImg.onload = () => {
+                  BLOW_BUBBLE_CONFIG.fragmentLogoUrl = processedDataUrl;
+                  BLOW_BUBBLE_CONFIG.fragmentLogo = processedImg;
+                  saveBlowBubbleConfig(BLOW_BUBBLE_CONFIG.gameId || null);
+                  sendBlowBubbleConfigToIframe('both');
+                  
+                  // Hide loading, show preview
+                  if (fragmentLogoLoading) {
+                    fragmentLogoLoading.style.display = 'none';
+                  }
+                  if (fragmentLogoPreview) {
+                    fragmentLogoPreview.src = processedDataUrl;
+                    fragmentLogoPreview.classList.add('active');
+                  }
+                  
+                  console.log('✅ Blow Bubble logo uploaded!');
+                };
+                processedImg.onerror = () => {
+                  if (fragmentLogoLoading) {
+                    fragmentLogoLoading.style.display = 'none';
+                  }
+                  alert('Failed to load processed image. Please try again.');
+                };
+                processedImg.src = processedDataUrl;
+              });
+              return;
+            }
+            
+            // Other templates: Always remove background automatically
             processLogoImage(img, true, (processedDataUrl) => {
               // Optimize image: resize and compress
               const processedImg = new Image();
@@ -3322,6 +3775,41 @@ function setupEditor() {
     
     // Highlight default color on load (#87ceeb is now the third button)
     highlightSelectedColor('#87ceeb');
+  }
+  
+  // Blow Bubble background color picker
+  const blowBubbleColorButtons = document.querySelectorAll('.template-blow-bubble .map-color-btn');
+  if (blowBubbleColorButtons.length > 0) {
+    // Set default color
+    BLOW_BUBBLE_CONFIG.backgroundColor = '#87CEEB';
+    
+    // Highlight selected color
+    const highlightSelectedColor = (selectedColor) => {
+      blowBubbleColorButtons.forEach(btn => {
+        if (btn.dataset.color === selectedColor) {
+          btn.classList.add('active');
+          btn.setAttribute('aria-pressed', 'true');
+        } else {
+          btn.classList.remove('active');
+          btn.setAttribute('aria-pressed', 'false');
+        }
+      });
+    };
+    
+    // Handle color selection
+    blowBubbleColorButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const selectedColor = btn.dataset.color;
+        BLOW_BUBBLE_CONFIG.backgroundColor = selectedColor;
+        saveBlowBubbleConfig(BLOW_BUBBLE_CONFIG.gameId || null);
+        sendBlowBubbleConfigToIframe('both');
+        
+        highlightSelectedColor(selectedColor);
+      });
+    });
+    
+    // Initialize with saved color or default
+    highlightSelectedColor(BLOW_BUBBLE_CONFIG.backgroundColor || '#87CEEB');
   }
   
   // Map selection
@@ -3440,6 +3928,16 @@ function setupEditor() {
         return;
       }
       
+      if (activeTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+        if (playTestBtn.textContent.trim() === 'Play Test') {
+          playTestBtn.textContent = 'Play Test ✓';
+          playTestBtn.style.color = '#4ade80';
+        }
+        playTestHandlers[TEMPLATE_IDS.BLOW_BUBBLE].show({ scroll: true, sendConfig: true });
+        showSaveFlow(TEMPLATE_IDS.BLOW_BUBBLE);
+        return;
+      }
+      
       if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
         if (playTestBtn.textContent.trim() === 'Play Test') {
           playTestBtn.textContent = 'Play Test ✓';
@@ -3552,6 +4050,68 @@ function setupEditor() {
     }
   };
 
+  const applyBlowBubbleSaveState = (gameId) => {
+    if (saveBtn) {
+      saveBtn.dataset.gameId = gameId;
+      saveBtn.dataset.saved = 'true';
+      saveBtn.dataset.template = TEMPLATE_IDS.BLOW_BUBBLE;
+    }
+    if (saveBtnMobile) {
+      saveBtnMobile.dataset.gameId = gameId;
+      saveBtnMobile.dataset.saved = 'true';
+      saveBtnMobile.dataset.template = TEMPLATE_IDS.BLOW_BUBBLE;
+    }
+    if (publicLinkBtn) {
+      publicLinkBtn.dataset.template = TEMPLATE_IDS.BLOW_BUBBLE;
+      publicLinkBtn.dataset.gameId = gameId;
+    }
+    if (publicLinkBtnMobile) {
+      publicLinkBtnMobile.dataset.template = TEMPLATE_IDS.BLOW_BUBBLE;
+      publicLinkBtnMobile.dataset.gameId = gameId;
+    }
+  };
+
+  const handleBlowBubbleSaveClick = async (button, isMobile = false) => {
+    if (button.dataset.visible !== 'true') {
+      return;
+    }
+    button.textContent = 'Saving...';
+    button.style.background = '#f6c94c';
+    const storyValue = story1Input ? story1Input.value.substring(0, 50) : '';
+    BLOW_BUBBLE_CONFIG.story = storyValue;
+    if (!BLOW_BUBBLE_CONFIG.fragmentLogoUrl && BRAND_CONFIG.fragmentLogoUrl) {
+      BLOW_BUBBLE_CONFIG.fragmentLogoUrl = BRAND_CONFIG.fragmentLogoUrl;
+    }
+    if (!BLOW_BUBBLE_CONFIG.backgroundColor) {
+      BLOW_BUBBLE_CONFIG.backgroundColor = '#87CEEB';
+    }
+    const existingId = button.dataset.gameId && button.dataset.gameId.startsWith('blow-bubble-') && button.dataset.saved === 'true'
+      ? button.dataset.gameId
+      : null;
+    const gameId = existingId || generateBlowBubbleGameId();
+    saveBlowBubbleConfig(gameId);
+    sendBlowBubbleConfigToIframe('both');
+    applyBlowBubbleSaveState(gameId);
+    button.textContent = '✅ Saved';
+    button.style.background = '#4ECDC4';
+    button.dataset.gameId = gameId;
+    button.dataset.saved = 'true';
+    button.dataset.template = TEMPLATE_IDS.BLOW_BUBBLE;
+    if (publicLinkBtn) {
+      publicLinkBtn.dataset.gameId = gameId;
+      publicLinkBtn.dataset.template = TEMPLATE_IDS.BLOW_BUBBLE;
+      setPublicLinkEnabled(true, publicLinkBtn);
+    }
+    if (publicLinkBtnMobile) {
+      publicLinkBtnMobile.dataset.gameId = gameId;
+      publicLinkBtnMobile.dataset.template = TEMPLATE_IDS.BLOW_BUBBLE;
+      setPublicLinkEnabled(true, publicLinkBtnMobile);
+    }
+    button.dataset.supabaseSync = 'pending';
+    const synced = await syncBlowBubbleGameToSupabase(gameId, 'manual-save');
+    button.dataset.supabaseSync = synced ? 'success' : 'error';
+  };
+
   const handleWallBounceBirdSaveClick = async (button, isMobile = false) => {
     if (button.dataset.visible !== 'true') {
       return;
@@ -3600,6 +4160,10 @@ function setupEditor() {
     }
     if (activeTemplate === TEMPLATE_IDS.WALL_BOUNCE_BIRD) {
       await handleWallBounceBirdSaveClick(button, isMobile);
+      return;
+    }
+    if (activeTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+      await handleBlowBubbleSaveClick(button, isMobile);
       return;
     }
     // Title is auto-generated, ensure it's set
@@ -3717,6 +4281,15 @@ function setupEditor() {
       }
       return WALL_BOUNCE_BIRD_CONFIG.gameId || localStorage.getItem(WALL_BOUNCE_BIRD_LAST_ID_KEY);
     }
+    if (templateId === TEMPLATE_IDS.BLOW_BUBBLE) {
+      if (saveBtn && saveBtn.dataset.template === TEMPLATE_IDS.BLOW_BUBBLE && saveBtn.dataset.saved === 'true') {
+        return saveBtn.dataset.gameId;
+      }
+      if (saveBtnMobile && saveBtnMobile.dataset.template === TEMPLATE_IDS.BLOW_BUBBLE && saveBtnMobile.dataset.saved === 'true') {
+        return saveBtnMobile.dataset.gameId;
+      }
+      return BLOW_BUBBLE_CONFIG.gameId || localStorage.getItem(BLOW_BUBBLE_LAST_ID_KEY);
+    }
     // Default to PACMAN
     if (saveBtn && (!saveBtn.dataset.template || saveBtn.dataset.template === TEMPLATE_IDS.PACMAN) && saveBtn.dataset.saved === 'true') {
       return saveBtn.dataset.gameId;
@@ -3733,16 +4306,28 @@ function setupEditor() {
     }
     
     const buttonTemplate = button.dataset.template || getActiveTemplate();
-    let gameId = button.dataset.gameId || getLastSavedGameId(buttonTemplate);
+    
+    // Try multiple sources for gameId (priority order)
+    let gameId = button.dataset.gameId;
+    if (!gameId) {
+      gameId = getLastSavedGameId(buttonTemplate);
+    }
+    if (!gameId && buttonTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+      // Fallback: try to get from config
+      gameId = BLOW_BUBBLE_CONFIG.gameId || localStorage.getItem(BLOW_BUBBLE_LAST_ID_KEY);
+    }
     
     // ✅ DEBUG: Log để kiểm tra
     console.log('[handlePublicLinkClick] Debug:', {
       buttonId: button.id,
       buttonDatasetTemplate: button.dataset.template,
       buttonDatasetGameId: button.dataset.gameId,
+      buttonDatasetEnabled: button.dataset.enabled,
       getActiveTemplateResult: getActiveTemplate(),
       buttonTemplate,
       gameId,
+      BLOW_BUBBLE_CONFIG_gameId: BLOW_BUBBLE_CONFIG.gameId,
+      localStorage_gameId: localStorage.getItem(BLOW_BUBBLE_LAST_ID_KEY),
       saveBtnDataset: saveBtn ? {
         template: saveBtn.dataset.template,
         gameId: saveBtn.dataset.gameId,
@@ -3866,6 +4451,27 @@ function setupEditor() {
         // Sync to Supabase (background)
         button.dataset.supabaseSync = 'pending';
         await syncWallBounceBirdToSupabase(gameId, 'public-link');
+        button.dataset.supabaseSync = 'success';
+        return;
+      }
+      if (buttonTemplate === TEMPLATE_IDS.BLOW_BUBBLE) {
+        // Ensure game is saved
+        const isSaved = (saveBtn && saveBtn.dataset.saved === 'true') || 
+                        (saveBtnMobile && saveBtnMobile.dataset.saved === 'true');
+        if (!isSaved) {
+          const savedId = saveBlowBubbleConfig(ensureBlowBubbleGameId());
+          if (saveBtn) {
+            saveBtn.dataset.gameId = savedId;
+            saveBtn.dataset.saved = 'true';
+          }
+          if (saveBtnMobile) {
+            saveBtnMobile.dataset.gameId = savedId;
+            saveBtnMobile.dataset.saved = 'true';
+          }
+        }
+        // Sync to Supabase (background) - ✅ FIX: Use correct sync function for Blow Bubble
+        button.dataset.supabaseSync = 'pending';
+        await syncBlowBubbleGameToSupabase(gameId, 'public-link');
         button.dataset.supabaseSync = 'success';
         return;
       }
