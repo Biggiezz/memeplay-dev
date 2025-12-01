@@ -72,6 +72,7 @@
       text-align: center;
       padding: 24px;
       z-index: 10;
+      pointer-events: none; /* Allow clicks to pass through to canvas */
     }
     .overlay.hidden { display: none; }
     .overlay-card {
@@ -105,6 +106,7 @@
       box-shadow: 0 12px 30px rgba(255,148,55,0.35);
       transition: transform 0.2s ease;
       animation: blink 1.5s ease-in-out infinite;
+      pointer-events: auto; /* Button itself is clickable */
     }
     .overlay-card button:active,
     #startBtn:active { transform: scale(0.96); }
@@ -146,22 +148,22 @@
 </head>
 <body>
   <div class="game-container">
-    <div class="hud" id="hud" aria-live="polite">
-      <span id="scoreLabel">Score: 0</span>
-    </div>
+  <div class="hud" id="hud" aria-live="polite">
+    <span id="scoreLabel">Score: 0</span>
+  </div>
     <canvas id="game" width="720" height="1000" style="height: 100%;"></canvas>
 
-    <div class="overlay" id="startOverlay">
-      <button id="startBtn">Tap to Start</button>
-    </div>
+  <div class="overlay" id="startOverlay">
+    <button id="startBtn">Tap to Start</button>
+  </div>
 
-    <div class="overlay hidden" id="gameOverOverlay">
-      <div class="overlay-card">
-        <h1>GAME OVER</h1>
+  <div class="overlay hidden" id="gameOverOverlay">
+    <div class="overlay-card">
+      <h1>GAME OVER</h1>
         <img id="gameOverLogo" class="game-over-logo" src="" alt="Logo" style="display: none;">
-        <p id="finalScoreText">Score: 0</p>
-        <p class="promo-text" id="promoText"></p>
-        <button id="retryBtn">Play Again</button>
+      <p id="finalScoreText">Score: 0</p>
+      <p class="promo-text" id="promoText"></p>
+      <button id="retryBtn">Play Again</button>
       </div>
     </div>
   </div>
@@ -335,10 +337,10 @@
       tempCtx.putImageData(imageData, 0, 0);
       
       // Load processed image into birdImage
-      birdImage.onload = () => {
-        birdImageLoaded = true;
-        if (birdImage.width && birdImage.height) {
-          birdImageRatio = birdImage.width / birdImage.height;
+    birdImage.onload = () => {
+      birdImageLoaded = true;
+      if (birdImage.width && birdImage.height) {
+        birdImageRatio = birdImage.width / birdImage.height;
           
           // Create cached flipped images (left and right) for better performance
           const cacheCanvas = document.createElement('canvas');
@@ -554,14 +556,14 @@
           );
         } else {
           // Default gradient pill
-          const grd = ctx.createRadialGradient(0, 0, 6, 0, 0, this.size / 2);
-          grd.addColorStop(0, '#fff6d1');
-          grd.addColorStop(0.5, '#ffd447');
-          grd.addColorStop(1, '#f05a28');
-          ctx.fillStyle = grd;
-          ctx.beginPath();
-          ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
-          ctx.fill();
+        const grd = ctx.createRadialGradient(0, 0, 6, 0, 0, this.size / 2);
+        grd.addColorStop(0, '#fff6d1');
+        grd.addColorStop(0.5, '#ffd447');
+        grd.addColorStop(1, '#f05a28');
+        ctx.fillStyle = grd;
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+        ctx.fill();
         }
 
         // Reset transform instead of restore (faster)
@@ -849,7 +851,7 @@
       if (state.customStory) {
         promoText.textContent = state.customStory;
       } else {
-        promoText.textContent = PROMOS[Math.floor(Math.random() * PROMOS.length)];
+      promoText.textContent = PROMOS[Math.floor(Math.random() * PROMOS.length)];
       }
       
       gameOverOverlay.classList.remove('hidden');
@@ -877,13 +879,13 @@
           const spikeX = CONFIG.WALL_OFFSET + CONFIG.SPIKE_SIZE / 2;
           const dx = Math.abs(birdCenterX - spikeX);
           if (dx < birdHitboxRadius + CONFIG.SPIKE_SIZE) {
-            if (spike.hit(bird)) {
+        if (spike.hit(bird)) {
               // Freeze bird immediately at collision position
               bird.active = false;
               bird.vx = 0;
               bird.vy = 0;
-              triggerGameOver();
-              return;
+          triggerGameOver();
+          return;
             }
           }
         }
@@ -896,14 +898,14 @@
           const spikeX = CONFIG.WIDTH - CONFIG.WALL_OFFSET - CONFIG.SPIKE_SIZE / 2;
           const dx = Math.abs(birdCenterX - spikeX);
           if (dx < birdHitboxRadius + CONFIG.SPIKE_SIZE) {
-            if (spike.hit(bird)) {
+        if (spike.hit(bird)) {
               // Freeze bird immediately at collision position
               bird.active = false;
               bird.vx = 0;
               bird.vy = 0;
-              triggerGameOver();
-              return;
-            }
+          triggerGameOver();
+          return;
+        }
           }
         }
       }
@@ -999,7 +1001,7 @@
             if (Math.abs(alpha - currentAlpha) > 0.01) {
               ctx.globalAlpha = alpha;
               currentAlpha = alpha;
-            }
+        }
             ctx.fillRect(p.x, p.y, 5, 5);
           }
         }
@@ -1051,31 +1053,36 @@
         ctx.drawImage(state.cachedTopBottomCanvas, 0, 0);
       } else {
         // Fallback: Draw manually if cache not ready
-        ctx.fillStyle = '#4d4d4d';
+      ctx.fillStyle = '#4d4d4d';
         for (let i = 0; i < state.topSpikes.length; i++) {
           const spike = state.topSpikes[i];
-          ctx.beginPath();
-          ctx.moveTo(spike.x, 0);
-          ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.TOP_SPIKE_HEIGHT);
-          ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE, 0);
-          ctx.closePath();
-          ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(spike.x, 0);
+        ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.TOP_SPIKE_HEIGHT);
+        ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE, 0);
+        ctx.closePath();
+        ctx.fill();
         }
         for (let i = 0; i < state.bottomSpikes.length; i++) {
           const spike = state.bottomSpikes[i];
-          ctx.beginPath();
-          ctx.moveTo(spike.x, CONFIG.HEIGHT);
-          ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT);
-          ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE, CONFIG.HEIGHT);
-          ctx.closePath();
-          ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(spike.x, CONFIG.HEIGHT);
+        ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE / 2, CONFIG.HEIGHT - CONFIG.TOP_SPIKE_HEIGHT);
+        ctx.lineTo(spike.x + CONFIG.SPIKE_SIZE, CONFIG.HEIGHT);
+        ctx.closePath();
+        ctx.fill();
         }
       }
       
     }
 
-    startBtn.addEventListener('click', beginGame);
-    retryBtn.addEventListener('click', () => {
+    // Keep button handlers as backup
+    startBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      beginGame();
+    });
+    retryBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
       gameOverOverlay.classList.add('hidden');
       beginGame();
     });
@@ -1083,6 +1090,21 @@
     ['pointerdown', 'touchstart'].forEach(evt => {
       canvas.addEventListener(evt, (e) => {
         e.preventDefault();
+        
+        // If game not started, start the game
+        if (!state.running && !state.started) {
+          beginGame();
+          return;
+        }
+        
+        // If game over, restart the game
+        if (!state.running && state.started && !gameOverOverlay.classList.contains('hidden')) {
+          gameOverOverlay.classList.add('hidden');
+          beginGame();
+          return;
+        }
+        
+        // If playing, handle jump
         if (!state.running) return;
         handleJump();
       }, { passive: false });

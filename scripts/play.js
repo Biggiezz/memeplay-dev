@@ -53,6 +53,37 @@ if (supabase.realtime) {
   supabase.realtime.disconnect()
 }
 
+// ✅ Load game over sound for Blow Bubble
+let blowBubbleGameOverSound = null
+try {
+  blowBubbleGameOverSound = new Audio('assets/rocket_fail_oh_oh.wav')
+  blowBubbleGameOverSound.preload = 'auto' // Preload để sẵn sàng
+  blowBubbleGameOverSound.volume = 1.0 // Full volume
+} catch (e) {
+  console.warn('[PLAY MODE] Failed to load blow bubble game over sound:', e)
+  blowBubbleGameOverSound = { play: () => {} } // Fallback
+}
+
+// ✅ Audio unlock for mobile browsers
+let audioUnlocked = false
+function unlockAudio() {
+  if (audioUnlocked) return
+  try {
+    // Unlock bằng cách play một âm thanh rất ngắn (silence)
+    const silentAudio = new Audio('data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=')
+    silentAudio.volume = 0
+    silentAudio.play().catch(() => {})
+    audioUnlocked = true
+  } catch (e) {
+    // Ignore errors
+  }
+}
+
+// ✅ Unlock audio on user interaction
+document.addEventListener('click', unlockAudio, { once: true })
+document.addEventListener('touchstart', unlockAudio, { once: true })
+document.addEventListener('keydown', unlockAudio, { once: true })
+
 const lsGetInt = (key, fallback = 0) => {
   const raw = localStorage.getItem(key)
   const num = raw == null ? NaN : Number(raw)
@@ -1152,7 +1183,8 @@ function startGame(gameId) {
       }
     }
     
-    console.log(`[PLAY MODE] ⏳ ${activeGame}: session ${sessionSeconds}s · total ${previewTotal}/${MAX_ACCUM_SECONDS}s`)
+    // ✅ PERFORMANCE: Removed frequent console.log (every 5s) to reduce lag when DevTools is open
+    // Logic tính điểm vẫn hoạt động bình thường (lines 1165-1184)
   }
 }
 
@@ -1444,6 +1476,20 @@ window.addEventListener('message', async (event) => {
   if (event.data?.type === 'GAME_OVER' && event.data?.gameId) {
     const { gameId } = event.data
     console.log(`[PLAY MODE] GAME_OVER received for ${gameId}`)
+    
+    // ✅ Play game over sound for Blow Bubble (desktop + mobile)
+    if (gameId.startsWith('blow-bubble-')) {
+      unlockAudio() // Ensure audio is unlocked
+      if (blowBubbleGameOverSound) {
+        try {
+          blowBubbleGameOverSound.currentTime = 0 // Reset to start
+          await blowBubbleGameOverSound.play()
+          console.log('[PLAY MODE] ✅ Played blow bubble game over sound')
+        } catch (e) {
+          console.warn('[PLAY MODE] Failed to play game over sound:', e)
+        }
+      }
+    }
     
     // ✅ Set flag to allow showing achievements
     isGameOver = true

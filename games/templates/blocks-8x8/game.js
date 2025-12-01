@@ -214,17 +214,22 @@ function processLogoFile(file) {
   }
   const loading = document.getElementById('logoLoading');
   if (loading) loading.style.display = 'block';
+  
+  // ✅ Ensure 100% quality - read file as-is without any compression/resize
   const reader = new FileReader();
   reader.onload = () => {
+    // ✅ Store original file as DataURL - preserves 100% quality, no compression
     BRAND_CONFIG.fragmentLogoUrl = reader.result;
     setLogoPreview(BRAND_CONFIG.fragmentLogoUrl);
     sendConfigToGameFrame();
     if (loading) loading.style.display = 'none';
+    console.log('[BlocksTemplate] ✅ Logo uploaded with 100% quality:', file.name, file.size, 'bytes');
   };
   reader.onerror = () => {
     console.error('[BlocksTemplate] Failed to read logo file');
     if (loading) loading.style.display = 'none';
   };
+  // ✅ readAsDataURL preserves original image quality - no compression applied
   reader.readAsDataURL(file);
 }
 

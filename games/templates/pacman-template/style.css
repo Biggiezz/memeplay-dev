@@ -493,13 +493,15 @@ body.public-game-view #gameWrapper {
 }
 
 #blocksEditorPreview {
-  display: none;
   width: 100%;
   max-width: 720px;
   margin: 0 auto;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
-.blocks-editor-preview {
+.blocks-editor-preview,
+.wall-bounce-bird-editor-preview,
+.blow-bubble-editor-preview {
   width: 100%;
   max-width: 720px;
   display: flex;
@@ -511,6 +513,7 @@ body.public-game-view #gameWrapper {
   box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
   border: 1px solid rgba(255, 255, 255, 0.05);
   margin: 0 auto;
+  transition: opacity 0.2s ease, visibility 0.2s ease;
 }
 
 .blocks-editor-preview iframe {
@@ -524,22 +527,9 @@ body.public-game-view #gameWrapper {
   transform-origin: top center;
 }
 
-/* Wall Bounce Bird Editor Preview - dùng chung style với blocks */
-.wall-bounce-bird-editor-preview {
-  width: 100%;
-  max-width: 720px;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  padding: 12px;
-  background: #050505;
-  border-radius: 28px;
-  box-shadow: 0 30px 60px rgba(0, 0, 0, 0.55);
-  border: 1px solid rgba(255, 255, 255, 0.05);
-  margin: 0 auto;
-}
-
-.wall-bounce-bird-editor-preview iframe {
+/* Wall Bounce Bird Editor Preview - shared style with blocks */
+.wall-bounce-bird-editor-preview iframe,
+.blow-bubble-editor-preview iframe {
   width: min(100%, 720px);
   aspect-ratio: 720 / 1000;
   height: auto;
@@ -589,6 +579,27 @@ body.public-game-view #gameWrapper {
   border: none;
   display: block;
   transform-origin: top center;
+}
+
+/* Blow Bubble Play Test screen - same size as homepage (mobile only) */
+@media (max-width: 992px) {
+  #blowBubbleWrapper.blow-bubble-template-view {
+    width: 100%;
+    max-width: 720px;
+    position: relative;
+    margin: 0 auto;
+    overflow: hidden;
+    background: #0a0a0a;
+  }
+
+  #blowBubbleWrapper.blow-bubble-template-view iframe {
+    width: min(100%, 720px);
+    aspect-ratio: 720 / 1000;
+    height: auto;
+    border: none;
+    display: block;
+    transform-origin: top center;
+  }
 }
 
 .editor-group {

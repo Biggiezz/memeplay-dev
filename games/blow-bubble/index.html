@@ -1,0 +1,1034 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Blow Bubble</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      width: 100%;
+      font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+      background: #040b1a;
+      color: #fff;
+      overflow: hidden;
+      -webkit-touch-callout: none;
+      -webkit-user-select: none;
+      user-select: none;
+      touch-action: none;
+    }
+    .game-container {
+      position: relative;
+      width: min(100vw, 720px);
+      margin: 0 auto;
+      height: auto;
+      min-height: 100vh;
+    }
+    /* Mobile: Remove min-height to prevent extra space below canvas */
+    @media (max-width: 992px) {
+      .game-container {
+        min-height: auto;
+      }
+    }
+    canvas {
+      display: block;
+      width: min(100vw, 720px);
+      aspect-ratio: 720 / 1000;
+      max-height: 100vh;
+      margin: 0 auto;
+      background: #87ceeb;
+      border-radius: 28px;
+      box-shadow: 0 30px 120px rgba(0,0,0,0.35);
+      touch-action: none;
+      object-fit: contain;
+    }
+    .hud {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      z-index: 5;
+    }
+    #athScore {
+      position: absolute;
+      left: 50%;
+      top: 20px;
+      transform: translateX(-50%);
+      font-size: clamp(27.2px, 3.4vw, 40.8px);
+      color: #00cc66;
+      -webkit-text-stroke: 2px #000000;
+      text-stroke: 2px #000000;
+      white-space: nowrap; /* Prevent text wrapping */
+    }
+    .score-popup {
+      position: absolute;
+      font-size: 24px;
+      font-weight: 700;
+      color: #00ff88;
+      pointer-events: none;
+      z-index: 20;
+      text-shadow: 0 2px 8px rgba(0,0,0,0.8);
+      animation: scorePop 0.8s ease-out forwards;
+    }
+    @keyframes scorePop {
+      0% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+      }
+      100% {
+        opacity: 0;
+        transform: translateY(-60px) scale(1.2);
+      }
+    }
+    .overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.55);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 24px;
+      z-index: 1000;
+      pointer-events: auto;
+      width: 100vw;
+      height: 100vh;
+      height: 100dvh; /* Dynamic viewport height for mobile */
+      margin: 0;
+      box-sizing: border-box;
+    }
+    /* Mobile-specific fixes */
+    @media (max-width: 768px) {
+      .overlay {
+        height: 100dvh;
+        min-height: -webkit-fill-available; /* iOS Safari fallback */
+      }
+    }
+    .overlay.hidden { display: none; }
+    .overlay-card {
+      width: min(420px, 90vw);
+      max-width: 90vw;
+      background: rgba(5,7,14,0.92);
+      border: 1px solid rgba(255,196,106,0.45);
+      border-radius: 20px;
+      padding: clamp(24px, 5vw, 32px);
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      box-shadow: 0 20px 80px rgba(0,0,0,0.6);
+      pointer-events: auto;
+      margin: 0;
+      max-height: 90vh;
+      overflow-y: auto;
+      box-sizing: border-box;
+      position: relative;
+    }
+    .overlay-card h1 {
+      margin: 0;
+      font-size: clamp(20.8px, 5.2vw, 31.2px);
+      letter-spacing: 0.12em;
+      color: #ffd447;
+    }
+    .overlay-card p { margin: 0; line-height: 1.5; color: #e6ecff; }
+    .overlay-card #gameOverLogo {
+      width: 200px;
+      height: 200px;
+      border-radius: 50%;
+      object-fit: cover;
+      margin: 0 auto;
+      display: block;
+      border: 3px solid rgba(255,196,106,0.3);
+      box-shadow: 0 8px 24px rgba(0,0,0,0.4);
+    }
+    /* Mobile: Reduce logo size by 20% */
+    @media (max-width: 992px) {
+      .overlay-card #gameOverLogo {
+        width: 160px; /* 200px * 0.8 = 160px */
+        height: 160px;
+      }
+    }
+    .overlay-card button,
+    #startBtn {
+      padding: 14px 22px;
+      border-radius: 12px;
+      border: none;
+      background: linear-gradient(135deg, #ffd447 0%, #ffb347 100%);
+      color: #040b1a;
+      font-weight: 700;
+      font-size: clamp(16px, 4vw, 20px);
+      cursor: pointer;
+      transition: transform 0.1s, box-shadow 0.1s;
+      pointer-events: auto;
+    }
+    .overlay-card button:active,
+    #startBtn:active {
+      transform: scale(0.95);
+      box-shadow: 0 4px 12px rgba(255,212,71,0.4);
+    }
+    #playAgainBtn {
+      margin-top: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="game-container">
+    <div class="hud">
+      <div id="athScore">ATH: +0%</div>
+    </div>
+    <canvas id="gameCanvas"></canvas>
+  </div>
+  <div id="startOverlay" class="overlay">
+    <div class="overlay-card">
+      <h1>Tap to blow bubble</h1>
+    </div>
+  </div>
+  <div id="gameOverOverlay" class="overlay hidden">
+    <div class="overlay-card">
+      <h1>Game Over</h1>
+      <p id="finalScoreText">Score: 0</p>
+      <img id="gameOverLogo" src="" alt="Game Logo" style="display: none;">
+      <p id="storyText" style="margin-top: 10px; font-size: 17px; color: #e6ecff; display: none;"></p>
+      <button id="playAgainBtn">Play Again</button>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    // Check if mobile
+    const isMobile = window.innerWidth <= 992;
+    
+    // Base bubble size
+    const BASE_BUBBLE_SIZE = 138; // Tăng thêm 15% (120 * 1.15 = 138)
+    
+    // Mobile: Increase logo size by 7% on gaming screen
+    const GAMING_BUBBLE_SIZE = isMobile ? Math.round(BASE_BUBBLE_SIZE * 1.07) : BASE_BUBBLE_SIZE; // Mobile: 148px (138 * 1.07), Desktop: 138px
+    
+    const CONFIG = {
+      WIDTH: 720,
+      HEIGHT: 1000,
+      GRAVITY_BASE: 22.5, // Tăng 25% trọng lực (18.0 * 1.25 = 22.5) để bóng rơi nhanh hơn
+      GRAVITY_MAX_MULTIPLIER: 5,
+      GRAVITY_INCREASE_INTERVAL: 1000, // Giảm từ 3s xuống 1s
+      GRAVITY_INCREASE_RATE: 0.25,
+      FRICTION_X: 0.98, // ✅ Giảm hỗn loạn 70%: Tăng friction từ 0.96 → 0.98 (giảm 2% mỗi frame thay vì 4%)
+      BOOST_AMOUNT: 3.432, // Giảm 45% lực thổi (6.24 * 0.55 = 3.432)
+      ZONE_COUNT: 5,
+      BUBBLE_SIZE: GAMING_BUBBLE_SIZE, // Mobile: 148px (tăng 7%), Desktop: 138px
+      BOUNDARY_PADDING: 30
+    };
+
+    canvas.width = CONFIG.WIDTH;
+    canvas.height = CONFIG.HEIGHT;
+
+    // Get gameId from URL (for play mode)
+    function getGameId() {
+      const url = new URL(window.location.href);
+      const gameIdFromQuery = url.searchParams.get('game');
+      if (gameIdFromQuery) return gameIdFromQuery;
+      return null;
+    }
+    const EMBEDDED_GAME_ID = getGameId() || 'blow-bubble';
+
+    // Trạng thái game
+    const state = {
+      gameState: 'start', // 'start' = bắt đầu, 'playing' = đang chơi, 'game-over' = kết thúc
+      score: 0,
+      athScore: 0,
+      currentGravity: CONFIG.GRAVITY_BASE,
+      gravityMultiplier: 1,
+      lastGravityIncrease: 0,
+      lastTapTime: 0, // ✅ Track last tap time for consecutive tap count
+      consecutiveTapCount: 0 // ✅ Track consecutive tap count (reset if > 0.3s between taps)
+    };
+
+    // Config from template editor
+    let gameConfig = {
+      logoUrl: 'assets/image (10).webp',
+      backgroundColor: '#87CEEB',
+      story: ''
+    };
+
+    // Load images
+    const btcLogoImg = new Image();
+    btcLogoImg.src = gameConfig.logoUrl; // Logo from config or default
+    let btcLogoLoaded = false;
+    btcLogoImg.onload = () => {
+      btcLogoLoaded = true;
+      console.log('Logo loaded');
+    };
+    btcLogoImg.onerror = () => {
+      console.warn('Failed to load logo');
+    };
+    
+    // Listen for config from template editor
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'BLOW_BUBBLE_CONFIG') {
+        const config = event.data.payload;
+        
+        // ✅ CRITICAL: Unlock audio when receiving config (play mode in iframe)
+        // This ensures audio works when game loads in iframe from play mode
+        unlockAudio();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(() => {});
+        }
+        
+        if (config.logoUrl) {
+          gameConfig.logoUrl = config.logoUrl;
+          // Reload logo image
+          btcLogoLoaded = false;
+          btcLogoImg.onload = () => {
+            btcLogoLoaded = true;
+            console.log('Logo updated from config');
+          };
+          btcLogoImg.onerror = () => {
+            console.warn('Failed to load logo from config');
+            btcLogoLoaded = false;
+          };
+          btcLogoImg.src = config.logoUrl;
+        }
+        if (config.backgroundColor) {
+          gameConfig.backgroundColor = config.backgroundColor;
+          console.log('[Blow Bubble] ✅ Background color updated from postMessage:', config.backgroundColor);
+        }
+        if (config.story !== undefined) {
+          gameConfig.story = config.story;
+        }
+        console.log('Config updated:', gameConfig);
+      }
+    });
+
+    // Load wojak image - idle (not tapping)
+    const wojakIdleImg = new Image();
+    wojakIdleImg.src = 'assets/wojak-idle.webp';
+    let wojakIdleLoaded = false;
+    let wojakIdleWidth = 0;
+    let wojakIdleHeight = 0;
+    wojakIdleImg.onload = () => {
+      wojakIdleLoaded = true;
+      wojakIdleWidth = wojakIdleImg.naturalWidth;
+      wojakIdleHeight = wojakIdleImg.naturalHeight;
+      console.log('Wojak idle loaded:', wojakIdleWidth, 'x', wojakIdleHeight);
+    };
+
+    // Load wojak image - blow (when tapping)
+    const wojakBlowImg = new Image();
+    wojakBlowImg.src = 'assets/wojak-blow.webp';
+    let wojakBlowLoaded = false;
+    let wojakBlowWidth = 0;
+    let wojakBlowHeight = 0;
+    wojakBlowImg.onload = () => {
+      wojakBlowLoaded = true;
+      wojakBlowWidth = wojakBlowImg.naturalWidth;
+      wojakBlowHeight = wojakBlowImg.naturalHeight;
+      console.log('Wojak blow loaded:', wojakBlowWidth, 'x', wojakBlowHeight);
+    };
+    
+    // State to track when user is tapping (to display blow image)
+    let isBlowing = false;
+    let blowEndTime = 0;
+
+    // Audio context for blow sound
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    let audioUnlocked = false;
+
+    function unlockAudio() {
+      if (audioUnlocked) return;
+      try {
+        if (audioContext.state === 'suspended') {
+          audioContext.resume();
+        }
+        audioUnlocked = true;
+      } catch (e) {
+        console.warn('Failed to unlock audio:', e);
+      }
+    }
+
+    // Create light drum sound "thung" - short, no sustain
+    function playBlowSound() {
+      try {
+        // Unlock audio nếu cần
+        if (audioContext.state === 'suspended') {
+          unlockAudio();
+        }
+
+        const now = audioContext.currentTime;
+        
+        // Tạo 1 tiếng trống "thùng" ngắn gọn
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
+        
+        // Tần số trống: bắt đầu cao, giảm nhanh (tạo âm "thùng")
+        // Giảm độ trầm 30% bằng cách tăng tần số
+        oscillator.type = 'sine';
+        const startFreq = (150 + Math.random() * 50) * 1.3; // Tăng 30% (195-260Hz)
+        const endFreq = 50 * 1.3; // Tăng 30% (65Hz)
+        oscillator.frequency.setValueAtTime(startFreq, now);
+        oscillator.frequency.exponentialRampToValueAtTime(endFreq, now + 0.05);
+        
+        // Envelope: tăng nhanh, giảm nhanh (tạo âm "thùng" ngắn, không ngân dài)
+        gainNode.gain.setValueAtTime(0, now);
+        gainNode.gain.linearRampToValueAtTime(0.4, now + 0.005); // Tăng rất nhanh
+        gainNode.gain.exponentialRampToValueAtTime(0.01, now + 0.08); // Giảm nhanh, kết thúc sớm
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
+        
+        oscillator.start(now);
+        oscillator.stop(now + 0.08); // Ngắn gọn, chỉ 80ms
+      } catch (e) {
+        console.warn('Failed to play sound:', e);
+      }
+    }
+
+    // Lớp Bóng bay
+    class Bubble {
+      constructor() {
+        this.reset();
+      }
+
+      reset() {
+        // Bóng có thể được thả ở bất cứ đâu trên màn hình gaming
+        // Giữ khoảng cách an toàn từ các cạnh (tránh spawn quá sát biên)
+        const padding = this.size;
+        this.x = padding + Math.random() * (CONFIG.WIDTH - padding * 2);
+        this.y = padding + Math.random() * (CONFIG.HEIGHT - padding * 2);
+        this.velocityX = (Math.random() - 0.5) * 0.2;
+        this.velocityY = 0;
+        this.rotation = 0;
+        this.rotationSpeed = 0;
+        this.size = CONFIG.BUBBLE_SIZE;
+        this.zone = Math.floor(this.x / (CONFIG.WIDTH / CONFIG.ZONE_COUNT));
+      }
+
+      update(dt) {
+        if (state.gameState !== 'playing') return;
+
+        const dtSeconds = dt / 1000;
+
+        // Update gravity multiplier
+        const now = Date.now();
+        if (now - state.lastGravityIncrease >= CONFIG.GRAVITY_INCREASE_INTERVAL) {
+          if (state.gravityMultiplier < CONFIG.GRAVITY_MAX_MULTIPLIER) {
+            state.gravityMultiplier = Math.min(
+              state.gravityMultiplier + CONFIG.GRAVITY_INCREASE_RATE,
+              CONFIG.GRAVITY_MAX_MULTIPLIER
+            );
+            state.currentGravity = CONFIG.GRAVITY_BASE * state.gravityMultiplier;
+            state.lastGravityIncrease = now;
+          }
+        }
+
+        // Apply gravity
+        this.velocityY += state.currentGravity * dtSeconds;
+
+        // Apply friction to horizontal movement (reduce stability)
+        this.velocityX *= CONFIG.FRICTION_X;
+        
+        // ✅ Giảm hỗn loạn 70%: Random movement từ 0.3 → 0.09 (giảm di chuyển ngang ngẫu nhiên)
+        this.velocityX += (Math.random() - 0.5) * 0.09 * dtSeconds * 60;
+
+        // Update position
+        this.x += this.velocityX * dtSeconds * 60;
+        this.y += this.velocityY * dtSeconds * 60;
+
+        // Horizontal boundary with bounce effect
+        // ✅ Increased bounce force from 0.6 to 0.85 (42% increase) to push bubble away from walls
+        // This prevents exploit where bubble gets stuck at edge zones (zone 0 and zone 4)
+        const BOUNCE_FORCE = 0.85; // Keep 85% velocity, lose 15% energy (was 0.6 = 60%)
+        
+        if (this.x - this.size / 2 < CONFIG.BOUNDARY_PADDING) {
+          this.x = CONFIG.BOUNDARY_PADDING + this.size / 2;
+          this.velocityX = Math.abs(this.velocityX) * BOUNCE_FORCE; // Bounce right with 85% velocity
+          // ✅ Giảm hỗn loạn 70%: Random rotation từ 5 → 1.5 (giảm quay khi đập tường)
+          this.rotationSpeed += (Math.random() - 0.5) * 1.5;
+        }
+        if (this.x + this.size / 2 > CONFIG.WIDTH - CONFIG.BOUNDARY_PADDING) {
+          this.x = CONFIG.WIDTH - CONFIG.BOUNDARY_PADDING - this.size / 2;
+          this.velocityX = -Math.abs(this.velocityX) * BOUNCE_FORCE; // Bounce left with 85% velocity
+          // ✅ Giảm hỗn loạn 70%: Random rotation từ 5 → 1.5 (giảm quay khi đập tường)
+          this.rotationSpeed += (Math.random() - 0.5) * 1.5;
+        }
+        
+        // ✅ Top boundary: Bóng không thể bay quá top màn hình
+        // Nếu thổi mạnh quá đập top → rơi xuống mạnh hơn (penalty)
+        const TOP_BOUNDARY = 5; // Cách top 5px
+        if (this.y - this.size / 2 < TOP_BOUNDARY) {
+          this.y = TOP_BOUNDARY + this.size / 2;
+          
+          // Calculate how fast bubble was going up (negative velocityY = going up)
+          const upwardVelocity = Math.abs(this.velocityY);
+          
+          // Base bounce: keep 70% velocity
+          const TOP_BOUNCE_FORCE = 0.7;
+          let downwardVelocity = upwardVelocity * TOP_BOUNCE_FORCE;
+          
+          // ✅ Penalty: Nếu thổi mạnh quá (velocityY < -8.0), rơi xuống mạnh hơn
+          // The faster it was going up, the faster it falls down (penalty for over-boosting)
+          if (this.velocityY < -8.0) {
+            // Over-boosted: increase fall speed by 80% (stronger penalty)
+            // Example: velocityY = -10.0 → downwardVelocity = 10.0 * 0.7 * 1.8 = 12.6
+            downwardVelocity = upwardVelocity * TOP_BOUNCE_FORCE * 1.8;
+          } else if (this.velocityY < -5.0) {
+            // Medium boost: increase fall speed by 40%
+            downwardVelocity = upwardVelocity * TOP_BOUNCE_FORCE * 1.4;
+          }
+          
+          this.velocityY = downwardVelocity; // Bounce down (positive = falling)
+          this.rotationSpeed += (Math.random() - 0.5) * 1.5;
+        }
+
+        // Update rotation
+        this.rotation += this.rotationSpeed * dtSeconds;
+        // ✅ Giảm hỗn loạn 70%: Tăng damping từ 0.90 → 0.97 (rotation giảm nhanh hơn)
+        this.rotationSpeed *= 0.97;
+        
+        // ✅ Giảm hỗn loạn 70%: Random rotation từ 0.5 → 0.15 (giảm quay ngẫu nhiên)
+        this.rotationSpeed += (Math.random() - 0.5) * 0.15 * dtSeconds * 60;
+
+        // Update zone
+        this.zone = Math.floor(this.x / (CONFIG.WIDTH / CONFIG.ZONE_COUNT));
+        this.zone = Math.max(0, Math.min(CONFIG.ZONE_COUNT - 1, this.zone));
+
+        // Check game over
+        if (this.y > CONFIG.HEIGHT + this.size) {
+          endGame();
+        }
+      }
+
+      boost(targetZone) {
+        if (state.gameState !== 'playing') return false;
+
+        const zoneWidth = CONFIG.WIDTH / CONFIG.ZONE_COUNT;
+        const zoneLeft = targetZone * zoneWidth;
+        const zoneRight = (targetZone + 1) * zoneWidth;
+        const bubbleLeft = this.x - this.size / 2;
+        const bubbleRight = this.x + this.size / 2;
+
+        // Check if bubble is in tapped zone AND in bottom 400px of screen
+        const isInZone = bubbleRight > zoneLeft && bubbleLeft < zoneRight;
+        const isInBottom400px = this.y >= CONFIG.HEIGHT - 400;
+
+        if (isInZone && isInBottom400px) {
+          // Tính % overlap của bóng với zone được tap
+          const overlapLeft = Math.max(bubbleLeft, zoneLeft);
+          const overlapRight = Math.min(bubbleRight, zoneRight);
+          const overlapWidth = Math.max(0, overlapRight - overlapLeft);
+          const overlapPercentage = Math.min(1, overlapWidth / this.size); // % overlap (0-1)
+          
+          // Tính độ chính xác zone (bóng ở giữa zone như thế nào) - dùng cho điểm số
+          const zoneCenter = zoneLeft + zoneWidth / 2;
+          const distanceFromCenter = Math.abs(this.x - zoneCenter);
+          const maxDistance = zoneWidth / 2;
+          const accuracy = Math.max(0, 1 - (distanceFromCenter / maxDistance));
+          
+          // Tính điểm dựa trên độ chính xác
+          let pointsEarned = 0;
+          if (accuracy > 0.7) {
+            // Trúng chính xác (>70%): 5-7 điểm
+            pointsEarned = 5 + Math.random() * 2; // 5-7
+          } else {
+            // Ít chính xác hơn: 1-2.5 điểm
+            pointsEarned = 1 + Math.random() * 1.5; // 1-2.5
+          }
+          
+          // Thêm điểm
+          state.score += Math.floor(pointsEarned * 10) / 10; // Giữ 1 chữ số thập phân
+          if (state.score > state.athScore) {
+            state.athScore = state.score;
+          }
+          updateScoreDisplay();
+          
+          // Score popup removed per user request
+
+          // Apply boost force - force depends on % overlap
+          // 100% overlap → 100% force, 10% overlap → 10% force
+          // ✅ Boost force tăng theo số lượt tap cộng dồn: Mỗi tap trong 0.3s → +10% boost force
+          const now = Date.now();
+          const timeSinceLastTap = now - state.lastTapTime;
+          const TAP_RESET_WINDOW = 300; // 0.3s = 300ms
+          
+          // Check if tap is within reset window
+          if (timeSinceLastTap < TAP_RESET_WINDOW) {
+            // Tap trong vòng 0.3s → tăng tap count (cộng dồn)
+            state.consecutiveTapCount++;
+          } else {
+            // Tap sau 0.3s → reset về 0 (đếm lại từ đầu)
+            state.consecutiveTapCount = 0;
+          }
+          
+          // Update last tap time
+          state.lastTapTime = now;
+          
+          // Calculate boost force: baseBoostForce * (1.1 ^ consecutiveTapCount)
+          // Tap 1: 1.1^0 = 1.0 (base)
+          // Tap 2: 1.1^1 = 1.1 (+10%)
+          // Tap 3: 1.1^2 = 1.21 (+21%)
+          // Tap 4: 1.1^3 = 1.331 (+33%)
+          // ... không giới hạn
+          const baseBoostForce = CONFIG.BOOST_AMOUNT * overlapPercentage;
+          const tapCountMultiplier = Math.pow(1.1, state.consecutiveTapCount);
+          const finalBoostForce = baseBoostForce * tapCountMultiplier;
+          
+          // ✅ Cộng dồn boost force: Tap nhanh = tích lũy lực nhiều hơn
+          if (this.velocityY > 0) {
+            // Đang rơi xuống → set thành bay lên (đảm bảo boost luôn hoạt động)
+            this.velocityY = -finalBoostForce;
+          } else {
+            // Đang bay lên hoặc đứng yên → cộng dồn để bay cao hơn (tap nhanh tích lũy lực)
+            this.velocityY -= finalBoostForce;
+          }
+
+          // Physics mechanism: blow from right → bubble spins and moves left, and vice versa
+          // Determine tapped zone position relative to bubble position
+          const targetZoneCenter = targetZone * zoneWidth + zoneWidth / 2;
+          const bubbleCenterX = this.x;
+          const directionToZone = targetZoneCenter - bubbleCenterX; // >0 if zone on right, <0 if on left
+          
+          // Rotation depends on % overlap
+          // Less bubble area affected (small overlap) → stronger spin (100%)
+          // 100% overlap → 25% spin (0.25), 10% overlap → 100% spin (1.0)
+          // Formula: 1.0 - (overlap * 0.75) to ensure 100% when overlap = 0 (blow on edge)
+          // 100% overlap → 25% spin, 0% overlap → 100% spin
+          const rotationMultiplier = Math.min(1.0, 1.0 - (overlapPercentage * 0.75));
+          
+          // Spin opposite to zone position
+          // Zone on right (directionToZone > 0) → counter-clockwise spin (negative) → move left
+          // Zone on left (directionToZone < 0) → clockwise spin (positive) → move right
+          const rotationDirection = directionToZone > 0 ? -1 : 1; // -1 = left, +1 = right
+          
+          // Rotation strength depends on distance and overlap
+          // When overlap is small (blow on edge) → stronger spin
+          // ✅ Giảm hỗn loạn 70%: Rotation strength từ 8 * 1.5 * 2 = 24 → 2.4 * 1.0 * 1.0 = 2.4
+          const baseRotationStrength = Math.abs(directionToZone) / zoneWidth * 2.4 * 1.0 * 1.0;
+          // ✅ Giảm hỗn loạn 70%: Edge rotation boost từ 4 → 1.2
+          const edgeRotationBoost = overlapPercentage < 0.3 ? (1 - overlapPercentage) * 1.2 : 1;
+          let baseRotation = baseRotationStrength * edgeRotationBoost;
+          
+          // Ensure rotation at ALL overlap levels (10%, 20%, 30%, 40%, 50%, 60%, etc.)
+          // Minimum rotation depends on rotationMultiplier to ensure bubble always spins
+          // rotationMultiplier decreases from 1.0 (0% overlap) → 0.25 (100% overlap)
+          // ✅ Giảm hỗn loạn 70%: Min rotation từ 8 * 1.5 * 2 = 24 → 2.4 * 1.0 * 1.0 = 2.4
+          const minRotation = rotationMultiplier * 2.4 * 1.0 * 1.0;
+          
+          // If baseRotation is too small (when directionToZone near 0) or less than minRotation
+          if (baseRotation < minRotation || Math.abs(directionToZone) < zoneWidth * 0.15) {
+            // Use minimum rotation to ensure bubble always spins at all overlap levels
+            baseRotation = minRotation;
+            // When blowing near center, random spin (left or right) but still clear rotation
+            const randomDirection = Math.random() < 0.5 ? -1 : 1;
+            this.rotationSpeed += randomDirection * baseRotation;
+          } else {
+            // When there's clear distance, spin in zone direction
+            this.rotationSpeed += rotationDirection * baseRotation * rotationMultiplier;
+          }
+          
+          // Horizontal movement opposite to zone position
+          // Zone on right → move left (negative velocityX)
+          // Zone on left → move right (positive velocityX)
+          const horizontalPushStrength = overlapPercentage < 0.5 ? (1 - overlapPercentage) * 2 : overlapPercentage;
+          // ✅ Giảm hỗn loạn 70%: Horizontal force từ 0.08 → 0.024 (giảm đẩy ngang)
+          const horizontalForce = -directionToZone * horizontalPushStrength * 0.024;
+          this.velocityX += horizontalForce;
+          
+          // ✅ Giảm hỗn loạn 70%: Random rotation từ 5 → 1.5 (giảm quay khi boost)
+          this.rotationSpeed += (Math.random() - 0.5) * 1.5;
+
+          // Create smoke effect
+          createSmokePuff(this.x, CONFIG.HEIGHT - 100);
+          
+          // Play blow sound
+          playBlowSound();
+          
+          // Set state to display wojak blow image for 250ms
+          isBlowing = true;
+          blowEndTime = Date.now() + 250;
+          
+          return true;
+        }
+        
+        return false;
+      }
+
+      draw() {
+        ctx.save();
+        ctx.translate(this.x, this.y);
+        ctx.rotate(this.rotation);
+
+        // Draw bubble circle
+        ctx.beginPath();
+        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(255, 215, 0, 0.3)';
+        ctx.fill();
+
+        // Draw logo (image (10).webp)
+        if (btcLogoLoaded) {
+          ctx.save();
+          ctx.translate(-this.size / 2, -this.size / 2);
+          ctx.drawImage(btcLogoImg, 0, 0, this.size, this.size);
+          ctx.restore();
+        } else {
+          // Fallback: yellow circle
+          ctx.fillStyle = '#FFD700';
+          ctx.fill();
+        }
+
+        ctx.restore();
+      }
+    }
+
+    // Smoke Effect Class
+    class SmokePuff {
+      constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.particles = [];
+        for (let i = 0; i < 15; i++) {
+          this.particles.push({
+            x: x + (Math.random() - 0.5) * 40,
+            y: y,
+            vx: (Math.random() - 0.5) * 2,
+            vy: -2 - Math.random() * 3,
+            size: 8 + Math.random() * 12,
+            opacity: 0.6 + Math.random() * 0.4,
+            life: 1.0
+          });
+        }
+      }
+
+      update(dt) {
+        const dtSeconds = dt / 1000;
+        for (let particle of this.particles) {
+          particle.x += particle.vx * dtSeconds * 60;
+          particle.y += particle.vy * dtSeconds * 60;
+          particle.vy *= 0.98;
+          particle.opacity *= 0.95;
+          particle.life -= dtSeconds * 2;
+        }
+        this.particles = this.particles.filter(p => p.life > 0 && p.opacity > 0.1);
+      }
+
+      draw() {
+        for (let particle of this.particles) {
+          ctx.save();
+          ctx.globalAlpha = particle.opacity;
+          ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
+          ctx.beginPath();
+          ctx.arc(particle.x, particle.y, particle.size, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      isDead() {
+        return this.particles.length === 0;
+      }
+    }
+
+    const bubble = new Bubble();
+    let smokePuffs = [];
+
+    function createSmokePuff(x, y) {
+      smokePuffs.push(new SmokePuff(x, y));
+    }
+
+    function updateScoreDisplay() {
+      document.getElementById('athScore').textContent = `ATH: +${state.athScore.toFixed(1)}%`;
+    }
+
+    // Draw zone indicators - removed to not display lines on screen
+    function drawZoneIndicators() {
+      // Don't draw anything, just keep logic for 5 blow zones in code
+    }
+
+    // Draw Wojak images
+    function drawWojakImages() {
+      // Target size (maintain aspect ratio)
+      const targetHeight = 480;
+      
+      // Check if in blow time (250ms after tap)
+      const now = Date.now();
+      if (now < blowEndTime) {
+        // Draw blow image when user is tapping with scale effect
+        if (wojakBlowLoaded && wojakBlowWidth > 0 && wojakBlowHeight > 0) {
+          ctx.save();
+          ctx.globalAlpha = 0.65;
+          
+          // Calculate elapsed time since tap (0-250ms)
+          const elapsed = now - (blowEndTime - 250);
+          const progress = elapsed / 250; // 0-1
+          
+          // Slight scale effect: 1.0 -> 1.1 -> 1.0 in 250ms
+          let scale;
+          if (progress < 0.5) {
+            // First half: scale up from 1.0 -> 1.1
+            scale = 1.0 + (progress * 2) * 0.1;
+          } else {
+            // Second half: scale down from 1.1 -> 1.0
+            scale = 1.1 - ((progress - 0.5) * 2) * 0.1;
+          }
+          
+          // Calculate size maintaining aspect ratio
+          const scaledHeight = targetHeight * scale;
+          const scaledWidth = (wojakBlowWidth / wojakBlowHeight) * scaledHeight;
+          
+          // Align: bottom and right edges align with game screen
+          const offsetX = CONFIG.WIDTH - scaledWidth; // Right edge aligns with screen right edge
+          const offsetY = CONFIG.HEIGHT - scaledHeight; // Bottom edge aligns with screen bottom edge
+          
+          ctx.drawImage(wojakBlowImg, offsetX, offsetY, scaledWidth, scaledHeight);
+          ctx.restore();
+        }
+      } else {
+        // Draw idle image when user is not tapping
+        if (wojakIdleLoaded && wojakIdleWidth > 0 && wojakIdleHeight > 0) {
+          ctx.save();
+          ctx.globalAlpha = 0.65;
+          
+          // Calculate size maintaining aspect ratio
+          const drawHeight = targetHeight;
+          const drawWidth = (wojakIdleWidth / wojakIdleHeight) * drawHeight;
+          
+          // Align: bottom and right edges align with game screen
+          const wojakX = CONFIG.WIDTH - drawWidth; // Right edge aligns with screen right edge
+          const wojakY = CONFIG.HEIGHT - drawHeight; // Bottom edge aligns with screen bottom edge
+          
+          ctx.drawImage(wojakIdleImg, wojakX, wojakY, drawWidth, drawHeight);
+          ctx.restore();
+        }
+      }
+    }
+
+    // Game loop
+    let lastTime = performance.now();
+    function gameLoop(currentTime) {
+      const dt = currentTime - lastTime;
+      lastTime = currentTime;
+
+      // Draw background (always draw to display fully)
+      ctx.fillStyle = gameConfig.backgroundColor;
+      ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
+
+      if (state.gameState === 'playing') {
+        // Update
+        bubble.update(dt);
+        smokePuffs.forEach(puff => puff.update(dt));
+        smokePuffs = smokePuffs.filter(puff => !puff.isDead());
+
+        // Draw
+        drawZoneIndicators();
+        drawWojakImages();
+        smokePuffs.forEach(puff => puff.draw());
+        bubble.draw();
+      } else {
+        // Draw background and wojak even when not playing to display fully
+        drawWojakImages();
+      }
+
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Handle tap - support both mouse (desktop) and touch (mobile) events
+    function handleTap(event) {
+      if (state.gameState === 'game-over') {
+        return;
+      }
+
+      // Nếu game chưa bắt đầu, tap bất cứ đâu cũng bắt đầu game
+      if (state.gameState === 'start') {
+        startGame();
+        return;
+      }
+
+      // Get coordinates - support both MouseEvent and TouchEvent
+      let clientX, clientY;
+      if (event.touches && event.touches.length > 0) {
+        // TouchStart event - use first touch
+        clientX = event.touches[0].clientX;
+        clientY = event.touches[0].clientY;
+      } else if (event.changedTouches && event.changedTouches.length > 0) {
+        // TouchEnd event - use first changed touch
+        clientX = event.changedTouches[0].clientX;
+        clientY = event.changedTouches[0].clientY;
+      } else {
+        // MouseEvent (desktop) - use clientX/clientY directly
+        clientX = event.clientX;
+        clientY = event.clientY;
+      }
+
+      // Calculate position on canvas (account for scaling/transform on mobile)
+      const rect = canvas.getBoundingClientRect();
+      const scaleX = canvas.width / rect.width;   // Canvas scale factor
+      const scaleY = canvas.height / rect.height;
+      
+      // Calculate X coordinate on canvas (0-720px)
+      const x = (clientX - rect.left) * scaleX;
+      const y = (clientY - rect.top) * scaleY;
+
+      if (state.gameState === 'playing') {
+        // Có thể ấn tap ở tất cả vị trí màn hình
+        // Nhưng thực tế hơi được thổi chỉ xuất phát ở đoạn 400px từ chân bottom hất lên
+        // Logic này được xử lý trong boost() function (isInBottom400px check)
+        const zoneWidth = CONFIG.WIDTH / CONFIG.ZONE_COUNT;
+        const tappedZone = Math.floor(x / zoneWidth);
+        const clampedZone = Math.max(0, Math.min(CONFIG.ZONE_COUNT - 1, tappedZone));
+        bubble.boost(clampedZone);
+      }
+    }
+
+    // Unlock audio when user first interacts
+    // Desktop: click event
+    canvas.addEventListener('click', (event) => {
+      unlockAudio();
+      handleTap(event);
+    });
+    
+    // Mobile: touchstart event (immediate response)
+    // CRITICAL: Unlock audio BEFORE preventDefault (important for iframe in play mode)
+    canvas.addEventListener('touchstart', (e) => {
+      unlockAudio(); // Call BEFORE preventDefault
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+      e.preventDefault();
+      handleTap(e);
+    }, { passive: false });
+    
+    // Mobile: touchend event (fallback for better reliability)
+    // CRITICAL: Unlock audio on touchend too (for iframe in play mode)
+    canvas.addEventListener('touchend', (e) => {
+      unlockAudio(); // Call BEFORE preventDefault
+      if (audioContext.state === 'suspended') {
+        audioContext.resume().catch(() => {});
+      }
+      e.preventDefault();
+      handleTap(e);
+    }, { passive: false });
+    
+    // ✅ CRITICAL: Unlock audio on page load if in iframe (play mode)
+    // This ensures audio works when game loads in iframe
+    if (window.parent && window.parent !== window) {
+      // Game is loaded in iframe (play mode)
+      // Unlock audio on first user interaction with parent window
+      const unlockAudioOnParentInteraction = () => {
+        unlockAudio();
+        if (audioContext.state === 'suspended') {
+          audioContext.resume().catch(() => {});
+        }
+      };
+      // Listen for clicks/touches on parent window
+      window.parent.addEventListener('click', unlockAudioOnParentInteraction, { once: true });
+      window.parent.addEventListener('touchstart', unlockAudioOnParentInteraction, { once: true });
+    }
+
+    function startGame() {
+      state.gameState = 'playing';
+      state.score = 0;
+      state.athScore = 0; // Reset ATH về 0% khi bắt đầu play again
+      state.currentGravity = CONFIG.GRAVITY_BASE;
+      state.gravityMultiplier = 1;
+      state.lastGravityIncrease = Date.now();
+      state.lastTapTime = 0; // ✅ Reset combo tracking
+      state.tapComboCount = 0;
+      bubble.reset();
+      smokePuffs.length = 0;
+      isBlowing = false;
+      blowEndTime = 0;
+      updateScoreDisplay();
+      document.getElementById('startOverlay').classList.add('hidden');
+      document.getElementById('gameOverOverlay').classList.add('hidden');
+
+      // ✅ Send GAME_START to track play count and start timer (like Wall Bounce Bird)
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'GAME_START',
+          gameId: EMBEDDED_GAME_ID
+        }, '*');
+      }
+    }
+
+    function endGame() {
+      if (state.gameState !== 'playing') return;
+      state.gameState = 'game-over';
+      document.getElementById('finalScoreText').textContent = `Score: +${state.score.toFixed(1)}%`;
+      
+      // Hiển thị logo nếu có
+      const gameOverLogoEl = document.getElementById('gameOverLogo');
+      if (gameConfig.logoUrl && gameConfig.logoUrl !== 'assets/image (10).webp') {
+        // Chỉ hiển thị logo nếu không phải logo mặc định
+        gameOverLogoEl.src = gameConfig.logoUrl;
+        gameOverLogoEl.style.display = 'block';
+        // Đảm bảo logo load được
+        gameOverLogoEl.onerror = () => {
+          gameOverLogoEl.style.display = 'none';
+          console.warn('[Game Over] Failed to load logo');
+        };
+        gameOverLogoEl.onload = () => {
+          console.log('[Game Over] Logo displayed:', gameConfig.logoUrl);
+        };
+      } else {
+        gameOverLogoEl.style.display = 'none';
+        console.log('[Game Over] No custom logo to display');
+      }
+      
+      // Hiển thị story nếu có
+      const storyTextEl = document.getElementById('storyText');
+      if (gameConfig.story && gameConfig.story.trim()) {
+        storyTextEl.textContent = gameConfig.story;
+        storyTextEl.style.display = 'block';
+        storyTextEl.style.color = '#e6ecff';
+        console.log('Story displayed:', gameConfig.story);
+      } else {
+        storyTextEl.style.display = 'none';
+        console.log('No story to display');
+      }
+      
+      document.getElementById('gameOverOverlay').classList.remove('hidden');
+
+      // ✅ Send GAME_OVER to stop timer and grant rewards (like Wall Bounce Bird)
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'GAME_OVER',
+          gameId: EMBEDDED_GAME_ID
+        }, '*');
+      }
+      
+      // ✅ Send score to leaderboard with correct gameId and level
+      if (window.parent && window.parent !== window) {
+        window.parent.postMessage({
+          type: 'GAME_SCORE',
+          gameId: EMBEDDED_GAME_ID,
+          score: Math.round(state.score * 10) / 10, // Round to 1 decimal
+          level: 1
+        }, '*');
+      }
+    }
+
+    // Play Again button
+    document.getElementById('playAgainBtn').addEventListener('click', (e) => {
+      e.stopPropagation();
+      startGame();
+    });
+
+    // Tap on overlay to start game
+    document.getElementById('startOverlay').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (state.gameState === 'start') {
+        startGame();
+      }
+    });
+
+    // Start game loop
+    gameLoop(performance.now());
+  </script>
+</body>
+</html>
+

@@ -1828,7 +1828,7 @@
     }
   
     function activateGame(gameId, isPreload = false) {
-      console.log(`🎮 [ACTIVATE] activateGame called: ${gameId} (isPreload: ${isPreload})`)
+      // ✅ PERFORMANCE: Removed debug log (only log errors)
       debugLog(`🚀 [activateGame] CALLED with gameId: ${gameId}, isPreload: ${isPreload}`)
       if (!gameId) {
         console.warn(`⚠️ [activateGame] gameId is null/undefined, returning early`)
@@ -2209,7 +2209,7 @@
       try { window.memeplay = Object.assign({}, shim, window.memeplay || {}); } catch {}
       try { self.memeplay = window.memeplay; } catch {}
       try { globalThis.memeplay = window.memeplay; } catch {}
-      console.log('🧩 memeplay console shim ready');
+      // ✅ PERFORMANCE: Removed debug log
     })();
   </script>
 
@@ -2443,10 +2443,8 @@
   // MARKET CAP - 4meme Integration
   // ==========================================
   setTimeout(() => {
-    console.log('🚀 MC script start')
-    
+    // ✅ PERFORMANCE: Removed debug logs
     if (!window.ethers) return console.error('❌ No ethers.js')
-    console.log('✅ Ethers OK')
     
     // Contract addresses for each game
     // Game 1 (bird-squash) - contract address
@@ -2480,7 +2478,7 @@
     
     async function update(id) {
       const btn = document.querySelector(`#${id} [data-role="marketcap"] button span`)
-      if (!btn) return console.log(`[MC] No span: ${id}`)
+      if (!btn) return // ✅ PERFORMANCE: Removed debug log
       
       // Get contract address for this game - NO FALLBACK, must be in GAME_CONTRACTS
       const TOKEN = GAME_CONTRACTS[id]
@@ -2491,10 +2489,10 @@
         return // Don't fetch MC if no contract configured
       }
       
-      console.log(`📝 [MC] Using contract for ${id}: ${TOKEN}`)
+      // ✅ PERFORMANCE: Removed debug log
       
       const wrap = document.querySelector(`#${id} [data-role="marketcap"] button`)
-      if (!wrap) return console.log(`[MC] No button: ${id}`)
+      if (!wrap) return // ✅ PERFORMANCE: Removed debug log
       
       btn.textContent = '...' // Only show loading number, MC comes from CSS ::before
       
@@ -2518,7 +2516,7 @@
           
           if (dexData.pairs && dexData.pairs.length > 0) {
             mc = dexData.pairs[0].fdv || dexData.pairs[0].marketCap || 0
-            console.log(`✅ [MC] ${id}: $${fmt(mc)} (DexScreener)`)
+            // ✅ PERFORMANCE: Removed debug log (MC value shown in UI)
           } else {
             throw new Error('No DEX data')
           }
@@ -2532,7 +2530,7 @@
           const priceUSD = priceBNB * bnb
           mc = priceUSD * 1e9
           
-          console.log(`✅ [MC] ${id}: $${fmt(mc)} (4meme contract)`)
+          // ✅ PERFORMANCE: Removed debug log (MC value shown in UI)
         }
         
         // Update UI - Show MC value after "MC" text (from ::before)

@@ -32,9 +32,11 @@
   const PACMAN_TEMPLATE_ID = 'pacman-template'
   const BLOCKS_TEMPLATE_ID = 'blocks-8x8'
   const WALL_BOUNCE_BIRD_TEMPLATE_ID = 'wall-bounce-bird'
+  const BLOW_BUBBLE_TEMPLATE_ID = 'blow-bubble'
   const PACMAN_STORAGE_PREFIX = 'pacman_brand_config_'
   const BLOCKS_STORAGE_PREFIX = 'blocks_brand_config_'
   const WALL_BOUNCE_BIRD_STORAGE_PREFIX = 'wall_bounce_bird_config_'
+  const BLOW_BUBBLE_STORAGE_PREFIX = 'blow_bubble_config_'
 
   // Global state for current filter
   let currentFilter = 'Recommended' // 'Recommended', 'Liked', 'Trending', 'Popular'
@@ -461,7 +463,7 @@
     const startTime = performance.now()
     const localGames = loadLocalUserGames(baseUrl)
     const localLoadTime = performance.now() - startTime
-    console.log(`⚡ [OPTIMISTIC] Loaded ${localGames.length} games from localStorage in ${localLoadTime.toFixed(2)}ms`)
+    // ✅ PERFORMANCE: Removed debug log (summary in COMPLETE log)
 
     // Filter out old format and priority game (already rendered)
     const filteredLocalGames = localGames.filter(game => {
@@ -482,7 +484,7 @@
 
     // Render all local games immediately (optimistic)
     if (filteredLocalGames.length > 0) {
-      console.log(`⚡ [OPTIMISTIC] Rendering ${filteredLocalGames.length} games from localStorage immediately`)
+      // ✅ PERFORMANCE: Removed debug log
       filteredLocalGames.forEach(game => {
         // Skip if already rendered (priority game)
         if (document.getElementById(game.gameId)) {
@@ -501,7 +503,7 @@
         const firstGame = filteredLocalGames[0]
         setTimeout(() => {
           if (typeof activateGame === 'function') {
-              console.log(`⚡ [OPTIMISTIC] Activating first game: ${firstGame.gameId} (category: ${currentFilter})`)
+              // ✅ PERFORMANCE: Removed debug log
             activateGame(firstGame.gameId)
           }
         }, 100)
@@ -512,18 +514,10 @@
     }
 
     // ✅ Load Supabase games in background (non-blocking)
-    console.log(`🔄 [BACKGROUND] Loading games from Supabase in background...`)
+    // ✅ PERFORMANCE: Removed debug log (summary in COMPLETE log)
     const supabasePromise = fetchSupabaseUserGames(baseUrl).then(supabaseGames => {
-      console.log(`✅ [BACKGROUND] Supabase loaded ${supabaseGames.length} games`)
-      // ✅ DEBUG: Log game IDs to see what was loaded
-      if (supabaseGames.length > 0) {
-        const gameIds = supabaseGames.map(g => g.gameId).filter(Boolean)
-        console.log(`📋 [BACKGROUND] Supabase game IDs:`, gameIds)
-        const pacmanGames = gameIds.filter(id => id.startsWith('pacman-') && !id.startsWith('pacman-game-'))
-        if (pacmanGames.length > 0) {
-          console.log(`🎮 [BACKGROUND] Found ${pacmanGames.length} Pacman games:`, pacmanGames)
-        }
-      }
+      // ✅ PERFORMANCE: Removed debug log (summary in COMPLETE log)
+      // ✅ PERFORMANCE: Removed debug logs (only keep summary)
       return supabaseGames
     }).catch(error => {
       console.error('❌ [BACKGROUND] Supabase load failed:', error)
@@ -536,7 +530,7 @@
     const allGames = supabaseGames.length > 0 ? supabaseGames : localGames
 
     // ✅ DEBUG: Log before merge
-    console.log(`📊 [MERGE] Before merge - Supabase: ${supabaseGames.length}, Local: ${localGames.length}`)
+    // ✅ PERFORMANCE: Removed debug log (summary in COMPLETE log)
 
     // Merge: Supabase games override local games (have more accurate data like likes, comments)
     const gameMap = new Map()
@@ -552,7 +546,7 @@
           }
         }
         gameMap.set(game.gameId, game)
-        console.log(`📦 [MERGE] Added local game: ${game.gameId}`)
+        // ✅ PERFORMANCE: Removed debug log (201+ logs per page load)
       } else if (game.gameId && game.gameId.startsWith('pacman-game-')) {
         console.log(`🗑️ [MERGE] Filtered out old format local game: ${game.gameId}`)
       }
@@ -569,24 +563,21 @@
           }
         }
         gameMap.set(game.gameId, game)
-        console.log(`📦 [MERGE] Added/Updated Supabase game: ${game.gameId}`)
+        // ✅ PERFORMANCE: Removed debug log (201+ logs per page load)
       } else if (game.gameId && game.gameId.startsWith('pacman-game-')) {
         console.log(`🗑️ [MERGE] Filtered out old format Supabase game: ${game.gameId}`)
       }
     })
     const mergedGames = Array.from(gameMap.values())
 
-    console.log(`📊 [MERGE] Merged games: ${mergedGames.length} total (${supabaseGames.length} from Supabase, ${localGames.length} from local)`)
+    // ✅ PERFORMANCE: Removed debug log (summary in COMPLETE log)
+    // ✅ PERFORMANCE: Removed debug logs (only keep summary)
     const pacmanMerged = mergedGames.filter(g => g.gameId && g.gameId.startsWith('pacman-') && !g.gameId.startsWith('pacman-game-'))
-    if (pacmanMerged.length > 0) {
-      console.log(`🎮 [MERGE] Pacman games after merge: ${pacmanMerged.length}`, pacmanMerged.map(g => g.gameId))
-    } else {
+    if (pacmanMerged.length === 0) {
       console.warn(`⚠️ [MERGE] No Pacman games found after merge! Check Supabase and localStorage.`)
     }
     const blocksMerged = mergedGames.filter(g => g.gameId && g.gameId.startsWith('blocks-'))
-    if (blocksMerged.length > 0) {
-      console.log(`🧱 [MERGE] Blocks games after merge: ${blocksMerged.length}`, blocksMerged.map(g => g.gameId))
-    } else {
+    if (blocksMerged.length === 0) {
       console.warn('⚠️ [MERGE] No Blocks games found after merge! Check localStorage/Supabase.')
     }
 
@@ -618,7 +609,7 @@
               return
             }
           }
-          console.log(`🆕 [MERGE] Rendering new game from Supabase: ${game.gameId}`)
+          // ✅ PERFORMANCE: Removed debug log (201+ logs per page load)
           renderUserGameCard(game, container)
         }
       }
@@ -726,7 +717,7 @@
   }
 
   function loadLocalUserGames(baseUrl) {
-    console.log('🔍 Loading user-created games from localStorage (fallback)...')
+    // ✅ PERFORMANCE: Removed debug log
     const results = []
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
@@ -821,6 +812,37 @@
         }
         continue
       }
+
+      if (key.startsWith(BLOW_BUBBLE_STORAGE_PREFIX) && key.length > BLOW_BUBBLE_STORAGE_PREFIX.length) {
+        if (key === 'blow_bubble_config') continue
+        try {
+          const gameId = key.replace(BLOW_BUBBLE_STORAGE_PREFIX, '')
+          const config = JSON.parse(localStorage.getItem(key) || '{}')
+          if (!config) continue
+          const storyText = typeof config.story === 'string' ? config.story : ''
+          
+          results.push({
+            source: 'localStorage',
+            templateId: BLOW_BUBBLE_TEMPLATE_ID,
+            gameId,
+            title: storyText ? `Blow Bubble – ${storyText.slice(0, 24)}` : 'Blow Bubble Game',
+            creator: 'Blow Bubble',
+            mapColor: config.backgroundColor || config.mapColor || '#87CEEB',
+            backgroundColor: config.backgroundColor || config.mapColor || '#87CEEB',
+            fragmentLogoUrl: config.fragmentLogoUrl || '',
+            mapIndex: 0,
+            stories: storyText ? [storyText] : [],
+            likes: 0,
+            comments: 0,
+            plays: 0,
+            templateUrl: `${baseUrl}/games/blow-bubble/index.html?game=${gameId}`,
+            publicUrl: `${baseUrl}/?game=${gameId}`
+          })
+        } catch (error) {
+          console.warn('Failed to parse local Blow Bubble game config:', key, error)
+        }
+        continue
+      }
     }
     return results
   }
@@ -838,7 +860,7 @@
         stories: Array.isArray(game.stories) ? game.stories : []
       }
       localStorage.setItem(`pacman_brand_config_${id}`, JSON.stringify(payload))
-      console.log(`[cachePacmanBrandConfig] Cached config for ${id}`)
+      // ✅ PERFORMANCE: Removed debug log (hundreds of logs per page load)
     } catch (error) {
       console.warn('[cachePacmanBrandConfig] Failed to cache Pacman config:', error)
     }
@@ -855,7 +877,7 @@
         mapColor: game.mapColor || '#0a0a0a'
       }
       localStorage.setItem(`${BLOCKS_STORAGE_PREFIX}${game.gameId}`, JSON.stringify(payload))
-      console.log(`[cacheBlocksBrandConfig] Cached Blocks config for ${game.gameId}`)
+      // ✅ PERFORMANCE: Removed debug log (hundreds of logs per page load)
     } catch (error) {
       console.warn('[cacheBlocksBrandConfig] Failed to cache Blocks config:', error)
     }
@@ -872,9 +894,26 @@
         backgroundColor: game.backgroundColor || game.mapColor || '#87ceeb'
       }
       localStorage.setItem(`wall_bounce_bird_config_${game.gameId}`, JSON.stringify(payload))
-      console.log(`[cacheWallBounceBirdBrandConfig] Cached Wall Bounce Bird config for ${game.gameId}`)
+      // ✅ PERFORMANCE: Removed debug log (hundreds of logs per page load)
     } catch (error) {
       console.warn('[cacheWallBounceBirdBrandConfig] Failed to cache Wall Bounce Bird config:', error)
+    }
+  }
+
+  function cacheBlowBubbleBrandConfig(game) {
+    if (!game?.gameId || !game.gameId.startsWith('blow-bubble-')) return
+    try {
+      const payload = {
+        fragmentLogoUrl: game.fragmentLogoUrl || '',
+        story: Array.isArray(game.stories) && game.stories.length > 0
+          ? game.stories[0]
+          : (typeof game.story === 'string' ? game.story : ''),
+        backgroundColor: game.backgroundColor || game.mapColor || '#87CEEB'
+      }
+      localStorage.setItem(`${BLOW_BUBBLE_STORAGE_PREFIX}${game.gameId}`, JSON.stringify(payload))
+      // ✅ PERFORMANCE: Removed debug log (hundreds of logs per page load)
+    } catch (error) {
+      console.warn('[cacheBlowBubbleBrandConfig] Failed to cache Blow Bubble config:', error)
     }
   }
 
@@ -900,6 +939,7 @@
 
         const isBlocksTemplate = templateId === BLOCKS_TEMPLATE_ID
         const isWallBounceBirdTemplate = templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID
+        const isBlowBubbleTemplate = templateId === BLOW_BUBBLE_TEMPLATE_ID
 
         return data
         .map(item => {
@@ -910,7 +950,7 @@
           }
 
             let stories = []
-            if (isBlocksTemplate || isWallBounceBirdTemplate) {
+            if (isBlocksTemplate || isWallBounceBirdTemplate || isBlowBubbleTemplate) {
               const story = typeof item.story_one === 'string' ? item.story_one.trim() : ''
               if (story) stories.push(story)
             } else {
@@ -939,6 +979,8 @@
               ? `${baseUrl}/games/crypto-blocks/index.html?game=${gameId}`
               : isWallBounceBirdTemplate
               ? `${baseUrl}/games/wall-bounce-bird/index.html?game=${gameId}`
+              : isBlowBubbleTemplate
+              ? `${baseUrl}/games/blow-bubble/index.html?game=${gameId}`
               : `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`
             const templateUrl = item.template_url || defaultTemplateUrl
           const publicUrl = item.public_url || `${baseUrl}/?game=${gameId}`
@@ -953,9 +995,9 @@
             source: 'supabase',
               templateId,
             gameId,
-              title: item.title || (isBlocksTemplate ? 'Blocks 8x8 Game' : isWallBounceBirdTemplate ? 'Wall Bounce Bird Game' : 'Pacman Game'),
-              creator: item.creator_name || item.creator_id || item.title || (isBlocksTemplate ? 'Blocks 8x8' : isWallBounceBirdTemplate ? 'Wall Bounce Bird' : 'Creator'),
-              mapColor: item.map_color || (isBlocksTemplate ? '#0a0a0a' : isWallBounceBirdTemplate ? '#87ceeb' : '#1a1a2e'),
+              title: item.title || (isBlocksTemplate ? 'Blocks 8x8 Game' : isWallBounceBirdTemplate ? 'Wall Bounce Bird Game' : isBlowBubbleTemplate ? 'Blow Bubble Game' : 'Pacman Game'),
+              creator: item.creator_name || item.creator_id || item.title || (isBlocksTemplate ? 'Blocks 8x8' : isWallBounceBirdTemplate ? 'Wall Bounce Bird' : isBlowBubbleTemplate ? 'Blow Bubble' : 'Creator'),
+              mapColor: item.map_color || (isBlocksTemplate ? '#0a0a0a' : isWallBounceBirdTemplate ? '#87ceeb' : isBlowBubbleTemplate ? '#87CEEB' : '#1a1a2e'),
             fragmentLogoUrl: item.fragment_logo_url || '',
               mapIndex: (isBlocksTemplate || isWallBounceBirdTemplate) ? 0 : (Number.isInteger(item.map_index) ? item.map_index : 0),
               stories,
@@ -966,9 +1008,12 @@
               publicUrl
             }
 
-            // ✅ Add backgroundColor for Wall Bounce Bird (must match play.js)
+            // ✅ Add backgroundColor for Wall Bounce Bird and Blow Bubble (must match play.js)
             if (isWallBounceBirdTemplate) {
               game.backgroundColor = item.map_color || '#87ceeb'
+            }
+            if (isBlowBubbleTemplate) {
+              game.backgroundColor = item.map_color || item.background_color || '#87CEEB'
             }
 
             if (isBlocksTemplate) {
@@ -976,6 +1021,9 @@
             } else if (isWallBounceBirdTemplate) {
               // ✅ Cache Wall Bounce Bird config (similar to Blocks)
               cacheWallBounceBirdBrandConfig(game)
+            } else if (isBlowBubbleTemplate) {
+              // ✅ Cache Blow Bubble config (similar to Wall Bounce Bird)
+              cacheBlowBubbleBrandConfig(game)
             } else {
               cachePacmanBrandConfig(game)
           }
@@ -988,13 +1036,14 @@
     }
   }
 
-    const [pacmanGames, blocksGames, wallBounceBirdGames] = await Promise.all([
+    const [pacmanGames, blocksGames, wallBounceBirdGames, blowBubbleGames] = await Promise.all([
       fetchByTemplate(PACMAN_TEMPLATE_ID),
       fetchByTemplate(BLOCKS_TEMPLATE_ID),
-      fetchByTemplate(WALL_BOUNCE_BIRD_TEMPLATE_ID)
+      fetchByTemplate(WALL_BOUNCE_BIRD_TEMPLATE_ID),
+      fetchByTemplate(BLOW_BUBBLE_TEMPLATE_ID)
     ])
 
-    return [...pacmanGames, ...blocksGames, ...wallBounceBirdGames]
+    return [...pacmanGames, ...blocksGames, ...wallBounceBirdGames, ...blowBubbleGames]
   }
 
   function renderUserGameCard(game, container) {
@@ -1019,7 +1068,8 @@
     gameCard.setAttribute('data-source', game.source || 'unknown')
     const isBlocksGame = (game.templateId === BLOCKS_TEMPLATE_ID) || (game.gameId && game.gameId.startsWith('blocks-'))
     const isWallBounceBirdGame = (game.templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID) || (game.gameId && game.gameId.startsWith('wall-bounce-bird-'))
-    gameCard.setAttribute('data-template-id', isBlocksGame ? BLOCKS_TEMPLATE_ID : isWallBounceBirdGame ? WALL_BOUNCE_BIRD_TEMPLATE_ID : (game.templateId || PACMAN_TEMPLATE_ID))
+    const isBlowBubbleGame = (game.templateId === BLOW_BUBBLE_TEMPLATE_ID) || (game.gameId && game.gameId.startsWith('blow-bubble-'))
+    gameCard.setAttribute('data-template-id', isBlocksGame ? BLOCKS_TEMPLATE_ID : isWallBounceBirdGame ? WALL_BOUNCE_BIRD_TEMPLATE_ID : isBlowBubbleGame ? BLOW_BUBBLE_TEMPLATE_ID : (game.templateId || PACMAN_TEMPLATE_ID))
 
     const baseUrl = window.location.origin.replace(/\/$/, '')
     const sanitizeUrl = (url, fallbackPath) => {
@@ -1044,6 +1094,8 @@
       ? `/games/crypto-blocks/index.html?game=${game.gameId}`
       : isWallBounceBirdGame
       ? `/games/wall-bounce-bird/index.html?game=${game.gameId}`
+      : isBlowBubbleGame
+      ? `/games/blow-bubble/index.html?game=${game.gameId}`
       : `/games/templates/pacman-template/index.html?game=${game.gameId}`
     let templateUrl = sanitizeUrl(game.templateUrl, defaultPath)
     if (!templateUrl) {
@@ -1067,7 +1119,7 @@
           scrolling="no"
           allow="autoplay; fullscreen; gamepad"
           style="overflow: hidden; border: none;"
-          title="${game.title || (isBlocksGame ? 'Blocks 8x8 Game' : 'Pacman Game')}">
+          title="${game.title || (isBlocksGame ? 'Blocks 8x8 Game' : isWallBounceBirdGame ? 'Wall Bounce Bird Game' : isBlowBubbleGame ? 'Blow Bubble Game' : 'Pacman Game')}">
         </iframe>
         <button class="focus-toggle" type="button" aria-label="Toggle focus mode" aria-pressed="false">⤢</button>
       </div>
@@ -1173,6 +1225,29 @@
       })
     }
 
+    // ✅ Send Blow Bubble config to iframe (similar to Wall Bounce Bird)
+    if (isBlowBubbleGame && iframeEl) {
+      const blowBubblePayload = {
+        type: 'BLOW_BUBBLE_CONFIG',
+        payload: {
+          story: (Array.isArray(game.stories) && game.stories.length > 0) ? game.stories[0] : '',
+          backgroundColor: game.backgroundColor || game.mapColor || '#87CEEB',
+          logoUrl: game.fragmentLogoUrl || '' // ✅ Game file expects logoUrl, not fragmentLogoUrl
+        }
+      }
+      const sendBlowBubbleConfig = () => {
+        try {
+          iframeEl.contentWindow?.postMessage(blowBubblePayload, '*')
+        } catch (err) {
+          console.warn('[Blow Bubble card] Failed to send config:', err)
+        }
+      }
+      iframeEl.addEventListener('load', () => {
+        sendBlowBubbleConfig()
+        setTimeout(sendBlowBubbleConfig, 300)
+      })
+    }
+
     if (typeof setPlaysLabelForCard === 'function' && Number.isFinite(game.plays)) {
       setPlaysLabelForCard(game.gameId, game.plays)
     }
@@ -1189,7 +1264,7 @@
       const doc = parser.parseFromString(markup, 'text/html')
       const wrapper = doc.querySelector('[data-game-list]')
       container.innerHTML = wrapper ? wrapper.innerHTML : markup
-      console.log('✅ Game cards loaded:', document.querySelectorAll('.game-card').length)
+      // ✅ PERFORMANCE: Removed debug log
       
       // ✅ ARCHITECTURE: Removed virtual scroll - all games always visible
       
@@ -1224,7 +1299,7 @@
         console.error('❌ [INITIAL] game-container not found in DOM!')
         console.log('Available containers:', document.querySelectorAll('[class*="container"]'))
       } else {
-        console.log('✅ [INITIAL] game-container found')
+        // ✅ PERFORMANCE: Removed debug log
       }
 
       const focusGameCard = (targetGameId, {
@@ -1248,7 +1323,7 @@
           console.warn(`⚠️ [FOCUS] Target game not found: ${targetGameId}`)
           return false
         }
-        console.log(`🎯 [FOCUS] ${reason || 'direct'} → ${targetGameId}`)
+        // ✅ PERFORMANCE: Removed debug log
         
         // ✅ FIX: Re-query gameContainer to ensure it exists after DOM reorder
         const currentGameContainer = document.querySelector('.game-container')
@@ -1262,7 +1337,7 @@
           requestAnimationFrame(() => {
             try {
               targetCard.scrollIntoView({ behavior, block })
-              console.log(`✅ [FOCUS] scrollIntoView called for ${targetGameId}`)
+              // ✅ PERFORMANCE: Removed debug log
             } catch (err) {
               console.warn('[FOCUS] scrollIntoView failed:', err)
             }
@@ -1281,12 +1356,11 @@
             window.__memeplayPinnedGameId = targetGameId
           }
           setTimeout(() => {
-            console.log(`🎮 [FOCUS] Activating game: ${targetGameId}`)
+            // ✅ PERFORMANCE: Removed debug logs
             activateGame(targetGameId)
             if (typeof afterActivate === 'function') {
               afterActivate()
             }
-            console.log(`✅ [FOCUS] Game activated: ${targetGameId}`)
           }, activateDelay)
           if (lockMs > 0) {
             setTimeout(() => {
@@ -1400,7 +1474,7 @@
         })
         if (targetCard) {
           firstGameToLoad = gameIdFromQuery
-          console.log(`⚡ [FAST LOAD] Loading priority game from ?game=: ${firstGameToLoad}`)
+          // ✅ PERFORMANCE: Removed debug log
         }
       } else if (hash && !isRecommended) {
         // Hash navigation (not Recommended)
@@ -1410,14 +1484,14 @@
         })
         if (targetCard) {
           firstGameToLoad = hash
-          console.log(`⚡ [FAST LOAD] Loading game from hash: ${firstGameToLoad}`)
+          // ✅ PERFORMANCE: Removed debug log
         }
       } else {
         // Default: First card in DOM
         const firstCard = allCards[0]
         if (firstCard) {
           firstGameToLoad = firstCard.id || firstCard.getAttribute('data-game-id')
-          console.log(`⚡ [FAST LOAD] Loading first game in DOM: ${firstGameToLoad}`)
+          // ✅ PERFORMANCE: Removed debug log
         }
       }
       
@@ -1431,7 +1505,7 @@
           // Scroll to game and activate immediately (fast load)
           setTimeout(() => {
             if (typeof focusGameCard === 'function') {
-              console.log(`⚡ [FAST LOAD] Focusing and activating game immediately: ${firstGameToLoad}`)
+              // ✅ PERFORMANCE: Removed debug log
               focusGameCard(firstGameToLoad, {
                 block: 'center',
                 behavior: 'auto',
@@ -1440,7 +1514,7 @@
                 activateDelay: 50
               })
             } else if (typeof activateGame === 'function') {
-              console.log(`⚡ [FAST LOAD] Activating game immediately: ${firstGameToLoad}`)
+              // ✅ PERFORMANCE: Removed debug log
               activateGame(firstGameToLoad)
             }
           }, 50)
@@ -1449,26 +1523,16 @@
       
       // STEP 6B: Sort games by likes in BACKGROUND (non-blocking)
       // After sort completes, reorder DOM but don't scroll if game is already active
-      console.log('📊 [INITIAL] Starting sort by likes in background (game already loading)...')
       sortGamesByLikes(allCards).then(sortedCards => {
         if (!Array.isArray(sortedCards) || sortedCards.length === 0) {
-          console.warn('📊 [INITIAL] Sort returned no cards, skipping reorder')
+          console.warn('⚠️ Sort returned no cards, skipping reorder')
           initGameObserver()
           return
         }
-        console.log('📊 [INITIAL] Sort completed, evaluating order...')
         
-        // ✅ DEBUG: Log top 3 games after sort
-        const top3 = sortedCards.slice(0, 3).map((card, idx) => {
-          const gameId = card.id || card.getAttribute('data-game-id')
-          return `${idx + 1}. ${gameId}`
-        })
-        console.log('📊 [INITIAL] Top 3 games after sort:', top3.join(', '))
-        
+        // ✅ PERFORMANCE: Summary log instead of 8+ detailed logs
         const firstAfterSort = sortedCards[0]?.id || sortedCards[0]?.getAttribute('data-game-id')
-        const firstBeforeSort = allCards[0]?.id || allCards[0]?.getAttribute('data-game-id')
-        
-        console.log(`📊 [INITIAL] First game before sort: ${firstBeforeSort}, after sort: ${firstAfterSort}`)
+        console.log(`📊 Sorted ${sortedCards.length} games by likes (top: ${firstAfterSort})`)
         
         // ✅ OPTIMIZATION: Check if game is already active before reordering
         const currentActiveGameId = window.__memeplayActiveGame || document.querySelector('.game-card.is-playing')?.id
@@ -1478,11 +1542,9 @@
         })
         
         if (shouldSkipInitialSort) {
-          console.log('📊 [INITIAL] Skipping DOM reorder due to direct ?game target')
           // Game already loaded in STEP 6A, just init observer
           setTimeout(() => {
             initGameObserver()
-            console.log('✅ [INITIAL] Game observer initialized after direct-link')
           }, 500)
           return
         }
@@ -1495,11 +1557,9 @@
         // ✅ OPTIMIZATION: If game is already active, don't scroll again
         // Just ensure it's in the right position after reorder
         if (isGameAlreadyActive && currentActiveGameId) {
-          console.log(`📊 [INITIAL] Game ${currentActiveGameId} already active, skipping scroll after reorder`)
           // Game is already active, just init observer
           setTimeout(() => {
             initGameObserver()
-            console.log('✅ [INITIAL] Game observer initialized after background sort (game already active)')
           }, 500)
           return
         }
@@ -1533,28 +1593,15 @@
           return
         }
         
-        // ✅ DEBUG: Log target game selection
-        console.log(`🔍 [INITIAL] Target game selection:`, {
-          latestQueryId,
-          hash,
-          firstAfterSort,
-          targetGameId,
-          sortedCardsLength: sortedCards.length
-        })
-        
         // Check if target game exists in sorted cards
         const targetCard = sortedCards.find(card => {
           const cardId = card.id || card.getAttribute('data-game-id')
           return cardId === targetGameId
         })
         
-        // ✅ DEBUG: Log target card search
-        if (targetCard) {
-          const targetCardId = targetCard.id || targetCard.getAttribute('data-game-id')
-          console.log(`✅ [INITIAL] Target card found: ${targetCardId}`)
-        } else {
-          console.warn(`⚠️ [INITIAL] Target card NOT found for: ${targetGameId}`)
-          console.log(`Available sorted cards:`, sortedCards.slice(0, 3).map(c => c.id || c.getAttribute('data-game-id')))
+        // ✅ PERFORMANCE: Removed debug logs
+        if (!targetCard) {
+          console.warn(`⚠️ Target card NOT found for: ${targetGameId}`)
         }
         
         const focusAfterSort = (finalGameId, originLabel) => {
@@ -1920,7 +1967,7 @@
     return localStorage.getItem('mp_user_wallet') || ''
   }
   let userId = getWalletAddress() || getLocalUserId()
-  console.log('👤 Current user identifier:', userId)
+  // ✅ PERFORMANCE: Removed debug log
 
   // =========================================================
   // 🔹 UI HELPERS (PLAY points header only)
@@ -2041,7 +2088,7 @@
       closeBtn.addEventListener('click', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        console.log('✅ Close button clicked!');
+        // ✅ PERFORMANCE: Removed debug log
         
         // Cancel auto-hide timeout
         if (toast.dataset.autoHideTimeout) {
@@ -2055,7 +2102,7 @@
       closeBtn.addEventListener('touchend', (e) => {
         e.stopPropagation();
         e.preventDefault();
-        console.log('✅ Close button touched!');
+        // ✅ PERFORMANCE: Removed debug log
         
         if (toast.dataset.autoHideTimeout) {
           clearTimeout(parseInt(toast.dataset.autoHideTimeout))
@@ -2066,29 +2113,24 @@
   })
 
   function celebrateAchievement(gameId, achievementName, count, reward) {
-    console.log('🎯 [DEBUG] celebrateAchievement called!', { gameId, achievementName, count, reward })
+    // ✅ PERFORMANCE: Removed debug logs
     
     // 1. Fireworks explosion
-    console.log('🎆 [DEBUG] Creating confetti...')
     createConfetti()
     
     // 2. Toast center
-    console.log('🍞 [DEBUG] Showing achievement toast...')
     showAchievementToast(achievementName, count, 3, reward)
     
     // 3. Icon rung
     const card = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
     const achievementIcon = card?.querySelector('.icon-wrapper[data-role="leaderboard"]')
     if (achievementIcon) {
-      console.log('📍 [DEBUG] Shaking achievement icon...')
       achievementIcon.classList.add('shake')
       setTimeout(() => achievementIcon.classList.remove('shake'), 800)
-      
     }
 
     const leaderboardOverlayEl = document.getElementById('leaderboardOverlay')
     if (leaderboardOverlayEl?.classList.contains('open')) {
-      console.log('🏆 [DEBUG] Rendering rewards panel...')
       renderRewardsPanel(gameId)
     }
   }
@@ -2106,27 +2148,20 @@
       return
     }
     
-    console.log('🔔 [DEBUG] showPendingAchievements called for:', gameId)
-    console.log('🔔 [DEBUG] pendingAchievements object:', pendingAchievements)
-    
     const achievements = pendingAchievements[gameId]
-    console.log('🔔 [DEBUG] achievements for', gameId, ':', achievements)
     
     if (!achievements || achievements.length === 0) {
-      console.log('❌ [DEBUG] No achievements to show!')
       return
     }
     
-    console.log(`🎉 Showing ${achievements.length} pending achievement(s) for ${gameId}`)
+    // ✅ PERFORMANCE: Removed debug log
     
     // Sort by threshold (10 → 60 → 300)
     achievements.sort((a, b) => a.threshold - b.threshold)
     
     // Show each achievement with delay
     achievements.forEach((ach, index) => {
-      console.log(`🎊 [DEBUG] Scheduling achievement ${index + 1}:`, ach)
       setTimeout(() => {
-        console.log(`🎊 [DEBUG] NOW showing achievement:`, ach.name)
         celebrateAchievement(gameId, ach.name, ach.count, ach.reward)
       }, index * 2500) // Each achievement 2.5s apart
     })
@@ -2170,10 +2205,7 @@
         threshold
       })
       
-      console.log(`🎖️ Achievement queued: ${achievementNames[threshold]} (+${amount} PLAY)`)
-      console.log('   → Will show Toast after game over + Header flash NOW')
-      console.log('   🔑 Queued for activeGame:', activeGame)
-      console.log('   📦 Current queue:', pendingAchievements)
+      // ✅ PERFORMANCE: Removed debug logs
       // DON'T return - continue showing header flash!
     }
     
@@ -2198,12 +2230,18 @@
   updateStreak()
 
   // Load initial real play counts for all cards
-  document.querySelectorAll('.game-card').forEach(card => {
+  const allCards = document.querySelectorAll('.game-card')
+  const cardCount = allCards.length
+  allCards.forEach(card => {
     const gid = card.getAttribute('data-game-id') || card.id
     if (gid) {
       loadPlayCount(gid)
     }
   })
+  // ✅ PERFORMANCE: Summary log instead of 200+ individual logs
+  if (cardCount > 0) {
+    console.log(`📊 Loading play counts for ${cardCount} games...`)
+  }
 
   // ==============================
   // Wallet Connect (MetaMask)
@@ -2387,7 +2425,7 @@
   try { window.memeplay = helpers } catch {}
   try { self.memeplay = helpers } catch {}
   try { globalThis.memeplay = helpers } catch {}
-  console.log('🧩 memeplay helpers ready:', Object.keys(helpers))
+  // ✅ PERFORMANCE: Removed debug log
   function grantPlays(amount) {
     if (!amount || amount <= 0) return 0
     const newTotal = lsGetInt('mp_total_earned_plays') + amount
@@ -2418,12 +2456,12 @@
   }
   async function loadPlayCount(gameId) {
     try {
-      console.log('📥 [PLAYS] loadPlayCount →', gameId)
+      // ✅ PERFORMANCE: Removed debug log (200+ logs per page load)
       const { data, error } = await supabase.rpc('get_game_play_count', { p_game_id: gameId })
       if (error) { console.error('get_game_play_count error:', error.message); return }
       const val = (data && typeof data.total_plays === 'number') ? data.total_plays : 0
       setPlaysLabelForCard(gameId, val)
-      console.log(`[plays] ${gameId}:`, val)
+      // ✅ PERFORMANCE: Removed debug log (200+ logs per page load)
     } catch (e) { console.error('get_game_play_count error:', e?.message || e) }
   }
   async function incrementPlayCountIfEligible(gameId, seconds) {
@@ -2577,6 +2615,8 @@
 let activeGame = null;
 let activeStartTime = 0;
 let progressInterval = null;
+// ✅ FIX: Flag to prevent double increment of play count
+let playCountIncremented = false;
 
 // Start timer
 function startGame(gameId) {
@@ -2589,7 +2629,8 @@ function startGame(gameId) {
 
   activeGame = gameId;
   activeStartTime = Date.now();
-  console.log(`▶️ Game ${gameId} started`);
+  playCountIncremented = false; // ✅ FIX: Reset flag when starting new game
+  // ✅ PERFORMANCE: Removed debug log
   
   // Mark game card as playing to disable animations/transitions
   document.querySelectorAll('.game-card').forEach(card => card.classList.remove('is-playing'));
@@ -2636,7 +2677,8 @@ function startGame(gameId) {
       }
     }
 
-    console.log(`⏳ ${activeGame}: session ${sessionSeconds}s · total ${previewTotal}/${MAX_ACCUM_SECONDS}s`);
+    // ✅ PERFORMANCE: Removed frequent console.log (every 5s) to reduce lag when DevTools is open
+    // Logic tính điểm vẫn hoạt động bình thường (lines 2706-2723)
   }
 }
 
@@ -2675,7 +2717,7 @@ async function stopGame() {
           }
         }
       } catch {}
-    console.log(`⏱ Played ${seconds}s on ${activeGame}`);
+    // ✅ PERFORMANCE: Removed debug log
 
     // Calculate per-game accumulated time and threshold rewards
     const prevTotal = getGameSeconds(activeGame)
@@ -2692,7 +2734,7 @@ async function stopGame() {
         newlyAwarded.push(t)
       }
     }
-    console.log(`📈 Accumulated for ${activeGame}: ${nextCapped}s (was ${prevCapped}s)`) 
+    // ✅ PERFORMANCE: Removed debug log 
     if (newlyAwarded.length) {
       let totalGrant = 0
       for (const t of newlyAwarded) totalGrant += REWARD_VALUES[t]
@@ -2711,7 +2753,7 @@ async function stopGame() {
         p_seconds: seconds
       });
       if (error) throw error;
-      console.log(`🎮 [${activeGame}] reward result:`, data);
+      // ✅ PERFORMANCE: Removed debug log
       
       // ❌ REMOVED: Backend reward display (duplicate with frontend achievement system!)
       // Frontend already handles rewards via threshold checking (line ~2356)
@@ -2722,7 +2764,9 @@ async function stopGame() {
     }
 
     // Increment real play count if eligible with keepalive
-    if (seconds >= 3) {
+    // ✅ FIX: Prevent double increment with flag
+    if (seconds >= 3 && !playCountIncremented) {
+      playCountIncremented = true // ✅ Mark as incremented
       try {
         // 🔁 Legacy games: always send a fixed 3s to ensure exactly +1 play per full session
         // (backend may derive plays from seconds, e.g. floor(seconds / 3))
@@ -2732,14 +2776,17 @@ async function stopGame() {
           p_game_id: activeGame,
           p_seconds: secondsForRpc
         };
-        console.log('📈 [PLAYS] increment_play_count (stopGame) →', payload);
+        // ✅ PERFORMANCE: Removed debug log
         let { data, error } = await rpcWithKeepalive('increment_play_count', payload);
-        if (error) throw error;
+        if (error) {
+          playCountIncremented = false // ✅ Reset flag on error so it can retry
+          throw error;
+        }
         
         // Update UI after server confirms (accurate count)
         if (data && typeof data.total_plays === 'number') {
           setPlaysLabelForCard(activeGame, data.total_plays)
-          console.log(`📊 [plays +1] ${activeGame}: ${data.total_plays}`)
+          // ✅ PERFORMANCE: Removed debug log
           try { loadPlayCount(activeGame) } catch {}
         }
       } catch (err) {
@@ -2757,11 +2804,11 @@ async function stopGame() {
               p_game_id: activeGame,
               p_seconds: seconds
             };
-            console.log('📈 [PLAYS] increment_play_count RETRY →', retryPayload);
+            // ✅ PERFORMANCE: Removed debug log
             const { data, error } = await rpcWithKeepalive('increment_play_count', retryPayload);
             if (!error && data && typeof data.total_plays === 'number') {
               setPlaysLabelForCard(activeGame, data.total_plays)
-              console.log(`📊 [plays +1 retry] ${activeGame}: ${data.total_plays}`)
+              // ✅ PERFORMANCE: Removed debug log
               try { loadPlayCount(activeGame) } catch {}
             } else {
               try { await loadPlayCount(activeGame) } catch {}
@@ -2784,6 +2831,7 @@ async function stopGame() {
   activeStartTime = 0;
   clearInterval(progressInterval);
   progressInterval = null;
+  playCountIncremented = false; // ✅ FIX: Reset flag for next game
 }
 
 // When iframe finishes loading game → start tracking with delay
@@ -2802,7 +2850,7 @@ iframes.forEach((iframe) => {
   iframe.addEventListener("load", () => {
     // DON'T auto-start timer when iframe loads!
     // Timer only starts when user ACTUALLY plays (via GAME_SCORE message)
-    console.log(`✅ Iframe loaded: ${gameId} (timer will start when user plays)`);
+    // ✅ PERFORMANCE: Removed debug log (200+ logs per page load)
   });
   
   // 🔧 FALLBACK: Detect click on .game-stage (iframe wrapper)
@@ -2899,7 +2947,7 @@ window.addEventListener("beforeunload", stopGame);
             const currentCount = parseInt(cmtCountEl.textContent) || 0
             if (currentCount === 0) {
               cmtCountEl.textContent = String(paging.offset)
-              console.log('[COMMENT DEBUG] fetchMore - Fixed count from 0 to', paging.offset)
+              // ✅ PERFORMANCE: Removed debug log
             }
           }
         }
@@ -2977,7 +3025,7 @@ window.addEventListener("beforeunload", stopGame);
       // Update comment count based on loaded comments
       try {
         const { data, error } = await supabase.rpc('get_social_counts', { p_game_id: forGame })
-        console.log('[COMMENT DEBUG] openPanel - Refreshing counts for', forGame, ':', data)
+        // ✅ PERFORMANCE: Removed debug log
         if (!error && data) {
           const card = document.querySelector(`.game-card[data-game-id="${forGame}"]`)
           if (card) {
@@ -2986,7 +3034,7 @@ window.addEventListener("beforeunload", stopGame);
             if (cmtCountEl) {
               const realCount = data.comments ?? 0
               cmtCountEl.textContent = String(Math.max(0, realCount))
-              console.log('[COMMENT DEBUG] openPanel - Updated count to', realCount)
+              // ✅ PERFORMANCE: Removed debug log
             }
           }
         }
@@ -3038,7 +3086,7 @@ window.addEventListener("beforeunload", stopGame);
         ta.value = ''
         
         // ✅ Refresh comment count after successful post!
-        console.log('[COMMENT DEBUG] Comment posted! Refreshing count for', paging.gameId)
+        // ✅ PERFORMANCE: Removed debug log
         const card = document.querySelector(`.game-card[data-game-id="${paging.gameId}"]`)
         if (card) {
           const cmtWrapper = card.querySelector('.icon-wrapper[data-role="comment"]')
@@ -3046,7 +3094,7 @@ window.addEventListener("beforeunload", stopGame);
           if (cmtCountEl) {
             const currentCount = parseInt(cmtCountEl.textContent) || 0
             cmtCountEl.textContent = String(currentCount + 1)
-            console.log('[COMMENT DEBUG] Updated count from', currentCount, 'to', currentCount + 1)
+            // ✅ PERFORMANCE: Removed debug log
           }
         }
       } catch(e){
@@ -3095,10 +3143,8 @@ window.addEventListener("beforeunload", stopGame);
         const wrapper = likeBtn.closest('.icon-wrapper')
         if (wrapper) {
           wrapper.classList.toggle('liked', !!isLiked)
-          console.log(`❤️ [LIKE DEBUG] ${gameId} - renderHeart(${isLiked}) → wrapper.classList.liked = ${wrapper.classList.contains('liked')}`)
         }
         likeBtn.setAttribute('aria-pressed', isLiked ? 'true' : 'false')
-        console.log(`❤️ [LIKE DEBUG] ${gameId} - renderHeart(${isLiked}) → aria-pressed = ${likeBtn.getAttribute('aria-pressed')}`)
       }
       
       // Load initial like status from localStorage and Supabase
@@ -3106,14 +3152,11 @@ window.addEventListener("beforeunload", stopGame);
         try {
           // First, check localStorage
           const localLiked = localStorage.getItem('mp_like_' + gameId) === '1'
-          console.log(`❤️ [LIKE DEBUG] ${gameId} - Initial load: localStorage = ${localLiked}`)
           
           // Then, sync with Supabase to get accurate counts
           const { data, error } = await supabase.rpc('get_social_counts', { p_game_id: gameId })
-          console.log(`❤️ [LIKE DEBUG] ${gameId} - get_social_counts RPC response:`, { data, error })
           
           if (!error && data) {
-            console.log(`❤️ [LIKE DEBUG] ${gameId} - Setting counts:`, { likes: data.likes ?? 0, comments: data.comments ?? 0 })
             setCounts(data.likes ?? 0, data.comments ?? 0)
           }
           
@@ -3130,66 +3173,47 @@ window.addEventListener("beforeunload", stopGame);
       })()
       
       likeBtn.addEventListener('click', async () => {
-        const beforeState = localStorage.getItem('mp_like_' + gameId) === '1'
-        console.log(`❤️ [LIKE DEBUG] ${gameId} - LIKE BUTTON CLICKED!`)
-        console.log(`   → Before: localStorage = ${beforeState}, userId = ${userId}`)
-        
         likeBtn.disabled = true
         
         try {
-          console.log(`   → Calling toggle_like RPC...`)
           const { data, error } = await supabase.rpc('toggle_like', {
             p_user_id: userId,
             p_game_id: gameId
           })
           
-          console.log(`   → RPC Response:`, { data, error })
-          
           if (error) {
-            console.error(`   ❌ RPC Error:`, error)
+            console.error(`❌ toggle_like error:`, error)
             throw error
           }
           
           const isLiked = !!(data && (data.is_liked ?? data.liked))
           const totalLikes = (data && (data.total_likes ?? data.likes)) ?? 0
           
-          console.log(`   → Parsed: isLiked = ${isLiked}, totalLikes = ${totalLikes}`)
-          
           // Update localStorage
           localStorage.setItem('mp_like_' + gameId, isLiked ? '1' : '0')
-          console.log(`   → Updated localStorage: mp_like_${gameId} = ${isLiked ? '1' : '0'}`)
           
           // Update UI
           renderHeart(isLiked)
-          console.log(`   → UI updated: renderHeart(${isLiked})`)
           
           // Update like count
           if (totalLikes != null) {
             const currentComments = cmtCountEl ? Number(cmtCountEl.textContent) || 0 : 0
             setCounts(totalLikes, currentComments)
-            console.log(`   → Updated counts: likes = ${totalLikes}, comments = ${currentComments}`)
           }
           
           // Only reload game list if user is currently viewing "Liked" filter
           // This prevents auto-switching to "Liked" filter when user likes a game
           if (currentFilter === 'Liked') {
-            console.log(`   → User is viewing "Liked" filter - reloading list...`)
             setTimeout(() => {
               if (typeof window.applyGameFilter === 'function') {
                 window.applyGameFilter('Liked')
               }
             }, 200)
-          } else {
-            console.log(`   → User is viewing "${currentFilter}" filter - keeping current view`)
           }
-          
-          console.log(`   ✅ Like toggle completed successfully!`)
         } catch (e) {
-          console.error(`   ❌ toggle_like error:`, e?.message || e)
-          console.error(`   → Stack:`, e?.stack)
+          console.error(`❌ toggle_like error:`, e?.message || e)
         } finally {
           likeBtn.disabled = false
-          console.log(`   → Button re-enabled`)
         }
       })
       commentBtn.addEventListener('click', () => openPanel(gameId))
@@ -3197,7 +3221,7 @@ window.addEventListener("beforeunload", stopGame);
       // Don't add handler here to avoid conflicts
       if (marketcapBtn) {
         // Handler will be set when MC is loaded via updateMC()
-        console.log('Market Cap button found for', gameId)
+        // ✅ PERFORMANCE: Removed debug log (60+ logs per page load)
       }
       if (shareBtn) {
         shareBtn.addEventListener('click', () => {
@@ -3262,13 +3286,9 @@ window.addEventListener("beforeunload", stopGame);
   }
 
   window.addEventListener('message', async (event) => {
-    // ✅ FIX: Only log messages that have type and gameId (filter out noise from extensions)
+    // ✅ PERFORMANCE: Removed debug log (only log errors)
     const msgType = event.data?.type
     const msgGameId = event.data?.gameId
-    // Only log if message has meaningful data (filter out undefined/extension messages)
-    if (msgType && msgGameId) {
-      console.log('📨 [DEBUG] Parent received:', msgType, 'from', msgGameId, '| Origin:', event.origin);
-    }
     
     // ✅ ONLY sync activeGame when game is ACTUALLY PLAYING (GAME_SCORE only!)
     // ❌ DON'T sync with GAME_START/RESTART (may send automatically on iframe load)
@@ -3277,7 +3297,7 @@ window.addEventListener("beforeunload", stopGame);
       const messageGameId = event.data.gameId
       
       if (activeGame !== messageGameId) {
-        console.log('🔄 Syncing activeGame:', activeGame, '→', messageGameId)
+        // ✅ PERFORMANCE: Removed debug log
         activeGame = messageGameId
       }
     }
@@ -3285,46 +3305,37 @@ window.addEventListener("beforeunload", stopGame);
     // Handle GAME_START message (start timer when user actually plays)
     if (event.data?.type === 'GAME_START' && event.data?.gameId) {
       const { gameId } = event.data;
-      console.log('🎮 [TIMER DEBUG] GAME_START received:', { gameId, origin: event.origin });
       
       // Only start timer if not already running for this game
       if (!activeStartTime || (activeGame && activeGame !== gameId)) {
         // Stop previous game if different
         if (activeGame && activeGame !== gameId) {
-          console.log('   ⏹️ Stopping previous game:', activeGame);
           await stopGame();
         }
         
-        console.log('   ▶️ Starting timer for', gameId);
         startGame(gameId);
-      } else if (activeGame === gameId) {
-        console.log('   ℹ️ Timer already running for', gameId);
       }
     }
     
     if (event.data?.type === 'GAME_SCORE') {
       const { gameId, score, level } = event.data
-      console.log('🎮 [TIMER DEBUG] GAME_SCORE received:', { gameId, score, origin: event.origin })
       
       // ✅ Clear fallback timer when receiving GAME_SCORE (game handles itself!)
       if (window.fallbackTimers && window.fallbackTimers[gameId]) {
         clearTimeout(window.fallbackTimers[gameId])
         delete window.fallbackTimers[gameId]
-        console.log('🔄 [FALLBACK] Cleared fallback timer for', gameId, '(game sends GAME_SCORE)')
       }
       
       if (!gameId) {
-        console.log('❌ [TIMER DEBUG] No gameId in message!')
         return
       }
       
       // Convert to integer (round down for fairness)
       const finalScore = Math.floor(Number(score))
-      console.log('🎮 [TIMER DEBUG] Processing game:', gameId, 'score:', finalScore)
       
       // ✅ ALWAYS submit score first, then process timer logic
       // ✅ Ensure score is sent to leaderboard even if "Play Again" is detected
-      console.log(`📊 Received score: ${score} → ${finalScore} for ${gameId}`)
+      // ✅ PERFORMANCE: Removed debug log
       
       // Submit score immediately (don't wait for timer logic)
       try {
@@ -3339,7 +3350,7 @@ window.addEventListener("beforeunload", stopGame);
           payload.p_level = 1
         }
 
-        console.log('📤 [SCORE] Submitting score immediately (keepalive):', payload)
+        // ✅ PERFORMANCE: Removed debug log
         const { data, error } = await rpcWithKeepalive('submit_game_score', payload)
         
         if (error) {
@@ -3355,7 +3366,7 @@ window.addEventListener("beforeunload", stopGame);
           result = data.length > 0 ? data[0] : null
         }
         
-        console.log('📊 [SCORE] RPC response:', { raw: data, parsed: result })
+        // ✅ PERFORMANCE: Removed debug log (only log high score)
         
         if (!result || typeof result !== 'object') {
           console.error('❌ [SCORE] Invalid response format:', result)
@@ -3384,11 +3395,8 @@ window.addEventListener("beforeunload", stopGame);
       // Nếu timer đang chạy bình thường, stopGame() sẽ tự increment → tránh double-count.
       const timerRunningForGame = activeGame === gameId && !!activeStartTime;
       if (!isLegacyGame(gameId)) {
-        if (timerRunningForGame) {
-          console.log('⏭️ [PLAYS SAFEGUARD] Skip for', gameId, '- timer đã chạy, stopGame sẽ cộng.');
-        } else {
-          console.log('⏱ [PLAYS SAFEGUARD] GAME_SCORE đến khi chưa start timer (game hiện đại) → bỏ qua để tránh double-count.');
-        }
+        // ✅ PERFORMANCE: Removed debug logs
+        // Timer logic continues without logging
       } else if (!timerRunningForGame) {
         try {
           // Legacy fallback: game không gửi GAME_START nên ép cộng tối thiểu 3s
@@ -3397,13 +3405,13 @@ window.addEventListener("beforeunload", stopGame);
             p_game_id: gameId,
             p_seconds: 3
           };
-          console.log('📈 [PLAYS] increment_play_count (legacy safeguard) →', sgPayload);
+          // ✅ PERFORMANCE: Removed debug log
           const { data: incData, error: incErr } = await rpcWithKeepalive('increment_play_count', sgPayload)
           if (incErr) {
             console.warn('⏱ [PLAYS SAFEGUARD] increment_play_count failed:', incErr.message)
           } else if (incData && typeof incData.total_plays === 'number') {
             setPlaysLabelForCard(gameId, incData.total_plays)
-            console.log(`📊 [plays safeguard +1] ${gameId}:`, incData.total_plays)
+            // ✅ PERFORMANCE: Removed debug log
           }
         } catch (e) {
           console.warn('⏱ [PLAYS SAFEGUARD] error:', e?.message || e)
@@ -3415,20 +3423,18 @@ window.addEventListener("beforeunload", stopGame);
       
       // LEGACY GAMES (Lovable): Always treat GAME_SCORE as full session end (old behavior)
       if (isLegacyGame(gameId)) {
-        console.log('🕒 [LEGACY] Handling GAME_SCORE with legacy flow for', gameId);
+        // ✅ PERFORMANCE: Removed debug logs (only log errors)
       
         // Nếu timer chưa chạy hoặc đang chạy cho game khác, backfill start time tối thiểu
         if (!activeGame || activeGame !== gameId || !activeStartTime) {
           activeGame = gameId;
           // Backdate 5s để đảm bảo có thời gian >0 cho reward (increment_play_count dùng 3s cố định)
           activeStartTime = Date.now() - 5000;
-          console.log('🕒 [LEGACY] Backfilled start time for', gameId, 'at', new Date(activeStartTime).toISOString());
         }
       
         // Dừng game ngay để finalize playtime + achievements như cũ
         try {
           await stopGame();
-          console.log('✅ [LEGACY] stopGame() completed for', gameId);
         } catch (e) {
           console.error('❌ [LEGACY] stopGame error for', gameId, e);
         }
@@ -3441,18 +3447,13 @@ window.addEventListener("beforeunload", stopGame);
         const timerNotRunningForThisGame = !activeStartTime || (activeGame && activeGame !== gameId)
         
         const isPlayAgain = hasScore && timerNotRunningForThisGame && finalScore < 15  // ✅ Only detect Play Again if score < 15
-        console.log('🎮 [TIMER DEBUG] isPlayAgain check:', { hasScore, timerNotRunningForThisGame, activeStartTime, activeGame, isPlayAgain })
         
         if (isPlayAgain) {
-          console.log('🔄 [TIMER DEBUG] ✅ Play Again detected! Starting timer for:', gameId)
-          
           // Stop previous session if exists (different game)
           if (activeGame && activeStartTime && activeGame !== gameId) {
-            console.log('   ⏹️ Stopping previous game session:', activeGame)
             await stopGame()
           }
           
-          console.log('   ▶️ Starting timer for', gameId)
           startGame(gameId)
           // Return early, wait for higher score to process game over
           return
@@ -3460,37 +3461,29 @@ window.addEventListener("beforeunload", stopGame);
       }
       
       // HIGH SCORE = GAME OVER
-      console.log('🎮 Game Over detected! Stopping game to finalize achievements...')
+      // ✅ PERFORMANCE: Removed debug log
       
       // Set flag to allow showing achievements (ONLY after game over)
       isGameOver = true
       
       // Stop game = finalize playtime + queue any remaining achievements
       if (activeGame === gameId || activeGame) {
-        console.log('   ⏹️ Calling stopGame() to finalize playtime...')
         await stopGame()
-        console.log('   ✅ stopGame() completed - achievements finalized!')
       }
       
       // NOW check pending achievements (after stopGame finalized them)
-      console.log('   🔍 Checking pending achievements...')
-      console.log('   🔑 gameId from GAME_SCORE message:', gameId)
-      console.log('   📦 pendingAchievements:', pendingAchievements)
-      console.log('   📦 Keys in pending:', Object.keys(pendingAchievements))
+      // ✅ PERFORMANCE: Removed debug logs
       
       // Try BOTH gameId and any pending
       const achievementsToShow = pendingAchievements[gameId] || pendingAchievements[Object.keys(pendingAchievements)[0]]
       
       if (achievementsToShow && achievementsToShow.length > 0) {
         const keyUsed = pendingAchievements[gameId] ? gameId : Object.keys(pendingAchievements)[0]
-        console.log('   ✅ Found', achievementsToShow.length, 'achievement(s) under key:', keyUsed)
         // Wait 1s after game over, then show achievements
         setTimeout(() => {
-          console.log('   🎉 NOW showing achievements (isGameOver=true)...')
           showPendingAchievements(keyUsed)
         }, 1000)
       } else {
-        console.log('   ❌ NO pending achievements found after stopGame!')
         // Reset flag if no achievements to show
         isGameOver = false
       }
@@ -3605,7 +3598,7 @@ window.addEventListener("beforeunload", stopGame);
         return
       }
 
-      console.log('📊 [LEADERBOARD] RPC response:', data)
+      // ✅ PERFORMANCE: Removed debug log
 
       list.innerHTML = ''
 

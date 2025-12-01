@@ -304,9 +304,12 @@
       story: ''
     };
     const mcImage = new Image();
+    // ✅ Ensure image loads with 100% quality - no automatic compression
+    mcImage.crossOrigin = 'anonymous'; // Allow loading external images if needed
     let mcImageLoaded = false;
     mcImage.onload = () => {
       mcImageLoaded = true;
+      console.log('[CRYPTO-BLOCKS] ✅ Logo loaded with original dimensions:', mcImage.width, 'x', mcImage.height);
     };
     mcImage.onerror = (err) => {
       console.warn('⚠️ [CRYPTO-BLOCKS] Failed to load mcImage:', err);
@@ -580,6 +583,10 @@ applyExternalTheme();
       // Draw mc meme watermark inside grid (before grid lines and blocks)
       if (mcImageLoaded) {
         gameCtx.save();
+        // ✅ Ensure 100% quality rendering for logo - disable smoothing for crisp pixels
+        gameCtx.imageSmoothingEnabled = false;
+        gameCtx.imageSmoothingQuality = 'low';
+        
         const previousAlpha = gameCtx.globalAlpha;
         gameCtx.globalAlpha = 0.12;
         
@@ -592,7 +599,9 @@ applyExternalTheme();
         const drawX = CONFIG.GRID_X + (CONFIG.GRID_WIDTH - drawWidth) / 2;
         const drawY = CONFIG.GRID_Y + (CONFIG.GRID_HEIGHT - drawHeight) / 2;
         
+        // ✅ Render logo with 100% quality - no compression, crisp pixels
         gameCtx.drawImage(mcImage, drawX, drawY, drawWidth, drawHeight);
+        
         gameCtx.globalAlpha = previousAlpha;
         gameCtx.restore();
       }

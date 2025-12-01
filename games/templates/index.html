@@ -17,6 +17,7 @@
             <option value="pacman" selected>Pacman</option>
             <option value="blocks-8x8">Blocks 8x8</option>
             <option value="wall-bounce-bird">Wall Bounce Bird</option>
+            <option value="blow-bubble">Blow Bubble</option>
           </select>
         </div>
         <div class="editor-group">
@@ -56,6 +57,14 @@
             <button type="button" class="map-color-btn" data-color="#87ceeb" style="--color:#87ceeb;" aria-label="Sky blue background" aria-pressed="false"></button>
           </div>
         </div>
+        <div class="editor-group template-section template-blow-bubble" style="display: none;">
+          <label class="editor-label">Background Color</label>
+          <div class="map-color-picker">
+            <button type="button" class="map-color-btn" data-color="#6B46C1" style="--color:#6B46C1;" aria-label="Purple background" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#10B981" style="--color:#10B981;" aria-label="Green background" aria-pressed="false"></button>
+            <button type="button" class="map-color-btn" data-color="#87CEEB" style="--color:#87CEEB;" aria-label="Sky blue background" aria-pressed="false"></button>
+          </div>
+        </div>
         <button id="playTestBtn" class="editor-btn">Play Test</button>
         <button id="closeEditorBtn" class="editor-btn secondary">Close Editor</button>
         <button id="saveBtn" class="editor-btn" style="display: none; margin-top: 10px;">💾 Save</button>
@@ -65,7 +74,7 @@
         <div id="pacmanEditorPreview" class="game-wrapper">
           <canvas id="gameCanvasEditor" style="background: #0f0f1e;"></canvas>
         </div>
-        <div id="blocksEditorPreview" class="blocks-editor-preview" style="display: none;">
+        <div id="blocksEditorPreview" class="blocks-editor-preview" style="visibility: hidden; opacity: 0; position: absolute;">
           <iframe
             id="blocksEditorFrame"
             src="../crypto-blocks/index.html"
@@ -76,11 +85,22 @@
             allowfullscreen>
           </iframe>
         </div>
-        <div id="wallBounceBirdEditorPreview" class="wall-bounce-bird-editor-preview" style="display: none;">
+        <div id="wallBounceBirdEditorPreview" class="wall-bounce-bird-editor-preview" style="visibility: hidden; opacity: 0; position: absolute;">
           <iframe
             id="wallBounceBirdEditorFrame"
             src="../wall-bounce-bird/index.html"
             title="Wall Bounce Bird Preview"
+            width="720"
+            height="1000"
+            frameborder="0"
+            allowfullscreen>
+          </iframe>
+        </div>
+        <div id="blowBubbleEditorPreview" class="blow-bubble-editor-preview" style="visibility: hidden; opacity: 0; position: absolute;">
+          <iframe
+            id="blowBubbleEditorFrame"
+            src="../blow-bubble/index.html"
+            title="Blow Bubble Preview"
             width="720"
             height="1000"
             frameborder="0"
@@ -151,6 +171,18 @@
       id="wallBounceBirdGameFrame"
       src="../wall-bounce-bird/index.html"
       title="Wall Bounce Bird"
+      width="720"
+      height="1000"
+      frameborder="0"
+      allowfullscreen>
+    </iframe>
+  </div>
+
+  <div id="blowBubbleWrapper" class="blow-bubble-template-view" style="display: none;">
+    <iframe
+      id="blowBubbleGameFrame"
+      src="../blow-bubble/index.html"
+      title="Blow Bubble"
       width="720"
       height="1000"
       frameborder="0"
