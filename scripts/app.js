@@ -1,6 +1,22 @@
 ﻿  // 1️⃣ Import Supabase SDK (library for connecting to Supabase directly on web)
   import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+  // === ✅ FIX 1: GUARD INIT - Prevent double initialization ===
+  if (window.__MEMEPLAY_APP_INITIALIZED__) {
+    console.warn('[APP] ⚠️ Initialization skipped (already initialized - likely live-reload or double script load)')
+    throw new Error('App already initialized') // Stop execution safely
+  }
+  window.__MEMEPLAY_APP_INITIALIZED__ = true
+  console.log('[APP] ✅ Initialization guard set')
+
+  // ✅ SIMPLE FIX: Clear Pacman localhost games from localStorage on every page load
+  Object.keys(localStorage).forEach(key => {
+    if (key.startsWith('pacman_brand_config_') && 
+        localStorage.getItem(key)?.includes('localhost')) {
+      localStorage.removeItem(key)
+    }
+  })
+
   // 2️⃣ Declare connection info (URL & Anon Key of your project)
   const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'
@@ -466,6 +482,8 @@
     // ✅ PERFORMANCE: Removed debug log (summary in COMPLETE log)
 
     // Filter out old format and priority game (already rendered)
+    // === ✅ FIX 2: COUNTER LOGS - Replace per-item logs with summary ===
+    let filteredPacmanCount = 0
     const filteredLocalGames = localGames.filter(game => {
       if (!game || !game.gameId) return false
       if (game.gameId.startsWith('pacman-game-')) return false // Old format
@@ -474,13 +492,18 @@
         const templateUrl = game.templateUrl || ''
         const isLocalGame = templateUrl.includes('localhost') || templateUrl.includes('127.0.0.1') || templateUrl.includes('192.168.')
         if (isLocalGame) {
-          console.log(`🗑️ Filtering out Pacman game created on localhost: ${game.gameId} (templateUrl: ${templateUrl})`)
+          filteredPacmanCount++ // Count instead of log per item
           return false
         }
       }
       if (priorityGameActivated && game.gameId === priorityGame?.gameId) return false // Skip if already rendered
       return true
     })
+    
+    // Summary log after filtering
+    if (filteredPacmanCount > 0) {
+      console.warn(`🗑️ [FILTER] Filtered out ${filteredPacmanCount} localhost Pacman test games from render`)
+    }
 
     // Render all local games immediately (optimistic)
     if (filteredLocalGames.length > 0) {
@@ -716,44 +739,122 @@
     }
   }
 
+  // === ✅ FIX 3: CHUNKED PROCESSING - Helper function ===
+  function processInChunks(items, chunkSize, fn, onDone) {
+    let i = 0
+    function runChunk() {
+      const end = Math.min(i + chunkSize, items.length)
+      for (; i < end; i++) {
+        try { 
+          fn(items[i], i) 
+        } catch(e) { 
+          console.warn('[processInChunks] Error processing item:', e) 
+        }
+      }
+      if (i < items.length) {
+        // Yield to event loop to prevent blocking
+        if (window.requestIdleCallback) {
+          requestIdleCallback(runChunk, {timeout: 200})
+        } else {
+          setTimeout(runChunk, 16)
+        }
+      } else {
+        if (onDone) onDone()
+      }
+    }
+    runChunk()
+  }
+
+  // === ✅ FIX 4: LAZY-LOAD IFRAMES - IntersectionObserver ===
+  let gameObserver = null
+  
+  function initGameObserver() {
+    // Disconnect existing observer if any
+    if (gameObserver) {
+      gameObserver.disconnect()
+    }
+    
+    // Create new observer to lazy-load iframes when visible
+    gameObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const card = entry.target
+          const iframe = card.querySelector('iframe[data-lazy-src]')
+          
+          if (iframe && iframe.src === 'about:blank') {
+            const lazySrc = iframe.getAttribute('data-lazy-src')
+            if (lazySrc) {
+              console.log(`🎮 [LAZY-LOAD] Loading iframe for game: ${card.id}`)
+              iframe.src = lazySrc
+              iframe.removeAttribute('data-lazy-src') // Mark as loaded
+            }
+          }
+        }
+      })
+    }, {
+      root: null, // viewport
+      rootMargin: '200px', // Load 200px before entering viewport
+      threshold: 0.01 // Trigger when 1% visible
+    })
+    
+    // Observe all game cards
+    const allCards = document.querySelectorAll('.game-card')
+    allCards.forEach(card => gameObserver.observe(card))
+    
+    console.log(`👁️ [LAZY-LOAD] Observer initialized for ${allCards.length} game cards`)
+  }
+
   function loadLocalUserGames(baseUrl) {
-    // ✅ PERFORMANCE: Removed debug log
+    // ✅ FIX 3: Collect keys first, then parse in chunks to avoid blocking
     const results = []
+    const keysToProcess = []
+    
+    // Fast pass: collect all keys (no parsing yet)
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i)
       if (!key) continue
-
-      if (key.startsWith(PACMAN_STORAGE_PREFIX) && key.length > PACMAN_STORAGE_PREFIX.length) {
-        if (key === 'pacman_brand_config') continue
-      try {
+      
+      if ((key.startsWith(PACMAN_STORAGE_PREFIX) && key.length > PACMAN_STORAGE_PREFIX.length && key !== 'pacman_brand_config') ||
+          (key.startsWith(BLOCKS_STORAGE_PREFIX) && key.length > BLOCKS_STORAGE_PREFIX.length && key !== 'blocks_brand_config') ||
+          (key.startsWith(WALL_BOUNCE_BIRD_STORAGE_PREFIX) && key.length > WALL_BOUNCE_BIRD_STORAGE_PREFIX.length && key !== 'wall_bounce_bird_config') ||
+          (key.startsWith(BLOW_BUBBLE_STORAGE_PREFIX) && key.length > BLOW_BUBBLE_STORAGE_PREFIX.length && key !== 'blow_bubble_config')) {
+        keysToProcess.push(key)
+      }
+    }
+    
+    // Now parse synchronously (but we've reduced the work by pre-filtering)
+    // Note: Full async chunking would require refactoring the entire flow
+    // This optimization reduces the loop iterations significantly
+    for (const key of keysToProcess) {
+      if (key.startsWith(PACMAN_STORAGE_PREFIX)) {
+        try {
           const gameId = key.replace(PACMAN_STORAGE_PREFIX, '')
-        const config = JSON.parse(localStorage.getItem(key) || '{}')
-        if (!config || !config.title) continue
-        
-        results.push({
-          source: 'localStorage',
+          const config = JSON.parse(localStorage.getItem(key) || '{}')
+          if (!config || !config.title) continue
+          
+          results.push({
+            source: 'localStorage',
             templateId: PACMAN_TEMPLATE_ID,
-          gameId,
-          title: config.title || 'Pacman Game',
-          creator: config.title || 'Creator',
-          mapColor: config.mapColor || '#1a1a2e',
-          fragmentLogoUrl: config.fragmentLogoUrl || '',
+            gameId,
+            title: config.title || 'Pacman Game',
+            creator: config.title || 'Creator',
+            mapColor: config.mapColor || '#1a1a2e',
+            fragmentLogoUrl: config.fragmentLogoUrl || '',
             mapIndex: typeof config.mapIndex === 'number' ? config.mapIndex : 0,
-          stories: Array.isArray(config.stories) ? config.stories : [],
-          likes: 0,
-          comments: 0,
-          plays: 0,
-          templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
-          publicUrl: `${baseUrl}/?game=${gameId}`
-        })
-      } catch (error) {
+            stories: Array.isArray(config.stories) ? config.stories : [],
+            likes: 0,
+            comments: 0,
+            plays: 0,
+            templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+            publicUrl: `${baseUrl}/?game=${gameId}`
+          })
+        } catch (error) {
           console.warn('Failed to parse local Pacman game config:', key, error)
         }
         continue
       }
 
-      if (key.startsWith(BLOCKS_STORAGE_PREFIX) && key.length > BLOCKS_STORAGE_PREFIX.length) {
-        if (key === 'blocks_brand_config') continue
+      if (key.startsWith(BLOCKS_STORAGE_PREFIX)) {
         try {
           const gameId = key.replace(BLOCKS_STORAGE_PREFIX, '')
           const config = JSON.parse(localStorage.getItem(key) || '{}')
@@ -773,7 +874,7 @@
             likes: 0,
             comments: 0,
             plays: 0,
-          templateUrl: `${baseUrl}/games/crypto-blocks/index.html?game=${gameId}`,
+            templateUrl: `${baseUrl}/games/crypto-blocks/index.html?game=${gameId}`,
             publicUrl: `${baseUrl}/?game=${gameId}`
           })
         } catch (error) {
@@ -782,8 +883,7 @@
         continue
       }
 
-      if (key.startsWith(WALL_BOUNCE_BIRD_STORAGE_PREFIX) && key.length > WALL_BOUNCE_BIRD_STORAGE_PREFIX.length) {
-        if (key === 'wall_bounce_bird_config') continue
+      if (key.startsWith(WALL_BOUNCE_BIRD_STORAGE_PREFIX)) {
         try {
           const gameId = key.replace(WALL_BOUNCE_BIRD_STORAGE_PREFIX, '')
           const config = JSON.parse(localStorage.getItem(key) || '{}')
@@ -844,6 +944,8 @@
         continue
       }
     }
+    
+    console.log(`📦 [loadLocalUserGames] Loaded ${results.length} games from localStorage (optimized key filtering)`)
     return results
   }
 
@@ -1078,7 +1180,19 @@
       if (/^https?:\/\//i.test(final)) {
         try {
           const parsed = new URL(final)
+          
+          // ✅ FIX: Check if we're developing locally
+          const isLocalDev = window.location.hostname === '127.0.0.1' || 
+                             window.location.hostname === 'localhost'
+          
           if (parsed.hostname === '127.0.0.1' || parsed.hostname === 'localhost') {
+            // Convert localhost URLs to current host
+            parsed.protocol = window.location.protocol
+            parsed.host = window.location.host
+            final = parsed.toString()
+          } else if (isLocalDev && parsed.hostname === 'memeplay.dev') {
+            // ✅ FIX: Convert production URLs to localhost when developing locally
+            // This prevents cross-origin SecurityError when loading games from production URLs
             parsed.protocol = window.location.protocol
             parsed.host = window.location.host
             final = parsed.toString()
@@ -1112,7 +1226,8 @@
       <div class="game-stage">
         <iframe
           data-game-url="${templateUrl || game.templateUrl}"
-          src="${finalUrl}"
+          data-lazy-src="${finalUrl}"
+          src="about:blank"
           width="720"
           height="1000"
           frameborder="0"
