@@ -818,23 +818,7 @@ async function fetchGameFromSupabase(gameId) {
   // ✅ 1. Guess template từ gameId
   const guessedTemplate = guessTemplateFromId(gameId)
   
-  // ✅ 2. Fallback: Tất cả enabled templates từ registry + legacy templates
-  let templateCandidates = guessedTemplate
-    ? [guessedTemplate]
-    : [
-        // ✅ Enabled templates từ registry
-        ...Object.entries(TEMPLATE_REGISTRY)
-          .filter(([id, config]) => config.enabled !== false)
-          .map(([id]) => id),
-        // ✅ Legacy templates (backward compatibility)
-        PACMAN_TEMPLATE_ID,
-        BLOCKS_TEMPLATE_ID,
-        WALL_BOUNCE_BIRD_TEMPLATE_ID,
-        BLOW_BUBBLE_TEMPLATE_ID,
-        PIXEL_SHOOTER_TEMPLATE_ID // ✅ For Supabase lookup (editor saves with 'pixel-shooter-template')
-      ]
-  
-  // ✅ 3. Add template ID variants for all templates (registry ID + editor ID)
+  // ✅ 2. Template ID variants mapping (registry ID ↔ editor ID)
   // Editor saves to Supabase with '-template' suffix, registry uses short ID
   const templateIdVariants = {
     'pixel-shooter': ['pixel-shooter', 'pixel-shooter-template'],
@@ -842,20 +826,44 @@ async function fetchGameFromSupabase(gameId) {
     'blocks-8x8': ['blocks-8x8', 'blocks-8x8-template'],
     'wall-bounce-bird': ['wall-bounce-bird', 'wall-bounce-bird-template'],
     'blow-bubble': ['blow-bubble', 'blow-bubble-template'],
-    'rocket-bnb-template': ['rocket-bnb-template', 'rocket-bnb'], // ✅ Rocket BNB variants
-    'rocket-bnb': ['rocket-bnb-template', 'rocket-bnb'], // ✅ Rocket BNB: thêm mapping ngược lại
-    'fallen-crypto-template': ['fallen-crypto-template', 'fallen-crypto'], // ✅ Fallen Crypto variants
-    'fallen-crypto': ['fallen-crypto-template', 'fallen-crypto'] // ✅ Fallen Crypto: thêm mapping ngược lại
+    'rocket-bnb-template': ['rocket-bnb-template', 'rocket-bnb'],
+    'rocket-bnb': ['rocket-bnb-template', 'rocket-bnb'],
+    'fallen-crypto-template': ['fallen-crypto-template', 'fallen-crypto'],
+    'fallen-crypto': ['fallen-crypto-template', 'fallen-crypto']
   }
   
-  // ✅ Nếu có guessed template, thêm cả variants của nó
-  if (guessedTemplate && templateIdVariants[guessedTemplate]) {
-    templateCandidates = [...new Set([...templateCandidates, ...templateIdVariants[guessedTemplate]])]
+  // ✅ 3. OPTIMIZED: Smart template prioritization
+  let templateCandidates = []
+  
+  if (guessedTemplate) {
+    // ✅ Nếu guess được: chỉ check guessed template + 1 editor variant
+    templateCandidates = [guessedTemplate]
+    if (templateIdVariants[guessedTemplate]) {
+      // Thêm editor variant (khác với registry ID)
+      const variants = templateIdVariants[guessedTemplate]
+      const editorVariant = variants.find(v => v !== guessedTemplate)
+      if (editorVariant) {
+        templateCandidates.push(editorVariant)
+      }
+    }
   } else {
-    // ✅ Nếu không có guessed template, thêm tất cả editor IDs
-    const allEditorIds = Object.values(templateIdVariants).flat()
-    templateCandidates = [...new Set([...templateCandidates, ...allEditorIds])]
+    // ✅ Nếu không guess được: chỉ check 4 templates quan trọng nhất (thay vì 16+)
+    // Priority: Pacman, Pixel Shooter, Rocket BNB, Fallen Crypto
+    templateCandidates = [
+      PACMAN_TEMPLATE_ID,
+      PIXEL_SHOOTER_TEMPLATE_ID,
+      'rocket-bnb-template',
+      'fallen-crypto-template',
+      // Thêm editor variants cho các templates này
+      'pacman-template',
+      'pixel-shooter-template',
+      'rocket-bnb',
+      'fallen-crypto'
+    ]
   }
+  
+  // Remove duplicates
+  templateCandidates = [...new Set(templateCandidates)]
 
   for (const templateId of templateCandidates) {
     try {
@@ -877,19 +885,32 @@ async function fetchGameFromSupabase(gameId) {
         .filter(Boolean)
       console.log(`[PLAY MODE] 📋 Game IDs found in Supabase:`, foundGameIds)
       
-      // ✅ Thử tất cả variants của gameId khi tìm trong Supabase (dùng chung cho TẤT CẢ templates)
-      const baseVariants = getGameIdVariants(gameId)
-      // Thử thêm bản probe (nếu có) để không bỏ sót
-      const gameIdVariants = [...new Set([
-        ...baseVariants,
-        ...baseVariants.map((v) => `${v}-probe`)
-      ])]
-      console.log(`[PLAY MODE] 🔍 Looking for game ID variants: ${gameIdVariants.join(', ')}`)
+      // ✅ OPTIMIZED: Chỉ thử 2 variants quan trọng nhất (bỏ -probe suffix)
+      // Variant 1: gameId gốc
+      // Variant 2: với/không có playmode- prefix
+      const gameIdVariants = []
+      gameIdVariants.push(gameId) // Luôn thử gốc trước
+      
+      // Thêm variant với/không có playmode- prefix
+      if (gameId.startsWith('playmode-')) {
+        const withoutPrefix = gameId.replace(/^playmode-/, '')
+        if (withoutPrefix !== gameId) {
+          gameIdVariants.push(withoutPrefix)
+        }
+      } else {
+        const withPrefix = `playmode-${gameId}`
+        gameIdVariants.push(withPrefix)
+      }
+      
+      // Remove duplicates
+      const uniqueVariants = [...new Set(gameIdVariants)]
+      console.log(`[PLAY MODE] 🔍 Looking for game ID variants: ${uniqueVariants.join(', ')}`)
       
       let match = null
       let matchedGameId = null
       
-      for (const variant of gameIdVariants) {
+      // ✅ OPTIMIZED: Early return khi tìm thấy
+      for (const variant of uniqueVariants) {
         match = data.find(item => {
           const itemId = item?.game_id || item?.id || item?.gameId
           return normalizeId(itemId) === normalizeId(variant)
@@ -901,17 +922,11 @@ async function fetchGameFromSupabase(gameId) {
         }
       }
       
+      // ✅ OPTIMIZED: Bỏ fallback logic (không dùng record đầu tiên nếu không match)
       if (!match) {
-        console.log(`[PLAY MODE] ⚠️ Game variants ${gameIdVariants.join(', ')} not found in template ${templateId}`)
+        console.log(`[PLAY MODE] ⚠️ Game variants ${uniqueVariants.join(', ')} not found in template ${templateId}`)
         console.log(`[PLAY MODE] ⚠️ Available game IDs: ${foundGameIds.join(', ')}`)
-        // Nếu Supabase có trả dữ liệu nhưng không khớp variant, dùng bản ghi đầu tiên làm fallback
-        if (data.length > 0) {
-          match = data[0]
-          matchedGameId = match?.game_id || match?.id || match?.gameId || gameId
-          console.log(`[PLAY MODE] ℹ️ Fallback using first record from Supabase: ${matchedGameId}`)
-        } else {
-        continue
-        }
+        continue // Check template tiếp theo
       }
 
       // ✅ Normalize template ID trước khi pass vào normalizeGame()
