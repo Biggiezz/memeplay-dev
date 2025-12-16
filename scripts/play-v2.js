@@ -1331,6 +1331,8 @@ async function renderGameCard(gameId) {
       updateDocumentTitle(cloned)
       await hydrateSocialCounts(gameId, cloned)
       setLoaderVisible(false)
+      // ✅ Update URL to short link after game loads successfully
+      updateUrlToShortLink(gameId)
       return
     }
 
@@ -1346,6 +1348,8 @@ async function renderGameCard(gameId) {
       updateDocumentTitle(card, localGame.title)
       await hydrateSocialCounts(gameId, card)
       setLoaderVisible(false)
+      // ✅ Update URL to short link after game loads successfully
+      updateUrlToShortLink(gameId)
       return
     }
     console.log(`[PLAY MODE] ⚠️ Not found in localStorage, checking Supabase...`)
@@ -1362,6 +1366,8 @@ async function renderGameCard(gameId) {
       updateDocumentTitle(card, remoteGame.title)
       await hydrateSocialCounts(gameId, card)
       setLoaderVisible(false)
+      // ✅ Update URL to short link after game loads successfully
+      updateUrlToShortLink(gameId)
       return
     }
     console.error(`[PLAY MODE] ❌ Game not found: ${gameId}`)
@@ -1825,6 +1831,23 @@ window.addEventListener('message', async (event) => {
     await stopGame()
   }
 })
+
+// ✅ Helper: Update URL to short link format (keep in address bar)
+function updateUrlToShortLink(gameId) {
+  if (!gameId || !gameId.startsWith('playmode-')) return
+  
+  const currentPath = window.location.pathname
+  const currentSearch = window.location.search
+  const shortPath = `/${gameId}`
+  
+  // Only update if currently on long URL format (has query param)
+  if (currentSearch.includes('game=') || currentPath.includes('play-v2.html')) {
+    const newUrl = `${window.location.origin}${shortPath}`
+    // Use replaceState to update URL without reload
+    window.history.replaceState({ gameId }, '', newUrl)
+    console.log(`[PLAY MODE] ✅ Updated URL to short link: ${newUrl}`)
+  }
+}
 
 function initPlayMode() {
   const url = new URL(window.location.href)

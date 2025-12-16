@@ -409,26 +409,8 @@
     }
   </style>
 
-  <!-- Fallback script: Parse pathname if query param is missing -->
-  <!-- This ensures short URLs like /playmode-xxx work even if Vercel rewrite fails -->
-  <script>
-    (function() {
-      // Only run if we're on a playmode URL without query param
-      const path = window.location.pathname;
-      const search = window.location.search;
-      
-      // Check if we're on /playmode-xxx path but don't have ?game= query param
-      const playmodeMatch = path.match(/^\/(playmode-[^\/]+)$/i);
-      if (playmodeMatch && !search.includes('game=')) {
-        const gameId = playmodeMatch[1];
-        // Redirect to play-v2.html with game ID as query param
-        const redirectUrl = `/play-v2.html?game=${encodeURIComponent(gameId)}`;
-        window.location.replace(redirectUrl);
-        return;
-      }
-    })();
-  </script>
-
+  <!-- Note: Server rewrite rule handles /playmode-xxx -> /play-v2.html?game=playmode-xxx -->
+  <!-- JavaScript in play-v2.js will update URL back to short link after game loads -->
   <script type="module" src="/scripts/play-v2.js"></script>
 </body>
 </html>

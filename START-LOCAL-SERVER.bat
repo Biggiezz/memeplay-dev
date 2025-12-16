@@ -7,10 +7,10 @@ echo Starting server with rewrite support on port 5500...
 echo.
 echo Server will be accessible from:
 echo   - Local: http://localhost:5500
-echo   - Mobile: http://192.168.1.4:5500 (same WiFi)
+echo   - Network: http://192.168.1.10:5500 (check server output for actual IP)
 echo.
 echo Short URLs will work:
-echo   http://localhost:5500/pacman-game-8041
+echo   http://localhost:5500/playmode-pacman-960j
 echo.
 echo Press Ctrl+C to stop server
 echo ============================================
@@ -27,8 +27,9 @@ if %ERRORLEVEL% NEQ 0 (
 )
 
 REM Start server with serve.json config
-REM Bind to 0.0.0.0 to allow access from mobile devices on same network
-REM -C flag enables CORS for cross-origin requests
-REM NOTE: Do NOT use -s flag (SPA mode) as it breaks rewrite rules
+REM - Bind to 0.0.0.0 to allow access from mobile devices on same network
+REM - -C flag enables CORS for cross-origin requests
+REM - --config serve.json uses rewrite rules for short URLs
+REM - --no-clipboard prevents copying URL to clipboard
 npx serve . -l tcp://0.0.0.0:5500 -C --config serve.json --no-clipboard
 
