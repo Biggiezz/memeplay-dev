@@ -1,0 +1,501 @@
+/* ====================================
+   PACMAN TEMPLATE - STYLES (V2)
+   ==================================== */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+  font-family: 'Arial', sans-serif;
+  background: #0a0a0a;
+  scrollbar-width: none !important; /* Firefox - hide scrollbar but allow scroll */
+  -ms-overflow-style: none !important; /* IE/Edge - hide scrollbar but allow scroll */
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  touch-action: pan-y;
+}
+
+/* ====================================
+   GAME WRAPPER
+   ==================================== */
+
+.game-wrapper {
+  width: 720px;
+  height: 1000px;
+  position: relative;
+  background: #0d0d1a;
+  overflow: hidden;
+  /* Capture all swipe gestures inside the game frame (no page scroll here) */
+  touch-action: none;
+  margin: 0 auto;
+  /* IMPORTANT: Reserve space for header */
+  padding-top: 70px;
+  box-sizing: content-box;
+}
+
+#gameCanvas {
+  display: block;
+  width: 700px;
+  height: 730px;
+  background: #0f0f1e;
+  /* Do not use absolute positioning */
+  position: relative;
+  margin: 0 auto;
+  margin-top: 0; /* Already has padding-top in wrapper */
+  image-rendering: pixelated;
+  image-rendering: -moz-crisp-edges;
+  image-rendering: crisp-edges;
+  transform: none;
+  zoom: 1;
+  outline: none; /* Remove focus outline, but allow focus for keyboard control */
+  /* ✅ FIX: touch-action: none - ngăn touch events bubble lên parent (giống rocket-bnb, brick-fallen-crypto) */
+  touch-action: none !important;
+  -ms-touch-action: none !important;
+}
+
+/* ====================================
+   FOCUS TOGGLE BUTTON
+   ==================================== */
+.game-wrapper .focus-toggle {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  width: 44px;
+  height: 44px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.15);
+  background: rgba(6, 9, 15, 0.3);
+  color: #eef4ff;
+  font-size: 22px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  opacity: 0.32;
+  transition: background 0.18s ease, transform 0.18s ease, opacity 0.18s ease;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  user-select: none;
+  -webkit-user-select: none;
+  z-index: 10;
+  /* ✅ FIX: Đảm bảo button có cùng kích thước và độ mờ như Bird Squash */
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+.game-wrapper .focus-toggle:hover,
+.game-wrapper .focus-toggle:focus-visible {
+  background: rgba(6, 9, 15, 0.72);
+  opacity: 0.95;
+  transform: translateY(-1px);
+  outline: none;
+}
+
+.game-wrapper .focus-toggle[aria-pressed="true"] {
+  background: rgba(255, 182, 66, 0.2);
+  border-color: rgba(255, 182, 66, 0.4);
+  opacity: 0.9;
+}
+
+.creator-floating-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-top: 15px;
+}
+
+/* Button row - each row contains buttons on same line */
+.button-row {
+  display: flex;
+  flex-direction: row;
+  gap: 12px;
+  width: 100%;
+}
+
+.floating-btn {
+  padding: 10px;
+  background: #ffb642;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #000;
+  font-weight: bold;
+  box-shadow: 0 0 12px rgba(255, 182, 66, 0.4);
+  transition: all 0.3s;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Icon buttons (back and close) - smaller, compact */
+.floating-btn.icon-btn {
+  padding: 8px;
+  min-width: auto;
+  width: 40px;
+  height: 40px;
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.floating-btn.disabled {
+  background: #555555;
+  opacity: 0.5;
+  pointer-events: none;
+  box-shadow: 0 0 12px rgba(255, 182, 66, 0.2);
+}
+
+.floating-btn:not(.disabled):hover {
+  background: #ffc966;
+}
+
+#gameWrapper {
+  width: 100%;
+  display: none; /* Hidden by default, shown when game ID is present */
+  justify-content: center;
+  background: #0a0a0a;
+  padding: 0 0 60px;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+}
+
+#gameWrapper .game-wrapper {
+  transform-origin: top center;
+  position: relative;
+}
+
+body.public-game-view #gameWrapper {
+  display: flex !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  justify-content: center;
+  padding-top: 10px;
+}
+
+/* ====================================
+   HUD (Heads-Up Display)
+   ==================================== */
+
+.hud {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 70px;
+  padding: 10px 15px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  pointer-events: none;
+  z-index: 10;
+  background: rgba(0, 0, 0, 0.3);
+  box-sizing: border-box;
+}
+
+.hud-left {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 8px;
+  justify-content: flex-start;
+  padding-left: 15px;
+}
+
+.hud-right {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  margin-top: 8px;
+  justify-content: flex-end;
+  padding-right: 15px;
+  flex: 1;
+}
+
+.brand-logo {
+  width: 86px;
+  height: 86px;
+  object-fit: contain;
+  opacity: 0.45;
+  /* High-quality rendering for logo */
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  image-rendering: auto;
+  -ms-interpolation-mode: bicubic;
+  /* Prevent blur from scaling */
+  transform: translateZ(0);
+  will-change: transform;
+  /* Ensure logo is visible */
+  display: block !important;
+  pointer-events: none;
+}
+
+.hud-info {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 5px;
+  color: #FFFFFF;
+  font-size: 20px;
+  font-weight: bold;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.8);
+}
+
+.hud-score {
+  font-size: 18px;
+}
+
+.hud-level {
+  font-size: 16px;
+}
+
+.hud-fragments {
+  font-size: 16px;
+  color: #FFD700;
+}
+
+/* ====================================
+   MOBILE CONTROLS
+   ==================================== */
+
+.mobile-controls {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 200px;
+  display: none; /* Hidden on desktop */
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  pointer-events: none;
+  z-index: 20;
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.mobile-controls.active {
+  display: flex;
+}
+
+.control-row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  margin: 5px 0;
+}
+
+.control-btn {
+  width: 100px;
+  height: 100px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.075);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  font-size: 32px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  pointer-events: auto;
+  touch-action: manipulation;
+  transition: opacity 0.2s, transform 0.1s;
+  user-select: none;
+}
+
+.control-btn:active {
+  opacity: 0.35;
+  transform: scale(0.95);
+}
+
+.control-btn.up {
+  margin-bottom: 5px;
+}
+
+/* ====================================
+   GAME OVER SCREEN
+   ==================================== */
+
+.game-over-screen {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.9);
+  display: none;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  z-index: 100;
+  padding: 40px;
+}
+
+.game-over-screen.active {
+  display: flex;
+}
+
+.game-over-logo {
+  width: 156px;
+  height: 156px;
+  object-fit: contain;
+  margin-bottom: 30px;
+  opacity: 1;
+}
+
+.game-over-story {
+  color: #FFFFFF;
+  font-size: 24px;
+  text-align: center;
+  line-height: 1.6;
+  max-width: 600px;
+  margin-bottom: 40px;
+  padding: 20px;
+}
+
+.restart-btn {
+  padding: 15px 40px;
+  font-size: 20px;
+  background: #4ECDC4;
+  color: #000;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.restart-btn:hover {
+  background: #45b8b0;
+}
+
+.restart-btn:active {
+  transform: scale(0.95);
+}
+
+/* ====================================
+   RESPONSIVE (Mobile Detection)
+   ==================================== */
+
+@media (max-width: 992px) {
+  html, body {
+    overflow-x: hidden;
+    overflow-y: auto !important; /* Allow vertical scroll on mobile */
+    align-items: stretch;
+    height: auto; /* Allow body to expand */
+    min-height: 100vh; /* Minimum viewport height */
+  }
+
+  #gameWrapper {
+    width: 100%;
+    max-width: 100%;
+    padding: 0;
+    margin: 0;
+    position: relative;
+    overflow: visible !important; /* Ensure nothing is cropped */
+    display: block;
+  }
+
+  #gameWrapper .game-wrapper {
+    margin: 0 auto !important; /* Center horizontally */
+    left: auto !important;
+    height: 800px; /* 70px HUD + 730px game area, no footer */
+    width: 720px; /* Fixed width for scaling reference */
+    overflow: visible !important;
+    position: relative !important;
+  }
+  
+  #gameWrapper #gameCanvas {
+    width: 700px !important;
+    height: 730px !important;
+    display: block;
+  }
+
+  .mobile-controls {
+    display: flex;
+  }
+  
+  .creator-floating-buttons {
+    flex-direction: column;
+    gap: 12px;
+  }
+  
+  .button-row {
+    display: flex;
+    flex-direction: row;
+    gap: 12px;
+    width: 100%;
+  }
+  
+  .floating-btn {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .floating-btn.icon-btn {
+    flex: 0 0 auto;
+    width: 40px;
+    height: 40px;
+  }
+
+  .game-over-logo {
+    width: 234px;
+    height: 234px;
+  }
+
+  .game-over-story {
+    font-size: 29px; /* 24px * 1.2 = 28.8px, rounded to 29px */
+  }
+
+  .restart-btn {
+    padding: 19.5px 52px;
+    font-size: 31px; /* 26px * 1.2 = 31.2px, rounded to 31px */
+  }
+
+  body.mobile-game-locked #gameWrapper {
+    display: none !important;
+  }
+
+  .mobile-controls {
+    display: none !important;
+    pointer-events: none !important;
+    height: 0 !important;
+  }
+}
+
+/* Hide mobile controls on desktop */
+@media (min-width: 769px) {
+  .mobile-controls {
+    display: none !important;
+  }
+}
+
+

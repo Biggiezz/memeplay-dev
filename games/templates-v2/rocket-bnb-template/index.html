@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>🚀 Rocket BNB Template - V2</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        var searchParams = new URLSearchParams(window.location.search || '');
+        var hasGameId = false;
+        var detectedGameId = null;
+        
+        if (searchParams.get('game')) {
+          hasGameId = true;
+          detectedGameId = searchParams.get('game');
+        }
+        
+        var addPublicViewClass = function() {
+          if (!document.body) return;
+          if (!document.body.classList.contains('public-game-view')) {
+            document.body.classList.add('public-game-view');
+          }
+        };
+        
+        if (hasGameId) {
+          if (document.body) {
+            addPublicViewClass();
+          } else {
+            document.addEventListener('DOMContentLoaded', addPublicViewClass, { once: true });
+            setTimeout(addPublicViewClass, 0);
+          }
+          console.log('[Rocket BNB V2] ✅ Added public-game-view class (early detection)');
+        }
+      } catch (err) {
+        console.warn('[Rocket BNB V2] Failed to set public-game-view class early:', err);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <div class="score" id="score">0</div>
+  <div class="game-over" id="gameOver">
+    <h2>GAME OVER</h2>
+    <div class="score-text">Score: <span id="finalScore">0</span></div>
+    <div class="token-showcase">
+      <img id="tokenLogo" src="" alt="Token Logo" class="token-logo">
+      <p id="tokenStory" class="token-story"></p>
+    </div>
+    <button onclick="restart()">TO THE MOON AGAIN!</button>
+  </div>
+
+  <script type="module" src="config.js"></script>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
+

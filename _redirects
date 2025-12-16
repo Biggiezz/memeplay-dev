@@ -1,2 +1,3 @@
-/pacman-game-* /games/templates/pacman-template/index.html?game=:splat 200
+/pacman-game-* /games/templates-v2/pacman-template/index.html?game=:splat 200
 
+/playmode-* /play-v2.html?game=:splat 200

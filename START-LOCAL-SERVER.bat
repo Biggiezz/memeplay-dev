@@ -29,5 +29,6 @@ if %ERRORLEVEL% NEQ 0 (
 REM Start server with serve.json config
 REM Bind to 0.0.0.0 to allow access from mobile devices on same network
 REM -C flag enables CORS for cross-origin requests
-npx serve -s . -l tcp://0.0.0.0:5500 -C
+REM NOTE: Do NOT use -s flag (SPA mode) as it breaks rewrite rules
+npx serve . -l tcp://0.0.0.0:5500 -C --config serve.json --no-clipboard
 

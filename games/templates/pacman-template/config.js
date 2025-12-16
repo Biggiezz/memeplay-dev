@@ -15,7 +15,7 @@ const CONFIG = {
   // Tile size (calculated to fit map in 720x600 game area)
   // Maps are now dynamic size (35 cols max, variable rows)
   // TILE_SIZE calculated dynamically based on current map dimensions
-  TILE_SIZE: 20, // Optimized for 35 cols (35 * 20 = 700px < 720px)
+  TILE_SIZE: 20, // 35 cols * 20 = 700px; 45 rows * 20 = 900px
   
   // Map dimensions are now dynamic (calculated from currentMap)
   // MAP_COLS and MAP_ROWS are calculated per map in initLevel()

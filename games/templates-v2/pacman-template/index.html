@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pacman Template - V2</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <script>
+    (function() {
+      try {
+        var searchParams = new URLSearchParams(window.location.search || '');
+        var hasGameId = false;
+        var detectedGameId = null;
+        
+        if (searchParams.get('game')) {
+          hasGameId = true;
+          detectedGameId = searchParams.get('game');
+        }
+        
+        var addPublicViewClass = function() {
+          if (!document.body) return;
+          if (!document.body.classList.contains('public-game-view')) {
+            document.body.classList.add('public-game-view');
+          }
+        };
+        
+        if (hasGameId) {
+          if (document.body) {
+            addPublicViewClass();
+          } else {
+            document.addEventListener('DOMContentLoaded', addPublicViewClass, { once: true });
+            setTimeout(addPublicViewClass, 0);
+          }
+          console.log('[Pacman V2] ✅ Added public-game-view class (early detection)');
+        }
+      } catch (err) {
+        console.warn('[Pacman V2] Failed to set public-game-view class early:', err);
+      }
+    })();
+  </script>
+  
+  <!-- ====================================
+       GAME WRAPPER
+       ==================================== -->
+  <div id="gameWrapper">
+    <div class="game-wrapper">
+      <div id="pacmanGameView">
+        <!-- ====================================
+             HUD (Heads-Up Display)
+             ==================================== -->
+        <div class="hud">
+          <div class="hud-left">
+            <div class="hud-info">
+              <div id="hudScore" class="hud-score">Score: 0</div>
+              <div id="hudLevel" class="hud-level">LV 1</div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- Canvas (only game area: 700x730) -->
+        <canvas id="gameCanvas" width="700" height="730" tabindex="0"></canvas>
+        
+        <!-- ====================================
+             FOCUS TOGGLE BUTTON
+             ==================================== -->
+        <button class="focus-toggle" aria-label="Toggle focus mode" aria-pressed="false" title="Toggle focus mode">⤢</button>
+        
+        <!-- ====================================
+             MOBILE CONTROLS
+             ==================================== -->
+        <div class="mobile-controls">
+          <div class="control-row">
+            <button id="btnUp" class="control-btn up">▲</button>
+          </div>
+          <div class="control-row">
+            <button id="btnLeft" class="control-btn">◄</button>
+            <button id="btnDown" class="control-btn">▼</button>
+            <button id="btnRight" class="control-btn">►</button>
+          </div>
+        </div>
+        
+        <!-- ====================================
+             GAME OVER SCREEN
+             ==================================== -->
+        <div class="game-over-screen">
+          <img id="gameOverLogo" class="game-over-logo" src="" alt="Fragment Logo" style="display: none;">
+          <div id="gameOverStory" class="game-over-story"></div>
+          <button id="restartBtn" class="restart-btn">Play Again</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  
+  <!-- ====================================
+       SCRIPTS
+       ==================================== -->
+  <script src="config.js"></script>
+  <script>
+    (function() {
+      try {
+        if (typeof getGameId === 'function') {
+          var gameId = getGameId();
+          if (gameId) {
+            if (document.body && !document.body.classList.contains('public-game-view')) {
+              document.body.classList.add('public-game-view');
+              console.log('[Pacman V2] ✅ Added public-game-view class (post-config) for game', gameId);
+            }
+          }
+        }
+      } catch (err) {
+        console.warn('[Pacman V2] Failed to set public-game-view class after config.js:', err);
+      }
+    })();
+  </script>
+  <script src="maps.js"></script>
+  <script src="game.js"></script>
+  <script>
+    (function() {
+      const BASE_WIDTH = 720;
+      const BASE_HEIGHT = 1070; // includes padding for HUD / controls
+      
+      function applyGameScale() {
+        const wrapper = document.getElementById('gameWrapper');
+        if (!wrapper) return;
+        const inner = wrapper.querySelector('.game-wrapper');
+        if (!inner) return;
+        const availableWidth = wrapper.clientWidth;
+        const scale = Math.min(1, availableWidth / BASE_WIDTH);
+        inner.style.transform = `scale(${scale})`;
+        inner.style.transformOrigin = 'top center';
+        wrapper.style.height = `${BASE_HEIGHT * scale}px`;
+      }
+      
+      window.addEventListener('resize', applyGameScale);
+      window.addEventListener('orientationchange', applyGameScale);
+      document.addEventListener('DOMContentLoaded', applyGameScale);
+    })();
+  </script>
+</body>
+</html>
+
+

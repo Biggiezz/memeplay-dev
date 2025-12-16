@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting...</title>
+  <script>
+    // Handle 404 - redirect short URLs
+    (function() {
+      const path = window.location.pathname;
+      
+      // Handle V2 short URL: /playmode-xxx
+      const playmodeMatch = path.match(/^\/(playmode-[^\/]+)$/);
+      if (playmodeMatch) {
+        const gameId = playmodeMatch[1];
+        const redirectUrl = `/play-v2.html?game=${encodeURIComponent(gameId)}`;
+        window.location.replace(redirectUrl);
+        return;
+      }
+      
+      // Handle V1 short URL: /pacman-game-xxx
+      const pacmanGameMatch = path.match(/^\/(pacman-game-[^\/]+)$/);
+      if (pacmanGameMatch) {
+        const gameId = pacmanGameMatch[1];
+        const redirectUrl = `/games/templates-v2/pacman-template/index.html?game=${gameId}`;
+        window.location.replace(redirectUrl);
+        return;
+      }
+      
+      // Fallback: redirect to homepage
+      window.location.replace('/');
+    })();
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
+</html>
+
+
+
+

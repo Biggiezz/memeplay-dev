@@ -1,0 +1,332 @@
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+    
+    html {
+      overflow: hidden;
+    }
+    
+    body {
+      font-family: 'Courier New', monospace;
+      background: #000;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      touch-action: none;
+      width: 100vw;
+      height: 100vh;
+      /* CRITICAL: Do NOT create positioning context - let .game-wrapper handle it */
+      position: static;
+    }
+    
+    /* ===== GAME WRAPPER ===== */
+    /* COMPLETELY REWRITTEN - 720x1000 coordinate system for ALL children */
+    /* This is the ONLY positioning context for canvas, buttons, and all game elements */
+    .game-wrapper {
+      /* Fixed size: Always 720x1000px - never changes on any device */
+      width: 720px;
+      height: 1000px;
+      box-sizing: border-box;
+      
+      /* Positioning context: Creates coordinate system for absolute children */
+      position: relative;
+      
+      /* Layout */
+      flex-shrink: 0;
+      margin: 0 auto;
+      
+      /* CRITICAL: All children (canvas, buttons) use this 720x1000 coordinate system */
+      /* When wrapper scales via transform: scale(), all children scale together */
+    }
+    
+    /* Canvas always renders at 720x1000px internally */
+    #gameCanvas {
+      display: block;
+      image-rendering: pixelated;
+      image-rendering: -moz-crisp-edges;
+      image-rendering: crisp-edges;
+      width: 720px;
+      height: 1000px;
+      background: #000;
+      will-change: transform;
+      transform: translateZ(0);
+      -webkit-backface-visibility: hidden;
+      backface-visibility: hidden;
+      /* Prevent CSS from stretching canvas */
+      flex-shrink: 0;
+      object-fit: none;
+    }
+    
+    /* Mobile: fixed 720x1000px container, all objects fit inside */
+    @media screen and (max-width: 800px) {
+      html {
+        overflow: hidden;
+      }
+      
+      body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        overflow: hidden;
+        padding: 0;
+        /* CRITICAL: Do NOT create positioning context - let .game-wrapper handle it */
+        position: static;
+      }
+      
+      /* ===== MOBILE: GAME WRAPPER ===== */
+      /* COMPLETELY REWRITTEN - Maintains 720x1000 coordinate system */
+      /* CRITICAL: When this wrapper scales, ALL children (canvas, rocket, drag button) scale together */
+      .game-wrapper {
+        /* Fixed size: Always 720x1000px - never changes */
+        width: 720px !important;
+        height: 1000px !important;
+        box-sizing: border-box !important;
+        
+        /* Positioning context: Creates coordinate system for absolute children */
+        position: relative !important;
+        
+        /* Transform origin for scaling (applied via JavaScript) */
+        transform-origin: center center !important;
+        
+        /* CRITICAL: All children (canvas, buttons, rocket) use this 720x1000 coordinate system */
+        /* When wrapper scales via transform: scale(), ALL children scale together */
+        /* This includes: canvas, .focus-toggle button, rocket (drawn on canvas) */
+      }
+      
+      /* CRITICAL: Ensure drag button scales with wrapper on mobile */
+      .game-wrapper .focus-toggle {
+        /* Button MUST scale with wrapper - no individual scaling */
+        transform: none !important;
+        /* Position and size are in 720x1000 coordinate system */
+        /* When .game-wrapper scales, this button scales automatically */
+      }
+      
+      /* Canvas always 720x1000px - never stretched by CSS */
+      #gameCanvas {
+        width: 720px !important;
+        height: 1000px !important;
+        max-width: 720px !important;
+        max-height: 1000px !important;
+        /* Prevent any CSS stretching */
+        object-fit: none;
+        flex-shrink: 0;
+        /* Ensure canvas maintains pixel-perfect rendering */
+        image-rendering: pixelated;
+        image-rendering: -moz-crisp-edges;
+        image-rendering: crisp-edges;
+      }
+    }
+    
+    /* ===== DRAG BUTTON (FOCUS TOGGLE) ===== */
+    /* COMPLETELY REWRITTEN - Uses 720x1000 coordinate system ONLY */
+    /* Positioned relative to .game-wrapper (720x1000px), NOT device pixels */
+    /* CRITICAL: This button MUST scale with .game-wrapper, just like canvas and rocket */
+    .game-wrapper .focus-toggle {
+      /* Positioning: Absolute within .game-wrapper (720x1000 coordinate system) */
+      position: absolute !important;
+      top: 14px !important;    /* 14px from top edge of 720x1000 canvas */
+      right: 14px !important;  /* 14px from right edge of 720x1000 canvas */
+      
+      /* Size: Fixed in 720x1000 coordinate system - scales with wrapper */
+      width: 44px !important;
+      height: 44px !important;
+      box-sizing: border-box !important;
+      
+      /* Visual styling */
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.15);
+      background: rgba(6, 9, 15, 0.3);
+      color: #eef4ff;
+      font-size: 22px;
+      line-height: 1;
+      
+      /* Layout */
+      display: inline-flex !important;
+      align-items: center;
+      justify-content: center;
+      
+      /* Interaction */
+      cursor: pointer;
+      opacity: 0.32;
+      user-select: none;
+      -webkit-user-select: none;
+      pointer-events: all;
+      
+      /* Layering */
+      z-index: 100;
+      
+      /* Effects */
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      transition: background 0.18s ease, opacity 0.18s ease;
+      
+      /* CRITICAL: No margin, no padding, no transform that would offset from 720x1000 */
+      /* Button scales automatically with .game-wrapper via transform: scale() */
+      margin: 0 !important;
+      padding: 0 !important;
+      transform: none !important; /* No individual transform - scales with parent .game-wrapper */
+      left: auto !important;
+      bottom: auto !important;
+    }
+    
+    .focus-toggle:hover,
+    .focus-toggle:focus-visible {
+      background: rgba(6, 9, 15, 0.72);
+      opacity: 0.95;
+      outline: none;
+      /* No transform on hover - button scales with wrapper */
+    }
+    
+    .game-over {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      border: 4px solid #ffb642;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      z-index: 1000;
+      display: none;
+      pointer-events: all;
+      touch-action: manipulation;
+    }
+    
+    /* Mobile: Scale game over popup 80% larger (1.8x) */
+    @media screen and (max-width: 800px) {
+      .game-over {
+        transform: translate(-50%, -50%) scale(1.8);
+        /* Scale all child elements proportionally */
+      }
+    }
+    
+    .game-over.show {
+      display: block;
+    }
+    
+    .next-level {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: rgba(0, 0, 0, 0.9);
+      border: 4px solid #ffb642;
+      border-radius: 20px;
+      padding: 40px;
+      text-align: center;
+      z-index: 1000;
+      display: none;
+      pointer-events: none;
+    }
+    
+    .next-level.show {
+      display: block;
+    }
+    
+    .next-level h2 {
+      color: #ffb642;
+      font-family: 'Courier New', monospace;
+      font-size: 48px;
+      margin: 0 0 20px 0;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 1);
+    }
+    
+    .game-over h2 {
+      color: #ffb642;
+      font-size: 48px;
+      margin-bottom: 20px;
+      font-family: 'Courier New', monospace;
+      text-shadow: 0 0 10px rgba(255, 182, 66, 0.5);
+    }
+    
+    .game-over p {
+      color: #fff;
+      font-size: 24px;
+      margin-bottom: 30px;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .restart-btn {
+      background: linear-gradient(135deg, #ffb642 0%, #ff8c00 100%);
+      border: none;
+      color: #000;
+      font-size: 24px;
+      font-weight: bold;
+      padding: 15px 40px;
+      border-radius: 12px;
+      cursor: pointer;
+      transition: transform 0.2s;
+      pointer-events: all;
+      touch-action: manipulation;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .restart-btn:active {
+      transform: scale(0.95);
+    }
+    
+    .tap-to-start-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.05);
+      z-index: 1999;
+      pointer-events: all;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .tap-to-start-overlay.hidden {
+      display: none;
+    }
+    
+    .tap-to-start {
+      color: #ffb642;
+      font-size: 48px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 2000;
+      pointer-events: all;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      -webkit-user-select: none;
+      text-align: center;
+      text-shadow: 3px 3px 6px rgba(0, 0, 0, 1), 0 0 10px rgba(255, 182, 66, 0.5);
+      animation: pulseText 1.5s ease-in-out infinite;
+      font-family: 'Courier New', monospace;
+    }
+    
+    @keyframes pulseText {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.6;
+        transform: scale(1.1);
+      }
+    }
+    
+    @media screen and (max-width: 720px) {
+      .tap-to-start {
+        font-size: 36px;
+      }
+    }

@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MemePlay Templates V2 - Editor</title>
+  <style>
+    :root {
+      --bg: #0d0d17;
+      --panel: #111827;
+      --border: #1f2937;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --accent: #ffb642;
+      --accent-success: #7ad957;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .panel {
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      overflow-y: auto;
+      height: 100vh;
+    }
+    h1 { margin: 0 0 4px; font-size: 20px; color: var(--accent); }
+    .subtitle { color: var(--muted); margin: 0 0 8px; font-size: 13px; }
+    label { display: block; font-weight: 600; margin-bottom: 6px; color: var(--text); }
+    select, textarea, input[type="file"] {
+      width: 100%;
+      border: 1px solid var(--border);
+      background: #0f172a;
+      color: var(--text);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: 16px;
+    }
+    textarea { resize: vertical; min-height: 88px; }
+    .file-row { display: flex; gap: 8px; align-items: center; justify-content: space-between; }
+    .file-label {
+      display: inline-flex;
+      padding: 10px 12px;
+      background: rgba(255, 182, 66, 0.15);
+      border: 1px solid rgba(255, 182, 66, 0.35);
+      color: var(--accent);
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 13px;
+    }
+    input[type="file"] { display: none; }
+    .logo-preview {
+      width: 72px;
+      height: 72px;
+      border-radius: 12px;
+      border: none;
+      background: transparent !important;
+      object-fit: contain;
+      display: none;
+      box-shadow: none;
+    }
+    .logo-preview.visible { display: block; }
+    .actions {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    button {
+      padding: 12px 16px;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      font-weight: 700;
+      font-size: 14px;
+      width: 100%;
+    }
+    .primary { background: var(--accent); color: #1f1300; }
+    .secondary { background: #1f2937; color: var(--text); border: 1px solid var(--border); }
+    .btn-playtest { background: var(--accent); color: #1f1300; }
+    .btn-playtest:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-playtest.success { background: var(--accent-success); color: #0b1c0f; }
+    .btn-save { background: var(--accent); color: #1f1300; }
+    .btn-save:disabled { opacity: 0.5; cursor: not-allowed; }
+    .btn-save.success { background: var(--accent-success); color: #0b1c0f; }
+    .hidden { display: none; }
+    .preview {
+      padding: 24px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow-y: auto;
+      height: 100vh;
+    }
+    /* Preview box: 720x1000px cố định cho tất cả game */
+    .preview-box {
+      width: 720px;
+      height: 1000px;
+      max-width: calc(100vw - 400px);
+      max-height: calc(100vh - 48px);
+      background: #0f172a;
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      color: var(--muted);
+      position: relative;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .preview-box iframe {
+      width: 100%;
+      height: 100%;
+      border: none;
+      display: block;
+      object-fit: contain;
+    }
+    .preview-box .loading-text {
+      position: absolute;
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .mobile-play {
+      display: none;
+      flex-direction: column;
+      gap: 12px;
+      padding: 16px;
+      background: var(--panel);
+      border-top: 1px solid var(--border);
+      align-items: center;
+      width: 100%;
+    }
+    /* Hide desktop save button on mobile */
+    @media (max-width: 900px) {
+      #saveDesktopBtn {
+        display: none !important;
+      }
+    }
+    /* Hide mobile section on desktop */
+    @media (min-width: 901px) {
+      .mobile-play {
+        display: none !important;
+      }
+    }
+    .mobile-actions {
+      display: flex;
+      gap: 12px;
+      justify-content: space-between;
+    }
+    .chip-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .chip-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--color, #000);
+      cursor: pointer;
+      position: relative;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: #0f172a;
+      font-weight: 900;
+    }
+    .chip-btn.active {
+      outline: 2px solid var(--accent-success);
+    }
+    .chip-btn.active::after {
+      content: '✓';
+      color: #0b1c0f;
+      font-size: 16px;
+      text-shadow: 0 0 2px rgba(0,0,0,0.4);
+    }
+    .style-options {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .style-option {
+      width: 100%;
+      padding: 12px 16px;
+      border: 1px solid var(--border);
+      background: var(--panel);
+      color: var(--text);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      text-align: left;
+      transition: all 0.2s ease;
+    }
+    .style-option:hover:not(.disabled) {
+      background: rgba(255, 182, 66, 0.1);
+      border-color: rgba(255, 182, 66, 0.3);
+    }
+    .style-option.active {
+      background: rgba(255, 182, 66, 0.15);
+      border-color: var(--accent);
+      color: var(--accent);
+    }
+    .style-option.disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      background: rgba(31, 41, 55, 0.5);
+    }
+    .style-option .coming-soon {
+      font-size: 11px;
+      font-weight: 500;
+      color: var(--muted);
+      font-style: italic;
+    }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .panel { border-right: none; border-bottom: 1px solid var(--border); }
+      .preview { display: none; }
+      .mobile-play { display: flex; }
+      .mobile-play {
+        display: flex;
+        align-items: center;
+      }
+      .preview-box {
+        width: 720px;
+        height: clamp(520px, 70vh, 700px);
+        max-width: 95vw;
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="panel">
+      <div>
+        <h1>Templates Editor</h1>
+      </div>
+
+      <div>
+        <label>Style</label>
+        <div class="style-options">
+          <button class="style-option active" data-style="2d">
+            🎮 2D Games
+          </button>
+          <button class="style-option disabled" data-style="ai-2d" disabled>
+            🤖 Create AI 2D Games <span class="coming-soon">(Coming Soon)</span>
+          </button>
+          <button class="style-option disabled" data-style="ai-3d" disabled>
+            🎨 Create AI 3D Games <span class="coming-soon">(Coming Soon)</span>
+          </button>
+        </div>
+      </div>
+
+      <div>
+        <label for="templateSelect">Template</label>
+        <select id="templateSelect">
+          <option value="pacman" selected>Pacman</option>
+        </select>
+      </div>
+
+      <div>
+        <label>Logo</label>
+        <div class="file-row">
+          <label for="logoInput" class="file-label">Upload Logo</label>
+          <img id="logoPreview" class="logo-preview" alt="Logo preview">
+        </div>
+        <input type="file" id="logoInput" accept="image/png,image/jpeg,image/jpg,image/webp,image/gif">
+      </div>
+
+      <div>
+        <label for="storyInput">Story <span id="storyCount" style="color: var(--muted); font-weight: 500;">0/50</span></label>
+        <textarea id="storyInput" maxlength="50" placeholder="Enter story (≤50 chars)"></textarea>
+      </div>
+
+      <div id="pacmanFields">
+        <!-- Map selection: Only show if template has map.enabled -->
+        <div id="mapSelectContainer" style="display: none;">
+          <label for="mapSelect">Map</label>
+          <select id="mapSelect">
+            <option value="1">Map 1</option>
+            <option value="2">Map 2</option>
+            <option value="3">Map 3</option>
+          </select>
+        </div>
+
+        <!-- Map color: Show if template has mapColor.enabled -->
+        <div id="mapColorContainer" style="display: none;">
+          <label id="mapColorLabel" style="margin-top:12px;">Map color</label>
+          <div class="chip-row" id="mapColors">
+            <!-- Colors will be rendered dynamically from registry config -->
+          </div>
+        </div>
+      </div>
+
+      <div class="actions">
+        <button id="playTestBtn" class="btn-playtest">Play Test</button>
+        <button id="saveDesktopBtn" class="btn-save">💾 Save & Copy Link</button>
+        <button id="closeEditorBtn" class="secondary">Close Editor</button>
+      </div>
+    </div>
+
+    <div class="preview">
+      <div class="preview-box" id="previewBox"></div>
+    </div>
+  </div>
+
+  <!-- Mobile play section -->
+    <div class="mobile-play">
+      <div class="mobile-actions" style="width: 100%; max-width: 720px; margin: 0 auto; display: flex; gap: 12px;">
+        <button id="backToEditorBtn" class="secondary" style="flex:1;">Back to Editor</button>
+        <button id="saveMobileBtn" class="btn-save" style="flex:1;">💾 Save & Copy Link</button>
+      </div>
+      <div class="preview-box" id="mobilePreviewBox"></div>
+    </div>
+
+  <script type="module">
+    import { SharedEditor } from './core/shared-editor.js';
+    import { PacmanEditorAdapter } from './pacman-template/editor/editor-adapter.js';
+    import { buildPublicLinkUrl } from './core/url-builder.js';
+    import { processLogoImage } from './core/image-optimizer.js';
+    // ✅ Bước 2: Import Template Registry
+    import { 
+      getPlaytestKey, 
+      getPlaytestGameId, 
+      getTemplateUrl,
+      getMessageType,
+      getTemplateConfig,
+      getEnabledTemplates,
+      loadAdapter
+    } from './core/template-registry.js';
+    // ✅ Bước 3: Import Playtest Manager
+    import {
+      cleanupOldPlaytestKeys,
+      savePlaytestConfig as savePlaytestConfigToStorage,
+      createPlaytestIframe as createPlaytestIframeFromManager,
+      sendConfigToIframe,
+      updatePlaytestIframe as updatePlaytestIframeFromManager
+    } from './core/playtest-manager.js';
+
+    const playTestBtn = document.getElementById('playTestBtn');
+    const closeEditorBtn = document.getElementById('closeEditorBtn');
+    const logoInput = document.getElementById('logoInput');
+    const logoPreview = document.getElementById('logoPreview');
+    const storyInput = document.getElementById('storyInput');
+    const storyCount = document.getElementById('storyCount');
+    const previewBox = document.getElementById('previewBox');
+    const mobilePreviewBox = document.getElementById('mobilePreviewBox');
+    const backToEditorBtn = document.getElementById('backToEditorBtn');
+    const saveMobileBtn = document.getElementById('saveMobileBtn');
+    const saveDesktopBtn = document.getElementById('saveDesktopBtn');
+    const mapColors = document.getElementById('mapColors');
+    const mapSelect = document.getElementById('mapSelect');
+    const templateSelect = document.getElementById('templateSelect');
+    const pacmanFields = document.getElementById('pacmanFields');
+
+    // ✅ Bước 4: Template đầu tiên - dùng synchronous (như Bước 3)
+    let CURRENT_TEMPLATE = 'pacman';
+    const templateConfig = getTemplateConfig(CURRENT_TEMPLATE);
+    
+    // ✅ Bước 2: Lấy values từ registry thay vì hardcode
+    const PLAYTEST_STORAGE_KEY = getPlaytestKey(CURRENT_TEMPLATE);
+    const PLAYTEST_GAME_ID = getPlaytestGameId(CURRENT_TEMPLATE);
+    
+    // ✅ FIX: Khai báo biến playtest trước khi sử dụng
+    let currentPlaytestGameId = null;
+    let currentPlaytestIframe = null;
+
+    // ✅ Bước 4: Template đầu tiên - khởi tạo synchronous (như Bước 3)
+    let adapter = new PacmanEditorAdapter({
+      editorElements: {
+        storyInput,
+        mapSelect,
+        logoPreview,
+        mapColors
+      }
+    });
+    let sharedEditor = new SharedEditor(adapter);
+    
+    // ✅ Bước 4: Populate template selector (synchronous)
+    function populateTemplateSelector() {
+      if (!templateSelect) {
+        console.warn('[TemplateSelector] templateSelect element not found');
+        return;
+      }
+      
+      const enabledTemplates = getEnabledTemplates();
+      templateSelect.innerHTML = '';
+      
+      enabledTemplates.forEach(template => {
+        const option = document.createElement('option');
+        option.value = template.id;
+        option.textContent = template.displayName || template.id;
+        if (template.id === CURRENT_TEMPLATE) {
+          option.selected = true;
+        }
+        templateSelect.appendChild(option);
+      });
+      
+      console.log(`[TemplateSelector] Populated ${enabledTemplates.length} templates`);
+    }
+    
+    // ✅ Bước 4: Update UI fields dựa trên template config
+    function updateUIFields(templateId) {
+      const config = getTemplateConfig(templateId);
+      if (!config || !config.uiFields) return;
+      
+      // Show/hide Pacman-specific fields
+      if (pacmanFields) {
+        const hasMapFields = config.uiFields.map?.enabled || config.uiFields.mapColor?.enabled;
+        pacmanFields.style.display = hasMapFields ? 'block' : 'none';
+      }
+      
+      // ✅ Show/hide Map selection separately (only for templates with map.enabled)
+      const mapSelectContainer = document.getElementById('mapSelectContainer');
+      if (mapSelectContainer) {
+        mapSelectContainer.style.display = config.uiFields.map?.enabled ? 'block' : 'none';
+      }
+      
+      // ✅ Show/hide Map color separately (only for templates with mapColor.enabled)
+      const mapColorContainer = document.getElementById('mapColorContainer');
+      const mapColorLabel = document.getElementById('mapColorLabel');
+      if (mapColorContainer) {
+        mapColorContainer.style.display = config.uiFields.mapColor?.enabled ? 'block' : 'none';
+        
+        // ✅ Update label: "Brick color" for fallen-crypto-template, "Map color" for others
+        if (mapColorLabel) {
+          mapColorLabel.textContent = templateId === 'fallen-crypto-template' ? 'Brick color' : 'Map color';
+        }
+        
+        // ✅ Render color buttons from registry config
+        if (config.uiFields.mapColor?.enabled && config.uiFields.mapColor?.colors) {
+          const mapColors = document.getElementById('mapColors');
+          if (mapColors) {
+            mapColors.innerHTML = ''; // Clear existing buttons
+            config.uiFields.mapColor.colors.forEach(color => {
+              const btn = document.createElement('button');
+              btn.className = 'chip-btn';
+              btn.setAttribute('data-color', color.value);
+              btn.style.setProperty('--color', color.value);
+              btn.setAttribute('aria-label', color.label);
+              mapColors.appendChild(btn);
+            });
+            
+            // Select first color by default
+            const firstBtn = mapColors.querySelector('.chip-btn');
+            if (firstBtn) {
+              firstBtn.classList.add('active');
+            }
+          }
+        }
+      }
+      
+      console.log(`[TemplateSelector] Updated UI fields for template: ${templateId}`);
+    }
+    
+    // ✅ Bước 4: Switch template (async - chỉ khi switch sang template khác)
+    async function switchTemplate(newTemplateId) {
+      if (newTemplateId === CURRENT_TEMPLATE) {
+        console.log(`[TemplateSelector] Template ${newTemplateId} is already active`);
+        return;
+      }
+      
+      const config = getTemplateConfig(newTemplateId);
+      if (!config) {
+        console.error(`[TemplateSelector] Template not found: ${newTemplateId}`);
+        templateSelect.value = CURRENT_TEMPLATE; // Revert selection
+        return;
+      }
+      
+      console.log(`[TemplateSelector] Switching from ${CURRENT_TEMPLATE} to ${newTemplateId}`);
+      
+      try {
+        // 1. Load adapter mới (async)
+        const AdapterClass = await loadAdapter(newTemplateId);
+        
+        // 2. Clear playtest iframe
+        if (currentPlaytestIframe) {
+          currentPlaytestIframe.remove();
+          currentPlaytestIframe = null;
+        }
+        currentPlaytestGameId = null;
+        
+        // 3. Reset editor state
+        if (storyInput) storyInput.value = '';
+        if (logoPreview) {
+          logoPreview.src = '';
+          logoPreview.classList.remove('visible');
+        }
+        if (mapSelect) mapSelect.value = '1';
+        if (mapColors) {
+          const firstBtn = mapColors.querySelector('.chip-btn');
+          if (firstBtn) {
+            mapColors.querySelectorAll('.chip-btn').forEach(btn => btn.classList.remove('active'));
+            firstBtn.classList.add('active');
+          }
+        }
+        
+        // 4. Disable save buttons
+        disableSaveButtons();
+        playTestBtn.classList.remove('success');
+        
+        // 5. Update CURRENT_TEMPLATE và adapter
+        CURRENT_TEMPLATE = newTemplateId;
+        adapter = new AdapterClass({
+          editorElements: {
+            storyInput,
+            mapSelect,
+            logoPreview,
+            mapColors
+          }
+        });
+        sharedEditor = new SharedEditor(adapter);
+        
+        // 6. Update UI fields
+        updateUIFields(newTemplateId);
+        
+        // 7. Cleanup old playtest keys cho template mới
+        cleanupOldPlaytestKeys(newTemplateId);
+        
+        // 8. Initialize default playtest (desktop only)
+        initDefaultPlaytest();
+        
+        console.log(`[TemplateSelector] ✅ Successfully switched to template: ${newTemplateId}`);
+      } catch (error) {
+        console.error(`[TemplateSelector] Failed to switch to ${newTemplateId}:`, error);
+        templateSelect.value = CURRENT_TEMPLATE; // Revert selection
+        alert(`Failed to load template: ${newTemplateId}. Please try again.`);
+      }
+    }
+    
+    // ✅ Bước 3: Helper function để lấy config từ DOM (UI logic, không phải playtest logic)
+    function getConfigFromDOM(options = {}) {
+      const story = (storyInput?.value || '').trim();
+      const mapIndex = mapSelect?.value ? parseInt(mapSelect.value, 10) - 1 : 0;
+      const fragmentLogoUrl = options.fragmentLogoUrl || logoPreview?.src || '';
+      
+      let mapColor = '#6B46C1'; // default purple
+      if (mapColors) {
+        const activeColorBtn = mapColors.querySelector('.chip-btn.active');
+        if (activeColorBtn) {
+          mapColor = activeColorBtn.dataset.color || mapColor;
+        }
+      }
+      
+      // ✅ Rocket BNB: Map 1 logo input → 2 logo fields (coinLogoUrl + gameOverLogoUrl)
+      if (CURRENT_TEMPLATE === 'rocket-bnb-template') {
+        return {
+          coinLogoUrl: fragmentLogoUrl, // Map fragmentLogoUrl → coinLogoUrl
+          gameOverLogoUrl: fragmentLogoUrl, // Map fragmentLogoUrl → gameOverLogoUrl
+          tokenStory: story || 'welcome to memeplay', // Map story → tokenStory (string)
+          title: story || 'Rocket BNB Game',
+          smartContract: ''
+        };
+      }
+      
+      // ✅ Fallen Crypto: Map format từ editor → adapter format (logoUrl, story, brickColor)
+      if (CURRENT_TEMPLATE === 'fallen-crypto-template') {
+        return {
+          logoUrl: fragmentLogoUrl,           // Map fragmentLogoUrl → logoUrl
+          story: story || 'welcome to memeplay', // Map story string → story
+          brickColor: mapColor || '#4a90a4'  // Map mapColor → brickColor
+        };
+      }
+      
+      // ✅ Pacman/Pixel Shooter: Format cũ
+      return {
+        fragmentLogoUrl: fragmentLogoUrl,
+        title: story || 'Untitled Game',
+        smartContract: '',
+        mapColor: mapColor,
+        mapIndex: mapIndex,
+        stories: [story]
+      };
+    }
+    
+    // ✅ Bước 3: Wrapper function để save playtest config (lấy từ DOM và gọi manager)
+    function savePlaytestConfig(options = {}) {
+      const config = getConfigFromDOM(options);
+      savePlaytestConfigToStorage(CURRENT_TEMPLATE, config, options);
+    }
+    
+    // ✅ Helper: Disable Save buttons when config changes
+    function disableSaveButtons() {
+      saveMobileBtn.disabled = true;
+      if (saveDesktopBtn) {
+        saveDesktopBtn.disabled = true;
+      }
+    }
+    
+    // ✅ Bước 3: Wrapper function để tạo playtest iframe (gọi manager)
+    function createPlaytestIframe(gameId, container) {
+      return createPlaytestIframeFromManager(CURRENT_TEMPLATE, gameId, container);
+    }
+    
+    // ✅ Bước 3: Khởi tạo: Render sẵn iframe mặc định (desktop only)
+    function initDefaultPlaytest() {
+      if (window.innerWidth > 900 && CURRENT_TEMPLATE) {
+        // ✅ Bước 2: Dùng gameId từ registry
+        currentPlaytestGameId = getPlaytestGameId(CURRENT_TEMPLATE);
+        // ✅ Bước 3: Cleanup old keys trước khi init (dùng manager)
+        cleanupOldPlaytestKeys(CURRENT_TEMPLATE);
+        savePlaytestConfig(); // Dùng key cố định, không cần gameId
+        currentPlaytestIframe = createPlaytestIframe(currentPlaytestGameId, previewBox);
+        // ✅ FIX: Không enable Save button ở đây - chỉ enable sau khi user ấn Play Test
+      }
+    }
+    
+    // ✅ Bước 3: Lưu reference đến iframe để gửi postMessage
+    function updatePlaytestIframe(immediate = false) {
+      if (window.innerWidth <= 900) return; // Chỉ update desktop
+      
+      clearTimeout(updateTimeout);
+      
+      const update = () => {
+        // ✅ Bước 3: Lấy config từ DOM
+        const config = getConfigFromDOM();
+        
+        // ✅ Bước 3: Update iframe (manager sẽ tự xử lý postMessage hoặc reload)
+        currentPlaytestIframe = updatePlaytestIframeFromManager(
+          CURRENT_TEMPLATE,
+          currentPlaytestIframe,
+          previewBox,
+          config
+        );
+      };
+      
+      if (immediate) {
+        update();
+      } else {
+        // Debounce: đợi 300ms sau khi user ngừng thay đổi
+        updateTimeout = setTimeout(update, 300);
+      }
+    }
+    
+    // Disable save buttons until Play Test (but show them as disabled)
+    saveMobileBtn.disabled = true;
+    if (saveDesktopBtn) {
+      saveDesktopBtn.disabled = true;
+      saveDesktopBtn.style.display = 'block'; // ✅ Show button but disabled
+    }
+
+    // ✅ Bước 3: Khởi tạo: Render sẵn iframe mặc định (desktop only)
+    initDefaultPlaytest();
+    
+    // ✅ Bước 4: Populate template selector (synchronous, không delay)
+    populateTemplateSelector();
+    updateUIFields(CURRENT_TEMPLATE);
+    
+    // ✅ Bước 4: Event listener cho template selector (top-level, không wrap trong function)
+    if (templateSelect) {
+      templateSelect.addEventListener('change', async (e) => {
+        const newTemplateId = e.target.value;
+        await switchTemplate(newTemplateId);
+      });
+    }
+
+    // ✅ Play Test click handler
+    playTestBtn.addEventListener('click', () => {
+      adapter.markDirty();
+      playTestBtn.classList.add('success');
+      
+      const isMobile = window.innerWidth <= 900;
+      
+      // ✅ Bước 2: Dùng gameId từ registry
+      const playtestGameId = getPlaytestGameId(CURRENT_TEMPLATE);
+      
+      if (isMobile) {
+        // Mobile: tạo iframe trong mobilePreviewBox
+        savePlaytestConfig(); // Dùng key cố định, không cần gameId
+        currentPlaytestIframe = createPlaytestIframe(playtestGameId, mobilePreviewBox);
+        const mobilePlay = document.querySelector('.mobile-play');
+        if (mobilePlay) {
+          mobilePlay.style.display = 'flex';
+        }
+        saveMobileBtn.disabled = false;
+        mobilePreviewBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      } else {
+        // Desktop: update iframe với gameId cố định
+        currentPlaytestGameId = playtestGameId;
+        savePlaytestConfig(); // Dùng key cố định, không cần gameId
+        currentPlaytestIframe = createPlaytestIframe(playtestGameId, previewBox);
+        if (saveDesktopBtn) {
+          saveDesktopBtn.disabled = false;
+          saveDesktopBtn.style.display = 'block';
+        }
+      }
+    });
+    
+    // ✅ Real-time update: Update iframe khi config change
+    let updateTimeout = null;
+
+    // Hook vào các input changes cho real-time update
+    storyInput.addEventListener('input', () => {
+      storyCount.textContent = `${storyInput.value.length}/50`;
+      updatePlaytestIframe(); // Debounced
+    });
+    mapSelect.addEventListener('change', () => {
+      updatePlaytestIframe(true); // Immediate update for map change
+    });
+    // Note: mapColors click handler is defined later with full logic
+
+    backToEditorBtn.addEventListener('click', () => {
+      // Cleanup mobile iframe khi back to editor
+      const mobileIframe = mobilePreviewBox.querySelector('iframe');
+      if (mobileIframe) {
+        mobileIframe.remove();
+      }
+      const mobileLoading = mobilePreviewBox.querySelector('.loading-text');
+      if (mobileLoading) {
+        mobileLoading.remove();
+      }
+      mobilePreviewBox.textContent = 'Play preview will appear here after Play Test.';
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+
+    const handleSave = async (btn, event) => {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+      }
+      
+      // ✅ CRITICAL: Generate gameId FIRST (synchronous, before any async)
+      // This ensures we have the ID ready for immediate copy
+      const isDirty = adapter.isDirty();
+      const gameId = isDirty ? adapter.generateGameId() : (adapter.lastSavedGameId || adapter.generateGameId());
+      const publicUrl = buildPublicLinkUrl(gameId);
+      
+      // ✅ CRITICAL: Copy IMMEDIATELY using synchronous execCommand (within user gesture)
+      // iOS Safari requires clipboard operations to happen synchronously within user gesture context
+      // Any async operation (await, setTimeout, etc.) before copy will break iOS Safari
+      let copied = false;
+      try {
+        // Try modern Clipboard API first (must be synchronous call in user gesture)
+        if (navigator.clipboard?.writeText) {
+          // Fire-and-forget: initiate copy immediately, don't await
+          navigator.clipboard.writeText(publicUrl).catch(() => {
+            // Will fallback to execCommand below
+          });
+          copied = true;
+        }
+      } catch (err) {
+        // Clipboard API not available or failed, use fallback
+      }
+      
+      // ✅ Fallback: Use synchronous execCommand (works in user gesture context)
+      if (!copied) {
+        const textarea = document.createElement('textarea');
+        textarea.value = publicUrl;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '50%';
+        textarea.style.left = '50%';
+        textarea.style.width = '1px';
+        textarea.style.height = '1px';
+        textarea.style.opacity = '0.01';
+        textarea.style.zIndex = '9999';
+        document.body.appendChild(textarea);
+        textarea.focus();
+        textarea.select();
+        textarea.setSelectionRange(0, publicUrl.length);
+        try {
+          copied = document.execCommand('copy');
+          textarea.remove();
+        } catch (err) {
+          textarea.remove();
+        }
+      }
+      
+      // ✅ NOW disable button and proceed with async operations (after copy initiated)
+      btn.disabled = true;
+      
+      try {
+        // ✅ Save game and sync to Supabase using the same gameId (avoid ID mismatch between copy & save)
+        const result = await adapter.save(gameId);
+        const finalGameId = result.gameId;
+
+        // ✅ If for any reason save returned a different ID, best-effort clipboard update
+        if (finalGameId && finalGameId !== gameId) {
+          const finalPublicUrl = buildPublicLinkUrl(finalGameId);
+          try {
+            if (navigator.clipboard?.writeText) {
+              await navigator.clipboard.writeText(finalPublicUrl);
+            }
+          } catch (err) {
+            console.warn('[Save] Could not update clipboard with final URL (user gesture lost)');
+          }
+        }
+        
+        btn.classList.add('success');
+        setTimeout(() => { btn.disabled = false; }, 1200);
+      } catch (err) {
+        console.error('[Save] ❌ Error during save:', err);
+        console.error('[Save] Error stack:', err.stack);
+        btn.disabled = false;
+      }
+    };
+
+    // ✅ CRITICAL: ONLY use 'click' event (iOS Safari handles touchstart → click automatically)
+    // Using touchstart + preventDefault breaks iOS Safari's click dispatch and user gesture tracking
+    saveMobileBtn.addEventListener('click', (e) => handleSave(saveMobileBtn, e));
+    
+    if (saveDesktopBtn) {
+      saveDesktopBtn.addEventListener('click', (e) => handleSave(saveDesktopBtn, e));
+    }
+
+    closeEditorBtn.addEventListener('click', () => {
+      // Cleanup iframes khi đóng editor
+      const desktopIframe = previewBox.querySelector('iframe');
+      if (desktopIframe) {
+        desktopIframe.remove();
+      }
+      const mobileIframe = mobilePreviewBox.querySelector('iframe');
+      if (mobileIframe) {
+        mobileIframe.remove();
+      }
+      window.location.href = '/';
+    });
+
+    // Cleanup khi page unload
+    window.addEventListener('beforeunload', () => {
+      const desktopIframe = previewBox.querySelector('iframe');
+      if (desktopIframe) {
+        desktopIframe.remove();
+      }
+      const mobileIframe = mobilePreviewBox.querySelector('iframe');
+      if (mobileIframe) {
+        mobileIframe.remove();
+      }
+    });
+
+    logoInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const img = new Image();
+        img.onload = () => {
+          processLogoImage(img, (dataUrl) => {
+            logoPreview.src = dataUrl;
+            logoPreview.classList.add('visible');
+            adapter.markDirty();
+            // ✅ FIX: Remove success state from Play Test button when config changes
+            playTestBtn.classList.remove('success');
+            // ✅ FIX: Disable Save buttons when config changes
+            disableSaveButtons();
+            // ✅ FIX: Pass dataUrl directly to savePlaytestConfig (avoid DOM race condition)
+            // ✅ Bước 2: Dùng gameId từ registry
+            if (!currentPlaytestGameId) {
+              currentPlaytestGameId = getPlaytestGameId(CURRENT_TEMPLATE);
+            }
+            savePlaytestConfig({ fragmentLogoUrl: dataUrl }); // Truyền dataUrl trực tiếp
+            createPlaytestIframe(currentPlaytestGameId, previewBox);
+          });
+        };
+        img.src = reader.result;
+      };
+      reader.readAsDataURL(file);
+    });
+
+    mapColors.addEventListener('click', (e) => {
+      const btn = e.target.closest('.chip-btn');
+      if (!btn) return;
+      mapColors.querySelectorAll('.chip-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      adapter.markDirty();
+      playTestBtn.classList.remove('success');
+      saveMobileBtn.classList.remove('success');
+      if (saveDesktopBtn) saveDesktopBtn.classList.remove('success');
+      // ✅ FIX: Disable Save buttons when config changes
+      disableSaveButtons();
+      // Update playtest immediately when color changes (desktop only)
+      if (window.innerWidth > 900) {
+        if (!currentPlaytestGameId) {
+          currentPlaytestGameId = getPlaytestGameId(CURRENT_TEMPLATE);
+        }
+        savePlaytestConfig(); // Dùng key cố định
+        createPlaytestIframe(currentPlaytestGameId, previewBox);
+      }
+    });
+
+    // ✅ Color buttons are now rendered dynamically from registry config in updateUIFields()
+    // No need to hardcode default selection here
+
+    // Style options handling
+    const styleOptions = document.querySelectorAll('.style-option');
+    styleOptions.forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        if (btn.disabled) return;
+        styleOptions.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    storyInput.addEventListener('input', () => {
+      if (!adapter) return;
+      adapter.markDirty();
+      playTestBtn.classList.remove('success');
+      saveMobileBtn.classList.remove('success');
+      if (saveDesktopBtn) saveDesktopBtn.classList.remove('success');
+      // ✅ FIX: Disable Save buttons when config changes
+      disableSaveButtons();
+    });
+    document.getElementById('mapSelect').addEventListener('change', () => {
+      if (!adapter) return;
+      adapter.markDirty();
+      playTestBtn.classList.remove('success');
+      saveMobileBtn.classList.remove('success');
+      if (saveDesktopBtn) saveDesktopBtn.classList.remove('success');
+      // ✅ FIX: Disable Save buttons when config changes
+      disableSaveButtons();
+    });
+
+    // ✅ Image optimizer is now imported from core/image-optimizer.js (see top of script)
+    // The processLogoImage function from core/image-optimizer.js handles:
+    // - Background removal (edge detection + corner color sampling)
+    // - Image optimization (resize to max 128px + compress with WebP/PNG)
+  </script>
+</body>
+</html>
+

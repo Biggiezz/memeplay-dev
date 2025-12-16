@@ -58,12 +58,8 @@ body {
   position: relative;
   background: #0d0d1a;
   overflow: hidden;
-  /* ✅ FIX CRITICAL: Thay đổi touch-action để không chặn scroll của parent
-     - pan-y: Cho phép vertical scroll (để parent có thể scroll)
-     - pinch-zoom: Cho phép zoom gestures
-     - Loại bỏ "none" vì nó chặn tất cả touch events → gây bug mobile scroll
-  */
-  touch-action: pan-y pinch-zoom;
+  /* Capture all swipe gestures inside the game frame (no page scroll here) */
+  touch-action: none;
   margin: 0 auto;
   /* IMPORTANT: Reserve space for header */
   padding-top: 70px;

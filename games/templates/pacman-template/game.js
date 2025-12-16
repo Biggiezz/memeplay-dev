@@ -1013,12 +1013,12 @@ function initGame() {
   
   // Set canvas to exact native resolution (700x730px - game area only)
   // NO SCALING - render at true pixel resolution
-  canvas.width = 700;
-  canvas.height = 730;
+  canvas.width = CONFIG.CANVAS_WIDTH;
+  canvas.height = CONFIG.CANVAS_HEIGHT;
   
   // CRITICAL: Disable CSS scaling - canvas must render at native size
-  canvas.style.width = '700px';
-  canvas.style.height = '730px';
+  canvas.style.width = CONFIG.CANVAS_WIDTH + 'px';
+  canvas.style.height = CONFIG.CANVAS_HEIGHT + 'px';
   
   // Enable high-quality image rendering for non-pixel art elements (like logo)
   ctx.imageSmoothingEnabled = true;
@@ -2327,7 +2327,12 @@ function setupMobileControls() {
 
 function setupSwipeControls() {
   const canvasEl = document.getElementById('gameCanvas');
-  if (!canvasEl) return;
+  const wrapperEl = document.querySelector('.game-wrapper');
+  // Extend swipe area to the full game container (outer purple frame)
+  const containerEl = document.querySelector('.game-container');
+  // Fallback to document body to cover any remaining padding area
+  const targets = [canvasEl, wrapperEl, containerEl, document.body].filter(Boolean);
+  if (targets.length === 0) return;
 
   let touchStartX = null;
   let touchStartY = null;
@@ -2336,6 +2341,9 @@ function setupSwipeControls() {
 
   const onTouchStart = (event) => {
     if (event.touches.length !== 1) return;
+    // Allow taps on Game Over overlay (e.g., Play Again) to go through so click is not cancelled
+    const target = event.target;
+    if (target && target.closest('.game-over-screen')) return;
     // ✅ FIX: preventDefault để ngăn touch events bubble lên parent (giống rocket-bnb, brick-fallen-crypto)
     event.preventDefault();
     const touch = event.touches[0];
@@ -2346,6 +2354,8 @@ function setupSwipeControls() {
 
   const onTouchMove = (event) => {
     if (!isSwiping || touchStartX === null || touchStartY === null) return;
+    const target = event.target;
+    if (target && target.closest('.game-over-screen')) return;
     // ✅ FIX: preventDefault để ngăn touch events bubble lên parent
     event.preventDefault();
     const touch = event.touches[0];
@@ -2376,10 +2386,12 @@ function setupSwipeControls() {
   };
 
   // ✅ FIX: Đổi passive: false để có thể preventDefault (giống rocket-bnb, brick-fallen-crypto)
-  canvasEl.addEventListener('touchstart', onTouchStart, { passive: false });
-  canvasEl.addEventListener('touchmove', onTouchMove, { passive: false });
-  canvasEl.addEventListener('touchend', resetSwipe, { passive: false });
-  canvasEl.addEventListener('touchcancel', resetSwipe, { passive: false });
+  targets.forEach(el => {
+    el.addEventListener('touchstart', onTouchStart, { passive: false });
+    el.addEventListener('touchmove', onTouchMove, { passive: false });
+    el.addEventListener('touchend', resetSwipe, { passive: false });
+    el.addEventListener('touchcancel', resetSwipe, { passive: false });
+  });
 }
 
 // setupFooterSwipeToEditor removed - swipe in game area only controls Pacman
@@ -2501,6 +2513,18 @@ function gameOver() {
   
   // Send score to MemePlay
   sendScoreToMemePlay();
+  
+  // ✅ V2: Send GAME_OVER message to parent (play-v2.js)
+  if (window.parent && window.parent !== window) {
+    const gameId = EMBEDDED_GAME_ID || (typeof getGameId === 'function' ? getGameId() : null);
+    if (gameId) {
+      window.parent.postMessage({
+        type: 'GAME_OVER',
+        gameId: gameId
+      }, '*');
+      console.log('[Pacman] 📤 Sent GAME_OVER to parent:', gameId);
+    }
+  }
 }
 
 function restartGame() {
@@ -2615,8 +2639,7 @@ function setupMemePlayIntegration() {
   // ====================================
   const focusToggleBtn = document.querySelector('.focus-toggle');
   if (focusToggleBtn) {
-    // Handle button click - send message to parent
-    focusToggleBtn.addEventListener('click', (event) => {
+    const handleFocusToggle = (event) => {
       event.preventDefault();
       event.stopPropagation();
       
@@ -2631,7 +2654,15 @@ function setupMemePlayIntegration() {
         }, '*');
         console.log('[Pacman] 📤 Sent TOGGLE_FOCUS_MODE to parent:', gameId);
       }
-    });
+    };
+    
+    // Handle both click (desktop) and touchstart (mobile)
+    focusToggleBtn.addEventListener('click', handleFocusToggle);
+    focusToggleBtn.addEventListener('touchstart', (event) => {
+      // ✅ FIX: Allow touch events on focus button (don't let swipe controls prevent it)
+      event.stopPropagation(); // Stop bubbling to swipe handlers
+      handleFocusToggle(event);
+    }, { passive: false });
   }
 }
 
@@ -4869,6 +4900,11 @@ window.addEventListener('DOMContentLoaded', async () => {
 const restartBtn = document.getElementById('restartBtn');
 if (restartBtn) {
   restartBtn.addEventListener('click', restartGame);
+  restartBtn.addEventListener('touchstart', (e) => {
+    // Ensure mobile tap triggers restart immediately
+    e.preventDefault();
+    restartGame();
+  });
 }
 
 

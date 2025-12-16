@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Pixel Shooter Template - V2</title>
+  <link rel="stylesheet" href="style.css">
+  <script>
+    (function() {
+      try {
+        var searchParams = new URLSearchParams(window.location.search || '');
+        var hasGameId = false;
+        var detectedGameId = null;
+        
+        if (searchParams.get('game')) {
+          hasGameId = true;
+          detectedGameId = searchParams.get('game');
+        }
+        
+        var addPublicViewClass = function() {
+          if (!document.body) return;
+          if (!document.body.classList.contains('public-game-view')) {
+            document.body.classList.add('public-game-view');
+          }
+        };
+        
+        if (hasGameId) {
+          if (document.body) {
+            addPublicViewClass();
+          } else {
+            document.addEventListener('DOMContentLoaded', addPublicViewClass, { once: true });
+            setTimeout(addPublicViewClass, 0);
+          }
+          console.log('[Pixel Shooter V2] ✅ Added public-game-view class (early detection)');
+        }
+      } catch (err) {
+        console.warn('[Pixel Shooter V2] Failed to set public-game-view class early:', err);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <div class="game-wrapper">
+    <canvas id="gameCanvas" width="720" height="1000"></canvas>
+    
+    <!-- Drag button inside wrapper - uses 720x1000 coordinate system -->
+    <button class="focus-toggle" type="button" aria-label="Toggle focus mode" aria-pressed="false">⤢</button>
+    
+    <div id="nextLevel" class="next-level">
+      <h2>LEVEL <span id="nextLevelNumber">1</span></h2>
+    </div>
+    
+    <div id="gameOver" class="game-over">
+      <h2>GAME OVER</h2>
+      <img id="gameOverLogo" style="max-width: 120px; max-height: 120px; margin: 0 auto 20px; display: block; object-fit: contain;" alt="Logo">
+      <p id="gameOverStory" style="color: #fff; font-size: 20px; margin-bottom: 30px; font-family: 'Courier New', monospace;"></p>
+      <p>Score: <span id="finalScore">0</span></p>
+      <button class="restart-btn" onclick="game.restart()">Play Again</button>
+    </div>
+    
+    <div id="tapToStartOverlay" class="tap-to-start-overlay">
+      <div id="tapToStart" class="tap-to-start">Tap to Start</div>
+    </div>
+  </div>
+
+  <script src="config.js"></script>
+  <script src="game.js"></script>
+</body>
+</html>
+
+

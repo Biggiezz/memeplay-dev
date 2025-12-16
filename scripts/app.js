@@ -441,7 +441,7 @@
                 likes: foundGame.likes_count ?? foundGame.likes ?? 0,
                 comments: foundGame.comments_count ?? foundGame.comments ?? 0,
                 plays: foundGame.plays_count ?? foundGame.plays ?? 0,
-                templateUrl: foundGame.template_url || `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+                templateUrl: foundGame.template_url || `${baseUrl}/games/templates-v2/pacman-template/index.html?game=${gameId}`,
                 publicUrl: foundGame.public_url || `${baseUrl}/?game=${gameId}`
               }
               console.log(`✅ [PRIORITY] Found priority game in Supabase: ${priorityGame.gameId}`)
@@ -730,7 +730,7 @@
         likes: 0,
         comments: 0,
         plays: 0,
-        templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+        templateUrl: `${baseUrl}/games/templates-v2/pacman-template/index.html?game=${gameId}`,
         publicUrl: `${baseUrl}/?game=${gameId}`
       }
     } catch (error) {
@@ -845,7 +845,7 @@
             likes: 0,
             comments: 0,
             plays: 0,
-            templateUrl: `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`,
+            templateUrl: `${baseUrl}/games/templates-v2/pacman-template/index.html?game=${gameId}`,
             publicUrl: `${baseUrl}/?game=${gameId}`
           })
         } catch (error) {
@@ -1083,7 +1083,7 @@
               ? `${baseUrl}/games/wall-bounce-bird/index.html?game=${gameId}`
               : isBlowBubbleTemplate
               ? `${baseUrl}/games/blow-bubble/index.html?game=${gameId}`
-              : `${baseUrl}/games/templates/pacman-template/index.html?game=${gameId}`
+              : `${baseUrl}/games/templates-v2/pacman-template/index.html?game=${gameId}`
             const templateUrl = item.template_url || defaultTemplateUrl
           const publicUrl = item.public_url || `${baseUrl}/?game=${gameId}`
           
@@ -1210,7 +1210,7 @@
       ? `/games/wall-bounce-bird/index.html?game=${game.gameId}`
       : isBlowBubbleGame
       ? `/games/blow-bubble/index.html?game=${game.gameId}`
-      : `/games/templates/pacman-template/index.html?game=${game.gameId}`
+      : `/games/templates-v2/pacman-template/index.html?game=${game.gameId}`
     let templateUrl = sanitizeUrl(game.templateUrl, defaultPath)
     if (!templateUrl) {
       console.warn(`⚠️ Missing templateUrl for ${game.gameId}, skipping render`)
@@ -2682,7 +2682,7 @@
     
     // Click handler to open editor
     toast.addEventListener('click', () => {
-      window.location.href = '/games/templates/pacman-template/index.html#creatorScreen';
+      window.location.href = '/games/templates-v2/pacman-template/index.html#creatorScreen';
     });
     
     document.body.appendChild(toast);

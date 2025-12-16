@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fallen Crypto Template - V2</title>
+  <!-- Suppress favicon.ico 404 error -->
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="style.css">
+  <script>
+    // Early detection: Add public-game-view class if ?game= parameter exists
+    (function() {
+      try {
+        var searchParams = new URLSearchParams(window.location.search || '');
+        var hasGameId = false;
+        
+        if (searchParams.get('game')) {
+          hasGameId = true;
+        }
+        
+        var addPublicViewClass = function() {
+          if (!document.body) return;
+          if (!document.body.classList.contains('public-game-view')) {
+            document.body.classList.add('public-game-view');
+          }
+        };
+        
+        if (hasGameId) {
+          if (document.body) {
+            addPublicViewClass();
+          } else {
+            document.addEventListener('DOMContentLoaded', addPublicViewClass, { once: true });
+            setTimeout(addPublicViewClass, 0);
+          }
+          console.log('[Fallen Crypto V2] ✅ Added public-game-view class (early detection)');
+        }
+      } catch (err) {
+        console.warn('[Fallen Crypto V2] Failed to set public-game-view class early:', err);
+      }
+    })();
+  </script>
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  
+  <div class="touch-zone left" id="touchLeft"></div>
+  <div class="touch-zone right" id="touchRight"></div>
+
+  <div class="start-screen show" id="startScreen">
+    <div class="screen-title" id="startBtn">Tap to play</div>
+  </div>
+
+  <div class="level-screen" id="levelScreen">
+    <div class="screen-title" id="levelTitle">LEVEL 1</div>
+    <button class="screen-btn" id="levelStartBtn">START</button>
+  </div>
+
+  <div class="game-over-screen" id="gameOverScreen">
+    <div class="screen-title">GAME OVER</div>
+    <div class="screen-subtitle">
+      Score: <span id="finalScore">0</span>
+    </div>
+    <div class="game-over-content">
+      <img id="bnbLogo" src="assets/binance-logo.webp" alt="Logo" class="bnb-logo" style="display: none;">
+      <p id="bnbStory" class="bnb-story"></p>
+    </div>
+    <button class="screen-btn" id="restartBtn">PLAY AGAIN</button>
+  </div>
+
+  <!-- Scripts will be added in Phase 4-6 -->
+  <script type="module" src="config.js"></script>
+  <script type="module" src="game.js"></script>
+</body>
+</html>
+

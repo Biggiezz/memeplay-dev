@@ -37,7 +37,16 @@
       const pacmanGameMatch = path.match(/^\/(pacman-game-[^\/]+)$/);
       if (pacmanGameMatch) {
         const gameId = pacmanGameMatch[1];
-        const redirectUrl = `/games/templates/pacman-template/index.html?game=${gameId}`;
+        const redirectUrl = `/games/templates-v2/pacman-template/index.html?game=${gameId}`;
+        window.location.replace(redirectUrl);
+        return;
+      }
+
+      // Handle V2 short URL: /playmode-<id> -> /play-v2.html?game=playmode-<id>
+      const playmodeMatch = path.match(/^\/(playmode-[^\/]+)$/);
+      if (playmodeMatch) {
+        const gameId = playmodeMatch[1];
+        const redirectUrl = `/play-v2.html?game=${gameId}`;
         window.location.replace(redirectUrl);
         return;
       }

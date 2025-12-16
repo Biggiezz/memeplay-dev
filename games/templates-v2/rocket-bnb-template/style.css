@@ -1,0 +1,183 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+body {
+  font-family: 'Courier New', monospace;
+  background: #000;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
+  touch-action: none;
+  width: 100vw;
+  height: 100vh;
+  position: static;
+}
+
+#gameCanvas {
+  border: none;
+  cursor: pointer;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  will-change: transform;
+  transform: translateZ(0);
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+}
+
+.score {
+  position: absolute;
+  top: 55px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 64px;
+  color: #F3BA2F;
+  text-shadow: 3px 3px 0 #000;
+  font-weight: bold;
+  z-index: 10;
+}
+
+@media (max-width: 768px) {
+  .score {
+    top: 40px;
+    font-size: 48px;
+  }
+}
+
+.game-over {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: linear-gradient(135deg, #1E1A2E, #2A1E42);
+  padding: 25px;
+  border-radius: 15px;
+  border: 3px solid #F3BA2F;
+  text-align: center;
+  color: #F3BA2F;
+  display: none;
+  z-index: 100;
+  width: 420px;
+  min-height: 420px;
+  height: auto;
+  max-width: 90%;
+  max-height: 90vh;
+  flex-direction: column;
+  justify-content: space-between;
+  overflow-y: auto;
+}
+
+.game-over.show {
+  display: flex;
+}
+
+.game-over h2 {
+  font-size: 26px;
+  margin: 0;
+  line-height: 1.2;
+}
+
+.game-over .score-text {
+  font-size: 22px;
+  margin: 0;
+  font-weight: bold;
+}
+
+.token-showcase {
+  margin: 10px 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.token-logo {
+  width: 160px;
+  height: 160px;
+  margin: 20px auto 20px;
+  display: block;
+  object-fit: contain;
+  background: transparent;
+}
+
+.token-story {
+  font-size: 16px;
+  line-height: 1.5;
+  color: #FFF;
+  margin: 0;
+  text-align: left;
+  padding: 0 5px;
+  white-space: pre-line;
+}
+
+.game-over button {
+  padding: 14px 30px;
+  font-size: 18px;
+  background: linear-gradient(135deg, #F3BA2F, #FCD535);
+  color: #000;
+  border: none;
+  border-radius: 50px;
+  cursor: pointer;
+  font-weight: bold;
+  font-family: 'Courier New', monospace;
+  width: 100%;
+  max-width: 280px;
+  margin: 0 auto;
+  display: block;
+}
+
+@media (max-width: 768px) {
+  .game-over {
+    padding: 20px;
+    width: 85vw;
+    min-height: 85vw;
+    height: auto;
+    max-width: 420px;
+    max-height: 85vh;
+  }
+  
+  .game-over h2 {
+    font-size: 22px;
+    margin: 0;
+  }
+  
+  .game-over .score-text {
+    font-size: 18px;
+    margin: 0;
+  }
+  
+  .token-logo {
+    width: 80px;
+    height: 80px;
+    margin: 15px auto 15px;
+    object-fit: contain;
+  }
+  
+  .token-story {
+    font-size: 15px;
+    line-height: 1.4;
+    padding: 0;
+  }
+  
+  .game-over button {
+    font-size: 14px;
+    padding: 10px 20px;
+    max-width: 100%;
+  }
+}
+

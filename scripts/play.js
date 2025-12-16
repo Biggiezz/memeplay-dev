@@ -520,7 +520,7 @@ function loadGameFromLocalStorage(gameId) {
       stories: Array.isArray(config.stories) ? config.stories : [],
       mapColor: config.mapColor || '#1a1a2e',
       fragmentLogoUrl: config.fragmentLogoUrl || '',
-      templateUrl: `${window.location.origin.replace(/\/$/, '')}/games/templates/pacman-template/index.html?game=${gameId}`
+      templateUrl: `${window.location.origin.replace(/\/$/, '')}/games/templates-v2/pacman-template/index.html?game=${gameId}`
     }
   } catch (error) {
     console.warn('[PLAY MODE] Failed to read local game config:', error)
@@ -593,7 +593,7 @@ async function fetchGameFromSupabase(gameId) {
         ? `/games/wall-bounce-bird/index.html?game=${gameId}`
         : isBlowBubble
         ? `/games/blow-bubble/index.html?game=${gameId}`
-        : `/games/templates/pacman-template/index.html?game=${gameId}`
+        : `/games/templates-v2/pacman-template/index.html?game=${gameId}`
       
       const finalTemplateUrl = sanitizeTemplateUrl(match.template_url, defaultPath)
       
@@ -657,7 +657,7 @@ function buildUserGameCard(game) {
     ? `/games/wall-bounce-bird/index.html?game=${game.gameId}`
     : isBlowBubble
     ? `/games/blow-bubble/index.html?game=${game.gameId}`
-    : `/games/templates/pacman-template/index.html?game=${game.gameId}`
+    : `/games/templates-v2/pacman-template/index.html?game=${game.gameId}`
   const templateUrl = sanitizeTemplateUrl(game.templateUrl, defaultPath)
   if (!templateUrl) return null
   const cacheBuster = templateUrl.includes('?') ? '&' : '?'

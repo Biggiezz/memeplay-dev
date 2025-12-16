@@ -1,8 +1,21 @@
 {
+  "cleanUrls": false,
   "rewrites": [
     {
       "source": "/pacman-game-:gameId",
-      "destination": "/games/templates/pacman-template/index.html?game=pacman-game-:gameId"
+      "destination": "/games/templates-v2/pacman-template/index.html?game=pacman-game-:gameId"
+    },
+    {
+      "source": "/playmode-:gameId",
+      "destination": "/play-v2.html?game=playmode-:gameId"
+    },
+    {
+      "source": "/games/templates-v2",
+      "destination": "/games/templates-v2/index.html"
+    },
+    {
+      "source": "/games/templates-v2/",
+      "destination": "/games/templates-v2/index.html"
     }
   ]
 }

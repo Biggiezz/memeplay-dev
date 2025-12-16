@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Redirecting...</title>
+  <script>
+    // Parse gameId from URL path and redirect
+    (function() {
+      const path = window.location.pathname;
+      
+      // Extract gameId from path: /playmode-pacman-827y
+      const pathMatch = path.match(/^\/(playmode-[^\/]+)$/);
+      if (pathMatch && pathMatch[1]) {
+        const gameId = pathMatch[1];
+        // Redirect to play-v2.html with gameId as query parameter
+        const redirectUrl = `/play-v2.html?game=${encodeURIComponent(gameId)}`;
+        window.location.replace(redirectUrl);
+      } else {
+        // Fallback: redirect to homepage
+        window.location.replace('/');
+      }
+    })();
+  </script>
+</head>
+<body>
+  <p>Redirecting...</p>
+</body>
+</html>
+
+
+
+

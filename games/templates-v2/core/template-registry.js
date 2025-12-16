@@ -1,0 +1,296 @@
+/**
+ * Template Registry: Centralized configuration for all game templates
+ * 
+ * Mỗi template entry chứa:
+ * - adapter: Class để import (không import ở đây, chỉ export path)
+ * - playtestKey: localStorage key cho playtest config
+ * - playtestGameId: gameId cố định cho playtest
+ * - templateUrl: Đường dẫn đến index.html của template
+ * - messageTypes: Message types mà template này sử dụng
+ * - uiFields: Các UI fields cần hiển thị (map, color, story, logo...)
+ */
+
+// Import adapter paths (lazy load khi cần)
+const ADAPTER_PATHS = {
+  'pacman': () => import('../pacman-template/editor/editor-adapter.js').then(m => m.PacmanEditorAdapter)
+};
+
+/**
+ * Template Registry Configuration
+ */
+export const TEMPLATE_REGISTRY = {
+  'pacman': {
+    // Adapter class (lazy load)
+    adapterPath: '../pacman-template/editor/editor-adapter.js',
+    adapterName: 'PacmanEditorAdapter',
+    
+    // Storage keys
+    playtestKey: 'pacman_brand_config_playtest',
+    playtestGameId: 'playtest-pacman',
+    storagePrefix: 'pacman_brand_config_',
+    
+    // Template URL
+    templateUrl: '/games/templates-v2/pacman-template/index.html',
+    
+    // Message types (hiện tại dùng PACMAN_*, sau sẽ migrate sang generic)
+    messageTypes: {
+      READY: 'PACMAN_GAME_READY',
+      ERROR: 'PACMAN_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG' // Generic, dùng chung
+    },
+    
+    // UI Fields configuration
+    uiFields: {
+      map: {
+        enabled: true,
+        selectorId: 'mapSelect',
+        options: [
+          { value: '1', label: 'Map 1' },
+          { value: '2', label: 'Map 2' },
+          { value: '3', label: 'Map 3' }
+        ]
+      },
+      mapColor: {
+        enabled: true,
+        containerId: 'mapColors',
+        colors: [
+          { value: '#6B46C1', label: 'Purple' },
+          { value: '#000000', label: 'Black' },
+          { value: '#8B4513', label: 'Brown' }
+        ]
+      },
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      }
+    },
+    
+    // Template metadata
+    displayName: 'Pacman',
+    description: 'Classic Pacman game with custom maps and colors'
+  },
+  
+  // ✅ Pixel Shooter Template
+  'pixel-shooter': {
+    adapterPath: '../pixel-shooter-template/editor/editor-adapter.js',
+    adapterName: 'PixelShooterEditorAdapter',
+    playtestKey: 'pixel_shooter_brand_config_playtest',
+    playtestGameId: 'playtest-pixel-shooter',
+    storagePrefix: 'pixel_shooter_brand_config_',
+    templateUrl: '/games/templates-v2/pixel-shooter-template/index.html',
+    messageTypes: {
+      READY: 'PIXEL_SHOOTER_GAME_READY',
+      ERROR: 'PIXEL_SHOOTER_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      },
+      mapColor: {
+        enabled: true,
+        containerId: 'mapColors',
+        colors: [
+          { value: '#1a1a2e', label: 'Dark Blue' },
+          { value: '#2d1b3d', label: 'Dark Purple' },
+          { value: '#1a2e1a', label: 'Dark Green' }
+        ]
+      }
+      // KHÔNG có map field (khác Pacman)
+    },
+    displayName: 'Pixel Shooter',
+    description: 'Space shooter game',
+    enabled: true
+  },
+  
+  // ✅ Rocket BNB Template
+  'rocket-bnb-template': {
+    adapterPath: '../rocket-bnb-template/editor/editor-adapter.js',
+    adapterName: 'RocketBnbEditorAdapter',
+    playtestKey: 'rocket_bnb_brand_config_playtest',
+    playtestGameId: 'playtest-rocket-bnb',
+    storagePrefix: 'rocket_bnb_brand_config_',
+    templateUrl: '/games/templates-v2/rocket-bnb-template/index.html',
+    messageTypes: {
+      READY: 'ROCKET_BNB_GAME_READY',
+      ERROR: 'ROCKET_BNB_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      coinLogo: {
+        enabled: true,
+        inputId: 'coinLogoInput',
+        previewId: 'coinLogoPreview'
+      },
+      gameOverLogo: {
+        enabled: true,
+        inputId: 'gameOverLogoInput',
+        previewId: 'gameOverLogoPreview'
+      }
+      // KHÔNG có map field và mapColor field
+    },
+    displayName: 'Rocket BNB',
+    description: 'Rocket flying game with obstacles',
+    enabled: true
+  },
+  
+  // ✅ Fallen Crypto Template
+  'fallen-crypto-template': {
+    adapterPath: '../fallen-crypto-template/editor/editor-adapter.js',
+    adapterName: 'FallenCryptoEditorAdapter',
+    playtestKey: 'fallen_crypto_brand_config_playtest',
+    playtestGameId: 'playtest-fallen-crypto',
+    storagePrefix: 'fallen_crypto_brand_config_',
+    templateUrl: '/games/templates-v2/fallen-crypto-template/index.html',
+    messageTypes: {
+      READY: 'FALLEN_CRYPTO_GAME_READY',
+      ERROR: 'FALLEN_CRYPTO_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      },
+      mapColor: {
+        enabled: true,
+        containerId: 'mapColors',
+        colors: [
+          { value: '#6B46C1', label: 'Purple' },
+          { value: '#8B4513', label: 'Brown' },
+          { value: '#FF8C00', label: 'Orange' }
+        ]
+      }
+      // KHÔNG có map field
+    },
+    displayName: 'Fallen Crypto',
+    description: 'Brick breaker game with customizable bricks, logo, and story',
+    enabled: true
+  }
+};
+
+/**
+ * Get template config by ID
+ * @param {string} templateId - Template ID (e.g., 'pacman', 'pixel-shooter', 'rocket-bnb-template')
+ * @returns {Object|null} Template config or null if not found
+ */
+export function getTemplateConfig(templateId) {
+  const config = TEMPLATE_REGISTRY[templateId];
+  if (!config) {
+    console.warn(`[TemplateRegistry] Template not found: ${templateId}`);
+    return null;
+  }
+  return config;
+}
+
+/**
+ * Get all enabled templates
+ * @returns {Array} Array of template configs that are enabled
+ */
+export function getEnabledTemplates() {
+  return Object.entries(TEMPLATE_REGISTRY)
+    .filter(([id, config]) => config.enabled !== false)
+    .map(([id, config]) => ({ id, ...config }));
+}
+
+/**
+ * Load adapter class for a template (lazy load)
+ * @param {string} templateId - Template ID
+ * @returns {Promise<Class>} Adapter class
+ */
+export async function loadAdapter(templateId) {
+  const config = getTemplateConfig(templateId);
+  if (!config) {
+    throw new Error(`Template not found: ${templateId}`);
+  }
+  
+  if (!config.adapterPath) {
+    throw new Error(`Adapter not available for template: ${templateId}`);
+  }
+  
+  try {
+    const module = await import(config.adapterPath);
+    const AdapterClass = module[config.adapterName];
+    if (!AdapterClass) {
+      throw new Error(`Adapter class ${config.adapterName} not found in ${config.adapterPath}`);
+    }
+    return AdapterClass;
+  } catch (error) {
+    console.error(`[TemplateRegistry] Failed to load adapter for ${templateId}:`, error);
+    throw error;
+  }
+}
+
+/**
+ * Get playtest storage key for a template
+ * @param {string} templateId - Template ID
+ * @returns {string} Storage key
+ */
+export function getPlaytestKey(templateId) {
+  const config = getTemplateConfig(templateId);
+  return config?.playtestKey || null;
+}
+
+/**
+ * Get playtest gameId for a template
+ * @param {string} templateId - Template ID
+ * @returns {string} GameId
+ */
+export function getPlaytestGameId(templateId) {
+  const config = getTemplateConfig(templateId);
+  return config?.playtestGameId || null;
+}
+
+/**
+ * Get template URL for a template
+ * @param {string} templateId - Template ID
+ * @param {string} gameId - Optional gameId to append as query param
+ * @returns {string} Template URL
+ */
+export function getTemplateUrl(templateId, gameId = null) {
+  const config = getTemplateConfig(templateId);
+  if (!config) return null;
+  
+  const baseUrl = config.templateUrl;
+  if (gameId) {
+    return `${baseUrl}?game=${gameId}`;
+  }
+  return baseUrl;
+}
+
+/**
+ * Get message type for a template
+ * @param {string} templateId - Template ID
+ * @param {string} messageName - Message name (e.g., 'READY', 'ERROR')
+ * @returns {string|null} Message type string
+ */
+export function getMessageType(templateId, messageName) {
+  const config = getTemplateConfig(templateId);
+  return config?.messageTypes?.[messageName] || null;
+}
+
+

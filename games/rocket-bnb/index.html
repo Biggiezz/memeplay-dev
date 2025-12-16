@@ -85,7 +85,7 @@
       padding: 2px;
     }
     .token-story { 
-      font-size: 13px; 
+      font-size: 16px;  /* Increased 25% from 13px */
       line-height: 1.5; 
       color: #FFF; 
       margin: 0;
@@ -133,7 +133,7 @@
         padding: 3px;
       }
       .token-story { 
-        font-size: 12px;
+        font-size: 15px;  /* Increased 25% from 12px */
         line-height: 1.4;
         padding: 0;
       }
@@ -175,19 +175,8 @@
       console.log('⚠️ Running in IFRAME - Using max performance mode!');
     }
     
-    // Token stories (random 1/3 for each token)
-    const tokenStories = {
-      coin: [
-        "$BRAIN\n\nAskBrain AI is an on-chain assistant on BNB Chain that reads market data, social signals, and smart contracts in real time.",
-        "$BRAIN\n\nBuilt as a true utility layer: AI search, wallet actions, payments, buyback & burn automation.",
-        "$BRAIN\n\nStrength: gives users instant on-chain intelligence, helping beginners and pros make smarter decisions effortlessly."
-      ],
-      dog: [
-        "$PUP\n\nPUP is a pure meme-coin on BNB Chain with zero hype, zero promises — fully driven by community energy.",
-        "$PUP\n\nFixed supply of 1B tokens, simple and transparent tokenomics.",
-        "$PUP\n\nIts strength lies in embracing meme culture authentically, making it fun, free-spirited, and easy for anyone to join."
-      ]
-    };
+    // Token story (single story)
+    const tokenStory = "welcome to memeplay";
     
     // ✅ Canvas always 720×1000px (same for desktop & mobile!)
     // CSS scales display, but graphics resolution stays fixed!
@@ -198,24 +187,13 @@
     const img = new Image();
     img.src = 'assets/rocket-pixel.webp';
     let loaded = false;
-    let rocketPixels = null;
     img.onload = () => {
       loaded = true;
       console.log('✅ Rocket pixel art loaded!', img.width, 'x', img.height);
-      
-      // Extract pixel data for collision detection
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = 144;
-      tempCanvas.height = 125;
-      const tempCtx = tempCanvas.getContext('2d');
-      tempCtx.drawImage(img, 0, 0, 144, 125);
-      rocketPixels = tempCtx.getImageData(0, 0, 144, 125);
-      console.log('✅ Extracted rocket pixel data for collision!');
     };
     
     // Load 3 rock obstacles (random stacking)
     const rocks = [];
-    const rockPixels = [];
     const rockPaths = ['assets/rock1.webp', 'assets/rock2.webp', 'assets/rock3.webp'];
     let rocksLoaded = 0;
     rockPaths.forEach((path, i) => {
@@ -223,28 +201,12 @@
       rocks[i].src = path;
       rocks[i].onload = () => {
         rocksLoaded++;
-        
-        // Extract pixel data for collision
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = 144;
-        tempCanvas.height = 144;
-        const tempCtx = tempCanvas.getContext('2d');
-        tempCtx.drawImage(rocks[i], 0, 0, 144, 144);
-        rockPixels[i] = tempCtx.getImageData(0, 0, 144, 144);
-        
-        if (rocksLoaded === 3) console.log('✅ All 3 rocks + pixel data loaded!');
+        if (rocksLoaded === 3) console.log('✅ All 3 rocks loaded!');
       };
     });
     
-    // ✅ Load coin logo image (REAL image, not code!)
-    const coinImg = new Image();
-    coinImg.src = 'assets/coin-logo.webp';  // ✅ Real Binance logo image!
-    coinImg.onload = () => console.log('✅ Coin logo image loaded!');
-    
-    // ✅ Load dog collectible image
-    const dogImg = new Image();
-    dogImg.src = 'assets/dog-binance.webp';  // ✅ Binance dog image!
-    dogImg.onload = () => console.log('✅ Dog Binance image loaded!');
+    // ✅ Placeholder: Yellow circle (creator can replace with custom logo)
+    // TODO: Replace with custom logo image when using template
     
     // ==========================================
     // AUDIO (Mobile-safe unlock)
@@ -411,32 +373,32 @@
     
     // ✅ Background = 1 image! Draw once per frame = FAST!
 
-    // Coins/Collectibles (logo coin + dog image)
+    // Coins/Collectibles (logo coin only)
     const coins = [];
     class Coin {
-      constructor(x, y, type = 'coin') {  // ✅ type: 'coin' or 'dog'
+      constructor(x, y) {
         this.x = x;
         this.y = y;
         this.size = 80;  // 80×80px!
         this.collected = false;
-        this.type = type;  // ✅ Random type!
       }
       
       draw() {
         if (this.collected) return;
         
-        if (this.type === 'dog') {
-          // Dog: Draw normal (square, no clip)
-          ctx.drawImage(dogImg, this.x - this.size/2, this.y - this.size/2, this.size, this.size);
-        } else {
-          // Coin: Draw circular (clip for perfect circle!)
-          ctx.save();
-          ctx.beginPath();
-          ctx.arc(this.x, this.y, this.size/2, 0, Math.PI * 2);
-          ctx.clip();
-          ctx.drawImage(coinImg, this.x - this.size/2, this.y - this.size/2, this.size, this.size);
-          ctx.restore();
-        }
+        // ✅ Placeholder: Yellow circle (creator can replace with custom logo)
+        // TODO: Replace with: ctx.drawImage(customLogoImg, this.x - this.size/2, this.y - this.size/2, this.size, this.size);
+        ctx.save();
+        ctx.fillStyle = '#F3BA2F';  // Yellow color (same as game theme)
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size/2, 0, Math.PI * 2);
+        ctx.fill();
+        // Add inner circle for depth
+        ctx.fillStyle = '#FFD700';  // Gold color
+        ctx.beginPath();
+        ctx.arc(this.x, this.y, this.size/2 - 4, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
       }
       
       update() {
@@ -583,7 +545,7 @@
         const newPipe = new Pipe();
         pipes.push(newPipe);
         
-        // Spawn coin/dog 50% chance IN MIDDLE OF HORIZONTAL GAP (between 2 rock columns)
+        // Spawn coin 50% chance IN MIDDLE OF HORIZONTAL GAP (between 2 rock columns)
         if (Math.random() < 0.5 && pipes.length > 0) {
           const prevPipe = pipes[pipes.length - 2];
           if (prevPipe) {
@@ -591,9 +553,7 @@
             const coinX = prevPipe.x + (newPipe.x - prevPipe.x) / 2;
             // Y = Random in safe zone (100-900)
             const coinY = 100 + Math.random() * 800;
-            // ✅ Random type: 50% coin, 50% dog!
-            const type = Math.random() < 0.5 ? 'coin' : 'dog';
-            coins.push(new Coin(coinX, coinY, type));
+            coins.push(new Coin(coinX, coinY));
           }
         }
       }
@@ -660,32 +620,19 @@
         console.log('📤 Sent GAME_SCORE to parent:', score);
       }
       
-      // Random token: coin or dog
-      const tokenType = Math.random() < 0.5 ? 'coin' : 'dog';
-      const logoSrc = tokenType === 'coin' ? 'assets/coin-logo.webp' : 'assets/dog-binance.webp';
-      
-      // Random 1/3 story
-      const stories = tokenStories[tokenType];
-      const randomStory = stories[Math.floor(Math.random() * stories.length)];
-      
-      // Update UI
+      // Update UI - Placeholder yellow circle (creator can replace with custom logo)
+      // TODO: Replace with: logoEl.src = 'path/to/custom-logo.png';
       const logoEl = document.getElementById('tokenLogo');
-      logoEl.src = logoSrc;
+      logoEl.src = '';  // Clear image source
+      logoEl.style.width = '140px';
+      logoEl.style.height = '140px';
+      logoEl.style.padding = '0';
+      logoEl.style.border = '2px solid #F3BA2F';
+      logoEl.style.borderRadius = '50%';
+      logoEl.style.background = 'linear-gradient(135deg, #F3BA2F, #FFD700)';
+      logoEl.style.objectFit = 'none';  // Don't show image, show background
       
-      // ✅ Coin = BIG (140px), Dog = normal (70px)
-      if (tokenType === 'coin') {
-        logoEl.style.width = '140px';
-        logoEl.style.height = '140px';
-        logoEl.style.padding = '2px';
-        logoEl.style.border = '2px solid #F3BA2F';
-      } else {
-        logoEl.style.width = '70px';
-        logoEl.style.height = '70px';
-        logoEl.style.padding = '5px';
-        logoEl.style.border = '3px solid #F3BA2F';
-      }
-      
-      document.getElementById('tokenStory').textContent = randomStory;
+      document.getElementById('tokenStory').textContent = tokenStory;
       document.getElementById('gameOver').classList.add('show');
       
       beep(800, 0.5);

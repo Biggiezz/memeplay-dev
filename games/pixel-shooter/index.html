@@ -352,7 +352,6 @@
     
     <div id="gameOver" class="game-over">
       <h2>GAME OVER</h2>
-      <p>Level: <span id="finalLevel">1</span></p>
       <p>Score: <span id="finalScore">0</span></p>
       <button class="restart-btn" onclick="game.restart()">Play Again</button>
     </div>
@@ -375,7 +374,11 @@
       MAX_LEVEL: 100,
       SHOW_HITBOX: false, // Set to false to hide hitboxes for better performance (saves ~1-2% CPU)
       ENABLE_PARTICLES_MOBILE: true, // Enable light explosion particles on mobile
-      MAX_PARTICLES: 60 // Safety cap for total particles
+      MAX_PARTICLES: 60, // Safety cap for total particles
+      SPREAD_DURATION_MS: 5000, // 5s spread-shot buff
+      SPREAD_BULLET_COUNT: 5,
+      SPREAD_BULLET_SPREAD_DEG: 24, // ±24°, evenly spaced
+      SPREAD_POWERUP_SIZE: 50
     };
     
     // ===== CANVAS SETUP =====
@@ -587,7 +590,9 @@
       lastTime: performance.now(),
       deltaTime: 0,
       shootCooldown: 0, // Player shoot cooldown
-      isHolding: false // Track if user is holding/dragging
+      isHolding: false, // Track if user is holding/dragging
+      powerUps: [], // power-up icons (e.g., spread shot)
+      spreadPowerExpiresAt: 0 // timestamp (ms) when spread shot ends
     };
     
     // ===== SOUND SYSTEM =====
@@ -712,6 +717,31 @@
         source.stop(t0 + 0.11);
       } catch {}
     }
+
+    // Softer, wider sound for spread-shot
+    function playSpreadShootSound() {
+      try {
+        if (audioContext.state === 'suspended') audioContext.resume().catch(() => {});
+        const t0 = audioContext.currentTime;
+        const osc1 = audioContext.createOscillator();
+        const osc2 = audioContext.createOscillator();
+        const gain = audioContext.createGain();
+        osc1.type = 'sawtooth';
+        osc2.type = 'triangle';
+        osc1.frequency.setValueAtTime(520, t0);
+        osc2.frequency.setValueAtTime(780, t0);
+        gain.gain.setValueAtTime(0.0001, t0);
+        gain.gain.exponentialRampToValueAtTime(0.35, t0 + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, t0 + 0.18);
+        osc1.connect(gain);
+        osc2.connect(gain);
+        gain.connect(audioContext.destination);
+        osc1.start(t0);
+        osc2.start(t0);
+        osc1.stop(t0 + 0.2);
+        osc2.stop(t0 + 0.2);
+      } catch {}
+    }
     
     // Clear and punchy "bòm" explosion: low sine with slight pitch drop
     function playBoom() {
@@ -783,6 +813,12 @@
     }
     
     // ===== SHIP CONTROL (HOLD) =====
+    // Control anchor stays below rocket so finger/mouse does not cover the ship
+    const CONTROL_POINT_EXTRA_OFFSET = 48; // Pixels below rocket bottom for the control anchor
+    function getControlOffset() {
+      // Center->bottom plus extra padding so finger sits under the rocket
+      return (gameState.ship.height / 2) + CONTROL_POINT_EXTRA_OFFSET;
+    }
     // Optimization: Cache constants to avoid recalculating
     const SHIP_MIN_X = 20;
     const SHIP_MAX_X = CONFIG.CANVAS_WIDTH - 20;
@@ -795,6 +831,10 @@
       const clampedX = x < SHIP_MIN_X ? SHIP_MIN_X : (x > SHIP_MAX_X ? SHIP_MAX_X : x);
       const clampedY = y < SHIP_MIN_Y ? SHIP_MIN_Y : (y > SHIP_MAX_Y ? SHIP_MAX_Y : y);
       return { x: clampedX, y: clampedY };
+    }
+
+    function isSpreadShotActive() {
+      return gameState.spreadPowerExpiresAt && performance.now() < gameState.spreadPowerExpiresAt;
     }
     
     // Optimization: Update ship position directly (called from event handlers)
@@ -814,8 +854,13 @@
       
       // Convert coordinates from device pixels to 720x1000 coordinate system
       // Divide by scale to undo the CSS transform scaling
-      const x = (clientX - rect.left) / scale;
-      const y = (clientY - rect.top) / scale;
+      // Pointer anchors at the control handle below the rocket
+      const pointerX = (clientX - rect.left) / scale;
+      const pointerY = (clientY - rect.top) / scale;
+      const desiredShipX = pointerX;
+      const desiredShipY = pointerY - getControlOffset();
+      const x = desiredShipX;
+      const y = desiredShipY;
       
       const clamped = clampShipPosition(x, y);
       
@@ -1024,6 +1069,37 @@
       
       ctx.restore();
     }
+
+    function drawControlHandle() {
+      // Small guide just below the rocket showing the control anchor
+      const offset = getControlOffset();
+      const handleX = gameState.ship.x;
+      const handleY = gameState.ship.y + offset;
+      
+      ctx.save();
+      ctx.globalAlpha = 0.55;
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+      const radius = 18;
+      const lineLen = 12;
+      const lineWidth = 3;
+      
+      // Outer circle
+      ctx.beginPath();
+      ctx.arc(handleX, handleY, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      
+      // Crosshair lines
+      ctx.lineWidth = lineWidth;
+      ctx.beginPath();
+      ctx.moveTo(handleX - lineLen, handleY);
+      ctx.lineTo(handleX + lineLen, handleY);
+      ctx.moveTo(handleX, handleY - lineLen);
+      ctx.lineTo(handleX, handleY + lineLen);
+      ctx.stroke();
+      ctx.restore();
+    }
     
     // ===== GEMS SYSTEM =====
     function spawnGoldGem() {
@@ -1034,11 +1110,11 @@
         x: side === 'left' ? -20 : CONFIG.CANVAS_WIDTH + 20,
         y: 100 + Math.random() * (CONFIG.CANVAS_HEIGHT - 200),
         type: 'gold',
-        width: 20,
-        height: 20,
-        // Increase speed by 300% (x3)
-        vx: side === 'left' ? (2 + gameState.level * 0.1) * 3 : -(2 + gameState.level * 0.1) * 3,
-        vy: (Math.random() - 0.5) * 2 * 3
+        width: 50, // 2.5x bigger (20 -> 50)
+        height: 50,
+        // Increase speed by 300% (x3) then +40% → total x4.2
+        vx: side === 'left' ? (2 + gameState.level * 0.1) * 3 * 1.4 : -(2 + gameState.level * 0.1) * 3 * 1.4,
+        vy: (Math.random() - 0.5) * 2 * 3 * 1.4
       };
       gameState.gems.push(gem);
     }
@@ -1134,6 +1210,98 @@
           ctx.fill();
           ctx.shadowBlur = 0;
         }
+      }
+    }
+    
+    // ===== POWER-UP: SPREAD SHOT =====
+    function spawnSpreadPowerUp() {
+      // Only one spread icon at a time
+      if (gameState.powerUps.some(p => p.type === 'spread')) return;
+      
+      const fromLeft = Math.random() < 0.5;
+      const y = 180 + Math.random() * (CONFIG.CANVAS_HEIGHT - 360); // stay away from HUD edges
+      const speed = (3.2 + gameState.level * 0.05) * 2; // faster (x2)
+      const powerUp = {
+        type: 'spread',
+        x: fromLeft ? -40 : CONFIG.CANVAS_WIDTH + 40,
+        y,
+        baseY: y,
+        width: CONFIG.SPREAD_POWERUP_SIZE,
+        height: CONFIG.SPREAD_POWERUP_SIZE,
+        vx: fromLeft ? speed : -speed,
+        zigzagPhase: Math.random() * Math.PI * 2,
+        zigzagSpeed: 0.2 + Math.random() * 0.1,
+        zigzagAmp: 18 * 3 // bigger zigzag
+      };
+      gameState.powerUps.push(powerUp);
+    }
+    
+    function updatePowerUps(deltaTime) {
+      const dt = deltaTime / 16.67;
+      for (let i = gameState.powerUps.length - 1; i >= 0; i--) {
+        const p = gameState.powerUps[i];
+        p.x += p.vx * dt;
+        p.zigzagPhase += dt * p.zigzagSpeed;
+        p.y = p.baseY + Math.sin(p.zigzagPhase) * p.zigzagAmp;
+        
+        // Remove if out of bounds
+        if (p.x < -80 || p.x > CONFIG.CANVAS_WIDTH + 80) {
+          gameState.powerUps.splice(i, 1);
+          continue;
+        }
+        
+        // Collision with ship
+        const shipHitboxW = gameState.ship.width * 0.65;
+        const shipHitboxH = gameState.ship.height * 0.7;
+        if (isPointInEllipse(p.x, p.y, gameState.ship.x, gameState.ship.y, shipHitboxW, shipHitboxH)) {
+          gameState.spreadPowerExpiresAt = performance.now() + CONFIG.SPREAD_DURATION_MS;
+          playCollectSound();
+          gameState.powerUps.splice(i, 1);
+        }
+      }
+      
+      // Expire spread power
+      if (gameState.spreadPowerExpiresAt && performance.now() > gameState.spreadPowerExpiresAt) {
+        gameState.spreadPowerExpiresAt = 0;
+      }
+    }
+    
+    function drawPowerUps() {
+      for (let p of gameState.powerUps) {
+        ctx.save();
+        // Icon: three small bullets fanning out (spread-shot cue)
+        const r = p.width / 2;
+        ctx.fillStyle = 'rgba(0, 200, 255, 0.12)';
+        ctx.strokeStyle = '#00c8ff';
+        ctx.lineWidth = 3;
+        
+        // Outer ring
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        
+        // Draw three bullet shapes (narrow capsules) angled out
+        const bullets = [
+          { angle: -0.35, offset: -0.22 },
+          { angle: 0, offset: 0 },
+          { angle: 0.35, offset: 0.22 }
+        ];
+        const len = p.width * 0.42;
+        const w = p.width * 0.10;
+        ctx.fillStyle = '#00e0ff';
+        ctx.strokeStyle = '#00c8ff';
+        for (const b of bullets) {
+          ctx.save();
+          ctx.translate(p.x + r * b.offset * 0.6, p.y);
+          ctx.rotate(b.angle);
+          ctx.beginPath();
+          ctx.roundRect(-w / 2, -len / 2, w, len, w / 2);
+          ctx.fill();
+          ctx.stroke();
+          ctx.restore();
+        }
+        ctx.restore();
       }
     }
     
@@ -1338,22 +1506,49 @@
     
     // ===== PLAYER BULLETS SYSTEM =====
     function spawnPlayerBullet() {
-      if (gameState.playerBullets.length >= CONFIG.MAX_OBJECTS) return;
+      const spreadActive = isSpreadShotActive();
+      const neededSlots = spreadActive ? CONFIG.SPREAD_BULLET_COUNT : 1;
+      if (gameState.playerBullets.length > CONFIG.MAX_OBJECTS - neededSlots) return;
       
-      // Rocket always shoots bullets vertically upward
-      // Bullet size: 50% smaller than before (15*0.5=7.5, 30*0.5=15)
-      const bullet = {
-        x: gameState.ship.x,
-        y: gameState.ship.y - gameState.ship.height / 2,
-        width: 7.5, // 50% smaller
-        height: 15, // 50% smaller
-        // Increase bullet speed by x2, then add 30% more
-        vy: -(5 + gameState.level * 0.2) * 2 * 1.3 // Always moves up (negative), 30% faster
-      };
+      // Base bullet params
+      const baseSpeed = (5 + gameState.level * 0.2) * 2 * 1.3;
+      const bulletW = 7.5;
+      const bulletH = 15;
+      const originX = gameState.ship.x;
+      const originY = gameState.ship.y - gameState.ship.height / 2;
       
-      gameState.playerBullets.push(bullet);
-      // Play wind-like "xoạt" sound for each shot
-      try { playShootWind() } catch {}
+      if (spreadActive) {
+        const halfSpread = CONFIG.SPREAD_BULLET_SPREAD_DEG;
+        const count = CONFIG.SPREAD_BULLET_COUNT;
+        const step = count > 1 ? (halfSpread * 2) / (count - 1) : 0;
+        for (let i = 0; i < count; i++) {
+          const angleDeg = -halfSpread + step * i; // from -spread to +spread, relative to straight up
+          const angleRad = angleDeg * (Math.PI / 180);
+          const vx = Math.sin(angleRad) * baseSpeed;
+          const vy = -Math.cos(angleRad) * baseSpeed; // negative = upward
+          gameState.playerBullets.push({
+            x: originX,
+            y: originY,
+            width: bulletW,
+            height: bulletH,
+            vx,
+            vy
+          });
+        }
+        try { playSpreadShootSound(); } catch {}
+      } else {
+        const bullet = {
+          x: originX,
+          y: originY,
+          width: bulletW,
+          height: bulletH,
+          // Increase bullet speed by x2, then add 30% more
+          vy: -baseSpeed
+        };
+        gameState.playerBullets.push(bullet);
+        // Play wind-like "xoạt" sound for each shot
+        try { playShootWind() } catch {}
+      }
     }
     
     function updatePlayerBullets(deltaTime) {
@@ -1361,10 +1556,13 @@
       
       for (let i = gameState.playerBullets.length - 1; i >= 0; i--) {
         const bullet = gameState.playerBullets[i];
+        if (bullet.vx) {
+          bullet.x += bullet.vx * dt;
+        }
         bullet.y += bullet.vy * dt;
         
-        // Remove if out of bounds (only check y since moves up)
-        if (bullet.y < -20) {
+        // Remove if out of bounds
+        if (bullet.y < -20 || bullet.x < -20 || bullet.x > CONFIG.CANVAS_WIDTH + 20) {
           gameState.playerBullets.splice(i, 1);
           continue;
         }
@@ -1629,6 +1827,7 @@
     // ===== SPAWNING SYSTEM =====
     let spawnTimer = 0;
     let gemSpawnTimer = 0;
+    let powerUpSpawnTimer = 0;
     
     function updateSpawning(deltaTime) {
       if (gameState.gameOver || !gameState.gameStarted) return;
@@ -1636,6 +1835,7 @@
       const dt = deltaTime / 16.67;
       spawnTimer += dt;
       gemSpawnTimer += dt;
+      powerUpSpawnTimer += dt;
       
       // Spawn gold gems (increase frequency by 100%: reduce rate by 2x)
       const goldGemRate = (Math.max(30, 60 - gameState.level * 0.5) * 20) / 2;
@@ -1655,11 +1855,18 @@
       // Don't spawn enemies during 2s level transition
       if (!gameState.levelTransitionActive) {
         const baseRate = 120;
-        const enemyRate = Math.max(15, baseRate / Math.pow(1.5, gameState.level - 1)); // 50% faster each level
+        // Increase spawn frequency by additional 50% (divide interval by 1.5)
+        const enemyRate = Math.max(15, (baseRate / Math.pow(1.5, gameState.level - 1)) / 1.5);
         if (spawnTimer >= enemyRate) {
           spawnEnemy();
           spawnTimer = 0;
         }
+      }
+      
+      // Spawn spread-shot power-up occasionally (about every 15s normalized)
+      if (powerUpSpawnTimer >= 900 && !isSpreadShotActive()) {
+        spawnSpreadPowerUp();
+        powerUpSpawnTimer = 0;
       }
     }
     
@@ -1680,9 +1887,9 @@
       ctx.fillText(`LV: ${gameState.level}`, 20, 70);
       
       // Gems collected - draw gold gem icon instead of text
-      const gemIconX = 20;
-      const gemIconY = 100;
-      const gemIconSize = 16;
+      const gemIconX = 24;  // Nudge right to avoid text
+      const gemIconY = 130; // Push down so it doesn't overlap LV text
+      const gemIconSize = 40; // Larger icon to match bigger gold gem
       
       // Draw gold gem icon (circle)
       ctx.fillStyle = '#ffd700'; // Gold color
@@ -1710,7 +1917,6 @@
       gameState.gameOver = true;
       playExplodeSound();
       
-      document.getElementById('finalLevel').textContent = gameState.level;
       document.getElementById('finalScore').textContent = gameState.score;
       document.getElementById('gameOver').classList.add('show');
       
@@ -1749,6 +1955,7 @@
         updateMatrixDrops(gameState.deltaTime);
         updateShip(gameState.deltaTime); // Only update position, do not draw
         updateGems(gameState.deltaTime);
+        updatePowerUps(gameState.deltaTime);
         updateEnemies(gameState.deltaTime);
         updateBullets(gameState.deltaTime);
         updatePlayerBullets(gameState.deltaTime);
@@ -1760,12 +1967,14 @@
       // Draw everything only once, in correct order
       drawMatrixBackground();
       drawGems();
+      drawPowerUps();
       drawEnemies();
       drawBullets();
       drawPlayerBullets();
       drawParticles();
       if (gameState.gameStarted) {
         drawShip(); // Draw rocket only once here
+        drawControlHandle(); // Visual anchor for touch/mouse control
       }
       drawUI();
       
@@ -1776,10 +1985,22 @@
     const tapToStartOverlay = document.getElementById('tapToStartOverlay');
     const tapToStartBtn = document.getElementById('tapToStart');
     let gameStarted = false;
+
+    function beginGame() {
+      tapToStartOverlay.classList.add('hidden');
+      gameState.gameStarted = true;
+      gameStarted = true;
+      gameState.lastTime = performance.now();
+      
+      // Post message to parent (start game timer)
+      if (window.parent !== window) {
+        window.parent.postMessage({ type: 'GAME_START', gameId: 'pixel-space-shooter' }, '*');
+        console.log('📤 Sent GAME_START to parent');
+      }
+    }
     
     function handleTapToStart() {
       if (gameStarted) return;
-      gameStarted = true;
       
       unlockAudio();
       if (audioContext.state === 'suspended') {
@@ -1790,15 +2011,7 @@
         audioUnlocked = true;
       }
       
-      tapToStartOverlay.classList.add('hidden');
-      gameState.gameStarted = true;
-      gameState.lastTime = performance.now();
-      
-      // Post message to parent (start game timer)
-      if (window.parent !== window) {
-        window.parent.postMessage({ type: 'GAME_START', gameId: 'pixel-space-shooter' }, '*');
-        console.log('📤 Sent GAME_START to parent');
-      }
+      beginGame();
     }
     
     if (tapToStartOverlay) {
@@ -1829,10 +2042,13 @@
         gameState.isPaused = false; // Reset pause flag
         gameState.levelTransitionActive = false; // Reset level transition flag
         gameState.shootCooldown = 0;
+        gameState.powerUps = [];
+        gameState.spreadPowerExpiresAt = 0;
         gameState.lastTime = performance.now();
         
         spawnTimer = 0;
         gemSpawnTimer = 0;
+        powerUpSpawnTimer = 0;
         
         initMatrixDrops();
         
@@ -1842,11 +2058,12 @@
       restart() {
         document.getElementById('gameOver').classList.remove('show');
         document.getElementById('nextLevel').classList.remove('show'); // Hide next level overlay if visible
-        tapToStartOverlay.classList.remove('hidden');
-        gameStarted = false;
+        tapToStartOverlay.classList.add('hidden'); // Auto-start, no tap needed
+        gameStarted = true;
         gameState.isPaused = false; // Reset pause flag
         gameState.levelTransitionActive = false; // Reset level transition flag
         this.start();
+        beginGame(); // Immediately start gameplay after reset
       }
     };
     

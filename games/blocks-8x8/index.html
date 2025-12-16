@@ -159,10 +159,10 @@
       }
     }
     
-    /* Mobile: Thu nhỏ bảng game over 25% (còn 75%) */
+    /* Mobile: Tăng thêm 25% so với trước (từ 0.75 lên ~0.94) */
     @media screen and (max-width: 720px) {
       .game-over {
-        transform: translate(-50%, -50%) scale(0.75);
+        transform: translate(-50%, -50%) scale(0.94);
       }
     }
     
@@ -175,7 +175,28 @@
     .game-over p {
       color: #fff;
       font-size: 24px;
-      margin-bottom: 30px;
+      margin-bottom: 20px;
+    }
+
+    .game-over-logo {
+      width: 180px;
+      height: auto;
+      max-height: 180px;
+      margin: 0 auto 24px;
+      border-radius: 16px;
+      display: block;
+      object-fit: contain;
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+
+    @media screen and (max-width: 720px) {
+      .game-over-logo {
+        width: 140px;
+        max-height: 140px;
+        margin-bottom: 20px;
+      }
     }
     
     .game-over-story {
@@ -282,6 +303,7 @@
       <div id="gameOver" class="game-over">
         <h2>Game Over!</h2>
         <p>Final Score: <span id="finalScore">0</span></p>
+        <img id="gameOverLogo" class="game-over-logo" alt="Game logo" />
         <div id="gameOverStory" class="game-over-story"></div>
         <button class="restart-btn" onclick="game.restart()">Restart</button>
       </div>
@@ -297,6 +319,7 @@
     const urlParams = new URLSearchParams(window.location.search);
     const EMBEDDED_GAME_ID = urlParams.get('game') || 'crypto-blocks';
 
+    // Logo mặc định của game (bạn chỉ cần thay nội dung file này bằng logo mới)
     const DEFAULT_LOGO_URL = 'assets/ui/mc_meme.png';
     const externalTheme = {
       mapColor: '#0a0a0a',
@@ -323,11 +346,8 @@
         container.style.background = color.startsWith('linear-gradient') ? color : color;
       }
       
-      if (externalTheme.logoUrl) {
-        mcImage.src = externalTheme.logoUrl;
-      } else {
-        mcImage.src = DEFAULT_LOGO_URL;
-      }
+      const logoUrl = externalTheme.logoUrl || DEFAULT_LOGO_URL;
+      mcImage.src = logoUrl;
       
       // Story banner removed - only show story in game over screen
       const banner = document.getElementById('storyBanner');
@@ -335,10 +355,19 @@
         banner.style.display = 'none';
       }
       
+      // Game over story: nếu không có story từ ngoài → dùng mặc định "memeplay"
       const gameOverStory = document.getElementById('gameOverStory');
       if (gameOverStory) {
-        gameOverStory.textContent = externalTheme.story?.trim() || '';
-        gameOverStory.style.display = externalTheme.story ? 'block' : 'none';
+        const trimmedStory = (externalTheme.story || '').trim();
+        const effectiveStory = trimmedStory || 'memeplay';
+        gameOverStory.textContent = effectiveStory;
+        gameOverStory.style.display = 'block';
+      }
+
+      // Logo hiển thị trên màn hình Game Over
+      const logoImg = document.getElementById('gameOverLogo');
+      if (logoImg) {
+        logoImg.src = logoUrl;
       }
     }
     
@@ -583,12 +612,13 @@ applyExternalTheme();
       // Draw mc meme watermark inside grid (before grid lines and blocks)
       if (mcImageLoaded) {
         gameCtx.save();
-        // ✅ Ensure 100% quality rendering for logo - disable smoothing for crisp pixels
-        gameCtx.imageSmoothingEnabled = false;
-        gameCtx.imageSmoothingQuality = 'low';
+        // Render logo background với chất lượng cao
+        gameCtx.imageSmoothingEnabled = true;
+        gameCtx.imageSmoothingQuality = 'high';
         
         const previousAlpha = gameCtx.globalAlpha;
-        gameCtx.globalAlpha = 0.12;
+        // Logo mờ nhẹ để không che gameplay
+        gameCtx.globalAlpha = 0.18;
         
         const scale = Math.min(
           CONFIG.GRID_WIDTH / mcImage.width,
