@@ -413,31 +413,33 @@
   <!-- This ensures /playmode-xxx works even if Vercel rewrite doesn't work -->
   <script>
     (function() {
-      // Only run if we're on a playmode URL without query param
+      // Only run if we're on a playmode URL without query param or hash
       const path = window.location.pathname;
       const search = window.location.search;
+      const hash = window.location.hash;
       
-      // Case 1: We're on /playmode-xxx path but don't have ?game= query param
+      // Case 1: We're on /playmode-xxx path but don't have ?game= query param or #game= hash
       // This happens if Vercel rewrite doesn't work
       const playmodeMatch = path.match(/^\/(playmode-[^\/]+)$/i);
-      if (playmodeMatch && !search.includes('game=')) {
+      if (playmodeMatch && !search.includes('game=') && !hash.includes('game=')) {
         const gameId = playmodeMatch[1];
-        // Redirect to play-v2.html with game ID as query param (with .html to avoid Cloudflare redirect)
-        const redirectUrl = `/play-v2.html?game=${encodeURIComponent(gameId)}`;
+        // Use hash instead of query param (hash survives Cloudflare redirects)
+        const redirectUrl = `/play-v2.html#game=${encodeURIComponent(gameId)}`;
         window.location.replace(redirectUrl);
         return;
       }
       
-      // Case 2: We're on /play-v2 without query param (Cloudflare redirected /playmode-xxx -> /play-v2)
+      // Case 2: We're on /play-v2 without query param or hash (Cloudflare redirected /playmode-xxx -> /play-v2)
       // Try to get game ID from referrer or show error
-      if (path === '/play-v2' && !search.includes('game=')) {
+      if (path === '/play-v2' && !search.includes('game=') && !hash.includes('game=')) {
         // Check referrer for game ID
         const referrer = document.referrer;
         if (referrer) {
-          const referrerMatch = referrer.match(/\/playmode-([^\/\?]+)/i);
+          const referrerMatch = referrer.match(/\/playmode-([^\/\?#]+)/i);
           if (referrerMatch && referrerMatch[1]) {
             const gameId = referrerMatch[1];
-            const redirectUrl = `/play-v2.html?game=${encodeURIComponent(gameId)}`;
+            // Use hash instead of query param
+            const redirectUrl = `/play-v2.html#game=${encodeURIComponent(gameId)}`;
             window.location.replace(redirectUrl);
             return;
           }
@@ -445,7 +447,7 @@
         
         // If no referrer or can't extract game ID, show error
         // play-v2.js will handle showing the error message
-        console.error('[PLAY MODE] Missing game ID: Cloudflare redirected /playmode-xxx -> /play-v2 without query param');
+        console.error('[PLAY MODE] Missing game ID: Cloudflare redirected /playmode-xxx -> /play-v2 without query param or hash');
       }
     })();
   </script>

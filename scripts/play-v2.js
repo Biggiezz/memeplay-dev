@@ -1852,7 +1852,19 @@ function updateUrlToShortLink(gameId) {
 function initPlayMode() {
   const url = new URL(window.location.href)
   let gameFromQuery = normalizeId(url.searchParams.get('game') || '')
-  const gameFromHash = normalizeId(window.location.hash)
+  
+  // ✅ Parse game ID from hash: #game=playmode-xxx
+  let gameFromHash = ''
+  const hash = window.location.hash
+  if (hash) {
+    const hashMatch = hash.match(/#game=([^&]+)/i)
+    if (hashMatch && hashMatch[1]) {
+      gameFromHash = normalizeId(decodeURIComponent(hashMatch[1]))
+    } else {
+      // Fallback: try to parse hash directly (for backward compatibility)
+      gameFromHash = normalizeId(hash.replace(/^#/, ''))
+    }
+  }
   
   // ✅ V2: Support short path /playmode-xxx (if server rewrite already handled)
   if (!gameFromQuery && !gameFromHash) {

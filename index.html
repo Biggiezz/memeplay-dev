@@ -42,11 +42,12 @@
         return;
       }
 
-      // Handle V2 short URL: /playmode-<id> -> /play-v2.html?game=playmode-<id>
+      // Handle V2 short URL: /playmode-<id> -> /play-v2.html#game=playmode-<id>
+      // Use hash instead of query param to survive Cloudflare redirects
       const playmodeMatch = path.match(/^\/(playmode-[^\/]+)$/);
       if (playmodeMatch) {
         const gameId = playmodeMatch[1];
-        const redirectUrl = `/play-v2.html?game=${gameId}`;
+        const redirectUrl = `/play-v2.html#game=${encodeURIComponent(gameId)}`;
         window.location.replace(redirectUrl);
         return;
       }
