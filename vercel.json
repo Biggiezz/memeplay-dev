@@ -19,7 +19,7 @@
     },
     {
       "source": "/playmode-:gameId",
-      "destination": "/games/templates-v2/pacman-template/index.html?game=playmode-:gameId"
+      "destination": "/play-v2.html?game=playmode-:gameId"
     }
   ]
 }
