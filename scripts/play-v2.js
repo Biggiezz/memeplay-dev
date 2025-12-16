@@ -1832,21 +1832,25 @@ window.addEventListener('message', async (event) => {
   }
 })
 
-// ✅ Helper: Update URL to short link format (keep in address bar)
+// ✅ DISABLED: Keep long URL format instead of converting to short link
+// Short links get redirected by Cloudflare and lose game ID
+// Long URLs work reliably: /play-v2.html?game=playmode-xxx
 function updateUrlToShortLink(gameId) {
-  if (!gameId || !gameId.startsWith('playmode-')) return
-  
-  const currentPath = window.location.pathname
-  const currentSearch = window.location.search
-  const shortPath = `/${gameId}`
-  
-  // Only update if currently on long URL format (has query param)
-  if (currentSearch.includes('game=') || currentPath.includes('play-v2.html')) {
-    const newUrl = `${window.location.origin}${shortPath}`
-    // Use replaceState to update URL without reload
-    window.history.replaceState({ gameId }, '', newUrl)
-    console.log(`[PLAY MODE] ✅ Updated URL to short link: ${newUrl}`)
-  }
+  // Disabled: Keep long URL format to avoid Cloudflare redirect issues
+  // if (!gameId || !gameId.startsWith('playmode-')) return
+  // 
+  // const currentPath = window.location.pathname
+  // const currentSearch = window.location.search
+  // const shortPath = `/${gameId}`
+  // 
+  // // Only update if currently on long URL format (has query param)
+  // if (currentSearch.includes('game=') || currentPath.includes('play-v2.html')) {
+  //   const newUrl = `${window.location.origin}${shortPath}`
+  //   // Use replaceState to update URL without reload
+  //   window.history.replaceState({ gameId }, '', newUrl)
+  //   console.log(`[PLAY MODE] ✅ Updated URL to short link: ${newUrl}`)
+  // }
+  return // No-op: Keep long URL format
 }
 
 function initPlayMode() {
