@@ -446,7 +446,8 @@ function normalizeTemplateId(templateId) {
     'wall-bounce-bird-template': 'wall-bounce-bird',
     'blow-bubble-template': 'blow-bubble',
     'rocket-bnb-template': 'rocket-bnb-template', // ✅ Rocket BNB: keep same ID
-    'fallen-crypto-template': 'fallen-crypto-template' // ✅ Fallen Crypto: keep same ID (matches registry)
+    'fallen-crypto-template': 'fallen-crypto-template', // ✅ Fallen Crypto: keep same ID (matches registry)
+    'space-jump-template': 'space-jump-template' // ✅ Space Jump: keep same ID
   }
   
   return templateIdMap[templateId] || templateId
@@ -500,6 +501,12 @@ function guessTemplateFromId(gameId) {
   if (gameId.startsWith('playmode-fallen-crypto-') || gameId.startsWith('fallen-crypto-')) {
     console.log(`[PLAY MODE V2] 🎯 Detected fallen-crypto-template from gameId: ${gameId}`)
     return 'fallen-crypto-template'
+  }
+  
+  // ✅ Special case: Space Jump (gameId format: playmode-space-jump-XXX, template ID: space-jump-template)
+  if (gameId.startsWith('playmode-space-jump-') || gameId.startsWith('space-jump-')) {
+    console.log(`[PLAY MODE V2] 🎯 Detected space-jump-template from gameId: ${gameId}`)
+    return 'space-jump-template'
   }
   
   // ✅ Loop qua tất cả templates trong registry
@@ -631,6 +638,15 @@ function normalizeGame(templateId, gameId, raw = {}, options = {}) {
     }
   }
   
+  // ✅ Space Jump: Xử lý storyText (từ localStorage) hoặc story_one (từ Supabase)
+  const isSpaceJump = normalizedTemplateId === 'space-jump-template' || templateId === 'space-jump-template' || templateId === 'space-jump'
+  if (isSpaceJump) {
+    const storyText = raw.storyText || raw.story_one || raw.story_text
+    if (typeof storyText === 'string' && storyText.trim()) {
+      stories = [storyText.trim()]
+    }
+  }
+  
   if (!stories.length) {
     if (isBlocks || isWall || isBubble) {
       const story = raw.story || raw.story_one
@@ -683,6 +699,10 @@ function normalizeGame(templateId, gameId, raw = {}, options = {}) {
   if (isRocketBnb && !fragmentLogoUrl) {
     // Rocket BNB: Ưu tiên game_over_logo_url, sau đó coin_logo_url
     fragmentLogoUrl = raw.game_over_logo_url || raw.gameOverLogoUrl || raw.coin_logo_url || raw.coinLogoUrl || ''
+  }
+  // ✅ Space Jump: Ưu tiên gameOverLogoUrl, sau đó headLogoUrl
+  if (isSpaceJump && !fragmentLogoUrl) {
+    fragmentLogoUrl = raw.game_over_logo_url || raw.gameOverLogoUrl || raw.head_logo_url || raw.headLogoUrl || ''
   }
   // ✅ Dùng normalized template ID để build template URL
   const templateUrl = buildTemplateUrl(normalizedTemplateId, gameId, raw.templateUrl || raw.template_url)
@@ -790,6 +810,22 @@ function loadGameFromLocalStorage(gameId) {
       }
     }
     
+    // ✅ Space Jump: Hỗ trợ storyText, headLogoUrl, gameOverLogoUrl
+    if (templateId === 'space-jump-template' || templateId === 'space-jump') {
+      if (config.storyText) {
+        gameData.stories = [config.storyText]
+        if (!gameData.title) {
+          gameData.title = config.title || `Space Jump – ${config.storyText.slice(0, 24)}`
+        }
+      }
+      // Space Jump dùng gameOverLogoUrl hoặc headLogoUrl làm fragmentLogoUrl
+      if (config.gameOverLogoUrl && !gameData.fragmentLogoUrl) {
+        gameData.fragmentLogoUrl = config.gameOverLogoUrl
+      } else if (config.headLogoUrl && !gameData.fragmentLogoUrl) {
+        gameData.fragmentLogoUrl = config.headLogoUrl
+      }
+    }
+    
     // ✅ Legacy: Pacman có creator_id riêng
     if (templateId === PACMAN_TEMPLATE_ID || templateId === 'pacman') {
       const creatorId = localStorage.getItem('pacman_creator_id') || 'Creator'
@@ -829,7 +865,9 @@ async function fetchGameFromSupabase(gameId) {
     'rocket-bnb-template': ['rocket-bnb-template', 'rocket-bnb'],
     'rocket-bnb': ['rocket-bnb-template', 'rocket-bnb'],
     'fallen-crypto-template': ['fallen-crypto-template', 'fallen-crypto'],
-    'fallen-crypto': ['fallen-crypto-template', 'fallen-crypto']
+    'fallen-crypto': ['fallen-crypto-template', 'fallen-crypto'],
+    'space-jump-template': ['space-jump-template', 'space-jump'],
+    'space-jump': ['space-jump-template', 'space-jump']
   }
   
   // ✅ 3. OPTIMIZED: Smart template prioritization
@@ -854,11 +892,13 @@ async function fetchGameFromSupabase(gameId) {
       PIXEL_SHOOTER_TEMPLATE_ID,
       'rocket-bnb-template',
       'fallen-crypto-template',
+      'space-jump-template',
       // Thêm editor variants cho các templates này
       'pacman-template',
       'pixel-shooter-template',
       'rocket-bnb',
-      'fallen-crypto'
+      'fallen-crypto',
+      'space-jump'
     ]
   }
   
@@ -1025,10 +1065,10 @@ function buildUserGameCard(game) {
     </footer>
   `
 
-  // ✅ PostMessage config: Chỉ cho legacy templates (blocks, wall, bubble)
-  // ✅ Templates-v2 (pacman, pixel-shooter) dùng UPDATE_CONFIG listener trong game.js
+  // ✅ PostMessage config: Cho legacy templates và Space Jump
   const legacyTemplates = [BLOCKS_TEMPLATE_ID, WALL_BOUNCE_BIRD_TEMPLATE_ID, BLOW_BUBBLE_TEMPLATE_ID]
-  const needsPostMessage = legacyTemplates.includes(templateId)
+  const templatesV2WithPostMessage = ['space-jump-template']
+  const needsPostMessage = legacyTemplates.includes(templateId) || templatesV2WithPostMessage.includes(templateId)
   
   if (needsPostMessage) {
     const iframe = card.querySelector('iframe')
@@ -1036,16 +1076,30 @@ function buildUserGameCard(game) {
       const messageTypes = {
         [BLOCKS_TEMPLATE_ID]: 'CRYPTO_BLOCKS_CONFIG',
         [WALL_BOUNCE_BIRD_TEMPLATE_ID]: 'WALL_BOUNCE_BIRD_CONFIG',
-        [BLOW_BUBBLE_TEMPLATE_ID]: 'BLOW_BUBBLE_CONFIG'
+        [BLOW_BUBBLE_TEMPLATE_ID]: 'BLOW_BUBBLE_CONFIG',
+        'space-jump-template': 'UPDATE_CONFIG'
       }
       
-      const payload = {
-        type: messageTypes[templateId],
-        payload: {
-          story: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : '',
-          mapColor: game.mapColor || game.backgroundColor || '#1a1a2e',
-          backgroundColor: game.backgroundColor || game.mapColor || '#87ceeb',
-          logoUrl: game.fragmentLogoUrl || ''
+      let payload
+      if (templateId === 'space-jump-template') {
+        // Space Jump uses UPDATE_CONFIG format
+        payload = {
+          type: 'UPDATE_CONFIG',
+          config: {
+            headLogoUrl: game.fragmentLogoUrl || '',
+            gameOverLogoUrl: game.fragmentLogoUrl || '',
+            storyText: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : 'memeplay'
+          }
+        }
+      } else {
+        payload = {
+          type: messageTypes[templateId],
+          payload: {
+            story: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : '',
+            mapColor: game.mapColor || game.backgroundColor || '#1a1a2e',
+            backgroundColor: game.backgroundColor || game.mapColor || '#87ceeb',
+            logoUrl: game.fragmentLogoUrl || ''
+          }
         }
       }
       
@@ -1063,9 +1117,6 @@ function buildUserGameCard(game) {
       })
     }
   }
-  
-  // ✅ Templates-v2 (pacman, pixel-shooter) KHÔNG cần postMessage
-  // Vì chúng đã có UPDATE_CONFIG listener trong game.js để nhận config từ URL params
 
   return card
 }
@@ -1391,7 +1442,8 @@ async function renderGameCard(gameId) {
     // Provide helpful error message based on game type
     const isBlowBubble = gameId.startsWith('blow-bubble-')
     const isRocketBnb = gameId.startsWith('playmode-rocket-bnb-') || gameId.startsWith('rocket-bnb-')
-    if (isBlowBubble || isRocketBnb) {
+    const isSpaceJump = gameId.startsWith('playmode-space-jump-') || gameId.startsWith('space-jump-')
+    if (isBlowBubble || isRocketBnb || isSpaceJump) {
       console.error(`[PLAY MODE] 💡 Tip: Make sure you clicked "Save" button in the template editor to sync this game to Supabase.`)
       console.error(`[PLAY MODE] 💡 If you just created this game, go back to the editor and click "Save" again.`)
       console.error(`[PLAY MODE] 💡 Game ID: ${gameId}`)

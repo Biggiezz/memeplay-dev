@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Space Jump</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="start-screen" class="overlay">
+            <h1>🚀 SPACE JUMP</h1>
+            <p>TAP or PRESS ANY KEY to Start</p>
+        </div>
+        <div id="game-over-screen" class="overlay hidden">
+            <h2>GAME OVER</h2>
+            <p>Score: <span id="final-score">0</span></p>
+            <img id="game-logo" src="assets/binance-logo.webp" alt="Logo" style="width:120px;height:120px;margin:15px 0;border-radius:15px;">
+            <p id="game-story" style="font-size:18px;opacity:0.7;max-width:80%;text-align:center;">memeplay</p>
+            <button id="play-again-btn">Play Again</button>
+        </div>
+    </div>
+    <script type="module" src="game.js"></script>
+</body>
+</html>
+

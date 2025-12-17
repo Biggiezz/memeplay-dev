@@ -152,6 +152,43 @@ export const TEMPLATE_REGISTRY = {
     enabled: true
   },
   
+  // ✅ Space Jump Template
+  'space-jump-template': {
+    adapterPath: '../space-jump-template/editor/editor-adapter.js',
+    adapterName: 'SpaceJumpEditorAdapter',
+    playtestKey: 'space_jump_brand_config_playtest',
+    playtestGameId: 'playtest-space-jump',
+    storagePrefix: 'space_jump_brand_config_',
+    templateUrl: '/games/templates-v2/space-jump-template/index.html',
+    messageTypes: {
+      READY: 'SPACE_JUMP_GAME_READY',
+      ERROR: 'SPACE_JUMP_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      headLogo: {
+        enabled: true,
+        inputId: 'headLogoInput',
+        previewId: 'headLogoPreview',
+        label: 'Head Logo (Square)'
+      },
+      gameOverLogo: {
+        enabled: true,
+        inputId: 'gameOverLogoInput',
+        previewId: 'gameOverLogoPreview',
+        label: 'Game Over Logo'
+      }
+    },
+    displayName: 'Space Jump',
+    description: 'Endless jumping game with platforms and obstacles',
+    enabled: true
+  },
+  
   // ✅ Fallen Crypto Template
   'fallen-crypto-template': {
     adapterPath: '../fallen-crypto-template/editor/editor-adapter.js',

@@ -547,20 +547,9 @@ function initGame() {
   
   console.log('[initGame] Using mapIndex:', mapIndex, 'from BRAND_CONFIG.mapIndex:', BRAND_CONFIG.mapIndex);
   
-  // ✅ FAKE MODE: Check URL parameters for starting level and score
-  const urlParams = new URLSearchParams(window.location.search);
-  const startLevel = parseInt(urlParams.get('startLevel')) || 1;
-  const startScore = parseInt(urlParams.get('startScore')) || 0;
-  
-  if (startLevel > 1 || startScore > 0) {
-    console.log(`🎮 [FAKE MODE] Starting from Level ${startLevel} with Score ${startScore}`);
-    currentLevel = startLevel;
-    score = startScore;
-  }
-  
-  // Initialize first level (or specified level)
+  // Initialize first level
   try {
-    initLevel(currentLevel);
+    initLevel(1);
   } catch (error) {
     console.error('[initGame] Failed to initialize level:', error);
     // Send error signal to parent if in iframe
@@ -2374,31 +2363,17 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Try Supabase, but if still no config, use defaults
       const hasSupabaseConfig = await loadBrandConfigFromSupabase(gameId);
       if (!hasSupabaseConfig) {
-        // ✅ FAKE MODE: Nếu gameId là pacman-4046-fake, load config từ pacman-4046
-        if (gameId === 'pacman-4046-fake' || gameId.includes('4046')) {
-          console.log('[FAKE MODE] Loading config from pacman-4046...');
-          const originalGameId = 'pacman-4046';
-          const hasOriginalConfig = await loadBrandConfigFromSupabase(originalGameId);
-          if (hasOriginalConfig) {
-            // Save config với gameId mới để dùng lại
-            saveBrandConfig(gameId);
-            console.log('[FAKE MODE] ✅ Loaded config from pacman-4046');
-          }
-        }
-        
-        if (!BRAND_CONFIG.fragmentLogoUrl && !BRAND_CONFIG.mapColor) {
-          // Use default config for playtest
-          console.log('[PlayTest] No config found, using defaults');
-          BRAND_CONFIG = {
-            fragmentLogo: null,
-            fragmentLogoUrl: '',
-            title: 'Pacman Game',
-            smartContract: '',
-            mapColor: '#1a1a2e',
-            mapIndex: 0,
-            stories: []
-          };
-        }
+        // Use default config for playtest
+        console.log('[PlayTest] No config found, using defaults');
+        BRAND_CONFIG = {
+          fragmentLogo: null,
+          fragmentLogoUrl: '',
+          title: 'Pacman Game',
+          smartContract: '',
+          mapColor: '#1a1a2e',
+          mapIndex: 0,
+          stories: []
+        };
       }
     }
     
@@ -2421,14 +2396,9 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Initialize game state (wait for user input to start)
       isGameOver = false;
       gameState = 'playing'; // Game state ready, ghosts wait for user interaction
+      score = 0;
+      currentLevel = 1;
       hasSentGameStart = false;
-
-      // ✅ FAKE MODE: apply startLevel/startScore if provided
-      const params = new URLSearchParams(window.location.search);
-      const startLevelParam = parseInt(params.get('startLevel')) || 1;
-      const startScoreParam = parseInt(params.get('startScore')) || 0;
-      currentLevel = startLevelParam;
-      score = startScoreParam;
     
       // ✅ FIX: Load mapIndex from BRAND_CONFIG before initializing level (public game mode)
       const savedMapIndex = BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0;
@@ -2436,8 +2406,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       const baseMap = MAPS[mapIndex] || MAPS[0] || [];
       currentMap = baseMap.map(row => [...row]);
       
-      // Initialize level (reset positions) with currentLevel (may be overridden by startLevel)
-      initLevel(currentLevel);
+      // Initialize level (reset positions)
+      initLevel(1);
 
       // ✅ CRITICAL: Auto-focus canvas so arrow keys work immediately without clicking
       if (gameCanvas) {

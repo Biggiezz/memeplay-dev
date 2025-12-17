@@ -69,10 +69,21 @@ export function savePlaytestConfig(templateId, config, options = {}) {
     }
     
     // Use provided fragmentLogoUrl or from config
-    const finalConfig = {
+    let finalConfig = {
       ...config,
       fragmentLogoUrl: options.fragmentLogoUrl || config.fragmentLogoUrl || ''
     };
+    
+    // ✅ Space Jump: Also save headLogoUrl and gameOverLogoUrl
+    if (templateId === 'space-jump-template') {
+      const logoUrl = options.fragmentLogoUrl || config.headLogoUrl || config.fragmentLogoUrl || '';
+      finalConfig = {
+        ...config,
+        headLogoUrl: logoUrl,
+        gameOverLogoUrl: logoUrl,
+        storyText: config.storyText || 'memeplay'
+      };
+    }
     
     localStorage.setItem(playtestKey, JSON.stringify(finalConfig));
     console.log('[PlaytestManager] Saved playtest config:', { 
@@ -250,6 +261,13 @@ export function sendConfigToIframe(iframe, templateId, config) {
         hasCoinLogo: !!config.coinLogoUrl,
         hasGameOverLogo: !!config.gameOverLogoUrl,
         tokenStory: config.tokenStory
+      });
+    } else if (templateId === 'space-jump-template') {
+      console.log('[PlaytestManager] ✅ Sent UPDATE_CONFIG to iframe (instant update):', {
+        templateId,
+        hasHeadLogo: !!config.headLogoUrl,
+        hasGameOverLogo: !!config.gameOverLogoUrl,
+        storyText: config.storyText
       });
     } else {
       console.log('[PlaytestManager] ✅ Sent UPDATE_CONFIG to iframe (instant update):', {

@@ -578,6 +578,15 @@
         };
       }
       
+      // ✅ Space Jump: headLogoUrl, gameOverLogoUrl, storyText
+      if (CURRENT_TEMPLATE === 'space-jump-template') {
+        return {
+          headLogoUrl: fragmentLogoUrl,       // Logo trong đầu nhân vật
+          gameOverLogoUrl: fragmentLogoUrl,   // Logo màn hình game over
+          storyText: story || 'memeplay'      // Story text
+        };
+      }
+      
       // ✅ Pacman/Pixel Shooter: Format cũ
       return {
         fragmentLogoUrl: fragmentLogoUrl,
@@ -684,6 +693,19 @@
         // Mobile: tạo iframe trong mobilePreviewBox
         savePlaytestConfig(); // Dùng key cố định, không cần gameId
         currentPlaytestIframe = createPlaytestIframe(playtestGameId, mobilePreviewBox);
+        
+        // ✅ Mobile: Send UPDATE_CONFIG after iframe loads (same as desktop)
+        if (currentPlaytestIframe) {
+          const config = getConfigFromDOM();
+          currentPlaytestIframe.addEventListener('load', () => {
+            sendConfigToIframe(currentPlaytestIframe, CURRENT_TEMPLATE, config);
+            // Retry after 300ms to ensure game is ready
+            setTimeout(() => {
+              sendConfigToIframe(currentPlaytestIframe, CURRENT_TEMPLATE, config);
+            }, 300);
+          });
+        }
+        
         const mobilePlay = document.querySelector('.mobile-play');
         if (mobilePlay) {
           mobilePlay.style.display = 'flex';
@@ -859,13 +881,8 @@
             playTestBtn.classList.remove('success');
             // ✅ FIX: Disable Save buttons when config changes
             disableSaveButtons();
-            // ✅ FIX: Pass dataUrl directly to savePlaytestConfig (avoid DOM race condition)
-            // ✅ Bước 2: Dùng gameId từ registry
-            if (!currentPlaytestGameId) {
-              currentPlaytestGameId = getPlaytestGameId(CURRENT_TEMPLATE);
-            }
-            savePlaytestConfig({ fragmentLogoUrl: dataUrl }); // Truyền dataUrl trực tiếp
-            createPlaytestIframe(currentPlaytestGameId, previewBox);
+            // ✅ FIX: Update iframe via postMessage instead of reload
+            updatePlaytestIframe(true); // Immediate update with new logo
           });
         };
         img.src = reader.result;

@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Space Jump</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            background: #0a0e27;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+            font-family: 'Arial', sans-serif;
+        }
+        #game-container {
+            position: relative;
+            width: 720px;
+            height: 1000px;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            background: #0a0e27;
+        }
+        .overlay {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(10, 14, 39, 0.9);
+            color: white;
+            z-index: 10;
+        }
+        .overlay.hidden { display: none; }
+        .overlay h1 {
+            font-size: 48px;
+            margin-bottom: 20px;
+            text-shadow: 0 0 20px #6366f1;
+        }
+        .overlay h2 {
+            font-size: 36px;
+            margin-bottom: 15px;
+            color: #ef4444;
+        }
+        .overlay p {
+            font-size: 24px;
+            opacity: 0.8;
+            margin-bottom: 20px;
+        }
+        #play-again-btn {
+            padding: 15px 40px;
+            font-size: 20px;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            border: none;
+            border-radius: 30px;
+            color: white;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        #play-again-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 30px rgba(99, 102, 241, 0.6);
+        }
+        @media (max-width: 720px) {
+            #game-container { width: 100vw; height: 100vh; }
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="gameCanvas"></canvas>
+        <div id="start-screen" class="overlay">
+            <h1>🚀 SPACE JUMP</h1>
+            <p>TAP or PRESS ANY KEY to Start</p>
+        </div>
+        <div id="game-over-screen" class="overlay hidden">
+            <h2>GAME OVER</h2>
+            <p>Score: <span id="final-score">0</span></p>
+            <img id="game-logo" src="binance-logo.webp" alt="Logo" style="width:120px;height:120px;margin:15px 0;border-radius:15px;">
+            <p id="game-story" style="font-size:18px;opacity:0.7;max-width:80%;text-align:center;">memeplay</p>
+            <button id="play-again-btn">Play Again</button>
+        </div>
+    </div>
+    <script>
+    (function() {
+        'use strict';
+
+        // Config
+        const CONFIG = {
+            CANVAS_WIDTH: 720,
+            CANVAS_HEIGHT: 1000,
+            BG_COLOR: '#0a0e27',
+            PLAYER_WIDTH: 120,
+            PLAYER_HEIGHT: 160,
+            GRAVITY: 0.5,
+            JUMP_FORCE: -33,
+            MOVE_SPEED: 7.0,
+            MOBILE_GRAVITY: 0.6,
+            MOBILE_JUMP_FORCE: -39.6,
+            MOBILE_DELTA_MULTIPLIER: 0.75,
+            PLATFORM_MIN_WIDTH: 60,
+            PLATFORM_MAX_WIDTH: 120,
+            PLATFORM_HEIGHT: 15,
+            PLATFORM_COLORS: ['#6366f1', '#10b981', '#ef4444'],
+            MOVING_PLATFORM_COLOR: '#f59e0b',
+            MOVING_PLATFORM_START_SCORE: 50,
+            BASE_PLATFORM_SPACING: 160,
+            MAX_PLATFORM_SPACING: 280,
+            SPACING_INCREASE_PER_10_SCORE: 20,
+            BLACK_HOLE_RADIUS: 51,
+            BLACK_HOLE_START_SCORE: 30,
+            BLACK_HOLE_CHANCE: 0.15,
+            STAR_COUNT: 100,
+            PARTICLE_COUNT: 15,
+            CONTROL_BUTTON_RADIUS: 60,
+            CONTROL_BUTTON_Y_OFFSET: 70,
+            CONTROL_BUTTON_X_OFFSET: 70
+        };
+
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const startScreen = document.getElementById('start-screen');
+        const gameOverScreen = document.getElementById('game-over-screen');
+        const finalScoreEl = document.getElementById('final-score');
+        const playAgainBtn = document.getElementById('play-again-btn');
+
+        canvas.width = CONFIG.CANVAS_WIDTH;
+        canvas.height = CONFIG.CANVAS_HEIGHT;
+
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || ('ontouchstart' in window);
+        const GRAVITY = isMobile ? CONFIG.MOBILE_GRAVITY : CONFIG.GRAVITY;
+        const JUMP_FORCE = isMobile ? CONFIG.MOBILE_JUMP_FORCE : CONFIG.JUMP_FORCE;
+        const DELTA_MULT = isMobile ? CONFIG.MOBILE_DELTA_MULTIPLIER : 1;
+
+        let gameState = 'start'; // 'start', 'playing', 'gameover'
+        let score = 0;
+        let highScore = parseInt(localStorage.getItem('spaceJumpHighScore')) || 0;
+        let cameraY = 0;
+        let lastFrameTime = 0;
+
+        let player = {
+            x: CONFIG.CANVAS_WIDTH / 2 - CONFIG.PLAYER_WIDTH / 2,
+            y: CONFIG.CANVAS_HEIGHT - 350,
+            width: CONFIG.PLAYER_WIDTH,
+            height: CONFIG.PLAYER_HEIGHT,
+            velocityX: 0,
+            velocityY: 0,
+            scale: 1,
+            facingRight: false
+        };
+
+        let platforms = [];
+        let blackHoles = [];
+        let particles = [];
+        let stars = [];
+        let meteors = [];
+        let platformDebris = [];
+        let meteorAlertTime = 0;
+        let meteorAlertTriggered = false;
+        let keys = { left: false, right: false };
+        let touchControls = { left: false, right: false };
+        let audioCtx = null;
+        let gameStartTime = Date.now();
+        let lastPlatformTime = Date.now();
+        
+
+        function initStars() {
+            stars = [];
+            for (let i = 0; i < CONFIG.STAR_COUNT; i++) {
+                stars.push({
+                    x: Math.random() * CONFIG.CANVAS_WIDTH,
+                    y: Math.random() * CONFIG.CANVAS_HEIGHT * 3,
+                    size: 1 + Math.random() * 2,
+                    opacity: 0.5 + Math.random() * 0.5
+                });
+            }
+        }
+
+        function initPlatforms() {
+            platforms = [];
+            // First platform directly under player (player bottom at y+height = 350+160-350 = 160 from bottom)
+            // Platform at y=200 from bottom means player will land on it
+            platforms.push({
+                x: CONFIG.CANVAS_WIDTH / 2 - 60,
+                y: CONFIG.CANVAS_HEIGHT - 200,
+                width: 120,
+                height: CONFIG.PLATFORM_HEIGHT,
+                color: CONFIG.PLATFORM_COLORS[0],
+                velocityX: 0,
+                passed: false
+            });
+
+            let y = CONFIG.CANVAS_HEIGHT - 350;
+            while (y > -CONFIG.CANVAS_HEIGHT) {
+                y -= CONFIG.BASE_PLATFORM_SPACING + Math.random() * 40;
+                addPlatform(y);
+            }
+        }
+
+        function addPlatform(y) {
+            const width = CONFIG.PLATFORM_MIN_WIDTH + Math.random() * (CONFIG.PLATFORM_MAX_WIDTH - CONFIG.PLATFORM_MIN_WIDTH);
+            const x = Math.random() * (CONFIG.CANVAS_WIDTH - width);
+            const isMoving = score >= CONFIG.MOVING_PLATFORM_START_SCORE && Math.random() < 0.3;
+            
+            platforms.push({
+                x: x, y: y, width: width, height: CONFIG.PLATFORM_HEIGHT,
+                color: isMoving ? CONFIG.MOVING_PLATFORM_COLOR : CONFIG.PLATFORM_COLORS[Math.floor(Math.random() * CONFIG.PLATFORM_COLORS.length)],
+                velocityX: isMoving ? (Math.random() > 0.5 ? 2 : -2) : 0,
+                passed: false
+            });
+
+            if (score >= CONFIG.BLACK_HOLE_START_SCORE && Math.random() < CONFIG.BLACK_HOLE_CHANCE) {
+                // Check minimum distance from last black hole (700px)
+                const lastBH = blackHoles[blackHoles.length - 1];
+                if (!lastBH || Math.abs((y - 80) - lastBH.y) >= 700) {
+                    blackHoles.push({
+                        x: Math.random() * (CONFIG.CANVAS_WIDTH - 60) + 30,
+                        y: y - 80,
+                        radius: CONFIG.BLACK_HOLE_RADIUS
+                    });
+                }
+            }
+        }
+
+        function spawnParticles(x, y) {
+            for (let i = 0; i < CONFIG.PARTICLE_COUNT; i++) {
+                particles.push({
+                    x: x, y: y,
+                    velocityX: (Math.random() - 0.5) * 15,
+                    velocityY: -3 - Math.random() * 10,
+                    life: 1,
+                    size: 2 + Math.random() * 3
+                });
+            }
+        }
+
+        const failSound = new Audio('fail.wav');
+        failSound.volume = 0.5;
+        
+        function playGameOverSound() {
+            failSound.currentTime = 0;
+            failSound.play();
+        }
+        
+        function playAlertSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioCtx.currentTime;
+            
+            // Warning siren
+            for (let i = 0; i < 4; i++) {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(400, now + i * 0.5);
+                osc.frequency.linearRampToValueAtTime(600, now + i * 0.5 + 0.25);
+                osc.frequency.linearRampToValueAtTime(400, now + i * 0.5 + 0.5);
+                gain.gain.setValueAtTime(0.2, now + i * 0.5);
+                gain.gain.setValueAtTime(0.2, now + i * 0.5 + 0.4);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + i * 0.5 + 0.5);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start(now + i * 0.5);
+                osc.stop(now + i * 0.5 + 0.5);
+            }
+        }
+
+        function playBounceSound() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioCtx.currentTime;
+            
+            const osc1 = audioCtx.createOscillator();
+            const gain1 = audioCtx.createGain();
+            osc1.type = 'sine';
+            osc1.frequency.value = 523.25;
+            gain1.gain.setValueAtTime(0.2, now);
+            gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+            osc1.connect(gain1);
+            gain1.connect(audioCtx.destination);
+            osc1.start(now);
+            osc1.stop(now + 0.15);
+
+            const osc2 = audioCtx.createOscillator();
+            const gain2 = audioCtx.createGain();
+            osc2.type = 'sine';
+            osc2.frequency.value = 659.25;
+            gain2.gain.setValueAtTime(0.15, now + 0.05);
+            gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.25);
+            osc2.connect(gain2);
+            gain2.connect(audioCtx.destination);
+            osc2.start(now + 0.05);
+            osc2.stop(now + 0.25);
+        }
+
+        function resetGame() {
+            score = 0;
+            cameraY = 0;
+            gameStartTime = Date.now();
+            lastPlatformTime = Date.now();
+            player = {
+                x: CONFIG.CANVAS_WIDTH / 2 - CONFIG.PLAYER_WIDTH / 2,
+                y: CONFIG.CANVAS_HEIGHT - 350,
+                width: CONFIG.PLAYER_WIDTH,
+                height: CONFIG.PLAYER_HEIGHT,
+                velocityX: 0, velocityY: 0, scale: 1, facingRight: false
+            };
+            platforms = [];
+            blackHoles = [];
+            particles = [];
+            meteors = [];
+            platformDebris = [];
+            meteorAlertTime = 0;
+            meteorAlertTriggered = false;
+            initStars();
+            initPlatforms();
+        }
+
+        function update(deltaTime) {
+            if (gameState !== 'playing') return;
+            const dt = deltaTime * DELTA_MULT;
+            const gameTime = (Date.now() - gameStartTime) / 1000;
+
+            if (keys.left || touchControls.left) {
+                player.velocityX = -CONFIG.MOVE_SPEED;
+                player.facingRight = false;
+            } else if (keys.right || touchControls.right) {
+                player.velocityX = CONFIG.MOVE_SPEED;
+                player.facingRight = true;
+            } else {
+                player.velocityX *= 0.9;
+            }
+
+            player.velocityY += GRAVITY * dt;
+            player.x += player.velocityX * dt;
+            player.y += player.velocityY * dt;
+
+            if (player.x + player.width < 0) player.x = CONFIG.CANVAS_WIDTH;
+            else if (player.x > CONFIG.CANVAS_WIDTH) player.x = -player.width;
+
+            if (player.velocityY > 0) player.scale += (0.95 - player.scale) * 0.1;
+            else player.scale += (1.05 - player.scale) * 0.1;
+
+            if (player.y < CONFIG.CANVAS_HEIGHT / 2) cameraY = player.y - CONFIG.CANVAS_HEIGHT / 2;
+
+            platforms.forEach(p => {
+                // Red platforms move after 5 seconds
+                if (gameTime > 5 && p.color === '#ef4444' && p.velocityX === 0) {
+                    p.velocityX = Math.random() > 0.5 ? 3 : -3;
+                }
+                if (p.velocityX !== 0) {
+                    p.x += p.velocityX * dt;
+                    if (p.x <= 0 || p.x + p.width >= CONFIG.CANVAS_WIDTH) p.velocityX *= -1;
+                }
+            });
+
+            if (player.velocityY > 0) {
+                platforms.forEach(p => {
+                    // Hitbox width = 54
+                    const hitboxLeft = player.x + player.width / 2 - 27;
+                    const hitboxRight = player.x + player.width / 2 + 27;
+                    if (hitboxRight > p.x &&
+                        hitboxLeft < p.x + p.width &&
+                        player.y + player.height > p.y &&
+                        player.y + player.height < p.y + p.height + 10) {
+                        
+                        player.velocityY = JUMP_FORCE;
+                        player.scale = 1.2;
+                        lastPlatformTime = Date.now();
+                        spawnParticles(player.x + player.width / 2, p.y);
+                        playBounceSound();
+                        
+                        // Green platforms shatter after jump (after 10s)
+                        if (gameTime > 10 && p.color === '#10b981' && !p.shattered) {
+                            p.shattered = true;
+                            // Create debris
+                            const debrisCount = 8;
+                            for (let i = 0; i < debrisCount; i++) {
+                                platformDebris.push({
+                                    x: p.x + (p.width / debrisCount) * i + p.width / debrisCount / 2,
+                                    y: p.y,
+                                    width: p.width / debrisCount,
+                                    height: p.height,
+                                    color: p.color,
+                                    velocityX: (Math.random() - 0.5) * 10,
+                                    velocityY: -3 - Math.random() * 5,
+                                    rotation: 0,
+                                    rotationSpeed: (Math.random() - 0.5) * 0.5,
+                                    life: 1
+                                });
+                            }
+                        }
+                    }
+                });
+            }
+
+            blackHoles.forEach(bh => {
+                const dx = (player.x + player.width / 2) - bh.x;
+                const dy = (player.y + player.height / 2) - bh.y;
+                if (Math.sqrt(dx * dx + dy * dy) < bh.radius) gameOver();
+            });
+
+            const topY = cameraY - CONFIG.CANVAS_HEIGHT;
+            const highestPlatform = Math.min(...platforms.map(p => p.y));
+            if (highestPlatform > topY) {
+                const spacing = Math.min(CONFIG.BASE_PLATFORM_SPACING + Math.floor(score / 10) * CONFIG.SPACING_INCREASE_PER_10_SCORE, CONFIG.MAX_PLATFORM_SPACING);
+                addPlatform(highestPlatform - spacing - Math.random() * 40);
+            }
+
+            // Remove shattered green platforms immediately
+            platforms = platforms.filter(p => {
+                if (p.shattered) return false;
+                return p.y - cameraY < CONFIG.CANVAS_HEIGHT + 100;
+            });
+            
+            // Update platform debris
+            platformDebris.forEach(d => {
+                d.x += d.velocityX * dt;
+                d.y += d.velocityY * dt;
+                d.velocityY += 0.3 * dt;
+                d.rotation += d.rotationSpeed * dt;
+                d.life -= 0.1 * dt;
+            });
+            platformDebris = platformDebris.filter(d => d.life > 0);
+            blackHoles = blackHoles.filter(bh => bh.y - cameraY < CONFIG.CANVAS_HEIGHT + 100);
+            
+            // Meteor alert at 18s (2s before meteors start)
+            if (gameTime > 18 && !meteorAlertTriggered) {
+                meteorAlertTriggered = true;
+                meteorAlertTime = Date.now();
+                playAlertSound();
+            }
+            
+            // Spawn meteors after 20s (alert finished) - reduced by 50%
+            if (gameTime > 20 && Math.random() < 0.01) {
+                // Check minimum distance from last meteor (500px)
+                const lastMeteor = meteors[meteors.length - 1];
+                if (!lastMeteor || Math.abs((cameraY - 50) - lastMeteor.y) >= 500) {
+                    meteors.push({
+                        x: Math.random() * CONFIG.CANVAS_WIDTH,
+                        y: cameraY - 50,
+                        velocityX: (Math.random() - 0.5) * 1.5,
+                        velocityY: 4 + Math.random() * 2,
+                        radius: 15 + Math.random() * 10
+                    });
+                }
+            }
+            
+            // Update meteors
+            meteors.forEach(m => {
+                m.x += m.velocityX * dt;
+                m.y += m.velocityY * dt;
+                
+                // Check collision with player
+                const dx = (player.x + player.width / 2) - m.x;
+                const dy = (player.y + player.height / 2) - m.y;
+                if (Math.sqrt(dx * dx + dy * dy) < m.radius * 0.7 + 19) gameOver();
+            });
+            
+            // Remove off-screen meteors
+            meteors = meteors.filter(m => m.y - cameraY < CONFIG.CANVAS_HEIGHT + 100);
+
+            particles.forEach(p => {
+                p.x += p.velocityX * dt;
+                p.y += p.velocityY * dt;
+                p.velocityY += 0.05 * dt;
+                p.life -= 0.05 * dt;
+            });
+            particles = particles.filter(p => p.life > 0);
+
+            // Score when player passes above platform
+            platforms.forEach(p => {
+                if (!p.passed && player.y + player.height < p.y) {
+                    score++;
+                    p.passed = true;
+                }
+            });
+
+            // Game over if 3 seconds without touching platform
+            if (Date.now() - lastPlatformTime > 3000) gameOver();
+        }
+
+        function gameOver() {
+            if (gameState === 'gameover') return;
+            playGameOverSound();
+            gameState = 'gameover';
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('spaceJumpHighScore', highScore);
+            }
+            finalScoreEl.textContent = score;
+            setTimeout(() => {
+                gameOverScreen.classList.remove('hidden');
+            }, 300);
+        }
+
+        function draw() {
+            ctx.fillStyle = CONFIG.BG_COLOR;
+            ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+            
+            // Red flash alert before meteors
+            if (meteorAlertTime > 0 && Date.now() - meteorAlertTime < 2000) {
+                const alertProgress = (Date.now() - meteorAlertTime) / 2000;
+                const flashIntensity = Math.sin(alertProgress * Math.PI * 8) * 0.5 + 0.5;
+                ctx.fillStyle = `rgba(255, 0, 0, ${flashIntensity * 0.3})`;
+                ctx.fillRect(0, 0, CONFIG.CANVAS_WIDTH, CONFIG.CANVAS_HEIGHT);
+            }
+
+            ctx.fillStyle = '#fff';
+            stars.forEach(star => {
+                const screenY = star.y - cameraY * 0.5;
+                const wrappedY = ((screenY % (CONFIG.CANVAS_HEIGHT * 3)) + CONFIG.CANVAS_HEIGHT * 3) % (CONFIG.CANVAS_HEIGHT * 3) - CONFIG.CANVAS_HEIGHT;
+                ctx.globalAlpha = star.opacity;
+                ctx.beginPath();
+                ctx.arc(star.x, wrappedY, star.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            platforms.forEach(p => {
+                const screenY = p.y - cameraY;
+                
+                ctx.shadowBlur = 15;
+                ctx.shadowColor = p.color;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.roundRect(p.x, screenY, p.width, p.height, 5);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fillRect(p.x + 5, screenY + 2, p.width - 10, 3);
+            });
+            
+            // Draw platform debris
+            platformDebris.forEach(d => {
+                const screenY = d.y - cameraY;
+                ctx.save();
+                ctx.translate(d.x, screenY);
+                ctx.rotate(d.rotation);
+                ctx.globalAlpha = d.life;
+                ctx.fillStyle = d.color;
+                ctx.fillRect(-d.width / 2, -d.height / 2, d.width, d.height);
+                ctx.restore();
+            });
+            ctx.globalAlpha = 1;
+
+            blackHoles.forEach(bh => {
+                const screenY = bh.y - cameraY;
+                const gradient = ctx.createRadialGradient(bh.x, screenY, 0, bh.x, screenY, bh.radius);
+                gradient.addColorStop(0, '#1a0a2e');
+                gradient.addColorStop(0.5, '#4a1a6e');
+                gradient.addColorStop(1, 'transparent');
+                ctx.fillStyle = gradient;
+                ctx.beginPath();
+                ctx.arc(bh.x, screenY, bh.radius, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#8b5cf6';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.arc(bh.x, screenY, bh.radius * 0.5, 0, Math.PI * 2);
+                ctx.stroke();
+            });
+            
+            // Draw meteors
+            meteors.forEach(m => {
+                const screenY = m.y - cameraY;
+                
+                // Meteor trail
+                ctx.fillStyle = 'rgba(255, 100, 50, 0.3)';
+                ctx.beginPath();
+                ctx.moveTo(m.x, screenY);
+                ctx.lineTo(m.x - m.radius * 0.5, screenY - m.radius * 2);
+                ctx.lineTo(m.x + m.radius * 0.5, screenY - m.radius * 2);
+                ctx.closePath();
+                ctx.fill();
+                
+                // Meteor body
+                const meteorGradient = ctx.createRadialGradient(m.x, screenY, 0, m.x, screenY, m.radius);
+                meteorGradient.addColorStop(0, '#ffcc00');
+                meteorGradient.addColorStop(0.5, '#ff6600');
+                meteorGradient.addColorStop(1, '#cc3300');
+                ctx.fillStyle = meteorGradient;
+                ctx.beginPath();
+                ctx.arc(m.x, screenY, m.radius, 0, Math.PI * 2);
+                ctx.fill();
+                
+                // Glow
+                ctx.shadowBlur = 20;
+                ctx.shadowColor = '#ff6600';
+                ctx.beginPath();
+                ctx.arc(m.x, screenY, m.radius * 0.8, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.shadowBlur = 0;
+            });
+
+            particles.forEach(p => {
+                const screenY = p.y - cameraY;
+                ctx.globalAlpha = p.life;
+                ctx.fillStyle = '#6366f1';
+                ctx.beginPath();
+                ctx.arc(p.x, screenY, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+            ctx.globalAlpha = 1;
+
+            // Draw player (stickman with Binance head)
+            const playerScreenY = player.y - cameraY;
+            ctx.save();
+            ctx.translate(player.x + player.width / 2, playerScreenY + player.height / 2);
+            
+            // Flip horizontally if facing right
+            if (player.facingRight) {
+                ctx.scale(-1, 1);
+            }
+            
+            // Knee bend animation (0 = straight, 1 = bent)
+            const kneeBend = Math.max(0, (1.2 - player.scale) * 5);
+            
+            // Body line color
+            ctx.strokeStyle = '#8B0000';
+            ctx.lineWidth = 4;
+            ctx.lineCap = 'round';
+            
+            // Torso (from neck to hip) - compress when landing
+            const torsoCompress = kneeBend * 5;
+            ctx.beginPath();
+            ctx.moveTo(0, -20 + torsoCompress);
+            ctx.lineTo(0, 25 - torsoCompress);
+            ctx.stroke();
+            
+            // Legs with knee bend
+            const kneeY = 45 - kneeBend * 15;
+            const footY = 70 - kneeBend * 10;
+            // Left leg
+            ctx.beginPath();
+            ctx.moveTo(0, 25);
+            ctx.lineTo(-15, kneeY);
+            ctx.lineTo(-20, footY);
+            ctx.stroke();
+            // Right leg
+            ctx.beginPath();
+            ctx.moveTo(0, 25);
+            ctx.lineTo(15, kneeY);
+            ctx.lineTo(20, footY);
+            ctx.stroke();
+            
+            // Left arm (pointing) - moves with torso
+            ctx.beginPath();
+            ctx.moveTo(0, -10 + torsoCompress);
+            ctx.lineTo(-25, 5 + torsoCompress * 0.5);
+            ctx.lineTo(-45, 0 + torsoCompress * 0.3);
+            ctx.stroke();
+            
+            // Right arm (pointing down) - moves with torso
+            ctx.beginPath();
+            ctx.moveTo(0, -10 + torsoCompress);
+            ctx.lineTo(20, 15 + torsoCompress * 0.5);
+            ctx.lineTo(35, 25 + torsoCompress * 0.3);
+            ctx.stroke();
+            
+            // Draw hands (white gloves) - follow arm positions
+            ctx.fillStyle = '#fff';
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            
+            // Left hand - simple fist
+            ctx.save();
+            ctx.translate(-45, 0 + torsoCompress * 0.3);
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            
+            // Right hand - simple fist
+            ctx.save();
+            ctx.translate(35, 25 + torsoCompress * 0.3);
+            ctx.beginPath();
+            ctx.arc(0, 0, 10, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+            
+            // Sneakers
+            ctx.fillStyle = '#f5f5f5';
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 2;
+            // Left shoe
+            ctx.beginPath();
+            ctx.ellipse(-22, footY + 5, 12, 6, -0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            // Right shoe
+            ctx.beginPath();
+            ctx.ellipse(22, footY + 5, 12, 6, 0.2, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Shoe stripes
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            ctx.beginPath();
+            ctx.moveTo(-28, footY + 3);
+            ctx.lineTo(-18, footY + 3);
+            ctx.moveTo(-27, footY + 6);
+            ctx.lineTo(-19, footY + 6);
+            ctx.moveTo(16, footY + 3);
+            ctx.lineTo(26, footY + 3);
+            ctx.moveTo(17, footY + 6);
+            ctx.lineTo(25, footY + 6);
+            ctx.stroke();
+            
+            // Binance head (orange circle with logo) - bobs with body
+            const headY = -50 + torsoCompress * 1.2;
+            // Purple outline
+            ctx.strokeStyle = '#5C4B8A';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(0, headY, 32, 0, Math.PI * 2);
+            ctx.stroke();
+            // Orange fill
+            ctx.fillStyle = '#F3BA2F';
+            ctx.beginPath();
+            ctx.arc(0, headY, 30, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Binance diamond logo
+            ctx.fillStyle = '#1E2026';
+            const logoSize = 12;
+            // Center diamond
+            ctx.beginPath();
+            ctx.moveTo(0, headY - logoSize);
+            ctx.lineTo(logoSize, headY);
+            ctx.lineTo(0, headY + logoSize);
+            ctx.lineTo(-logoSize, headY);
+            ctx.closePath();
+            ctx.fill();
+            // Top diamond
+            ctx.beginPath();
+            ctx.moveTo(0, headY - logoSize - 8);
+            ctx.lineTo(5, headY - logoSize - 3);
+            ctx.lineTo(0, headY - logoSize + 2);
+            ctx.lineTo(-5, headY - logoSize - 3);
+            ctx.closePath();
+            ctx.fill();
+            // Bottom diamond
+            ctx.beginPath();
+            ctx.moveTo(0, headY + logoSize + 8);
+            ctx.lineTo(5, headY + logoSize + 3);
+            ctx.lineTo(0, headY + logoSize - 2);
+            ctx.lineTo(-5, headY + logoSize + 3);
+            ctx.closePath();
+            ctx.fill();
+            // Left diamond
+            ctx.beginPath();
+            ctx.moveTo(-logoSize - 8, headY);
+            ctx.lineTo(-logoSize - 3, headY - 5);
+            ctx.lineTo(-logoSize + 2, headY);
+            ctx.lineTo(-logoSize - 3, headY + 5);
+            ctx.closePath();
+            ctx.fill();
+            // Right diamond
+            ctx.beginPath();
+            ctx.moveTo(logoSize + 8, headY);
+            ctx.lineTo(logoSize + 3, headY - 5);
+            ctx.lineTo(logoSize - 2, headY);
+            ctx.lineTo(logoSize + 3, headY + 5);
+            ctx.closePath();
+            ctx.fill();
+            
+            ctx.restore();
+
+            if (isMobile) {
+                const btnY = CONFIG.CANVAS_HEIGHT - CONFIG.CONTROL_BUTTON_Y_OFFSET;
+                const btnRadius = CONFIG.CONTROL_BUTTON_RADIUS;
+                
+                ctx.strokeStyle = touchControls.left ? '#8b5cf6' : '#6366f1';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.arc(CONFIG.CONTROL_BUTTON_X_OFFSET, btnY, btnRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = touchControls.left ? '#8b5cf6' : '#6366f1';
+                ctx.beginPath();
+                ctx.moveTo(CONFIG.CONTROL_BUTTON_X_OFFSET + 15, btnY - 20);
+                ctx.lineTo(CONFIG.CONTROL_BUTTON_X_OFFSET - 15, btnY);
+                ctx.lineTo(CONFIG.CONTROL_BUTTON_X_OFFSET + 15, btnY + 20);
+                ctx.closePath();
+                ctx.fill();
+                
+                ctx.strokeStyle = touchControls.right ? '#8b5cf6' : '#6366f1';
+                ctx.beginPath();
+                ctx.arc(CONFIG.CANVAS_WIDTH - CONFIG.CONTROL_BUTTON_X_OFFSET, btnY, btnRadius, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.fillStyle = touchControls.right ? '#8b5cf6' : '#6366f1';
+                ctx.beginPath();
+                ctx.moveTo(CONFIG.CANVAS_WIDTH - CONFIG.CONTROL_BUTTON_X_OFFSET - 15, btnY - 20);
+                ctx.lineTo(CONFIG.CANVAS_WIDTH - CONFIG.CONTROL_BUTTON_X_OFFSET + 15, btnY);
+                ctx.lineTo(CONFIG.CANVAS_WIDTH - CONFIG.CONTROL_BUTTON_X_OFFSET - 15, btnY + 20);
+                ctx.closePath();
+                ctx.fill();
+            }
+
+            ctx.fillStyle = '#fff';
+            ctx.font = 'bold 32px Arial';
+            ctx.fillText(`Score: ${score}`, 20, 50);
+            ctx.font = '20px Arial';
+            ctx.fillText(`Best: ${highScore}`, 20, 80);
+            
+        }
+
+        function gameLoop(currentTime) {
+            const deltaTime = lastFrameTime ? (currentTime - lastFrameTime) / (1000 / 60) : 1;
+            lastFrameTime = currentTime;
+            update(deltaTime);
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (gameState === 'start') { gameState = 'playing'; startScreen.classList.add('hidden'); }
+            if (e.key === 'ArrowLeft') keys.left = true;
+            if (e.key === 'ArrowRight') keys.right = true;
+        });
+
+        document.addEventListener('keyup', (e) => {
+            if (e.key === 'ArrowLeft') keys.left = false;
+            if (e.key === 'ArrowRight') keys.right = false;
+        });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if (gameState === 'start') { gameState = 'playing'; startScreen.classList.add('hidden'); return; }
+            
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = CONFIG.CANVAS_WIDTH / rect.width;
+            const scaleY = CONFIG.CANVAS_HEIGHT / rect.height;
+            
+            Array.from(e.touches).forEach(touch => {
+                const x = (touch.clientX - rect.left) * scaleX;
+                const y = (touch.clientY - rect.top) * scaleY;
+                const btnY = CONFIG.CANVAS_HEIGHT - CONFIG.CONTROL_BUTTON_Y_OFFSET;
+                const leftDist = Math.sqrt(Math.pow(x - CONFIG.CONTROL_BUTTON_X_OFFSET, 2) + Math.pow(y - btnY, 2));
+                const rightDist = Math.sqrt(Math.pow(x - (CONFIG.CANVAS_WIDTH - CONFIG.CONTROL_BUTTON_X_OFFSET), 2) + Math.pow(y - btnY, 2));
+                if (leftDist < CONFIG.CONTROL_BUTTON_RADIUS * 1.5) touchControls.left = true;
+                if (rightDist < CONFIG.CONTROL_BUTTON_RADIUS * 1.5) touchControls.right = true;
+            });
+        });
+
+        canvas.addEventListener('touchend', (e) => { e.preventDefault(); touchControls.left = false; touchControls.right = false; });
+        canvas.addEventListener('touchmove', (e) => { e.preventDefault(); });
+
+        startScreen.addEventListener('click', () => { gameState = 'playing'; startScreen.classList.add('hidden'); });
+        playAgainBtn.addEventListener('click', () => { gameOverScreen.classList.add('hidden'); resetGame(); gameState = 'playing'; });
+
+        initStars();
+        initPlatforms();
+        requestAnimationFrame(gameLoop);
+    })();
+    </script>
+</body>
+</html>
+
