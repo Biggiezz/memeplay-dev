@@ -266,6 +266,45 @@ export const TEMPLATE_REGISTRY = {
     displayName: 'Shooter',
     description: 'Bubble shooter game with level progression',
     enabled: true
+  },
+  
+  // ✅ Arrow Template (Archery Game)
+  'arrow-template': {
+    adapterPath: '../arrow-template/editor/editor-adapter.js',
+    adapterName: 'ArrowEditorAdapter',
+    playtestKey: 'arrow_brand_config_playtest-arrow',
+    playtestGameId: 'playtest-arrow',
+    storagePrefix: 'arrow_brand_config_',
+    templateUrl: '/games/templates-v2/arrow-template/index.html',
+    messageTypes: {
+      READY: 'ARROW_GAME_READY',
+      ERROR: 'ARROW_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      },
+      mapColor: {
+        enabled: true,
+        containerId: 'mapColors',
+        colors: [
+          { value: '#87CEEB', label: 'Sky Blue' },
+          { value: '#90EE90', label: 'Light Green' },
+          { value: '#DDA0DD', label: 'Light Purple' }
+        ]
+      }
+    },
+    displayName: 'Arrow',
+    description: 'Archery game - shoot birds to score points',
+    enabled: true
   }
 };
 

@@ -516,6 +516,12 @@ function guessTemplateFromId(gameId) {
     return 'shooter-template'
   }
   
+  // ✅ Special case: Arrow (gameId format: playmode-arrow-XXX, template ID: arrow-template)
+  if (gameId.startsWith('playmode-arrow-') || gameId.startsWith('arrow-')) {
+    console.log(`[PLAY MODE V2] 🎯 Detected arrow-template from gameId: ${gameId}`)
+    return 'arrow-template'
+  }
+  
   // ✅ Loop qua tất cả templates trong registry
   for (const [templateId, config] of Object.entries(TEMPLATE_REGISTRY)) {
     if (config.enabled === false) continue
@@ -1493,7 +1499,8 @@ async function renderGameCard(gameId) {
     const isRocketBnb = gameId.startsWith('playmode-rocket-bnb-') || gameId.startsWith('rocket-bnb-')
     const isSpaceJump = gameId.startsWith('playmode-space-jump-') || gameId.startsWith('space-jump-')
     const isShooter = gameId.startsWith('playmode-shooter-') || gameId.startsWith('shooter-')
-    if (isBlowBubble || isRocketBnb || isSpaceJump || isShooter) {
+    const isArrow = gameId.startsWith('playmode-arrow-') || gameId.startsWith('arrow-')
+    if (isBlowBubble || isRocketBnb || isSpaceJump || isShooter || isArrow) {
       console.error(`[PLAY MODE] 💡 Tip: Make sure you clicked "Save" button in the template editor to sync this game to Supabase.`)
       console.error(`[PLAY MODE] 💡 If you just created this game, go back to the editor and click "Save" again.`)
       console.error(`[PLAY MODE] 💡 Game ID: ${gameId}`)

@@ -596,6 +596,15 @@
         };
       }
       
+      // ✅ Arrow: logoUrl, storyText, mapColor
+      if (CURRENT_TEMPLATE === 'arrow-template') {
+        return {
+          logoUrl: fragmentLogoUrl,           // Logo trên chim trắng + game over
+          storyText: story || 'MEMEPLAY',     // Story text
+          mapColor: mapColor                  // Background color
+        };
+      }
+      
       // ✅ Pacman/Pixel Shooter: Format cũ
       return {
         fragmentLogoUrl: fragmentLogoUrl,
@@ -719,17 +728,20 @@
         if (mobilePlay) {
           mobilePlay.style.display = 'flex';
         }
-        saveMobileBtn.disabled = false;
         mobilePreviewBox.scrollIntoView({ behavior: 'smooth', block: 'center' });
       } else {
         // Desktop: update iframe với gameId cố định
         currentPlaytestGameId = playtestGameId;
         savePlaytestConfig(); // Dùng key cố định, không cần gameId
         currentPlaytestIframe = createPlaytestIframe(playtestGameId, previewBox);
-        if (saveDesktopBtn) {
-          saveDesktopBtn.disabled = false;
-          saveDesktopBtn.style.display = 'block';
-        }
+      }
+      
+      // ✅ FIX: Enable BOTH save buttons regardless of viewport
+      // This ensures save works when user switches between mobile/desktop views
+      saveMobileBtn.disabled = false;
+      if (saveDesktopBtn) {
+        saveDesktopBtn.disabled = false;
+        saveDesktopBtn.style.display = 'block';
       }
     });
     

@@ -217,7 +217,7 @@ export function createPlaytestIframe(templateId, gameId = null, container, onRea
         loading.remove();
         window.removeEventListener('message', messageHandler);
       }
-    }, 5000);
+    }, 1000);
     removeLoadingIfReady();
   });
   

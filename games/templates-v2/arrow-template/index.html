@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Arrow - MemePlay</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <!-- HUD -->
+        <div id="hud">
+            <div id="score-display">🏹 <span id="score">0</span></div>
+            <div id="stamina-container">
+                <div id="stamina-bar">
+                    <div id="stamina-fill"></div>
+                </div>
+                <div id="timer-display">10.0s</div>
+            </div>
+        </div>
+
+        <!-- Combo display -->
+        <div id="combo-display"></div>
+
+        <!-- Game canvas -->
+        <canvas id="game-canvas"></canvas>
+
+        <!-- Start screen -->
+        <div id="start-screen" role="button" aria-label="Tap to start game">
+            <div class="tap-to-start">TAP TO START</div>
+        </div>
+
+        <!-- Game over screen -->
+        <div id="gameover-screen">
+            <h1>GAME OVER</h1>
+            <div class="binance-logo-gameover">
+                <img src="assets/binance-logo.webp" alt="Logo" width="160" height="160">
+            </div>
+            <div class="brand">MEMEPLAY</div>
+            <div id="final-score">Final Score: <span>0</span></div>
+            <button id="restart-btn">PLAY AGAIN</button>
+        </div>
+    </div>
+
+    <script type="module" src="game.js"></script>
+</body>
+</html>
+
