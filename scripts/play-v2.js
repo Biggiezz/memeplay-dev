@@ -447,7 +447,8 @@ function normalizeTemplateId(templateId) {
     'blow-bubble-template': 'blow-bubble',
     'rocket-bnb-template': 'rocket-bnb-template', // ✅ Rocket BNB: keep same ID
     'fallen-crypto-template': 'fallen-crypto-template', // ✅ Fallen Crypto: keep same ID (matches registry)
-    'space-jump-template': 'space-jump-template' // ✅ Space Jump: keep same ID
+    'space-jump-template': 'space-jump-template', // ✅ Space Jump: keep same ID
+    'shooter-template': 'shooter-template' // ✅ Shooter: keep same ID
   }
   
   return templateIdMap[templateId] || templateId
@@ -507,6 +508,12 @@ function guessTemplateFromId(gameId) {
   if (gameId.startsWith('playmode-space-jump-') || gameId.startsWith('space-jump-')) {
     console.log(`[PLAY MODE V2] 🎯 Detected space-jump-template from gameId: ${gameId}`)
     return 'space-jump-template'
+  }
+  
+  // ✅ Special case: Shooter (gameId format: playmode-shooter-XXX, template ID: shooter-template)
+  if (gameId.startsWith('playmode-shooter-') || gameId.startsWith('shooter-')) {
+    console.log(`[PLAY MODE V2] 🎯 Detected shooter-template from gameId: ${gameId}`)
+    return 'shooter-template'
   }
   
   // ✅ Loop qua tất cả templates trong registry
@@ -647,6 +654,15 @@ function normalizeGame(templateId, gameId, raw = {}, options = {}) {
     }
   }
   
+  // ✅ Shooter: Xử lý storyText (từ localStorage) hoặc story_one (từ Supabase)
+  const isShooter = normalizedTemplateId === 'shooter-template' || templateId === 'shooter-template' || templateId === 'shooter'
+  if (isShooter) {
+    const storyText = raw.storyText || raw.story_one || raw.story_text
+    if (typeof storyText === 'string' && storyText.trim()) {
+      stories = [storyText.trim()]
+    }
+  }
+  
   if (!stories.length) {
     if (isBlocks || isWall || isBubble) {
       const story = raw.story || raw.story_one
@@ -703,6 +719,10 @@ function normalizeGame(templateId, gameId, raw = {}, options = {}) {
   // ✅ Space Jump: Ưu tiên gameOverLogoUrl, sau đó headLogoUrl
   if (isSpaceJump && !fragmentLogoUrl) {
     fragmentLogoUrl = raw.game_over_logo_url || raw.gameOverLogoUrl || raw.head_logo_url || raw.headLogoUrl || ''
+  }
+  // ✅ Shooter: Ưu tiên logoUrl
+  if (isShooter && !fragmentLogoUrl) {
+    fragmentLogoUrl = raw.logo_url || raw.logoUrl || ''
   }
   // ✅ Dùng normalized template ID để build template URL
   const templateUrl = buildTemplateUrl(normalizedTemplateId, gameId, raw.templateUrl || raw.template_url)
@@ -826,6 +846,20 @@ function loadGameFromLocalStorage(gameId) {
       }
     }
     
+    // ✅ Shooter: Hỗ trợ storyText, logoUrl
+    if (templateId === 'shooter-template' || templateId === 'shooter') {
+      if (config.storyText) {
+        gameData.stories = [config.storyText]
+        if (!gameData.title) {
+          gameData.title = config.title || `Shooter – ${config.storyText.slice(0, 24)}`
+        }
+      }
+      // Shooter dùng logoUrl làm fragmentLogoUrl
+      if (config.logoUrl && !gameData.fragmentLogoUrl) {
+        gameData.fragmentLogoUrl = config.logoUrl
+      }
+    }
+    
     // ✅ Legacy: Pacman có creator_id riêng
     if (templateId === PACMAN_TEMPLATE_ID || templateId === 'pacman') {
       const creatorId = localStorage.getItem('pacman_creator_id') || 'Creator'
@@ -867,7 +901,9 @@ async function fetchGameFromSupabase(gameId) {
     'fallen-crypto-template': ['fallen-crypto-template', 'fallen-crypto'],
     'fallen-crypto': ['fallen-crypto-template', 'fallen-crypto'],
     'space-jump-template': ['space-jump-template', 'space-jump'],
-    'space-jump': ['space-jump-template', 'space-jump']
+    'space-jump': ['space-jump-template', 'space-jump'],
+    'shooter-template': ['shooter-template', 'shooter'],
+    'shooter': ['shooter-template', 'shooter']
   }
   
   // ✅ 3. OPTIMIZED: Smart template prioritization
@@ -885,20 +921,22 @@ async function fetchGameFromSupabase(gameId) {
       }
     }
   } else {
-    // ✅ Nếu không guess được: chỉ check 4 templates quan trọng nhất (thay vì 16+)
-    // Priority: Pacman, Pixel Shooter, Rocket BNB, Fallen Crypto
+    // ✅ Nếu không guess được: chỉ check các templates quan trọng nhất
+    // Priority: Pacman, Pixel Shooter, Rocket BNB, Fallen Crypto, Space Jump, Shooter
     templateCandidates = [
       PACMAN_TEMPLATE_ID,
       PIXEL_SHOOTER_TEMPLATE_ID,
       'rocket-bnb-template',
       'fallen-crypto-template',
       'space-jump-template',
+      'shooter-template',
       // Thêm editor variants cho các templates này
       'pacman-template',
       'pixel-shooter-template',
       'rocket-bnb',
       'fallen-crypto',
-      'space-jump'
+      'space-jump',
+      'shooter'
     ]
   }
   
@@ -1065,9 +1103,9 @@ function buildUserGameCard(game) {
     </footer>
   `
 
-  // ✅ PostMessage config: Cho legacy templates và Space Jump
+  // ✅ PostMessage config: Cho legacy templates và Templates V2 with UPDATE_CONFIG
   const legacyTemplates = [BLOCKS_TEMPLATE_ID, WALL_BOUNCE_BIRD_TEMPLATE_ID, BLOW_BUBBLE_TEMPLATE_ID]
-  const templatesV2WithPostMessage = ['space-jump-template']
+  const templatesV2WithPostMessage = ['space-jump-template', 'shooter-template']
   const needsPostMessage = legacyTemplates.includes(templateId) || templatesV2WithPostMessage.includes(templateId)
   
   if (needsPostMessage) {
@@ -1077,7 +1115,8 @@ function buildUserGameCard(game) {
         [BLOCKS_TEMPLATE_ID]: 'CRYPTO_BLOCKS_CONFIG',
         [WALL_BOUNCE_BIRD_TEMPLATE_ID]: 'WALL_BOUNCE_BIRD_CONFIG',
         [BLOW_BUBBLE_TEMPLATE_ID]: 'BLOW_BUBBLE_CONFIG',
-        'space-jump-template': 'UPDATE_CONFIG'
+        'space-jump-template': 'UPDATE_CONFIG',
+        'shooter-template': 'UPDATE_CONFIG'
       }
       
       let payload
@@ -1089,6 +1128,16 @@ function buildUserGameCard(game) {
             headLogoUrl: game.fragmentLogoUrl || '',
             gameOverLogoUrl: game.fragmentLogoUrl || '',
             storyText: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : 'memeplay'
+          }
+        }
+      } else if (templateId === 'shooter-template') {
+        // Shooter uses UPDATE_CONFIG format
+        payload = {
+          type: 'UPDATE_CONFIG',
+          config: {
+            logoUrl: game.fragmentLogoUrl || '',
+            storyText: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : 'memeplay',
+            mapColor: game.mapColor || '#1a1a2e'
           }
         }
       } else {
@@ -1443,7 +1492,8 @@ async function renderGameCard(gameId) {
     const isBlowBubble = gameId.startsWith('blow-bubble-')
     const isRocketBnb = gameId.startsWith('playmode-rocket-bnb-') || gameId.startsWith('rocket-bnb-')
     const isSpaceJump = gameId.startsWith('playmode-space-jump-') || gameId.startsWith('space-jump-')
-    if (isBlowBubble || isRocketBnb || isSpaceJump) {
+    const isShooter = gameId.startsWith('playmode-shooter-') || gameId.startsWith('shooter-')
+    if (isBlowBubble || isRocketBnb || isSpaceJump || isShooter) {
       console.error(`[PLAY MODE] 💡 Tip: Make sure you clicked "Save" button in the template editor to sync this game to Supabase.`)
       console.error(`[PLAY MODE] 💡 If you just created this game, go back to the editor and click "Save" again.`)
       console.error(`[PLAY MODE] 💡 Game ID: ${gameId}`)

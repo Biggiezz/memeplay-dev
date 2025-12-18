@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>SHOOTER - MemePlay</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Press+Start+2P&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="game-container">
+        <!-- START SCREEN -->
+        <div id="start-screen" class="screen active">
+            <div class="start-content">
+                <h1 class="game-title">SHOOTER</h1>
+                <p class="tap-to-start">Tap to start</p>
+            </div>
+        </div>
+
+        <!-- GAME SCREEN - Always visible for preview -->
+        <div id="game-screen" class="screen active">
+            <!-- Header -->
+            <div class="game-header">
+                <div class="header-item">
+                    <span class="header-label">LV</span>
+                    <span class="level-value">1</span>
+                </div>
+                <div class="header-item">
+                    <span class="header-label">SCORE</span>
+                    <span class="score-value">0</span>
+                </div>
+                <div class="header-item collect-item">
+                    <span class="header-label">COLLECT</span>
+                    <div class="collect-info">
+                        <span class="collect-value">0/5</span>
+                        <span class="target-ball"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Game Canvas -->
+            <canvas id="game-canvas"></canvas>
+        </div>
+
+        <!-- LEVEL UP SCREEN -->
+        <div id="levelup-screen" class="screen overlay">
+            <div class="popup">
+                <h2 class="levelup-title">🎉 LEVEL <span id="completed-level">1</span> COMPLETE!</h2>
+                <p class="bonus-text">+<span id="bonus-points">100</span> BONUS</p>
+                <div class="next-level-info">
+                    <p>NEXT: LEVEL <span id="next-level">2</span></p>
+                    <p>Collect <span id="next-required">10</span> <span id="next-color-ball" class="color-ball"></span> balls</p>
+                </div>
+                <button id="continue-btn" class="btn-primary">CONTINUE</button>
+            </div>
+        </div>
+
+        <!-- GAME OVER SCREEN -->
+        <div id="gameover-screen" class="screen overlay">
+            <div class="popup gameover-popup">
+                <h2 class="gameover-title">GAME OVER</h2>
+                <p class="final-score">SCORE: <span id="final-score">0</span></p>
+                <img id="game-logo" src="assets/binance-logo.webp" alt="Logo" class="logo binance-logo-small">
+                <p id="gameover-story" class="memeplay-text">MEMEPLAY</p>
+                <button id="playagain-btn" class="btn-primary">PLAY AGAIN</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="game.js"></script>
+</body>
+</html>
+

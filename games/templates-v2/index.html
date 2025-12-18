@@ -587,6 +587,15 @@
         };
       }
       
+      // ✅ Shooter: logoUrl, storyText, mapColor
+      if (CURRENT_TEMPLATE === 'shooter-template') {
+        return {
+          logoUrl: fragmentLogoUrl,           // Logo trong shooter + game over
+          storyText: story || 'memeplay',     // Story text
+          mapColor: mapColor                  // Background color
+        };
+      }
+      
       // ✅ Pacman/Pixel Shooter: Format cũ
       return {
         fragmentLogoUrl: fragmentLogoUrl,
@@ -901,14 +910,8 @@
       if (saveDesktopBtn) saveDesktopBtn.classList.remove('success');
       // ✅ FIX: Disable Save buttons when config changes
       disableSaveButtons();
-      // Update playtest immediately when color changes (desktop only)
-      if (window.innerWidth > 900) {
-        if (!currentPlaytestGameId) {
-          currentPlaytestGameId = getPlaytestGameId(CURRENT_TEMPLATE);
-        }
-        savePlaytestConfig(); // Dùng key cố định
-        createPlaytestIframe(currentPlaytestGameId, previewBox);
-      }
+      // ✅ FIX: Update via postMessage instead of reload (instant update)
+      updatePlaytestIframe(true);
     });
 
     // ✅ Color buttons are now rendered dynamically from registry config in updateUIFields()

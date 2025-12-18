@@ -227,6 +227,45 @@ export const TEMPLATE_REGISTRY = {
     displayName: 'Fallen Crypto',
     description: 'Brick breaker game with customizable bricks, logo, and story',
     enabled: true
+  },
+  
+  // ✅ Shooter Template (Bubble Shooter)
+  'shooter-template': {
+    adapterPath: '../shooter-template/editor/editor-adapter.js',
+    adapterName: 'ShooterEditorAdapter',
+    playtestKey: 'shooter_brand_config_playtest',
+    playtestGameId: 'playtest-shooter',
+    storagePrefix: 'shooter_brand_config_',
+    templateUrl: '/games/templates-v2/shooter-template/index.html',
+    messageTypes: {
+      READY: 'SHOOTER_GAME_READY',
+      ERROR: 'SHOOTER_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      },
+      mapColor: {
+        enabled: true,
+        containerId: 'mapColors',
+        colors: [
+          { value: '#1a1a2e', label: 'Dark Blue' },
+          { value: '#2d1b3d', label: 'Dark Purple' },
+          { value: '#1a2e1a', label: 'Dark Green' }
+        ]
+      }
+    },
+    displayName: 'Shooter',
+    description: 'Bubble shooter game with level progression',
+    enabled: true
   }
 };
 
