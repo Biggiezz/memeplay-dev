@@ -522,6 +522,12 @@ function guessTemplateFromId(gameId) {
     return 'arrow-template'
   }
   
+  // ✅ Special case: Draw Runner (gameId format: playmode-draw-runner-XXX, template ID: draw-runner-template)
+  if (gameId.startsWith('playmode-draw-runner-') || gameId.startsWith('draw-runner-')) {
+    console.log(`[PLAY MODE V2] 🎯 Detected draw-runner-template from gameId: ${gameId}`)
+    return 'draw-runner-template'
+  }
+  
   // ✅ Loop qua tất cả templates trong registry
   for (const [templateId, config] of Object.entries(TEMPLATE_REGISTRY)) {
     if (config.enabled === false) continue
@@ -909,7 +915,9 @@ async function fetchGameFromSupabase(gameId) {
     'space-jump-template': ['space-jump-template', 'space-jump'],
     'space-jump': ['space-jump-template', 'space-jump'],
     'shooter-template': ['shooter-template', 'shooter'],
-    'shooter': ['shooter-template', 'shooter']
+    'shooter': ['shooter-template', 'shooter'],
+    'draw-runner-template': ['draw-runner-template', 'draw-runner'],
+    'draw-runner': ['draw-runner-template', 'draw-runner']
   }
   
   // ✅ 3. OPTIMIZED: Smart template prioritization
@@ -1500,7 +1508,8 @@ async function renderGameCard(gameId) {
     const isSpaceJump = gameId.startsWith('playmode-space-jump-') || gameId.startsWith('space-jump-')
     const isShooter = gameId.startsWith('playmode-shooter-') || gameId.startsWith('shooter-')
     const isArrow = gameId.startsWith('playmode-arrow-') || gameId.startsWith('arrow-')
-    if (isBlowBubble || isRocketBnb || isSpaceJump || isShooter || isArrow) {
+    const isDrawRunner = gameId.startsWith('playmode-draw-runner-') || gameId.startsWith('draw-runner-')
+    if (isBlowBubble || isRocketBnb || isSpaceJump || isShooter || isArrow || isDrawRunner) {
       console.error(`[PLAY MODE] 💡 Tip: Make sure you clicked "Save" button in the template editor to sync this game to Supabase.`)
       console.error(`[PLAY MODE] 💡 If you just created this game, go back to the editor and click "Save" again.`)
       console.error(`[PLAY MODE] 💡 Game ID: ${gameId}`)

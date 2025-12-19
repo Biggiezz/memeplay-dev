@@ -1,0 +1,1491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Draw Runner - MemePlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0a0a1a 0%, #1a1a2e 50%, #16213e 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 720px;
+            height: 1000px;
+            max-width: 100vw;
+            max-height: 100vh;
+        }
+        
+        #gameCanvas {
+            display: block;
+            background: #1a1a2e;
+            border-radius: 8px;
+            box-shadow: 0 0 40px rgba(0, 200, 255, 0.2);
+        }
+        
+        @media (max-width: 720px) {
+            #gameContainer {
+                width: 100vw;
+                height: calc(100vw * 1000 / 720);
+            }
+        }
+        
+        @media (max-height: 1000px) and (min-width: 720px) {
+            #gameContainer {
+                height: 100vh;
+                width: calc(100vh * 720 / 1000);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="720" height="1000"></canvas>
+    </div>
+
+    <script>
+    // ============================================
+    // DRAW RUNNER - MemePlay Game
+    // ============================================
+    
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Game Constants
+    const CANVAS_WIDTH = 720;
+    const CANVAS_HEIGHT = 1000;
+    const GRAVITY = 0.6;
+    const FRICTION = 0.98;
+    const PLAYER_SPEED = 3;
+    const MAX_MANA = 720;
+    const MANA_REGEN_RATE = 144; // per second
+    const MANA_REGEN_DELAY = 1000; // ms
+    
+    // Hitbox constants
+    const HITBOX_SPIKE_SCALE = 0.125; // 12.5% hitbox của spike
+    const TREE_TRUNK_WIDTH_RATIO = 0.3;
+    const TREE_TRUNK_HEIGHT_RATIO = 0.5;
+    const TREE_HITBOX_SCALE = 0.68; // Thu nhỏ 15% rồi giảm thêm 20% (0.85 * 0.8 = 0.68)
+    const TREE_FOLIAGE_BOTTOM_RATIO = 0.6;
+    const TREE_FOLIAGE_CENTER_Y_RATIO = 0.3;
+    
+    // Water generation constants
+    const WATER_BASE_CHANCE = 0.5; // 50% base chance
+    const WATER_CHANCE_INCREMENT = 0.05; // Tăng 5% mỗi 5s
+    const WATER_MAX_CHANCE = 0.95; // Giới hạn tối đa 95%
+    
+    // Collision optimization constants
+    const COLLISION_CHECK_RANGE = 200; // Chỉ check objects trong 200px từ nhân vật
+    const CLEANUP_BUFFER = 500; // Cleanup objects cách camera 500px
+    
+    // Detect mobile
+    const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    const speedMultiplier = isMobile ? 1.625 : 1;
+    
+    // Game State
+    let gameState = 'start'; // start, playing, gameover
+    let score = 0;
+    let coins = 0;
+    let camera = { x: 0 };
+    let lastDrawTime = 0;
+    let mana = MAX_MANA;
+    let lastManaUseTime = 0;
+    
+    // Audio Context
+    let audioCtx = null;
+    let lastFootstepFrame = -1; // Track frame để phát âm thanh cùng tần số với animation
+    
+    function initAudio() {
+        if (!audioCtx) {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+    }
+    
+    function playFootstep() {
+        // Phát âm thanh giảm 50%: chỉ phát khi frame là 0 hoặc 2 (2 lần trong 1 chu kỳ 4 frames)
+        // Giảm từ 4 lần xuống 2 lần = giảm 50%
+        if (!audioCtx) return;
+        
+        // Chỉ phát khi frame là 0 hoặc 2, và frame đã thay đổi
+        if (player.frame !== 0 && player.frame !== 2) return;
+        if (player.frame === lastFootstepFrame) return;
+        lastFootstepFrame = player.frame;
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(100, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.05);
+        // Giảm volume 25%: từ 0.1 xuống 0.075 (0.1 * 0.75 = 0.075)
+        gain.gain.setValueAtTime(0.075, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.0075, audioCtx.currentTime + 0.05);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    }
+    
+    function playCoinSound() {
+        if (!audioCtx) return;
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.15);
+    }
+    
+    function playGameOverSound() {
+        if (!audioCtx) return;
+        
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(110, audioCtx.currentTime + 0.5);
+        gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.5);
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.5);
+    }
+    
+    // Player sprites
+    const playerSprites = [];
+    let spritesLoaded = false;
+    
+    // Load player sprites
+    function loadPlayerSprites() {
+        const spriteFiles = [
+            'assets/player_walk_1.png',
+            'assets/player_walk_2.png',
+            'assets/player_walk_3.png',
+            'assets/player_walk_4.png'
+        ];
+        
+        let loadedCount = 0;
+        spriteFiles.forEach((src, index) => {
+            const img = new Image();
+            img.onload = () => {
+                loadedCount++;
+                if (loadedCount === spriteFiles.length) {
+                    spritesLoaded = true;
+                }
+            };
+            img.src = src;
+            playerSprites[index] = img;
+        });
+    }
+    
+    // Player
+    const player = {
+        x: 50, // Vị trí bắt đầu
+        y: 400,
+        width: 80,   // Tăng từ 60 lên 80
+        height: 130, // Tăng từ 80 lên 130
+        vx: 0,
+        vy: 0,
+        onGround: false,
+        onPath: false,
+        frame: 0,
+        frameTimer: 0,
+        // Hitbox riêng - từ đầu đến đế giày, sát thân người
+        hitboxWidth: 42,   // Giữ nguyên width
+        hitboxHeight: 99,  // Giảm 10% từ 110 xuống 99 (110 * 0.9 = 99)
+        hitboxOffsetX: 19,  // Offset từ bên trái (center hitbox)
+        hitboxOffsetY: 20   // Offset từ trên
+    };
+    
+    // Helper: Lấy hitbox của player
+    function getPlayerHitbox() {
+        return {
+            x: player.x + player.hitboxOffsetX,
+            y: player.y + player.hitboxOffsetY,
+            width: player.hitboxWidth,
+            height: player.hitboxHeight,
+            centerX: player.x + player.hitboxOffsetX + player.hitboxWidth / 2,
+            bottom: player.y + player.hitboxOffsetY + player.hitboxHeight
+        };
+    }
+    
+    // Drawing paths
+    let paths = [];
+    let currentPath = null;
+    let isDrawing = false;
+    
+    // Obstacles and collectibles
+    let obstacles = [];
+    let collectibles = [];
+    let stars = []; // Background stars
+    let groundSegments = []; // Các mảnh đất riêng biệt
+    const GROUND_Y = 550;
+    const GROUND_HEIGHT = CANVAS_HEIGHT - GROUND_Y;
+    const WATER_Y = GROUND_Y + 350; // Mặt biển thấp hơn nền đất 350px
+    
+    // Generate background stars
+    function generateStars() {
+        stars = [];
+        for (let i = 0; i < 150; i++) {
+            stars.push({
+                x: Math.random() * CANVAS_WIDTH * 10,
+                y: Math.random() * 400,
+                size: Math.random() * 2 + 0.5,
+                twinkle: Math.random() * Math.PI * 2,
+                speed: Math.random() * 0.02 + 0.01
+            });
+        }
+    }
+    
+    // Generate ground segments (các mảnh đất với biển ở giữa)
+    function generateGroundSegments(startX, endX) {
+        let currentX = startX;
+        const NO_WATER_ZONE = 1800; // 5s đầu không có biển
+        const WATER_INTERVAL = 1800; // Mỗi 5s (1800px) tăng 5% tần suất
+        
+        while (currentX < endX) {
+            // Mảnh đất: 200-400px
+            const groundWidth = 200 + Math.random() * 200;
+            
+            // Pre-generate cỏ để tối ưu rendering
+            const grassPoints = [];
+            for (let x = 0; x < groundWidth; x += 8) {
+                const offsetX = (currentX + x) % 16;
+                const grassHeight = 8 + Math.random() * 5;
+                grassPoints.push({
+                    x: x,
+                    offsetX: offsetX > 8 ? 3 : -3,
+                    height: grassHeight
+                });
+            }
+            
+            groundSegments.push({
+                x: currentX,
+                width: groundWidth,
+                y: GROUND_Y,
+                height: GROUND_HEIGHT,
+                grassPoints: grassPoints // Pre-generated cỏ
+            });
+            currentX += groundWidth;
+            
+            // Biển: tần suất tăng 5% sau mỗi 5s (1800px)
+            // Bắt đầu từ 50% sau 5s đầu, tăng lên 55%, 60%, 65%... sau mỗi 5s
+            if (currentX >= NO_WATER_ZONE) {
+                const waterChance = WATER_BASE_CHANCE + Math.floor((currentX - NO_WATER_ZONE) / WATER_INTERVAL) * WATER_CHANCE_INCREMENT;
+                const finalChance = Math.min(waterChance, WATER_MAX_CHANCE);
+                
+                if (Math.random() < finalChance) {
+                    const waterWidth = 200 + Math.random() * 200;
+                    currentX += waterWidth;
+                }
+            }
+        }
+    }
+    
+    // Helper: Kiểm tra xem vị trí x có nằm trên mảnh đất không
+    function isOnGround(x) {
+        for (let segment of groundSegments) {
+            if (x >= segment.x && x <= segment.x + segment.width) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // Helper: Kiểm tra xem vị trí x có nằm BÊN TRONG mảnh đất không (không ở mép)
+    function isInsideGround(x, obstacleWidth = 0) {
+        const MARGIN = 50; // Khoảng cách an toàn từ mép đất (50px mỗi bên)
+        
+        for (let segment of groundSegments) {
+            // Kiểm tra xem obstacle có nằm hoàn toàn bên trong đất không (có margin)
+            if (x >= segment.x + MARGIN && 
+                x + obstacleWidth <= segment.x + segment.width - MARGIN) {
+                return true;
+            }
+        }
+        return false;
+    }
+    
+    // Generate obstacles
+    function generateObstacles(startX, endX) {
+        const groundTypes = ['spike', 'tree']; // Chỉ spawn trên đất (đã xóa pit)
+        const flyingTypes = ['bird']; // Có thể bay
+        
+        for (let x = startX; x < endX; x += 200 + Math.random() * 300) {
+            let type;
+            let isFlying = false;
+            
+            // 88% ground obstacles, 12% flying (giảm 40% từ 20% xuống 12%)
+            if (Math.random() < 0.88) {
+                type = groundTypes[Math.floor(Math.random() * groundTypes.length)];
+            } else {
+                type = flyingTypes[0];
+                isFlying = true;
+            }
+            
+            // Xác định width của obstacle để kiểm tra
+            let obstacleWidth = 0;
+            switch (type) {
+                case 'spike': obstacleWidth = 30; break;
+                case 'tree': obstacleWidth = 60; break;
+            }
+            
+            // Chỉ spawn ground obstacles BÊN TRONG mảnh đất (không ở mép)
+            if (!isFlying && !isInsideGround(x, obstacleWidth)) {
+                continue; // Bỏ qua nếu không bên trong đất hoặc ở mép
+            }
+            
+            let obstacle = { type, x };
+            
+            switch (type) {
+                case 'spike':
+                    obstacle.y = GROUND_Y - 30;
+                    obstacle.width = 30;
+                    obstacle.height = 30;
+                    break;
+                case 'tree':
+                    obstacle.y = GROUND_Y - 100;
+                    obstacle.width = 60;
+                    obstacle.height = 100;
+                    break;
+                case 'bird':
+                    obstacle.y = 150 + Math.random() * 200;
+                    obstacle.width = 50;
+                    obstacle.height = 30;
+                    obstacle.vx = -3 - Math.random() * 2;
+                    obstacle.wingFrame = 0;
+                    break;
+            }
+            
+            obstacles.push(obstacle);
+        }
+    }
+    
+    // Generate collectibles
+    function generateCollectibles(startX, endX) {
+        // Chỉ có coin, không có gem
+        // Giảm 50% tần suất xuất hiện logo Binance - tăng khoảng cách từ 300-500px lên 600-1000px
+        for (let x = startX; x < endX; x += 600 + Math.random() * 400) {
+            collectibles.push({
+                type: 'coin',
+                x,
+                y: 200 + Math.random() * 300,
+                size: 20,
+                collected: false,
+                sparkle: Math.random() * Math.PI * 2
+            });
+        }
+    }
+    
+    // Initialize game
+    function initGame() {
+        player.x = 50; // Vị trí bắt đầu
+        player.y = 400;
+        player.vx = 0;
+        player.vy = 0;
+        player.onGround = false;
+        player.onPath = false;
+        player.frame = 0;
+        
+        camera.x = player.x - 150; // Camera theo nhân vật
+        score = 0;
+        coins = 0;
+        mana = MAX_MANA;
+        lastManaUseTime = 0;
+        
+        paths = [];
+        currentPath = null;
+        isDrawing = false;
+        
+        obstacles = [];
+        collectibles = [];
+        groundSegments = [];
+        
+        generateStars();
+        generateGroundSegments(0, 3000); // Tạo các mảnh đất
+        generateObstacles(1800, 3000);  // 5s đầu không có vật cản (1800px = ~5s)
+        generateCollectibles(1800, 3000); // Collectibles cũng cách ~5 giây
+    }
+    
+    // Drawing handlers
+    function getCanvasPos(e) {
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = CANVAS_WIDTH / rect.width;
+        const scaleY = CANVAS_HEIGHT / rect.height;
+        
+        if (e.touches) {
+            return {
+                x: (e.touches[0].clientX - rect.left) * scaleX,
+                y: (e.touches[0].clientY - rect.top) * scaleY
+            };
+        }
+        return {
+            x: (e.clientX - rect.left) * scaleX,
+            y: (e.clientY - rect.top) * scaleY
+        };
+    }
+    
+    function startDrawing(e) {
+        e.preventDefault();
+        
+        if (gameState === 'start') {
+            initAudio();
+            gameState = 'playing';
+            initGame();
+            // Post message for tracking
+            window.parent.postMessage({ type: 'GAME_STARTED' }, '*');
+            return;
+        }
+        
+        if (gameState === 'gameover') {
+            const pos = getCanvasPos(e);
+            // Check if clicked on play again button
+            const btnX = CANVAS_WIDTH / 2;
+            const btnY = 700;
+            if (pos.x > btnX - 100 && pos.x < btnX + 100 && pos.y > btnY - 25 && pos.y < btnY + 25) {
+                gameState = 'playing';
+                initGame();
+                window.parent.postMessage({ type: 'GAME_STARTED' }, '*');
+            }
+            return;
+        }
+        
+        if (gameState !== 'playing' || mana <= 0) return;
+        
+        const pos = getCanvasPos(e);
+        isDrawing = true;
+        currentPath = {
+            points: [{ x: pos.x + camera.x, y: pos.y }],
+            opacity: 1
+        };
+        lastDrawTime = Date.now();
+    }
+    
+    function draw(e) {
+        e.preventDefault();
+        if (!isDrawing || gameState !== 'playing' || mana <= 0) return;
+        
+        const pos = getCanvasPos(e);
+        const worldX = pos.x + camera.x;
+        const worldY = pos.y;
+        
+        const lastPoint = currentPath.points[currentPath.points.length - 1];
+        const dist = Math.sqrt((worldX - lastPoint.x) ** 2 + (worldY - lastPoint.y) ** 2);
+        
+        if (dist > 5) {
+            // Consume mana based on distance
+            const manaCost = dist * 0.5;
+            if (mana >= manaCost) {
+                mana -= manaCost;
+                lastManaUseTime = Date.now();
+                currentPath.points.push({ x: worldX, y: worldY });
+            } else {
+                mana = 0;
+            }
+        }
+    }
+    
+    function stopDrawing(e) {
+        if (e) e.preventDefault();
+        if (currentPath && currentPath.points.length > 1) {
+            paths.push(currentPath);
+        }
+        isDrawing = false;
+        currentPath = null;
+    }
+    
+    // Event listeners
+    canvas.addEventListener('mousedown', startDrawing);
+    canvas.addEventListener('mousemove', draw);
+    canvas.addEventListener('mouseup', stopDrawing);
+    canvas.addEventListener('mouseleave', stopDrawing);
+    
+    canvas.addEventListener('touchstart', startDrawing, { passive: false });
+    canvas.addEventListener('touchmove', draw, { passive: false });
+    canvas.addEventListener('touchend', stopDrawing, { passive: false });
+    
+    // Check collision with path (optimized)
+    function checkPathCollision(hitbox) {
+        const playerCenterX = hitbox.centerX;
+        const playerBottom = hitbox.bottom;
+        
+        // Tính toán range collision dựa trên tốc độ rơi (vy)
+        const fallDistance = Math.abs(player.vy);
+        const collisionRange = Math.max(50, fallDistance + 30);
+        
+        // Tối ưu: chỉ check paths gần nhân vật (trong camera view + buffer)
+        const minX = playerCenterX - COLLISION_CHECK_RANGE;
+        const maxX = playerCenterX + COLLISION_CHECK_RANGE;
+        
+        // Loop ngược để check paths mới nhất trước (thường gần nhân vật hơn)
+        for (let pathIdx = paths.length - 1; pathIdx >= 0; pathIdx--) {
+            const path = paths[pathIdx];
+            
+            // Skip paths quá xa
+            if (path.points.length === 0) continue;
+            const pathMinX = Math.min(...path.points.map(p => p.x));
+            const pathMaxX = Math.max(...path.points.map(p => p.x));
+            if (pathMaxX < minX || pathMinX > maxX) continue;
+            
+            // Chỉ check một số segments gần nhất (tối ưu performance)
+            const startIdx = Math.max(0, path.points.length - 20); // Chỉ check 20 segments cuối
+            for (let i = startIdx; i < path.points.length - 1; i++) {
+                const p1 = path.points[i];
+                const p2 = path.points[i + 1];
+                
+                // Quick reject: skip segments quá xa
+                const segMinX = Math.min(p1.x, p2.x);
+                const segMaxX = Math.max(p1.x, p2.x);
+                if (playerCenterX < segMinX - 30 || playerCenterX > segMaxX + 30) continue;
+                
+                // Check if player is above this segment
+                if (playerCenterX >= segMinX - 20 && playerCenterX <= segMaxX + 20) {
+                    // Calculate Y position on the line at playerCenterX
+                    const dx = p2.x - p1.x;
+                    if (Math.abs(dx) < 0.1) continue; // Skip vertical segments
+                    const t = (playerCenterX - p1.x) / dx;
+                    if (t < 0 || t > 1) continue; // Skip if outside segment
+                    
+                    const lineY = p1.y + t * (p2.y - p1.y);
+                    
+                    // Continuous collision detection
+                    const minY = Math.min(playerBottom, playerBottom - player.vy);
+                    const maxY = Math.max(playerBottom, playerBottom - player.vy);
+                    
+                    // Nếu khoảng di chuyển giao với đường vẽ
+                    if (player.vy >= 0 && 
+                        minY <= lineY + collisionRange && 
+                        maxY >= lineY - 20) {
+                        
+                        // Đặt nhân vật ngay trên đường vẽ (đế giày sprite đúng với đường vẽ)
+                        // Sprite height = 130, đế giày ở bottom của sprite
+                        player.y = lineY - player.height;
+                        player.vy = 0;
+                        player.onPath = true;
+                        
+                        // Fade path when walked on
+                        path.opacity = Math.max(0, path.opacity - 0.002);
+                        
+                        // Calculate slope for movement
+                        const angle = Math.atan2(p2.y - p1.y, dx);
+                        const slopeMultiplier = Math.cos(angle) > 0.7 ? 1 : 0.7;
+                        player.vx = PLAYER_SPEED * speedMultiplier * slopeMultiplier;
+                        
+                        playFootstep();
+                        return true; // Early return khi tìm thấy collision
+                    }
+                }
+            }
+        }
+        return false;
+    }
+    
+    // Check ground collision (chỉ với các mảnh đất) - optimized
+    function checkGroundCollision(hitbox) {
+        const px = hitbox.x;
+        const py = hitbox.y;
+        const pw = hitbox.width;
+        const ph = hitbox.height;
+        
+        // Tính toán range collision dựa trên tốc độ rơi (vy)
+        const fallDistance = Math.abs(player.vy);
+        const collisionRange = Math.max(50, fallDistance + 30); // Tối thiểu 50px, tăng theo tốc độ rơi
+        
+        // Tối ưu: chỉ check segments trong camera view + buffer
+        const minX = px - COLLISION_CHECK_RANGE;
+        const maxX = px + pw + COLLISION_CHECK_RANGE;
+        
+        for (let segment of groundSegments) {
+            // Skip segments quá xa
+            if (segment.x + segment.width < minX || segment.x > maxX) continue;
+            // Check nếu hitbox của nhân vật giao với hitbox của nền đất
+            if (px + pw > segment.x && px < segment.x + segment.width) {
+                // Continuous collision detection: check trong khoảng di chuyển
+                // Check từ vị trí hiện tại đến vị trí có thể rơi tới
+                const currentBottom = py + ph;
+                const nextBottom = py + ph - player.vy; // Vị trí bottom sau khi di chuyển
+                const minBottom = Math.min(currentBottom, nextBottom);
+                const maxBottom = Math.max(currentBottom, nextBottom);
+                
+                // Nếu bottom của hitbox nhân vật chạm hoặc vượt qua mặt đất (segment.y)
+                if (player.vy >= 0 && 
+                    minBottom <= segment.y + 5 && // Cho phép chạm đất với tolerance nhỏ
+                    maxBottom >= segment.y - collisionRange) {
+                    
+                    // Đặt nhân vật sao cho bottom của hitbox đúng với segment.y (mặt đất)
+                    // hitbox.y + hitbox.height = segment.y
+                    // => player.y + hitboxOffsetY + hitboxHeight = segment.y
+                    // => player.y = segment.y - hitboxOffsetY - hitboxHeight
+                    player.y = segment.y - player.hitboxOffsetY - player.hitboxHeight;
+                    player.vy = 0;
+                    player.onGround = true;
+                    player.vx = PLAYER_SPEED * speedMultiplier;
+                    playFootstep();
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    // Check water collision (rơi xuống biển) - optimized
+    function checkWaterCollision(hitbox) {
+        const px = hitbox.centerX;
+        const py = hitbox.bottom;
+        
+        // Tối ưu: chỉ check segments gần nhân vật
+        const minX = px - COLLISION_CHECK_RANGE;
+        const maxX = px + COLLISION_CHECK_RANGE;
+        
+        // Kiểm tra xem có đang ở trên mảnh đất nào không
+        let onGround = false;
+        for (let segment of groundSegments) {
+            // Skip segments quá xa
+            if (segment.x + segment.width < minX || segment.x > maxX) continue;
+            
+            if (px >= segment.x && px <= segment.x + segment.width) {
+                if (py <= segment.y + 5) {
+                    onGround = true;
+                    break;
+                }
+            }
+        }
+        
+        // Nếu không trên đất và đã rơi xuống dưới mặt biển (WATER_Y) thì đang ở biển
+        if (!onGround && py >= WATER_Y) {
+            return true;
+        }
+        return false;
+    }
+    
+    // Helper: Check collision với tam giác
+    function pointInTriangle(px, py, x1, y1, x2, y2, x3, y3) {
+        const d1 = (px - x2) * (y1 - y2) - (x1 - x2) * (py - y2);
+        const d2 = (px - x3) * (y2 - y3) - (x2 - x3) * (py - y3);
+        const d3 = (px - x1) * (y3 - y1) - (x3 - x1) * (py - y1);
+        return (d1 >= 0 && d2 >= 0 && d3 >= 0) || (d1 <= 0 && d2 <= 0 && d3 <= 0);
+    }
+    
+    // Helper: Check collision giữa hình chữ nhật và tam giác
+    function rectTriangleCollision(rx, ry, rw, rh, tx1, ty1, tx2, ty2, tx3, ty3) {
+        // Check nếu bất kỳ góc nào của hình chữ nhật nằm trong tam giác
+        const corners = [
+            [rx, ry], [rx + rw, ry],
+            [rx, ry + rh], [rx + rw, ry + rh]
+        ];
+        for (let [cx, cy] of corners) {
+            if (pointInTriangle(cx, cy, tx1, ty1, tx2, ty2, tx3, ty3)) {
+                return true;
+            }
+        }
+        // Check nếu tam giác giao với hình chữ nhật (đơn giản hóa: check overlap)
+        const triMinX = Math.min(tx1, tx2, tx3);
+        const triMaxX = Math.max(tx1, tx2, tx3);
+        const triMinY = Math.min(ty1, ty2, ty3);
+        const triMaxY = Math.max(ty1, ty2, ty3);
+        return !(rx + rw < triMinX || rx > triMaxX || ry + rh < triMinY || ry > triMaxY);
+    }
+    
+    // Check obstacle collision - optimized
+    function checkObstacleCollision(hitbox) {
+        const px = hitbox.x;
+        const py = hitbox.y;
+        const pw = hitbox.width;
+        const ph = hitbox.height;
+        
+        // Tối ưu: chỉ check obstacles trong camera view + buffer
+        const minX = camera.x - 100;
+        const maxX = camera.x + CANVAS_WIDTH + 100;
+        
+        for (let obs of obstacles) {
+            // Skip obstacles quá xa
+            if (obs.x > maxX || obs.x + obs.width < minX) continue;
+            
+            if (obs.type === 'spike') {
+                // Spike: hitbox thu nhỏ thêm 50% (tổng cộng 12.5% so với ban đầu)
+                const spikeHitboxWidth = obs.width * HITBOX_SPIKE_SCALE;
+                const spikeHitboxHeight = obs.height * HITBOX_SPIKE_SCALE;
+                const spikeHitboxX = obs.x + (obs.width - spikeHitboxWidth) / 2;
+                const spikeHitboxY = obs.y + (obs.height - spikeHitboxHeight) / 2;
+                
+                if (px < spikeHitboxX + spikeHitboxWidth &&
+                    px + pw > spikeHitboxX &&
+                    py < spikeHitboxY + spikeHitboxHeight &&
+                    py + ph > spikeHitboxY) {
+                    return true;
+                }
+            } else if (obs.type === 'tree') {
+                // Tree: tam giác ở trên + hình vuông ở dưới, thu nhỏ 15%
+                const trunkW = obs.width * TREE_TRUNK_WIDTH_RATIO * TREE_HITBOX_SCALE;
+                const trunkH = obs.height * TREE_TRUNK_HEIGHT_RATIO * TREE_HITBOX_SCALE;
+                const trunkX = obs.x + obs.width * 0.35 + (obs.width * TREE_TRUNK_WIDTH_RATIO - trunkW) / 2;
+                const trunkY = obs.y + obs.height * TREE_TRUNK_HEIGHT_RATIO + (obs.height * TREE_TRUNK_HEIGHT_RATIO - trunkH) / 2;
+                
+                // Check collision với thân cây (hình vuông)
+                if (px < trunkX + trunkW &&
+                    px + pw > trunkX &&
+                    py < trunkY + trunkH &&
+                    py + ph > trunkY) {
+                    return true;
+                }
+                
+                // Tán lá (tam giác): thu nhỏ 15% - scale từ center
+                const centerX = obs.x + obs.width / 2;
+                const centerY = obs.y + obs.height * TREE_FOLIAGE_CENTER_Y_RATIO;
+                const triX1 = centerX + (obs.x - centerX) * TREE_HITBOX_SCALE;
+                const triY1 = centerY + (obs.y + obs.height * TREE_FOLIAGE_BOTTOM_RATIO - centerY) * TREE_HITBOX_SCALE;
+                const triX2 = centerX + (obs.x + obs.width / 2 - centerX) * TREE_HITBOX_SCALE;
+                const triY2 = centerY + (obs.y - centerY) * TREE_HITBOX_SCALE;
+                const triX3 = centerX + (obs.x + obs.width - centerX) * TREE_HITBOX_SCALE;
+                const triY3 = centerY + (obs.y + obs.height * TREE_FOLIAGE_BOTTOM_RATIO - centerY) * TREE_HITBOX_SCALE;
+                
+                // Check collision với tán lá (tam giác)
+                if (rectTriangleCollision(px, py, pw, ph, triX1, triY1, triX2, triY2, triX3, triY3)) {
+                    return true;
+                }
+            } else {
+                // Các vật cản khác: collision bình thường
+                if (px < obs.x + obs.width &&
+                    px + pw > obs.x &&
+                    py < obs.y + obs.height &&
+                    py + ph > obs.y) {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+    
+    // Check collectible collision
+    function checkCollectibles() {
+        const hitbox = getPlayerHitbox();
+        const px = hitbox.centerX;
+        const py = hitbox.y + hitbox.height / 2;
+        
+        for (let col of collectibles) {
+            if (col.collected) continue;
+            
+            const dist = Math.sqrt((px - col.x) ** 2 + (py - col.y) ** 2);
+            if (dist < col.size + 30) {
+                col.collected = true;
+                playCoinSound();
+                
+                if (col.type === 'coin') {
+                    coins += 1;
+                    mana = MAX_MANA; // Hồi full mana khi ăn coin
+                }
+            }
+        }
+    }
+    
+    // Update game - optimized với cached hitbox và cleanup
+    function update() {
+        if (gameState !== 'playing') return;
+        
+        // Cache hitbox để dùng cho tất cả collision checks (tối ưu)
+        const hitbox = getPlayerHitbox();
+        
+        // Regenerate mana
+        if (Date.now() - lastManaUseTime > MANA_REGEN_DELAY) {
+            mana = Math.min(MAX_MANA, mana + MANA_REGEN_RATE / 60);
+        }
+        
+        // Apply gravity
+        player.vy += GRAVITY;
+        player.vy *= FRICTION;
+        
+        player.onGround = false;
+        player.onPath = false;
+        
+        // Check collisions với cached hitbox
+        if (!checkPathCollision(hitbox)) {
+            if (!checkGroundCollision(hitbox)) {
+                // In air - apply horizontal movement
+                player.vx = PLAYER_SPEED * speedMultiplier * 0.8;
+            }
+        }
+        
+        // Update position
+        player.x += player.vx;
+        player.y += player.vy;
+        
+        // Clamp Y - chỉ giới hạn trên, cho phép rơi xuống biển
+        player.y = Math.max(0, player.y);
+        
+        // Update camera
+        camera.x = player.x - 150;
+        
+        // Update score
+        score = Math.floor(player.x / 10);
+        
+        // Update player animation - giảm 50% tốc độ (tăng threshold từ 8 lên 16)
+        player.frameTimer++;
+        if (player.frameTimer > 16) {
+            player.frame = (player.frame + 1) % 4;
+            player.frameTimer = 0;
+        }
+        
+        // Update birds
+        for (let obs of obstacles) {
+            if (obs.type === 'bird') {
+                obs.x += obs.vx * speedMultiplier;
+                // Giảm tốc độ đập cánh 60%: từ 0.2 xuống 0.08 (0.2 * 0.4 = 0.08)
+                obs.wingFrame = (obs.wingFrame + 0.08) % 2;
+            }
+        }
+        
+        // Check collectibles
+        checkCollectibles();
+        
+        // Memory cleanup: Remove old objects khi ra khỏi camera view
+        const cleanupX = camera.x - CLEANUP_BUFFER;
+        paths = paths.filter(p => p.opacity > 0.1 && p.points[0].x > cleanupX);
+        obstacles = obstacles.filter(o => o.x > cleanupX);
+        collectibles = collectibles.filter(c => !c.collected || c.x > cleanupX);
+        groundSegments = groundSegments.filter(g => g.x + g.width > cleanupX);
+        
+        // Generate more content
+        const maxObsX = Math.max(...obstacles.map(o => o.x), 0);
+        if (maxObsX < camera.x + CANVAS_WIDTH + 1000) {
+            generateObstacles(maxObsX + 200, maxObsX + 2000);
+        }
+        
+        const maxColX = Math.max(...collectibles.filter(c => !c.collected).map(c => c.x), 0);
+        if (maxColX < camera.x + CANVAS_WIDTH + 1000) {
+            generateCollectibles(maxColX + 100, maxColX + 2000);
+        }
+        
+        // Generate more ground segments
+        const maxGroundX = Math.max(...groundSegments.map(g => g.x + g.width), 0);
+        if (maxGroundX < camera.x + CANVAS_WIDTH + 1000) {
+            generateGroundSegments(maxGroundX, maxGroundX + 2000);
+        }
+        
+        // Check game over conditions với cached hitbox
+        if (hitbox.bottom > CANVAS_HEIGHT ||
+            player.x < camera.x - 100 ||
+            checkObstacleCollision(hitbox) ||
+            checkWaterCollision(hitbox)) { // Rơi xuống biển
+            gameOver();
+        }
+    }
+    
+    function gameOver() {
+        gameState = 'gameover';
+        playGameOverSound();
+        // Post message for tracking
+        window.parent.postMessage({ type: 'GAME_SCORE', score: score }, '*');
+    }
+    
+    // Drawing functions
+    function drawBackground() {
+        // Sky gradient
+        const gradient = ctx.createLinearGradient(0, 0, 0, CANVAS_HEIGHT);
+        gradient.addColorStop(0, '#0a0a1a');
+        gradient.addColorStop(0.5, '#1a1a2e');
+        gradient.addColorStop(1, '#16213e');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Stars - tối ưu: chỉ vẽ stars trong camera view
+        const minStarX = camera.x * 0.3 - 10;
+        const maxStarX = camera.x * 0.3 + CANVAS_WIDTH + 10;
+        
+        for (let star of stars) {
+            const screenX = star.x - camera.x * 0.3;
+            // Skip stars quá xa
+            if (screenX < -10 || screenX > CANVAS_WIDTH + 10) continue;
+            if (star.x < minStarX || star.x > maxStarX) continue;
+            
+            star.twinkle += star.speed;
+            const alpha = 0.3 + 0.7 * Math.abs(Math.sin(star.twinkle));
+            
+            ctx.beginPath();
+            ctx.arc(screenX, star.y, star.size, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+            ctx.fill();
+        }
+    }
+    
+    function drawGround() {
+        // Vẽ biển nền (từ WATER_Y xuống đáy)
+        const waterGradient = ctx.createLinearGradient(0, WATER_Y, 0, CANVAS_HEIGHT);
+        waterGradient.addColorStop(0, '#1e3a8a');
+        waterGradient.addColorStop(1, '#0f172a');
+        ctx.fillStyle = waterGradient;
+        ctx.fillRect(0, WATER_Y, CANVAS_WIDTH, CANVAS_HEIGHT - WATER_Y);
+        
+        // Vẽ sóng biển (chỉ ở mặt biển)
+        ctx.strokeStyle = 'rgba(59, 130, 246, 0.5)';
+        ctx.lineWidth = 2;
+        const waveTime = Date.now() / 1000;
+        for (let i = 0; i < 5; i++) {
+            ctx.beginPath();
+            const waveY = WATER_Y + 10 + i * 20;
+            ctx.moveTo(0, waveY);
+            for (let x = 0; x < CANVAS_WIDTH; x += 10) {
+                const waveX = x + camera.x * 0.3;
+                const y = waveY + Math.sin(waveX / 50 + waveTime) * 5;
+                ctx.lineTo(x, y);
+            }
+            ctx.stroke();
+        }
+        
+        // Vẽ các mảnh đất
+        for (let segment of groundSegments) {
+            const screenX = segment.x - camera.x;
+            if (screenX + segment.width < 0 || screenX > CANVAS_WIDTH) continue;
+            
+            // Dirt
+            ctx.fillStyle = '#5c4033';
+            ctx.fillRect(screenX, segment.y, segment.width, segment.height);
+            
+            // Dirt texture
+            ctx.fillStyle = '#4a3328';
+            for (let i = 0; i < 20; i++) {
+                const x = screenX + (i * 37 % segment.width);
+                const y = segment.y + 5 + (i * 13 % 100);
+                ctx.fillRect(x, y, 4, 2);
+            }
+            
+            // Cỏ ở mép đất - sử dụng pre-generated grass points (tối ưu)
+            ctx.strokeStyle = '#3d7a37';
+            ctx.lineWidth = 2;
+            if (segment.grassPoints) {
+                // Sử dụng pre-generated cỏ
+                for (let grass of segment.grassPoints) {
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + grass.x, segment.y);
+                    ctx.lineTo(screenX + grass.x + grass.offsetX, segment.y - grass.height);
+                    ctx.stroke();
+                }
+            } else {
+                // Fallback nếu chưa có pre-generated cỏ (backward compatibility)
+                for (let x = screenX; x < screenX + segment.width; x += 8) {
+                    const offsetX = (x + camera.x) % 16;
+                    ctx.beginPath();
+                    ctx.moveTo(x, segment.y);
+                    ctx.lineTo(x + (offsetX > 8 ? 3 : -3), segment.y - 8 - Math.random() * 5);
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+    
+    function drawPaths() {
+        for (let path of paths) {
+            if (path.points.length < 2) continue;
+            
+            ctx.beginPath();
+            ctx.moveTo(path.points[0].x - camera.x, path.points[0].y);
+            
+            for (let i = 1; i < path.points.length; i++) {
+                ctx.lineTo(path.points[i].x - camera.x, path.points[i].y);
+            }
+            
+            const gradient = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 0);
+            gradient.addColorStop(0, `rgba(0, 255, 100, ${path.opacity})`);
+            gradient.addColorStop(1, `rgba(0, 150, 255, ${path.opacity})`);
+            
+            ctx.strokeStyle = gradient;
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+            
+            // Glow effect
+            ctx.strokeStyle = `rgba(0, 200, 255, ${path.opacity * 0.3})`;
+            ctx.lineWidth = 16;
+            ctx.stroke();
+        }
+        
+        // Current drawing path
+        if (currentPath && currentPath.points.length > 1) {
+            ctx.beginPath();
+            ctx.moveTo(currentPath.points[0].x - camera.x, currentPath.points[0].y);
+            
+            for (let i = 1; i < currentPath.points.length; i++) {
+                ctx.lineTo(currentPath.points[i].x - camera.x, currentPath.points[i].y);
+            }
+            
+            ctx.strokeStyle = 'rgba(0, 255, 150, 0.8)';
+            ctx.lineWidth = 8;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.stroke();
+        }
+    }
+    
+    function drawPlayer() {
+        const screenX = player.x - camera.x;
+        const screenY = player.y;
+        
+        // Sử dụng sprite animation nếu đã load xong
+        if (spritesLoaded && playerSprites[player.frame]) {
+            const sprite = playerSprites[player.frame];
+            // Vẽ sprite với kích thước phù hợp
+            const spriteWidth = player.width;
+            const spriteHeight = player.height;
+            ctx.drawImage(sprite, screenX, screenY, spriteWidth, spriteHeight);
+        } else {
+            // Fallback: vẽ hình chữ nhật đơn giản nếu chưa load xong
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillRect(screenX, screenY, player.width, player.height);
+        }
+    }
+    
+    function drawObstacles() {
+        for (let obs of obstacles) {
+            const screenX = obs.x - camera.x;
+            if (screenX < -100 || screenX > CANVAS_WIDTH + 100) continue;
+            
+            switch (obs.type) {
+                case 'spike':
+                    ctx.fillStyle = '#c0c0c0';
+                    ctx.beginPath();
+                    ctx.moveTo(screenX, obs.y + obs.height);
+                    ctx.lineTo(screenX + obs.width / 2, obs.y);
+                    ctx.lineTo(screenX + obs.width, obs.y + obs.height);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Spike shine
+                    ctx.fillStyle = '#e0e0e0';
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + obs.width * 0.3, obs.y + obs.height);
+                    ctx.lineTo(screenX + obs.width / 2, obs.y + obs.height * 0.3);
+                    ctx.lineTo(screenX + obs.width * 0.5, obs.y + obs.height);
+                    ctx.closePath();
+                    ctx.fill();
+                    break;
+                    
+                case 'tree':
+                    // Trunk
+                    ctx.fillStyle = '#5c4033';
+                    ctx.fillRect(screenX + obs.width * 0.35, obs.y + obs.height * 0.5, obs.width * 0.3, obs.height * 0.5);
+                    
+                    // Foliage
+                    ctx.fillStyle = '#228b22';
+                    ctx.beginPath();
+                    ctx.moveTo(screenX, obs.y + obs.height * 0.6);
+                    ctx.lineTo(screenX + obs.width / 2, obs.y);
+                    ctx.lineTo(screenX + obs.width, obs.y + obs.height * 0.6);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.fillStyle = '#2ea82e';
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + obs.width * 0.1, obs.y + obs.height * 0.4);
+                    ctx.lineTo(screenX + obs.width / 2, obs.y + obs.height * 0.1);
+                    ctx.lineTo(screenX + obs.width * 0.9, obs.y + obs.height * 0.4);
+                    ctx.closePath();
+                    ctx.fill();
+                    break;
+                    
+                case 'bird':
+                    // Bird body - màu xanh dương dễ nhìn
+                    ctx.fillStyle = '#4169E1';
+                    ctx.beginPath();
+                    ctx.ellipse(screenX + obs.width / 2, obs.y + obs.height / 2, 
+                               obs.width / 2, obs.height / 2, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Wings - màu xanh nhạt hơn
+                    const wingY = obs.wingFrame < 1 ? -8 : 8;
+                    ctx.fillStyle = '#6495ED';
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + obs.width * 0.3, obs.y + obs.height / 2);
+                    ctx.lineTo(screenX - 10, obs.y + obs.height / 2 + wingY);
+                    ctx.lineTo(screenX + obs.width * 0.3, obs.y + obs.height / 2 + 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + obs.width * 0.7, obs.y + obs.height / 2);
+                    ctx.lineTo(screenX + obs.width + 10, obs.y + obs.height / 2 + wingY);
+                    ctx.lineTo(screenX + obs.width * 0.7, obs.y + obs.height / 2 + 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    // Eye - màu vàng
+                    ctx.fillStyle = '#FFD700';
+                    ctx.beginPath();
+                    ctx.arc(screenX + obs.width * 0.7, obs.y + obs.height * 0.4, 3, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Beak - màu cam
+                    ctx.fillStyle = '#FF6600';
+                    ctx.beginPath();
+                    ctx.moveTo(screenX + obs.width, obs.y + obs.height / 2);
+                    ctx.lineTo(screenX + obs.width + 10, obs.y + obs.height / 2);
+                    ctx.lineTo(screenX + obs.width, obs.y + obs.height / 2 + 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    break;
+            }
+        }
+    }
+    
+    function drawCollectibles() {
+        // Cache time để tối ưu (chỉ tính 1 lần mỗi frame)
+        const time = Date.now() / 1000;
+        
+        // Tối ưu: chỉ vẽ collectibles trong camera view
+        const minX = camera.x - 50;
+        const maxX = camera.x + CANVAS_WIDTH + 50;
+        
+        for (let col of collectibles) {
+            if (col.collected) continue;
+            
+            // Skip collectibles quá xa
+            if (col.x < minX || col.x > maxX) continue;
+            if (col.collected) continue;
+            
+            const screenX = col.x - camera.x;
+            if (screenX < -50 || screenX > CANVAS_WIDTH + 50) continue;
+            
+            col.sparkle += 0.1;
+            const sparkleAlpha = 0.5 + 0.5 * Math.sin(col.sparkle);
+            
+            switch (col.type) {
+                case 'coin':
+                    // Thay coin bằng logo Binance
+                    if (bnbLogo.complete) {
+                        const logoSize = col.size * 2; // Kích thước logo gấp đôi size
+                        const rotation = col.sparkle * 0.5; // Xoay nhẹ theo sparkle
+                        
+                        ctx.save();
+                        ctx.translate(screenX, col.y);
+                        ctx.rotate(rotation);
+                        ctx.globalAlpha = 0.8 + 0.2 * Math.sin(col.sparkle); // Hiệu ứng lấp lánh
+                        ctx.drawImage(bnbLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+                        ctx.restore();
+                    } else {
+                        // Fallback nếu logo chưa load
+                        ctx.fillStyle = '#ffd700';
+                        ctx.beginPath();
+                        ctx.arc(screenX, col.y, col.size, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    break;
+            }
+        }
+    }
+    
+    function drawUI() {
+        // Score
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 28px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText(`Score: ${score}`, 20, 40);
+        
+        // Mana orbs (chỉ 5 viên ngọc, không có thanh ngang)
+        for (let i = 0; i < 5; i++) {
+            const orbX = 40 + i * 40;
+            const orbFilled = mana >= (i + 1) * (MAX_MANA / 5);
+            
+            ctx.beginPath();
+            ctx.arc(orbX, 80, 12, 0, Math.PI * 2);
+            ctx.fillStyle = orbFilled ? '#00ccff' : 'rgba(0, 100, 150, 0.5)';
+            ctx.fill();
+            
+            if (orbFilled) {
+                // Glow
+                ctx.beginPath();
+                ctx.arc(orbX, 80, 15, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
+                ctx.fill();
+            }
+        }
+    }
+    
+    function drawStartScreen() {
+        // Lưu camera.x hiện tại để restore sau
+        const savedCameraX = camera.x;
+        camera.x = 0; // Reset camera để vẽ từ đầu
+        
+        // Vẽ background game (sao, đất, cỏ) giống như khi đang chơi
+        drawBackground();
+        drawGround();
+        
+        // Vẽ nhân vật đứng trên đất (giữa màn hình)
+        const startPlayerX = CANVAS_WIDTH / 2 - player.width / 2;
+        const startPlayerY = GROUND_Y - player.height;
+        
+        // Sử dụng sprite animation nếu đã load xong
+        if (spritesLoaded && playerSprites[0]) {
+            const sprite = playerSprites[0]; // Frame đầu tiên
+            ctx.drawImage(sprite, startPlayerX, startPlayerY, player.width, player.height);
+        } else {
+            // Fallback: vẽ hình chữ nhật đơn giản nếu chưa load xong
+            ctx.fillStyle = '#ff6b6b';
+            ctx.fillRect(startPlayerX, startPlayerY, player.width, player.height);
+        }
+        
+        // Restore camera
+        camera.x = savedCameraX;
+        
+        // Overlay mờ để text dễ đọc
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Title
+        ctx.fillStyle = '#00ffff';
+        ctx.font = 'bold 64px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('DRAW RUNNER', CANVAS_WIDTH / 2, 300);
+        
+        // Start text - nhấp nháy nhẹ
+        const blinkAlpha = 0.5 + 0.5 * Math.sin(Date.now() / 500); // Nhấp nháy mỗi 1 giây
+        ctx.fillStyle = `rgba(255, 215, 0, ${blinkAlpha})`; // Màu vàng với alpha thay đổi
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('TAP TO START', CANVAS_WIDTH / 2, 540);
+        
+        // MemePlay branding
+        ctx.fillStyle = '#888';
+        ctx.font = '18px Arial';
+        ctx.fillText('A MemePlay Game', CANVAS_WIDTH / 2, 650);
+    }
+    
+    // BNB Logo loaded state
+    let bnbLogo = new Image();
+    bnbLogo.src = '../arrow/assets/binance-logo.webp';
+    
+    function drawGameOverScreen() {
+        // Overlay
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+        ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        // Game Over text - giảm 50% kích thước
+        ctx.fillStyle = '#ff4444';
+        ctx.font = 'bold 36px Arial'; // Giảm từ 72px xuống 36px (50%)
+        ctx.textAlign = 'center';
+        ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 200);
+        
+        // BNB Logo - tăng 50% kích thước
+        if (bnbLogo.complete) {
+            const logoSize = 180; // Tăng từ 120px lên 180px (50%)
+            ctx.drawImage(bnbLogo, CANVAS_WIDTH / 2 - logoSize / 2, 280, logoSize, logoSize);
+        }
+        
+        // MEMEPLAY text - thu nhỏ 30% và đặt dưới logo Binance
+        ctx.fillStyle = '#ffd700';
+        ctx.font = 'bold 25px Arial'; // Thu nhỏ 30% từ 36px xuống 25px (36 * 0.7 = 25.2)
+        ctx.fillText('MEMEPLAY', CANVAS_WIDTH / 2, 550); // Đặt dưới logo thêm 70px (480 + 70 = 550)
+        
+        // Play Again button
+        ctx.fillStyle = '#ffd700';
+        ctx.fillRect(CANVAS_WIDTH / 2 - 100, 675, 200, 50);
+        ctx.fillStyle = '#000';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('PLAY AGAIN', CANVAS_WIDTH / 2, 700);
+        
+        // Score - cách ô play again 50px (từ y=700 xuống y=650)
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 32px Arial';
+        ctx.fillText(`Final Score: ${score}`, CANVAS_WIDTH / 2, 650);
+    }
+    
+    // Vẽ hitbox của tất cả vật thể (debug)
+    function drawHitboxes() {
+        // Player hitbox - màu đỏ (hình chữ nhật nhỏ hơn, sát thân người)
+        const hitbox = getPlayerHitbox();
+        const hitboxScreenX = hitbox.x - camera.x;
+        ctx.strokeStyle = '#ff0000';
+        ctx.lineWidth = 2;
+        ctx.strokeRect(hitboxScreenX, hitbox.y, hitbox.width, hitbox.height);
+        // Vẽ center point
+        ctx.fillStyle = '#ff0000';
+        ctx.beginPath();
+        ctx.arc(hitboxScreenX + hitbox.width / 2, hitbox.y + hitbox.height / 2, 3, 0, Math.PI * 2);
+        ctx.fill();
+        
+        // Obstacles hitbox - màu vàng
+        ctx.strokeStyle = '#ffff00';
+        ctx.lineWidth = 2;
+        for (let obs of obstacles) {
+            const screenX = obs.x - camera.x;
+            if (screenX < -100 || screenX > CANVAS_WIDTH + 100) continue;
+            
+            // Vẽ hitbox thực tế (đặc biệt cho spike, tree) - sử dụng constants
+            if (obs.type === 'spike') {
+                // Spike: vẽ hitbox 12.5%
+                const spikeHitboxWidth = obs.width * HITBOX_SPIKE_SCALE;
+                const spikeHitboxHeight = obs.height * HITBOX_SPIKE_SCALE;
+                const spikeHitboxX = obs.x + (obs.width - spikeHitboxWidth) / 2;
+                const spikeHitboxY = obs.y + (obs.height - spikeHitboxHeight) / 2;
+                ctx.strokeRect(screenX + (obs.width - spikeHitboxWidth) / 2, spikeHitboxY, spikeHitboxWidth, spikeHitboxHeight);
+            } else if (obs.type === 'tree') {
+                // Tree: vẽ tam giác ở trên + hình vuông ở dưới, thu nhỏ 15%
+                const trunkW = obs.width * TREE_TRUNK_WIDTH_RATIO * TREE_HITBOX_SCALE;
+                const trunkH = obs.height * TREE_TRUNK_HEIGHT_RATIO * TREE_HITBOX_SCALE;
+                const trunkX = obs.x + obs.width * 0.35 + (obs.width * TREE_TRUNK_WIDTH_RATIO - trunkW) / 2;
+                const trunkY = obs.y + obs.height * TREE_TRUNK_HEIGHT_RATIO + (obs.height * TREE_TRUNK_HEIGHT_RATIO - trunkH) / 2;
+                ctx.strokeRect(trunkX - camera.x, trunkY, trunkW, trunkH);
+                
+                // Tán lá (tam giác): thu nhỏ 15% - scale từ center
+                const centerX = obs.x + obs.width / 2;
+                const centerY = obs.y + obs.height * TREE_FOLIAGE_CENTER_Y_RATIO;
+                const triX1 = centerX + (obs.x - centerX) * TREE_HITBOX_SCALE;
+                const triY1 = centerY + (obs.y + obs.height * TREE_FOLIAGE_BOTTOM_RATIO - centerY) * TREE_HITBOX_SCALE;
+                const triX2 = centerX + (obs.x + obs.width / 2 - centerX) * TREE_HITBOX_SCALE;
+                const triY2 = centerY + (obs.y - centerY) * TREE_HITBOX_SCALE;
+                const triX3 = centerX + (obs.x + obs.width - centerX) * TREE_HITBOX_SCALE;
+                const triY3 = centerY + (obs.y + obs.height * TREE_FOLIAGE_BOTTOM_RATIO - centerY) * TREE_HITBOX_SCALE;
+                ctx.beginPath();
+                ctx.moveTo(triX1 - camera.x, triY1);
+                ctx.lineTo(triX2 - camera.x, triY2);
+                ctx.lineTo(triX3 - camera.x, triY3);
+                ctx.closePath();
+                ctx.stroke();
+            } else {
+                // Các vật cản khác: vẽ hitbox bình thường
+                ctx.strokeRect(screenX, obs.y, obs.width, obs.height);
+            }
+        }
+        
+        // Collectibles hitbox - màu xanh lá
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        for (let col of collectibles) {
+            if (col.collected) continue;
+            const screenX = col.x - camera.x;
+            if (screenX < -50 || screenX > CANVAS_WIDTH + 50) continue;
+            ctx.beginPath();
+            ctx.arc(screenX, col.y, col.size + 30, 0, Math.PI * 2); // Collision radius
+            ctx.stroke();
+        }
+        
+        // Ground segments hitbox - màu xanh dương
+        ctx.strokeStyle = '#0088ff';
+        ctx.lineWidth = 2;
+        for (let segment of groundSegments) {
+            const screenX = segment.x - camera.x;
+            if (screenX + segment.width < 0 || screenX > CANVAS_WIDTH) continue;
+            ctx.strokeRect(screenX, segment.y, segment.width, segment.height);
+        }
+        
+        // Paths hitbox - màu tím (vẽ các điểm)
+        ctx.strokeStyle = '#ff00ff';
+        ctx.lineWidth = 1;
+        for (let path of paths) {
+            if (path.points.length < 2) continue;
+            for (let i = 0; i < path.points.length - 1; i++) {
+                const p1 = path.points[i];
+                const p2 = path.points[i + 1];
+                const screenX1 = p1.x - camera.x;
+                const screenX2 = p2.x - camera.x;
+                
+                // Vẽ line segment
+                ctx.beginPath();
+                ctx.moveTo(screenX1, p1.y);
+                ctx.lineTo(screenX2, p2.y);
+                ctx.stroke();
+                
+                // Vẽ collision area (10px tolerance)
+                ctx.strokeStyle = 'rgba(255, 0, 255, 0.3)';
+                ctx.lineWidth = 20;
+                ctx.stroke();
+                ctx.strokeStyle = '#ff00ff';
+                ctx.lineWidth = 1;
+            }
+        }
+        
+        // Water collision area - màu đỏ nhạt
+        ctx.strokeStyle = 'rgba(255, 0, 0, 0.5)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(0, WATER_Y);
+        ctx.lineTo(CANVAS_WIDTH, WATER_Y);
+        ctx.stroke();
+    }
+    
+    // Main render loop
+    function render() {
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        drawBackground();
+        drawGround();
+        drawPaths();
+        drawObstacles();
+        drawCollectibles();
+        
+        if (gameState === 'playing') {
+            drawPlayer();
+            drawUI();
+        }
+        
+        if (gameState === 'start') {
+            drawStartScreen();
+        }
+        
+        if (gameState === 'gameover') {
+            drawPlayer();
+            drawGameOverScreen();
+        }
+        
+    }
+    
+    // Game loop
+    function gameLoop() {
+        update();
+        render();
+        requestAnimationFrame(gameLoop);
+    }
+    
+    // Initialize
+    loadPlayerSprites(); // Load sprite images
+    generateStars();
+    gameLoop();
+    
+    // Handle resize
+    function handleResize() {
+        const container = document.getElementById('gameContainer');
+        const windowRatio = window.innerWidth / window.innerHeight;
+        const gameRatio = CANVAS_WIDTH / CANVAS_HEIGHT;
+        
+        if (windowRatio > gameRatio) {
+            container.style.height = '100vh';
+            container.style.width = `${100 * gameRatio / windowRatio}vw`;
+        } else {
+            container.style.width = '100vw';
+            container.style.height = `${100 / gameRatio * windowRatio}vh`;
+        }
+        
+        canvas.style.width = '100%';
+        canvas.style.height = '100%';
+    }
+    
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    
+    </script>
+</body>
+</html>
+

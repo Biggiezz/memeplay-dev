@@ -305,6 +305,37 @@ export const TEMPLATE_REGISTRY = {
     displayName: 'Arrow',
     description: 'Archery game - shoot birds to score points',
     enabled: true
+  },
+  
+  // ✅ Draw Runner Template
+  'draw-runner-template': {
+    adapterPath: '../draw-runner-template/editor/editor-adapter.js',
+    adapterName: 'DrawRunnerEditorAdapter',
+    playtestKey: 'draw_runner_brand_config_playtest-draw-runner',
+    playtestGameId: 'playtest-draw-runner',
+    storagePrefix: 'draw_runner_brand_config_',
+    templateUrl: '/games/templates-v2/draw-runner-template/index.html',
+    messageTypes: {
+      READY: 'DRAW_RUNNER_GAME_READY',
+      ERROR: 'DRAW_RUNNER_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      }
+      // KHÔNG có mapColor field (màu đất cố định)
+    },
+    displayName: 'Draw Runner',
+    description: 'Draw Runner game template',
+    enabled: true
   }
 };
 

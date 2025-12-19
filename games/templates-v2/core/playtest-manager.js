@@ -269,6 +269,12 @@ export function sendConfigToIframe(iframe, templateId, config) {
         hasGameOverLogo: !!config.gameOverLogoUrl,
         storyText: config.storyText
       });
+    } else if (templateId === 'draw-runner-template') {
+      console.log('[PlaytestManager] ✅ Sent UPDATE_CONFIG to iframe (instant update):', {
+        templateId,
+        hasLogo: !!config.logoUrl,
+        storyText: config.storyText
+      });
     } else {
       console.log('[PlaytestManager] ✅ Sent UPDATE_CONFIG to iframe (instant update):', {
         templateId,

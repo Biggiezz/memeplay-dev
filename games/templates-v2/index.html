@@ -596,6 +596,14 @@
         };
       }
       
+      // ✅ Draw Runner: logoUrl, storyText
+      if (CURRENT_TEMPLATE === 'draw-runner-template') {
+        return {
+          logoUrl: fragmentLogoUrl,           // Logo trong collectibles + game over
+          storyText: story || 'MEMEPLAY'      // Story text ở game over screen
+        };
+      }
+      
       // ✅ Arrow: logoUrl, storyText, mapColor
       if (CURRENT_TEMPLATE === 'arrow-template') {
         return {
