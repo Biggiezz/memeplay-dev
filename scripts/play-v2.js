@@ -528,6 +528,12 @@ function guessTemplateFromId(gameId) {
     return 'draw-runner-template'
   }
   
+  // ✅ Special case: Knife Fix (gameId format: playmode-knife-fix-XXX, template ID: knife-fix-template)
+  if (gameId.startsWith('playmode-knife-fix-') || gameId.startsWith('knife-fix-')) {
+    console.log(`[PLAY MODE V2] 🎯 Detected knife-fix-template from gameId: ${gameId}`)
+    return 'knife-fix-template'
+  }
+  
   // ✅ Loop qua tất cả templates trong registry
   for (const [templateId, config] of Object.entries(TEMPLATE_REGISTRY)) {
     if (config.enabled === false) continue
@@ -1509,7 +1515,8 @@ async function renderGameCard(gameId) {
     const isShooter = gameId.startsWith('playmode-shooter-') || gameId.startsWith('shooter-')
     const isArrow = gameId.startsWith('playmode-arrow-') || gameId.startsWith('arrow-')
     const isDrawRunner = gameId.startsWith('playmode-draw-runner-') || gameId.startsWith('draw-runner-')
-    if (isBlowBubble || isRocketBnb || isSpaceJump || isShooter || isArrow || isDrawRunner) {
+    const isKnifeFix = gameId.startsWith('playmode-knife-fix-') || gameId.startsWith('knife-fix-')
+    if (isBlowBubble || isRocketBnb || isSpaceJump || isShooter || isArrow || isDrawRunner || isKnifeFix) {
       console.error(`[PLAY MODE] 💡 Tip: Make sure you clicked "Save" button in the template editor to sync this game to Supabase.`)
       console.error(`[PLAY MODE] 💡 If you just created this game, go back to the editor and click "Save" again.`)
       console.error(`[PLAY MODE] 💡 Game ID: ${gameId}`)
@@ -1724,7 +1731,8 @@ function showPlayAward(amount, label, isNewAchievement = false) {
       threshold
     })
     
-    console.log(`🎖️ Achievement queued: ${achievementNames[threshold]} (+${amount} PLAY)`)
+    console.log(`🎖️ Achievement queued for ${activeGame}: ${achievementNames[threshold]} (+${amount} PLAY)`)
+    console.log(`   → Pending achievements keys: ${Object.keys(pendingAchievements).join(', ')}`)
     console.log('   → Will show Toast after game over')
   }
 }
@@ -1737,8 +1745,12 @@ function showPendingAchievements(gameId) {
     return
   }
   
+  console.log(`[PLAY MODE] 🔍 Checking pending achievements for gameId: ${gameId}`)
+  console.log(`[PLAY MODE] 📦 Available pendingAchievements keys:`, Object.keys(pendingAchievements))
+  
   const achievements = pendingAchievements[gameId]
   if (!achievements || achievements.length === 0) {
+    console.log(`[PLAY MODE] ⚠️ No pending achievements found for ${gameId}`)
     return
   }
   
@@ -1872,6 +1884,7 @@ window.addEventListener('message', async (event) => {
   if (event.data?.type === 'GAME_START' && event.data?.gameId) {
     const { gameId } = event.data
     console.log(`[PLAY MODE] GAME_START received for ${gameId}`)
+    console.log(`[PLAY MODE] Current activeGame: ${activeGame}`)
     startGame(gameId)
     return
   }
@@ -1898,12 +1911,19 @@ window.addEventListener('message', async (event) => {
     // ✅ Set flag to allow showing achievements
     isGameOver = true
     
-    // ✅ Stop timer and grant rewards
+    // ✅ Store activeGame before stopGame() clears it
+    // IMPORTANT: Use activeGame if it exists and matches, otherwise use gameId from message
+    // This ensures we use the same gameId that was used to start the game
+    const targetGameId = (activeGame && (activeGame === gameId || gameId === TEMPLATE_ID || activeGame.startsWith(gameId) || gameId.startsWith(activeGame))) ? activeGame : gameId
+    console.log(`[PLAY MODE] GAME_OVER: activeGame=${activeGame}, gameId=${gameId}, targetGameId=${targetGameId}`)
+    
+    // ✅ Stop timer and grant rewards (uses activeGame internally)
     await stopGame()
     
-    // ✅ Show pending achievements after game over
+    // ✅ Show pending achievements after game over (use stored gameId to match pendingAchievements key)
     setTimeout(() => {
-      showPendingAchievements(gameId)
+      console.log(`[PLAY MODE] Showing pending achievements for: ${targetGameId}`)
+      showPendingAchievements(targetGameId)
     }, 500) // Small delay to ensure game over UI is shown
     
     return

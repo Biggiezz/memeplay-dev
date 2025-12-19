@@ -275,6 +275,13 @@ export function sendConfigToIframe(iframe, templateId, config) {
         hasLogo: !!config.logoUrl,
         storyText: config.storyText
       });
+    } else if (templateId === 'knife-fix-template') {
+      console.log('[PlaytestManager] ✅ Sent UPDATE_CONFIG to iframe (instant update):', {
+        templateId,
+        hasLogo: !!config.logoUrl,
+        storyText: config.storyText,
+        mapColor: config.mapColor
+      });
     } else {
       console.log('[PlaytestManager] ✅ Sent UPDATE_CONFIG to iframe (instant update):', {
         templateId,

@@ -203,8 +203,12 @@ const GROUND_Y = 550;
 const GROUND_HEIGHT = CANVAS_HEIGHT - GROUND_Y;
 const WATER_Y = GROUND_Y + 350; // Mặt biển thấp hơn nền đất 350px
 
-// BNB Logo loaded state
+// BNB Logo loaded state - khởi tạo với error handler
 let bnbLogo = new Image();
+bnbLogo.onerror = () => {
+    console.warn('[Draw Runner] Logo image failed to load, will use fallback');
+    bnbLogo.error = true; // Mark as error để check sau
+};
 
 // ==================== GENERATION FUNCTIONS ====================
 function generateStars() {
@@ -407,13 +411,23 @@ function startDrawing(e) {
     if (gameState === 'gameover') {
         const pos = getCanvasPos(e);
         // Check if clicked on play again button
+        // Button rect: CANVAS_WIDTH/2 - 100, 675, 200, 50
+        // Button center Y = 700 (675 + 25)
         const btnX = CANVAS_WIDTH / 2;
         const btnY = 700;
-        if (pos.x > btnX - 100 && pos.x < btnX + 100 && pos.y > btnY - 25 && pos.y < btnY + 25) {
+        const btnLeft = btnX - 100;
+        const btnRight = btnX + 100;
+        const btnTop = 675;
+        const btnBottom = 725;
+        
+        if (pos.x >= btnLeft && pos.x <= btnRight && pos.y >= btnTop && pos.y <= btnBottom) {
+            console.log('[Draw Runner] Play Again clicked');
             gameState = 'playing';
             initGame();
             const gameId = getGameId() || TEMPLATE_ID;
             window.parent.postMessage({ type: 'GAME_START', gameId: gameId }, '*');
+        } else {
+            console.log('[Draw Runner] Click outside button:', { pos, btnLeft, btnRight, btnTop, btnBottom });
         }
         return;
     }
@@ -1225,19 +1239,32 @@ function drawCollectibles() {
         
         col.sparkle += 0.1;
         
-        // Thay coin bằng logo Binance
-        if (bnbLogo.complete) {
-            const logoSize = col.size * 2;
-            const rotation = col.sparkle * 0.5;
-            
-            ctx.save();
-            ctx.translate(screenX, col.y);
-            ctx.rotate(rotation);
-            ctx.globalAlpha = 0.8 + 0.2 * Math.sin(col.sparkle);
-            ctx.drawImage(bnbLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
-            ctx.restore();
+        // Thay coin bằng logo Binance - check image state kỹ hơn
+        if (bnbLogo && 
+            bnbLogo.complete && 
+            !bnbLogo.error && 
+            bnbLogo.naturalWidth > 0 && 
+            bnbLogo.naturalHeight > 0) {
+            try {
+                const logoSize = col.size * 2;
+                const rotation = col.sparkle * 0.5;
+                
+                ctx.save();
+                ctx.translate(screenX, col.y);
+                ctx.rotate(rotation);
+                ctx.globalAlpha = 0.8 + 0.2 * Math.sin(col.sparkle);
+                ctx.drawImage(bnbLogo, -logoSize / 2, -logoSize / 2, logoSize, logoSize);
+                ctx.restore();
+            } catch (e) {
+                // Fallback nếu drawImage fail
+                console.warn('[Draw Runner] drawImage failed, using fallback:', e);
+                ctx.fillStyle = '#ffd700';
+                ctx.beginPath();
+                ctx.arc(screenX, col.y, col.size, 0, Math.PI * 2);
+                ctx.fill();
+            }
         } else {
-            // Fallback nếu logo chưa load
+            // Fallback nếu logo chưa load hoặc broken
             ctx.fillStyle = '#ffd700';
             ctx.beginPath();
             ctx.arc(screenX, col.y, col.size, 0, Math.PI * 2);
@@ -1333,10 +1360,29 @@ function drawGameOverScreen() {
     ctx.textAlign = 'center';
     ctx.fillText('GAME OVER', CANVAS_WIDTH / 2, 200);
     
-    // BNB Logo - tăng 50% kích thước
-    if (bnbLogo.complete) {
-        const logoSize = 180;
-        ctx.drawImage(bnbLogo, CANVAS_WIDTH / 2 - logoSize / 2, 280, logoSize, logoSize);
+    // BNB Logo - tăng 50% kích thước - check image state kỹ hơn
+    if (bnbLogo && 
+        bnbLogo.complete && 
+        !bnbLogo.error && 
+        bnbLogo.naturalWidth > 0 && 
+        bnbLogo.naturalHeight > 0) {
+        try {
+            const logoSize = 180;
+            ctx.drawImage(bnbLogo, CANVAS_WIDTH / 2 - logoSize / 2, 280, logoSize, logoSize);
+        } catch (e) {
+            console.warn('[Draw Runner] Failed to draw logo in game over screen:', e);
+            // Fallback: vẽ hình tròn vàng
+            ctx.fillStyle = '#ffd700';
+            ctx.beginPath();
+            ctx.arc(CANVAS_WIDTH / 2, 280 + 90, 90, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    } else {
+        // Fallback: vẽ hình tròn vàng nếu logo không load được
+        ctx.fillStyle = '#ffd700';
+        ctx.beginPath();
+        ctx.arc(CANVAS_WIDTH / 2, 280 + 90, 90, 0, Math.PI * 2);
+        ctx.fill();
     }
     
     // Story text từ config - thu nhỏ 30% và đặt dưới logo Binance
@@ -1402,12 +1448,15 @@ function reloadLogo() {
     // Luôn tạo Image mới để force reload (đảm bảo logo được load đúng)
     const newLogo = new Image();
     newLogo.onload = () => {
+        newLogo.error = false; // Reset error flag
         bnbLogo = newLogo;
         console.log('[Draw Runner] Logo reloaded successfully:', newLogoUrl);
     };
     newLogo.onerror = () => {
         console.warn('[Draw Runner] Failed to load logo:', newLogoUrl);
-        // Fallback: giữ logo cũ nếu load fail
+        newLogo.error = true; // Mark as error
+        // Fallback: giữ logo cũ nếu load fail, nhưng mark error để dùng fallback rendering
+        bnbLogo = newLogo; // Vẫn assign để có error flag
     };
     newLogo.src = newLogoUrl;
 }
@@ -1468,7 +1517,16 @@ async function initGameConfig() {
     
     // Load logo (nếu chưa load từ playtest)
     if (!bnbLogo.src || bnbLogo.src === window.location.href) {
-        bnbLogo.src = getEffectiveLogoUrl();
+        const logoUrl = getEffectiveLogoUrl();
+        bnbLogo.onload = () => {
+            bnbLogo.error = false;
+            console.log('[Draw Runner] Logo loaded:', logoUrl);
+        };
+        bnbLogo.onerror = () => {
+            bnbLogo.error = true;
+            console.warn('[Draw Runner] Logo failed to load:', logoUrl);
+        };
+        bnbLogo.src = logoUrl;
     }
     
     // Init ground cache

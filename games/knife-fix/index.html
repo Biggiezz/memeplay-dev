@@ -1,0 +1,979 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Knife Fix - MemePlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+        
+        #gameContainer {
+            position: relative;
+            width: 720px;
+            height: 1000px;
+            max-width: 100vw;
+            max-height: 100vh;
+            margin: 0 auto;
+            padding: 0;
+            overflow: hidden;
+        }
+        
+        #gameCanvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            will-change: transform;
+        }
+        
+        /* Mobile: Scale container để vừa màn hình, giữ tỷ lệ 720:1000 */
+        @media (max-width: 720px) {
+            #gameContainer {
+                width: 100vw;
+                height: calc(100vw * 1000 / 720);
+                max-height: 100vh;
+            }
+        }
+        
+        @media (max-height: 1000px) and (min-width: 720px) {
+            #gameContainer {
+                height: 100vh;
+                width: calc(100vh * 720 / 1000);
+            }
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: none;
+            display: none;
+        }
+        
+        .overlay.active {
+            display: flex;
+            pointer-events: all;
+        }
+        
+        .start-screen {
+            background: rgba(0, 0, 0, 0.4);
+            flex-direction: column;
+            gap: 30px;
+        }
+        
+        .start-screen.active {
+            display: flex;
+        }
+        
+        .start-screen.hidden {
+            display: none !important;
+        }
+        
+        .start-screen img {
+            width: 300px;
+            height: 300px;
+            object-fit: contain;
+        }
+        
+        .start-screen h1 {
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            padding: 0 20px;
+        }
+        
+        /* Mobile: Adjust text size and position */
+        @media (max-width: 720px) {
+            .start-screen h1 {
+                font-size: 36px;
+                padding: 0 15px;
+            }
+        }
+        
+        @media (max-height: 1000px) {
+            .start-screen h1 {
+                font-size: 32px;
+                padding: 0 15px;
+            }
+        }
+        
+        .game-over-screen {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            flex-direction: column;
+            gap: 20px;
+            display: none !important;
+        }
+        
+        .game-over-screen.active {
+            display: flex !important;
+        }
+        
+        .game-over-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            min-width: 300px;
+        }
+        
+        .game-over-box h2 {
+            font-size: 36px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+        
+        .game-over-box p {
+            font-size: 24px;
+            color: #666;
+            margin-bottom: 30px;
+        }
+        
+        .restart-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .restart-btn:hover {
+            transform: scale(1.05);
+        }
+        
+        .restart-btn:active {
+            transform: scale(0.95);
+        }
+    </style>
+</head>
+<body>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="720" height="1000"></canvas>
+        
+        <!-- Start Screen -->
+        <div id="startScreen" class="overlay start-screen active">
+            <h1>Tap to Cut the Cake</h1>
+        </div>
+        
+        <!-- Game Over Screen -->
+        <div id="gameOverScreen" class="overlay game-over-screen" style="display: none !important;">
+            <div class="game-over-box">
+                <h2>Game Over!</h2>
+                <img id="gameOverLogo" src="assets/cake-logo.png" alt="Cake Logo" style="width: 240px; height: 240px; object-fit: contain; margin: 20px auto; display: block;">
+                <p>Score: <span id="finalScore">0</span></p>
+                <button class="restart-btn" onclick="restartGame()">Restart Game</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ============================================
+    // KNIFE FIX - MemePlay Game
+    // ============================================
+    
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Game Constants
+    const CANVAS_WIDTH = 720;
+    const CANVAS_HEIGHT = 1000;
+    
+    // Canvas size is set directly in HTML (width="720" height="1000")
+    // CSS will scale it automatically for mobile - no devicePixelRatio needed for performance
+    const CAKE_X = 360;
+    const CAKE_RADIUS = 103.5; // Giảm 25% từ 138
+    const CAKE_Y = 200 + CAKE_RADIUS; // Cách mép trên màn hình 200px (303.5)
+    const KNIFE_START_Y = CANVAS_HEIGHT - 80; // Cao hơn mép dưới 80px
+    const KNIFE_WIDTH = 100;
+    const KNIFE_HEIGHT = 238;
+    const KNIFE_SPEED = 10.8; // Tăng x3 từ 3.6
+    const ANGLE_THRESHOLD = 0.096; // ~5.5 degrees in radians (tăng 60% từ 0.06)
+    const INITIAL_KNIVES = 3;
+    
+    // Game State
+    let gameState = 'start'; // start, playing, gameover
+    let score = 0;
+    let level = 1;
+    let knivesLeft = INITIAL_KNIVES;
+    let totalKnives = INITIAL_KNIVES;
+    let combo = 0;
+    
+    // Cake
+    let cake = {
+        x: CAKE_X,
+        y: CAKE_Y,
+        radius: CAKE_RADIUS,
+        rotation: 0,
+        rotationSpeed: 0.0375, // Giảm 50% từ 0.075
+        direction: 1, // 1 = clockwise, -1 = counter-clockwise
+        shakeX: 0,
+        shakeY: 0,
+        shakeTimer: 0,
+        changingDirection: false,
+        directionTimer: 0, // Timer đếm thời gian quay về một hướng
+        maxDirectionTime: 1000 + Math.random() * 3000, // Random 1-4 giây quay về một hướng
+        slowingDown: false // Đang giảm tốc độ trước khi đổi hướng
+    };
+    
+    // Knives
+    let knives = []; // Knives stuck in cake
+    let flyingKnife = null;
+    let waitingKnife = {
+        x: CAKE_X,
+        y: KNIFE_START_Y,
+        angle: 0
+    };
+    
+    // Particles
+    let particles = [];
+    
+    // Images
+    let bgImage = null;
+    let knifeImage = null;
+    let cakeImage = null; // Logo bánh để vẽ trong game
+    
+    // Audio
+    let hitSound = null;
+    let failSound = null;
+    let sliceSound = null;
+    
+    // Load assets
+    function loadAssets() {
+        return new Promise((resolve) => {
+            let loaded = 0;
+            const total = 3; // bgImage, cakeImage, knifeImage
+            
+            const checkLoaded = () => {
+                loaded++;
+                if (loaded === total) resolve();
+            };
+            
+            // Background
+            bgImage = new Image();
+            bgImage.onload = checkLoaded;
+            bgImage.onerror = checkLoaded;
+            bgImage.src = 'assets/bg.webp';
+            
+            // Cake image - logo bánh
+            cakeImage = new Image();
+            cakeImage.onload = () => {
+                console.log('✅ Cake image loaded:', cakeImage.width, 'x', cakeImage.height);
+                checkLoaded();
+            };
+            cakeImage.onerror = (err) => {
+                console.error('❌ Cake image failed to load:', err);
+                checkLoaded();
+            };
+            // Thêm timestamp để tránh cache
+            cakeImage.src = 'assets/cake-logo.png?v=' + Date.now();
+            
+            // Knife
+            knifeImage = new Image();
+            knifeImage.onload = checkLoaded;
+            knifeImage.onerror = checkLoaded;
+            knifeImage.src = 'assets/knife.png';
+            
+            // Intro image - đã xóa, không load nữa
+        });
+    }
+    
+    
+    // Load audio
+    function loadAudio() {
+        hitSound = new Audio('assets/hit.wav');
+        failSound = new Audio('assets/fail.wav');
+        sliceSound = new Audio('assets/slice.wav');
+        
+        // Preload
+        hitSound.volume = 0.5;
+        failSound.volume = 0.5;
+        sliceSound.volume = 0.3;
+    }
+    
+    // Initialize game
+    function initGame() {
+        gameState = 'playing';
+        score = 0;
+        level = 1;
+        knivesLeft = INITIAL_KNIVES;
+        totalKnives = INITIAL_KNIVES;
+        combo = 0;
+        knives = [];
+        flyingKnife = null;
+        particles = [];
+        cake.rotation = 0;
+        cake.rotationSpeed = 0.0375; // Giảm 50% từ 0.075
+        cake.direction = 1;
+        cake.directionTimer = 0; // Reset timer
+        cake.slowingDown = false; // Reset slowing down
+        cake.changingDirection = false; // Reset changing direction
+        
+        waitingKnife.x = CAKE_X;
+        waitingKnife.y = KNIFE_START_Y;
+        waitingKnife.angle = 0;
+        
+        document.getElementById('startScreen').classList.remove('active');
+        document.getElementById('startScreen').classList.add('hidden');
+        document.getElementById('gameOverScreen').classList.remove('active');
+    }
+    
+    // Update cake rotation
+    function updateCake(deltaTime) {
+        // Đảm bảo tốc độ không bao giờ = 0 (tối thiểu 0.01)
+        const minSpeed = 0.01;
+        if (cake.rotationSpeed < minSpeed) {
+            cake.rotationSpeed = minSpeed;
+        }
+        
+        // Đếm thời gian quay về một hướng
+        cake.directionTimer += deltaTime;
+        
+        // Nếu đã quay 4 giây về một hướng, bắt đầu giảm tốc độ
+        if (cake.directionTimer >= cake.maxDirectionTime && !cake.slowingDown && !cake.changingDirection) {
+            cake.slowingDown = true;
+            cake.directionTimer = cake.maxDirectionTime; // Giữ nguyên timer
+        }
+        
+        // Nếu đang giảm tốc độ (0.5s)
+        if (cake.slowingDown) {
+            const slowDownTime = 500; // 0.5 giây
+            const elapsed = cake.directionTimer - cake.maxDirectionTime;
+            
+            if (elapsed < slowDownTime) {
+                // Giảm tốc độ từ từ trong 0.5s
+                const slowDownProgress = elapsed / slowDownTime;
+                const targetSpeed = minSpeed;
+                cake.rotationSpeed = cake.rotationSpeed * 0.95 + targetSpeed * 0.05;
+                
+                // Đảm bảo không bao giờ = 0
+                if (cake.rotationSpeed < minSpeed) {
+                    cake.rotationSpeed = minSpeed;
+                }
+            } else {
+                // Đã giảm tốc độ xong, đổi hướng
+                cake.slowingDown = false;
+                cake.changingDirection = true;
+                cake.direction *= -1;
+                cake.directionTimer = 0; // Reset timer
+                // Random thời gian quay mới (1-4 giây)
+                cake.maxDirectionTime = 1000 + Math.random() * 3000;
+                
+                // Tăng tốc độ lại từ từ
+                const newSpeed = (0.5 + Math.random() * 3) * 0.025;
+                cake.rotationSpeed = newSpeed;
+                cake.changingDirection = false;
+            }
+        }
+        
+        // Random speed change (giảm 50%) - chỉ khi không đang giảm tốc độ
+        if (!cake.slowingDown && Math.random() < 0.01) {
+            const newSpeed = (0.5 + Math.random() * 3) * 0.025;
+            // Thay đổi tốc độ từ từ
+            cake.rotationSpeed = cake.rotationSpeed * 0.8 + newSpeed * 0.2;
+            // Đảm bảo không bao giờ = 0
+            if (cake.rotationSpeed < minSpeed) {
+                cake.rotationSpeed = minSpeed;
+            }
+        }
+        
+        cake.rotation += cake.rotationSpeed * cake.direction * (deltaTime / 16);
+        
+        // Update shake
+        if (cake.shakeTimer > 0) {
+            cake.shakeTimer -= deltaTime;
+            cake.shakeX = (Math.random() - 0.5) * 4;
+            cake.shakeY = (Math.random() - 0.5) * 4;
+        } else {
+            cake.shakeX = 0;
+            cake.shakeY = 0;
+        }
+    }
+    
+    // Throw knife
+    function throwKnife() {
+        // Only allow throwing knife when: no flying knife, knives left, and total knives > 0
+        if (flyingKnife || knivesLeft <= 0 || totalKnives <= 0 || gameState !== 'playing') return;
+        
+        flyingKnife = {
+            x: waitingKnife.x,
+            y: waitingKnife.y,
+            angle: 0,
+            stuck: false
+        };
+        
+        knivesLeft--;
+        totalKnives--; // Decrease total knives count
+    }
+    
+    // Update flying knife
+    function updateFlyingKnife(deltaTime) {
+        if (!flyingKnife) return;
+        
+        if (flyingKnife.stuck) return;
+        
+        // Store previous position for line collision detection
+        const prevY = flyingKnife.y;
+        const moveDistance = KNIFE_SPEED * (deltaTime / 16);
+        
+        // Move knife up
+        flyingKnife.y -= moveDistance;
+        
+        // Check if knife flew too high (missed cake) - reset to allow next throw
+        if (flyingKnife.y < -KNIFE_HEIGHT - 50) {
+            flyingKnife = null;
+            // If out of knives, level up
+            if (knivesLeft === 0 || totalKnives === 0) {
+                setTimeout(() => {
+                    levelUp();
+                }, 500);
+            }
+            return;
+        }
+        
+        // Check collision with cake - check along the path the knife traveled
+        const cakeX = cake.x + cake.shakeX;
+        const cakeY = cake.y + cake.shakeY;
+        
+        // Check multiple points along the knife's path to prevent tunneling
+        const checkPoints = Math.max(3, Math.ceil(moveDistance / 2)); // Check every 2px
+        let hitDistance = null;
+        let hitAngle = null;
+        
+        for (let i = 0; i <= checkPoints; i++) {
+            const checkY = prevY - (moveDistance * i / checkPoints);
+            const dx = flyingKnife.x - cakeX;
+            const dy = checkY - cakeY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            // Check collision - dao chỉ cắm vào viền ngoài cùng (rìa bánh)
+            const edgeDistance = CAKE_RADIUS - 5; // Trừ 5px để dao cắm ở viền ngoài cùng
+            if (distance <= CAKE_RADIUS && distance >= edgeDistance) {
+                hitDistance = distance;
+                hitAngle = Math.atan2(dy, dx);
+                // Adjust knife position to collision point
+                flyingKnife.y = checkY;
+                break;
+            }
+        }
+        
+        if (hitDistance !== null) {
+            // Calculate angle relative to cake center (use hitAngle from collision detection)
+            const normalizedAngle = ((hitAngle - cake.rotation) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+            
+            // Check collision with existing knives
+            let collision = false;
+            for (let i = 0; i < knives.length; i++) {
+                const angleDiff = Math.abs(normalizedAngle - knives[i].angle);
+                const minDiff = Math.min(angleDiff, Math.PI * 2 - angleDiff);
+                
+                if (minDiff < ANGLE_THRESHOLD) {
+                    collision = true;
+                    break;
+                }
+            }
+            
+            if (collision) {
+                // Knife hits knife - bounce and game over
+                flyingKnife.bouncing = true;
+                flyingKnife.vx = (Math.random() - 0.5) * 5;
+                flyingKnife.vy = 2;
+                flyingKnife.rotationSpeed = (Math.random() - 0.5) * 0.3;
+                
+                // Play fail sound
+                if (failSound) {
+                    failSound.currentTime = 0;
+                    failSound.play().catch(() => {});
+                }
+                
+                // Vibrate
+                if (navigator.vibrate) {
+                    navigator.vibrate(200);
+                }
+                
+                // Game over after delay
+                setTimeout(() => {
+                    if (gameState === 'playing') {
+                        gameOver();
+                    }
+                }, 500);
+                
+                combo = 0;
+            } else {
+                // Stick knife in cake - chỉ cắm ở viền ngoài cùng
+                knives.push({
+                    angle: normalizedAngle,
+                    distance: CAKE_RADIUS, // Cắm ở rìa ngoài cùng
+                    rotation: 0
+                });
+                
+                // Score (with combo multiplier)
+                const comboMultiplier = Math.min(Math.floor(combo / 5) + 1, 5); // Max 5x multiplier
+                score += comboMultiplier;
+                combo++;
+                
+                // Play slice sound occasionally
+                if (combo % 5 === 0 && sliceSound) {
+                    sliceSound.currentTime = 0;
+                    sliceSound.play().catch(() => {});
+                }
+                
+                // Create particles
+                createParticles(cake.x + cake.shakeX, cake.y + cake.shakeY);
+                
+                // Shake cake
+                cake.shakeTimer = 200;
+                
+                // Play hit sound
+                if (hitSound) {
+                    hitSound.currentTime = 0;
+                    hitSound.play().catch(() => {});
+                }
+                
+                // Clear flying knife after sticking it in cake
+                flyingKnife = null;
+                
+                // Check if out of knives - level up when all knives thrown
+                if (knivesLeft === 0 || totalKnives === 0) {
+                    setTimeout(() => {
+                        levelUp();
+                    }, 500);
+                } else {
+                    // Reset waiting knife
+                    waitingKnife.x = CAKE_X;
+                    waitingKnife.y = KNIFE_START_Y;
+                }
+                
+                // Return early to prevent further processing
+                return;
+            }
+        }
+        
+        // Update bouncing knife
+        if (flyingKnife && flyingKnife.bouncing) {
+            flyingKnife.x += flyingKnife.vx * (deltaTime / 16);
+            flyingKnife.y += flyingKnife.vy * (deltaTime / 16);
+            flyingKnife.angle += flyingKnife.rotationSpeed * (deltaTime / 16);
+            flyingKnife.vy += 0.3 * (deltaTime / 16); // Gravity
+            
+            if (flyingKnife.y > CANVAS_HEIGHT + 100) {
+                flyingKnife = null;
+            }
+        }
+    }
+    
+    // Create particles
+    function createParticles(x, y) {
+        for (let i = 0; i < 8; i++) {
+            particles.push({
+                x: x,
+                y: y,
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                life: 30,
+                maxLife: 30,
+                color: Math.random() > 0.5 ? '#ffd700' : '#ff8c00'
+            });
+        }
+    }
+    
+    // Update particles
+    function updateParticles(deltaTime) {
+        for (let i = particles.length - 1; i >= 0; i--) {
+            const p = particles[i];
+            p.x += p.vx * (deltaTime / 16);
+            p.y += p.vy * (deltaTime / 16);
+            p.life -= deltaTime / 16;
+            
+            if (p.life <= 0) {
+                particles.splice(i, 1);
+            }
+        }
+    }
+    
+    // Level up
+    function levelUp() {
+        level++;
+        knivesLeft = INITIAL_KNIVES + Math.floor(score / 3);
+        totalKnives = knivesLeft;
+        knives = [];
+        flyingKnife = null;
+        particles = [];
+        combo = 0; // Reset combo on level up
+        
+        // Reset cake (giảm tốc độ xoay 95%)
+        cake.rotation = 0;
+        cake.rotationSpeed = (0.5 + Math.random() * 3) * 0.025; // Giảm 50% từ 0.05
+        cake.direction = Math.random() > 0.5 ? 1 : -1;
+        cake.directionTimer = 0; // Reset timer
+        cake.slowingDown = false; // Reset slowing down
+        cake.changingDirection = false; // Reset changing direction
+        
+        // Clear cache when cake resets
+        cachedCakeImageSize = null;
+        
+        waitingKnife.x = CAKE_X;
+        waitingKnife.y = KNIFE_START_Y;
+    }
+    
+    // Game over
+    function gameOver() {
+        gameState = 'gameover';
+        document.getElementById('finalScore').textContent = score;
+        document.getElementById('gameOverScreen').classList.add('active');
+    }
+    
+    // Restart game
+    function restartGame() {
+        gameState = 'start';
+        document.getElementById('gameOverScreen').classList.remove('active');
+        document.getElementById('startScreen').classList.remove('hidden');
+        document.getElementById('startScreen').classList.add('active');
+    }
+    
+    // Cache for cake image size calculation
+    let cachedCakeImageSize = null;
+    
+    // Calculate cake image size (extracted to avoid duplication)
+    function calculateCakeImageSize(diameter) {
+        if (!cakeImage || !cakeImage.complete || cakeImage.naturalWidth === 0) {
+            return null;
+        }
+        
+        // Return cached value if available
+        if (cachedCakeImageSize && cachedCakeImageSize.diameter === diameter) {
+            return cachedCakeImageSize;
+        }
+        
+        const imageAspect = cakeImage.naturalWidth / cakeImage.naturalHeight;
+        let drawWidth = diameter;
+        let drawHeight = diameter;
+        
+        // Adjust to maintain aspect ratio
+        if (imageAspect > 1) {
+            drawWidth = diameter;
+            drawHeight = diameter / imageAspect;
+        } else {
+            drawHeight = diameter;
+            drawWidth = diameter * imageAspect;
+        }
+        
+        // Scale to fit hitbox
+        const maxDimension = Math.max(drawWidth, drawHeight);
+        const scale = diameter / maxDimension;
+        drawWidth *= scale;
+        drawHeight *= scale;
+        
+        // Apply scaling factors (x2 + 5%)
+        drawWidth *= 2.1;
+        drawHeight *= 2.1;
+        
+        // Cache result
+        cachedCakeImageSize = { diameter, drawWidth, drawHeight };
+        return cachedCakeImageSize;
+    }
+    
+    // Draw background
+    function drawBackground() {
+        if (bgImage && bgImage.complete) {
+            ctx.drawImage(bgImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        } else {
+            ctx.fillStyle = '#87ceeb';
+            ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        }
+    }
+    
+    // Draw cake - Vẽ bằng ảnh logo bánh (fallback nếu không có ảnh)
+    function drawCake() {
+        ctx.save();
+        ctx.translate(cake.x + cake.shakeX, cake.y + cake.shakeY);
+        ctx.rotate(cake.rotation);
+        
+        const radius = CAKE_RADIUS;
+        
+        // Kiểm tra và vẽ ảnh bánh
+        const diameter = radius * 2;
+        const imageSize = calculateCakeImageSize(diameter);
+        
+        if (imageSize) {
+            try {
+                ctx.drawImage(
+                    cakeImage,
+                    -imageSize.drawWidth / 2, -imageSize.drawHeight / 2, 
+                    imageSize.drawWidth, imageSize.drawHeight
+                );
+            } catch (e) {
+                console.error('Error drawing cake image:', e);
+                // Fallback nếu vẽ lỗi
+                const cakeColor = '#8B4513';
+                ctx.fillStyle = cakeColor;
+                ctx.beginPath();
+                ctx.arc(0, 0, radius, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        } else {
+            // Fallback: vẽ bánh bằng màu nâu nếu không có ảnh
+            const cakeColor = '#8B4513';
+            ctx.fillStyle = cakeColor;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+    
+    // Draw knives stuck in cake - Chỉ chuôi dao lộ ra ngoài mép bánh
+    function drawStuckKnives() {
+        if (!knifeImage || !knifeImage.complete) return;
+        
+        // Lưỡi dao: 175px từ đỉnh (phần này sẽ bị che bởi bánh)
+        const bladeLength = 175;
+        // Chuôi dao: 63px còn lại (phần này lộ ra ngoài)
+        const handleLength = KNIFE_HEIGHT - bladeLength; // 238 - 175 = 63px
+        
+        for (let i = 0; i < knives.length; i++) {
+            const knife = knives[i];
+            // Góc quay của dao theo bánh (đã tính toán khi cắm vào)
+            const angle = knife.angle + cake.rotation;
+            
+            // Điểm neo của dao = mép ngoài bánh tại góc đó
+            const anchorX = cake.x + cake.shakeX + Math.cos(angle) * CAKE_RADIUS;
+            const anchorY = cake.y + cake.shakeY + Math.sin(angle) * CAKE_RADIUS;
+            
+            ctx.save();
+            
+            // Di chuyển đến mép bánh (điểm neo)
+            ctx.translate(anchorX, anchorY);
+            
+            // Xoay dao hướng ra ngoài (vuông góc với mép bánh)
+            // angle - PI/2 để quay ngược dao lại
+            ctx.rotate(angle - Math.PI / 2);
+            
+            // Vẽ dao với offset y để chỉ chuôi lộ ra ngoài
+            // Lưỡi dao: từ y = -bladeLength đến y = 0 (nằm trong bánh, bị che bởi lớp bánh trên)
+            // Chuôi dao: từ y = 0 đến y = handleLength (lộ ra ngoài mép bánh)
+            // Giảm offset y để chuôi dao lộ ra rõ hơn (không bị cắm sâu quá)
+            const offsetY = -bladeLength + 50; // Lộ ra thêm 50px (10px ban đầu + 40px mới) để chuôi dao lộ ra ngoài rõ hơn
+            ctx.drawImage(
+                knifeImage,
+                0, 0, knifeImage.width, knifeImage.height,
+                -KNIFE_WIDTH / 2, offsetY, KNIFE_WIDTH, KNIFE_HEIGHT
+            );
+            
+            ctx.restore();
+        }
+    }
+    
+    // Draw cake again (on top of knife handles) - Vẽ lại lớp trên cùng để che lưỡi dao
+    function drawCakeTop() {
+        ctx.save();
+        ctx.translate(cake.x + cake.shakeX, cake.y + cake.shakeY);
+        ctx.rotate(cake.rotation);
+        
+        // Lớp trên cùng che lưỡi dao (175px từ đỉnh dao)
+        // Bán kính = CAKE_RADIUS để che hoàn toàn lưỡi dao, chỉ để chuôi dao (63px) lộ ra ngoài
+        // Giảm một chút để đảm bảo chuôi dao lộ ra rõ ràng
+        const radius = CAKE_RADIUS * 0.98; // Che lưỡi dao, chuôi dao lộ ra ngoài viền
+        
+        // Vẽ bằng ảnh nếu có, nếu không thì dùng màu nâu
+        const diameter = CAKE_RADIUS * 2;
+        const imageSize = calculateCakeImageSize(diameter);
+        
+        if (imageSize) {
+            // Tạo clipping path để chỉ vẽ phần trong radius
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.clip();
+            ctx.drawImage(
+                cakeImage,
+                -imageSize.drawWidth / 2, -imageSize.drawHeight / 2, 
+                imageSize.drawWidth, imageSize.drawHeight
+            );
+        } else {
+            // Fallback: vẽ bằng màu nâu
+            const cakeColor = '#8B4513';
+            ctx.fillStyle = cakeColor;
+            ctx.beginPath();
+            ctx.arc(0, 0, radius, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.strokeStyle = '#654321';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+        
+        ctx.restore();
+    }
+    
+    // Draw flying knife
+    function drawFlyingKnife() {
+        if (!flyingKnife || !knifeImage || !knifeImage.complete) return;
+        
+        ctx.save();
+        ctx.translate(flyingKnife.x, flyingKnife.y);
+        ctx.rotate(flyingKnife.angle);
+        
+        if (flyingKnife.bouncing) {
+            ctx.rotate(flyingKnife.rotation || 0);
+        }
+        
+        ctx.drawImage(knifeImage, -KNIFE_WIDTH / 2, -KNIFE_HEIGHT / 2, KNIFE_WIDTH, KNIFE_HEIGHT);
+        ctx.restore();
+    }
+    
+    // Draw waiting knife - Chỉ hiển thị khi còn dao và không có dao đang bay
+    function drawWaitingKnife() {
+        // Don't show waiting knife if: flying knife exists, no knives left, or no total knives
+        if (flyingKnife || knivesLeft <= 0 || totalKnives <= 0 || !knifeImage || !knifeImage.complete) return;
+        
+        ctx.save();
+        ctx.translate(waitingKnife.x, waitingKnife.y);
+        ctx.drawImage(knifeImage, -KNIFE_WIDTH / 2, -KNIFE_HEIGHT / 2, KNIFE_WIDTH, KNIFE_HEIGHT);
+        ctx.restore();
+    }
+    
+    // Draw particles
+    function drawParticles() {
+        for (let i = 0; i < particles.length; i++) {
+            const p = particles[i];
+            const alpha = p.life / p.maxLife;
+            
+            ctx.save();
+            ctx.globalAlpha = alpha;
+            ctx.fillStyle = p.color;
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 4, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+    
+    // Draw UI
+    function drawUI() {
+        // Score bar background (teal gradient)
+        const gradient = ctx.createLinearGradient(0, 0, CANVAS_WIDTH, 0);
+        gradient.addColorStop(0, '#20b2aa');
+        gradient.addColorStop(1, '#48d1cc');
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, CANVAS_WIDTH, 80);
+        
+        // Score
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 32px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('👑 ' + score, 20, 50);
+        
+        // Level
+        ctx.textAlign = 'right';
+        ctx.fillText('⭐ ' + level, CANVAS_WIDTH - 20, 50);
+        
+        
+        // Knives left
+        ctx.fillStyle = 'white';
+        ctx.font = 'bold 24px Arial';
+        ctx.textAlign = 'left';
+        ctx.fillText('🔪 ' + knivesLeft, 20, CANVAS_HEIGHT - 30);
+    }
+    
+    // Main game loop
+    function gameLoop() {
+        // Clear canvas
+        ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+        
+        if (gameState === 'playing') {
+            // Update (using fixed timestep for consistency)
+            const deltaTime = 16; // ~60fps
+            updateCake(deltaTime);
+            updateFlyingKnife(deltaTime);
+            updateParticles(deltaTime);
+            
+            // Update stuck knives rotation
+            for (let i = 0; i < knives.length; i++) {
+                knives[i].rotation = cake.rotation;
+            }
+        }
+        
+        // Draw (correct order for knife-through-cake effect)
+        drawBackground();
+        drawCake(); // Draw full cake first
+        drawStuckKnives(); // Draw knife handles only (lưỡi dao đã đâm vào trong bánh)
+        drawCakeTop(); // Draw cake top layer (che phần lưỡi dao)
+        drawFlyingKnife(); // Draw knife in flight
+        drawWaitingKnife(); // Draw waiting knife at bottom
+        drawParticles(); // Draw particles
+        drawUI(); // Draw UI on top
+        
+        requestAnimationFrame(gameLoop);
+    }
+    
+    // Unified input handler
+    function handleInput(e) {
+        if (e) e.preventDefault();
+        
+        if (gameState === 'start') {
+            initGame();
+        } else if (gameState === 'playing' && !flyingKnife && knivesLeft > 0) {
+            throwKnife();
+        }
+    }
+    
+    // Event listeners
+    canvas.addEventListener('click', handleInput);
+    canvas.addEventListener('touchstart', handleInput, { passive: false });
+    document.getElementById('startScreen').addEventListener('click', handleInput);
+    
+    // Initialize
+    // Ensure game over screen is hidden on load
+    document.getElementById('gameOverScreen').style.display = 'none';
+    document.getElementById('gameOverScreen').classList.remove('active');
+    document.getElementById('startScreen').classList.add('active');
+    
+    loadAssets().then(() => {
+        loadAudio();
+        gameLoop();
+    });
+    </script>
+</body>
+</html>
+

@@ -336,6 +336,36 @@ export const TEMPLATE_REGISTRY = {
     displayName: 'Draw Runner',
     description: 'Draw Runner game template',
     enabled: true
+  },
+  
+  // ✅ Knife Fix Template
+  'knife-fix-template': {
+    adapterPath: '../knife-fix-template/editor/editor-adapter.js',
+    adapterName: 'KnifeFixEditorAdapter',
+    playtestKey: 'knife_fix_brand_config_playtest-knife-fix',
+    playtestGameId: 'playtest-knife-fix',
+    storagePrefix: 'knife_fix_brand_config_',
+    templateUrl: '/games/templates-v2/knife-fix-template/index.html',
+    messageTypes: {
+      READY: 'KNIFE_FIX_GAME_READY',
+      ERROR: 'KNIFE_FIX_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      }
+    },
+    displayName: 'Knife Fix',
+    description: 'Knife throwing game - throw knives at rotating cake',
+    enabled: true
   }
 };
 
