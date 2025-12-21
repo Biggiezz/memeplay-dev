@@ -279,15 +279,21 @@ class Bird {
         ctx.fillRect(5, 25, 15, 10);
         
         // Logo on white bird's back (never mirrored)
-        if (this.type === 'white' && binanceLogo && binanceLogo.complete) {
-            if (this.direction === -1) {
-                // Un-flip the logo when bird is mirrored
-                ctx.save();
-                ctx.scale(-1, 1);
-                ctx.drawImage(binanceLogo, -65, -20, 50, 50);
-                ctx.restore();
-            } else {
-                ctx.drawImage(binanceLogo, 15, -20, 50, 50);
+        if (this.type === 'white' && binanceLogo && 
+            binanceLogo.complete && binanceLogo.naturalWidth > 0) {
+            try {
+                if (this.direction === -1) {
+                    // Un-flip the logo when bird is mirrored
+                    ctx.save();
+                    ctx.scale(-1, 1);
+                    ctx.drawImage(binanceLogo, -65, -20, 50, 50);
+                    ctx.restore();
+                } else {
+                    ctx.drawImage(binanceLogo, 15, -20, 50, 50);
+                }
+            } catch (e) {
+                // Image is broken or not ready, skip drawing
+                console.warn('[Arrow] Failed to draw logo:', e);
             }
         }
         
@@ -904,6 +910,13 @@ async function initGame() {
     
     // Load logo using getEffectiveLogoUrl()
     binanceLogo = new Image();
+    binanceLogo.onload = () => {
+        console.log('[Arrow] Initial logo loaded successfully');
+    };
+    binanceLogo.onerror = () => {
+        console.warn('[Arrow] Failed to load initial logo:', getEffectiveLogoUrl());
+        binanceLogo = null;
+    };
     binanceLogo.src = getEffectiveLogoUrl();
     
     // Apply brand config to UI
@@ -949,9 +962,17 @@ function handleConfigMessage(event) {
                 BRAND_CONFIG.mapColor = config.mapColor;
             }
             
-            // Reload logo image
-            binanceLogo = new Image();
-            binanceLogo.src = getEffectiveLogoUrl();
+            // Reload logo image - wait for load to complete
+            const newLogo = new Image();
+            newLogo.onload = () => {
+                binanceLogo = newLogo; // Only set when fully loaded
+                console.log('[Arrow] Logo loaded successfully');
+            };
+            newLogo.onerror = () => {
+                console.warn('[Arrow] Failed to load logo:', getEffectiveLogoUrl());
+                binanceLogo = null; // Set null if load fails
+            };
+            newLogo.src = getEffectiveLogoUrl();
             
             // Apply updated config
             applyBrandConfig();

@@ -145,93 +145,22 @@ Truy cập: `http://localhost:5500/index.html`
 
 ### ✅ Phase 4: PostMessage Integration
 
-**⚠️ QUAN TRỌNG NHẤT:** Phải gửi đúng messages với `gameId` để:
-- ✅ Đếm lượt plays
-- ✅ Lưu score vào leaderboard
-- ✅ Đếm thời gian chơi và thưởng PLAY points
-
-**Checklist:**
 - [ ] Gửi `GAME_START` với `gameId` khi bắt đầu game (để đếm plays)
-- [ ] Gửi `GAME_START` với `gameId` khi restart game (để đếm plays mới)
 - [ ] Gửi `GAME_OVER` với `gameId` khi game kết thúc (để stop timer)
 - [ ] Gửi `GAME_SCORE` với `gameId`, `score`, `level` khi game kết thúc (để lưu điểm và thưởng)
 - [ ] Gửi `{TEMPLATE}_GAME_READY` khi game sẵn sàng
 - [ ] Listen `UPDATE_CONFIG` để cập nhật real-time
 
-**⚠️ Lỗi thường gặp:** 
-- ❌ Quên gửi `gameId` → Không đếm plays, không lưu score
-- ❌ Quên gửi `GAME_SCORE` → Không lưu điểm vào leaderboard, không thưởng PLAY points
-- ❌ Quên gửi `GAME_START` khi restart → Không đếm plays mới
-- ❌ Thiếu `level` trong `GAME_SCORE` → Dùng `1` nếu game không có level system
-
-**Code mẫu đầy đủ:**
-```javascript
-// ✅ Khi game start
-function initGame() {
-    gameState = 'playing';
-    // ... reset game state ...
-    
-    const gameId = getGameId() || TEMPLATE_ID;
-    window.parent.postMessage({ 
-        type: 'GAME_START', 
-        gameId: gameId 
-    }, '*');
-}
-
-// ✅ Khi game over
-function gameOver() {
-    gameState = 'gameover';
-    // ... show game over screen ...
-    
-    const gameId = getGameId() || TEMPLATE_ID;
-    
-    // BẮT BUỘC: Gửi GAME_OVER để stop timer
-    window.parent.postMessage({ 
-        type: 'GAME_OVER',
-        gameId: gameId
-    }, '*');
-    
-    // BẮT BUỘC: Gửi GAME_SCORE để lưu điểm và thưởng
-    window.parent.postMessage({ 
-        type: 'GAME_SCORE',
-        gameId: gameId,
-        score: score,
-        level: level || 1 // Dùng 1 nếu game không có level
-    }, '*');
-}
-```
+**⚠️ Lỗi thường gặp:** Quên gửi `gameId` hoặc quên gửi `GAME_SCORE` → Không đếm plays, không lưu điểm, không thưởng!
 
 ### ✅ Phase 5: Testing
 
-**Testing Checklist:**
-
-**1. Basic Testing:**
-- [ ] Test trong editor: `http://localhost:5500/games/templates-v2/`
+- [ ] Test trong editor: `http://localhost:5500/index.html`
 - [ ] Test Play Test button (mobile + desktop)
-- [ ] Test Save & Copy Link button (mobile + desktop)
-- [ ] Test shared link: `play-v2.html?game=playmode-{template}-XXX`
+- [ ] Test Save button (mobile + desktop)
+- [ ] Test shared link: `play-v2.html?game=playmode-draw-runner-XXX`
 - [ ] Test config persistence (refresh page)
 - [ ] Test Supabase sync (mở link trên device khác)
-
-**2. PostMessage Testing (QUAN TRỌNG):**
-- [ ] Mở DevTools Console khi chơi game
-- [ ] Kiểm tra log: `[PLAY MODE] GAME_START received for playmode-{template}-XXX`
-- [ ] Kiểm tra log: `[PLAY MODE] GAME_OVER received for playmode-{template}-XXX`
-- [ ] Kiểm tra log: `[PLAY MODE] Received score: XXX for playmode-{template}-XXX`
-- [ ] Nếu không thấy logs → Kiểm tra lại PostMessage code
-
-**3. Supabase Testing (QUAN TRỌNG):**
-- [ ] Chơi game và check Supabase table `user_game_scores`
-- [ ] Kiểm tra plays được đếm (check `play_count` hoặc `plays` column)
-- [ ] Kiểm tra score được lưu vào leaderboard
-- [ ] Kiểm tra PLAY points được thưởng (check `user_points` hoặc tương tự)
-- [ ] Nếu không thấy data → Kiểm tra lại PostMessage code và `gameId`
-
-**4. Config Testing:**
-- [ ] Upload logo trong editor → Logo hiển thị trong game
-- [ ] Nhập story text → Story text hiển thị trong game over screen
-- [ ] Save config → Refresh page → Config vẫn còn
-- [ ] Copy link → Mở link mới → Config được load từ Supabase
 
 ---
 
@@ -369,63 +298,6 @@ A: Có, script validate:
 
 **Q: Có thể rollback không?**  
 A: Có, xóa folder template và revert 2 file: `template-registry.js`, `play-v2.js`
-
-**Q: Tại sao game không đếm plays?**  
-A: Kiểm tra:
-1. `GAME_START` message có `gameId` chưa?
-2. `gameId` được lấy từ `getGameId() || TEMPLATE_ID` chưa?
-3. Console có log `[PLAY MODE] GAME_START received` chưa?
-4. Nếu không có log → PostMessage không được gửi hoặc `gameId` sai
-
-**Q: Tại sao score không được lưu vào leaderboard?**  
-A: Kiểm tra:
-1. `GAME_SCORE` message có đầy đủ `gameId`, `score`, `level` chưa?
-2. Console có log `[PLAY MODE] Received score: XXX` chưa?
-3. Supabase có data trong table `user_game_scores` chưa?
-4. Nếu không có log → PostMessage không được gửi hoặc thiếu fields
-
-**Q: Tại sao không thưởng PLAY points?**  
-A: Kiểm tra:
-1. `GAME_SCORE` message có `gameId` và `score` chưa?
-2. `GAME_OVER` message có `gameId` chưa? (để stop timer)
-3. Timer có chạy không? (check `GAME_START` được gửi chưa)
-4. Supabase function `track_playtime_and_reward` có được gọi không?
-
-**Q: Game có level system, phải làm gì?**  
-A: Gửi `level` hiện tại trong `GAME_SCORE`:
-```javascript
-window.parent.postMessage({ 
-    type: 'GAME_SCORE',
-    gameId: gameId,
-    score: score,
-    level: currentLevel // Level hiện tại của game
-}, '*');
-```
-
-**Q: Game không có level system, phải làm gì?**  
-A: Dùng `level: 1` trong `GAME_SCORE`:
-```javascript
-window.parent.postMessage({ 
-    type: 'GAME_SCORE',
-    gameId: gameId,
-    score: score,
-    level: 1 // Game không có level, dùng 1
-}, '*');
-```
-
-**Q: Làm sao debug PostMessage?**  
-A: 
-1. Mở DevTools Console
-2. Thêm log trước khi gửi message:
-   ```javascript
-   console.log('[Game] Sending GAME_START:', { type: 'GAME_START', gameId });
-   window.parent.postMessage({ type: 'GAME_START', gameId }, '*');
-   ```
-3. Check parent window có nhận được không (check `play-v2.js` logs)
-4. Nếu không thấy logs → Kiểm tra `window.parent` có tồn tại không (có thể game đang chạy standalone)
-
-**Q: Game chạy standalone (không trong iframe), PostMessage có hoạt động không?**  
-A: Không, `window.parent === window` khi standalone. PostMessage chỉ hoạt động khi game chạy trong iframe (editor hoặc play-v2.html). Để test, phải mở qua `play-v2.html?game=playmode-{template}-XXX`.
 
 ---
 
