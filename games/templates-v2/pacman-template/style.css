@@ -498,4 +498,61 @@ body.public-game-view #gameWrapper {
   }
 }
 
+/* ====================================
+   TAP TO START OVERLAY
+   ==================================== */
+
+.tap-to-start-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.05);
+  z-index: 1999;
+  pointer-events: all;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  /* ✅ CRITICAL: Overlay visible by default in public view */
+}
+
+.tap-to-start-overlay.hidden {
+  display: none !important;
+}
+
+.tap-to-start {
+  color: #ffb642;
+  font-size: 48px;
+  font-weight: bold;
+  cursor: pointer;
+  z-index: 2000;
+  pointer-events: all;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  text-align: center;
+  text-shadow: 3px 3px 6px rgba(0, 0, 0, 1), 0 0 10px rgba(255, 182, 66, 0.5);
+  animation: pulseText 1.5s ease-in-out infinite;
+  font-family: 'Courier New', monospace;
+}
+
+@keyframes pulseText {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.6;
+    transform: scale(1.1);
+  }
+}
+
+@media screen and (max-width: 720px) {
+  .tap-to-start {
+    font-size: 36px;
+  }
+}
+
 

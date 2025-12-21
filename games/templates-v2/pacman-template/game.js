@@ -310,6 +310,15 @@ let hasSentGameStart = false;
 
 function setMobileDirection(dir, source = 'button') {
   if (!dir) return;
+  
+  // ✅ CRITICAL: Block mobile input if tap to start overlay is visible
+  if (isPublicView) {
+    const overlay = document.getElementById('tapToStartOverlay');
+    if (overlay && !overlay.classList.contains('hidden')) {
+      return; // Block input completely
+    }
+  }
+  
   mobileDirection = dir;
   mobileDirectionSource = source;
   if (source === 'swipe') {
@@ -346,8 +355,28 @@ function clearMobileDirection(source = 'button') {
 }
 
 function requestGameStartFromParent(source = 'input') {
+  // ✅ CRITICAL: Only allow game start if tap to start overlay is hidden (user tapped it)
+  if (isPublicView) {
+    const overlay = document.getElementById('tapToStartOverlay');
+    if (overlay && !overlay.classList.contains('hidden')) {
+      // Overlay still visible - don't start game unless source is tap-to-start
+      if (source !== 'tap-to-start') {
+        return; // Block game start from other sources
+      }
+    }
+  }
+  
   if (hasSentGameStart) return;
   hasSentGameStart = true;
+  
+  // ✅ Hide overlay when game starts (double-check)
+  if (isPublicView) {
+    const overlay = document.getElementById('tapToStartOverlay');
+    if (overlay) {
+      overlay.classList.add('hidden');
+    }
+  }
+  
   if (EMBEDDED_GAME_ID) {
     notifyParentGameStart(source);
   }
@@ -590,6 +619,9 @@ function initGame() {
   
   // MemePlay integration
   setupMemePlayIntegration();
+  
+  // ✅ Setup Tap to Start overlay
+  setupTapToStart();
   
   // ✅ Send ready signal immediately after successful init
   if (window.parent && window.parent !== window) {
@@ -1747,12 +1779,25 @@ function setupControls() {
     const tag = el.tagName;
     return tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || el.isContentEditable;
   };
+  
+  // ✅ Helper function to check if tap to start overlay is visible
+  function isTapToStartVisible() {
+    const overlay = document.getElementById('tapToStartOverlay');
+    return overlay && !overlay.classList.contains('hidden');
+  }
 
   window.addEventListener('keydown', (e) => {
     const key = e.key;
-    // ✅ CRITICAL: In public view, arrow keys should work immediately without clicking
-    // Prevent page scrolling with arrow keys (only allow mouse wheel scrolling)
+    // ✅ CRITICAL: Block arrow keys if tap to start overlay is visible
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(key) && !isFormElement(e.target)) {
+      // If overlay is visible, prevent input and show message
+      if (isPublicView && isTapToStartVisible()) {
+        e.preventDefault();
+        e.stopPropagation();
+        return; // Block input completely
+      }
+      
+      // Prevent page scrolling with arrow keys (only allow mouse wheel scrolling)
       e.preventDefault();
       e.stopPropagation(); // Also stop propagation to ensure no scroll
       
@@ -1765,8 +1810,8 @@ function setupControls() {
     }
     keys[key] = true;
     
-    // Test maps: Press 1-5 to jump to specific map
-    if (e.key >= '1' && e.key <= '5') {
+    // Test maps: Press 1-5 to jump to specific map (only if game started)
+    if (e.key >= '1' && e.key <= '5' && !isTapToStartVisible()) {
       const mapNum = parseInt(e.key);
       currentLevel = mapNum;
       initLevel(mapNum);
@@ -1777,6 +1822,12 @@ function setupControls() {
   window.addEventListener('keyup', (e) => {
     // ✅ CRITICAL: Also prevent default on keyup for arrow keys to ensure no scroll
     if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'].includes(e.key) && !isFormElement(e.target)) {
+      // Block if overlay is visible
+      if (isPublicView && isTapToStartVisible()) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
       e.preventDefault();
       e.stopPropagation();
     }
@@ -1845,6 +1896,20 @@ function setupSwipeControls() {
     // Allow taps on Game Over overlay (e.g., Play Again) to go through so click is not cancelled
     const target = event.target;
     if (target && target.closest('.game-over-screen')) return;
+    
+    // ✅ CRITICAL: Block swipe if tap to start overlay is visible
+    if (isPublicView) {
+      const overlay = document.getElementById('tapToStartOverlay');
+      if (overlay && !overlay.classList.contains('hidden')) {
+        // Allow tap on overlay itself
+        if (target && (target.closest('#tapToStartOverlay') || target.closest('#tapToStart'))) {
+          return; // Let overlay handle the tap
+        }
+        // Block swipe input
+        return;
+      }
+    }
+    
     // ✅ FIX: preventDefault để ngăn touch events bubble lên parent (giống rocket-bnb, brick-fallen-crypto)
     event.preventDefault();
     const touch = event.touches[0];
@@ -1857,6 +1922,15 @@ function setupSwipeControls() {
     if (!isSwiping || touchStartX === null || touchStartY === null) return;
     const target = event.target;
     if (target && target.closest('.game-over-screen')) return;
+    
+    // ✅ CRITICAL: Block swipe if tap to start overlay is visible
+    if (isPublicView) {
+      const overlay = document.getElementById('tapToStartOverlay');
+      if (overlay && !overlay.classList.contains('hidden')) {
+        return; // Block swipe input
+      }
+    }
+    
     // ✅ FIX: preventDefault để ngăn touch events bubble lên parent
     event.preventDefault();
     const touch = event.touches[0];
@@ -2043,6 +2117,12 @@ function restartGame() {
     gameOverScreen.classList.remove('active');
   }
   
+  // ✅ Hide tap to start overlay on restart (game auto-starts)
+  const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+  if (tapToStartOverlay) {
+    tapToStartOverlay.classList.add('hidden');
+  }
+  
   // Re-enable high-quality rendering after restart
   if (ctx) {
     ctx.imageSmoothingEnabled = true;
@@ -2064,6 +2144,73 @@ function restartGame() {
 // ====================================
 // MEMEPLAY INTEGRATION
 // ====================================
+
+// ====================================
+// TAP TO START OVERLAY
+// ====================================
+
+function setupTapToStart() {
+  const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+  const tapToStartBtn = document.getElementById('tapToStart');
+  
+  if (!tapToStartOverlay) {
+    console.warn('[Pacman] Tap to start overlay not found');
+    return;
+  }
+  
+  // ✅ Show overlay only in public view and when game hasn't started
+  // Overlay will be shown/hidden based on game state
+  function updateOverlayVisibility() {
+    if (isPublicView && !hasSentGameStart) {
+      tapToStartOverlay.classList.remove('hidden');
+    } else {
+      tapToStartOverlay.classList.add('hidden');
+    }
+  }
+  
+  // Initial visibility - ensure overlay is visible if game hasn't started
+  if (isPublicView && !hasSentGameStart) {
+    tapToStartOverlay.classList.remove('hidden');
+  }
+  
+  function handleTapToStart(event) {
+    // Prevent event from triggering game movement
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
+    
+    if (hasSentGameStart) return;
+    
+    // Hide overlay FIRST before allowing game to start
+    tapToStartOverlay.classList.add('hidden');
+    
+    // Trigger game start AFTER hiding overlay
+    requestGameStartFromParent('tap-to-start');
+    
+    // Unlock audio
+    setupAudioUnlock();
+    const ctx = ensureAudioContext();
+    if (ctx && ctx.state === 'suspended') {
+      ctx.resume().then(() => {
+        audioUnlocked = true;
+      }).catch(() => {});
+    } else if (ctx) {
+      audioUnlocked = true;
+    }
+  }
+  
+  // Add event listeners
+  if (tapToStartOverlay) {
+    tapToStartOverlay.addEventListener('click', handleTapToStart);
+    tapToStartOverlay.addEventListener('touchstart', handleTapToStart, { passive: false });
+  }
+  
+  if (tapToStartBtn) {
+    tapToStartBtn.addEventListener('click', handleTapToStart);
+    tapToStartBtn.addEventListener('touchstart', handleTapToStart, { passive: false });
+  }
+}
 
 function setupMemePlayIntegration() {
   const arrowKeys = new Set(['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight']);
@@ -2399,6 +2546,13 @@ window.addEventListener('DOMContentLoaded', async () => {
       score = 0;
       currentLevel = 1;
       hasSentGameStart = false;
+      
+      // ✅ CRITICAL: Show tap to start overlay in public view (MUST tap to start)
+      const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+      if (tapToStartOverlay && isPublicView) {
+        tapToStartOverlay.classList.remove('hidden');
+        console.log('[Pacman] Tap to start overlay shown - game blocked until tap');
+      }
     
       // ✅ FIX: Load mapIndex from BRAND_CONFIG before initializing level (public game mode)
       const savedMapIndex = BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0;
@@ -2471,6 +2625,13 @@ window.addEventListener('DOMContentLoaded', async () => {
         score = 0;
         currentLevel = 1;
         hasSentGameStart = false;
+        
+        // ✅ CRITICAL: Show tap to start overlay in public view (MUST tap to start)
+        const tapToStartOverlay = document.getElementById('tapToStartOverlay');
+        if (tapToStartOverlay && isPublicView) {
+          tapToStartOverlay.classList.remove('hidden');
+          console.log('[Pacman] Tap to start overlay shown - game blocked until tap');
+        }
         
         // ✅ FIX: Load mapIndex from BRAND_CONFIG before initializing level (recheck mode)
         const savedMapIndex = BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0;
