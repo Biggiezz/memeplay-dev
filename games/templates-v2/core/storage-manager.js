@@ -79,7 +79,8 @@ export function cleanupOldGameKeys(templateId, keepLatest = 1) {
       'rocket-bnb-template': 'rocket_bnb_brand_config_playmode-rocket-bnb-',
       'fallen-crypto-template': 'fallen_crypto_brand_config_playmode-fallen-crypto-',
       'space-jump-template': 'space_jump_brand_config_playmode-space-jump-',
-      'shooter-template': 'shooter_brand_config_playmode-shooter-'
+      'shooter-template': 'shooter_brand_config_playmode-shooter-',
+      'wall-bird-template': 'wall_bird_brand_config_playmode-wall-bird-'
     };
     
     const prefix = prefixMap[templateId];

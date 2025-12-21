@@ -631,6 +631,15 @@
         };
       }
       
+      // ✅ Wall-Bird: logoUrl (1 logo cho 2 vị trí: pill +5đ và gameover), storyText, backgroundColor
+      if (CURRENT_TEMPLATE === 'wall-bird-template') {
+        return {
+          logoUrl: fragmentLogoUrl,           // Logo trong pill (+5đ) và game over (1 logo cho 2 vị trí)
+          storyText: story || 'memeplay',     // Story text ở game over screen
+          backgroundColor: mapColor           // Background color (1 trong 3 màu: xanh lá nhạt, xanh blue, hồng nhạt)
+        };
+      }
+      
       // ✅ Pacman/Pixel Shooter: Format cũ
       return {
         fragmentLogoUrl: fragmentLogoUrl,

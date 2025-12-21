@@ -415,6 +415,45 @@ export const TEMPLATE_REGISTRY = {
     displayName: 'Moon Rocket',
     description: 'Launch rocket from Earth to hit the Moon',
     enabled: true
+  },
+  
+  // ✅ Wall-Bird Template
+  'wall-bird-template': {
+    adapterPath: '../wall-bird-template/editor/editor-adapter.js',
+    adapterName: 'WallBirdEditorAdapter',
+    playtestKey: 'wall_bird_brand_config_playtest',
+    playtestGameId: 'playtest-wall-bird',
+    storagePrefix: 'wall_bird_brand_config_',
+    templateUrl: '/games/templates-v2/wall-bird-template/index.html',
+    messageTypes: {
+      READY: 'WALL_BIRD_GAME_READY',
+      ERROR: 'WALL_BIRD_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      },
+      mapColor: {
+        enabled: true,
+        containerId: 'mapColors',
+        colors: [
+          { value: '#90EE90', label: 'Light Green' },
+          { value: '#87ceeb', label: 'Sky Blue' },
+          { value: '#FFB6C1', label: 'Light Pink' }
+        ]
+      }
+    },
+    displayName: 'Wall Bounce Bird',
+    description: 'Bird bouncing between walls - avoid spikes and collect points',
+    enabled: true
   }
 };
 

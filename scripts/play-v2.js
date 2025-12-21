@@ -498,50 +498,47 @@ function guessTemplateFromId(gameId) {
   
   // ✅ Special case: Rocket BNB (gameId format: playmode-rocket-bnb-XXX, template ID: rocket-bnb-template)
   if (gameId.startsWith('playmode-rocket-bnb-') || gameId.startsWith('rocket-bnb-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected rocket-bnb-template from gameId: ${gameId}`)
     return 'rocket-bnb-template'
   }
   
   // ✅ Special case: Fallen Crypto (gameId format: playmode-fallen-crypto-XXX, template ID: fallen-crypto-template)
   if (gameId.startsWith('playmode-fallen-crypto-') || gameId.startsWith('fallen-crypto-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected fallen-crypto-template from gameId: ${gameId}`)
     return 'fallen-crypto-template'
   }
   
   // ✅ Special case: Space Jump (gameId format: playmode-space-jump-XXX, template ID: space-jump-template)
   if (gameId.startsWith('playmode-space-jump-') || gameId.startsWith('space-jump-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected space-jump-template from gameId: ${gameId}`)
     return 'space-jump-template'
   }
   
   // ✅ Special case: Shooter (gameId format: playmode-shooter-XXX, template ID: shooter-template)
   if (gameId.startsWith('playmode-shooter-') || gameId.startsWith('shooter-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected shooter-template from gameId: ${gameId}`)
     return 'shooter-template'
   }
   
   // ✅ Special case: Arrow (gameId format: playmode-arrow-XXX, template ID: arrow-template)
   if (gameId.startsWith('playmode-arrow-') || gameId.startsWith('arrow-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected arrow-template from gameId: ${gameId}`)
     return 'arrow-template'
   }
   
   // ✅ Special case: Draw Runner (gameId format: playmode-draw-runner-XXX, template ID: draw-runner-template)
   if (gameId.startsWith('playmode-draw-runner-') || gameId.startsWith('draw-runner-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected draw-runner-template from gameId: ${gameId}`)
     return 'draw-runner-template'
   }
   
   // ✅ Special case: Knife Fix (gameId format: playmode-knife-fix-XXX, template ID: knife-fix-template)
   if (gameId.startsWith('playmode-knife-fix-') || gameId.startsWith('knife-fix-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected knife-fix-template from gameId: ${gameId}`)
     return 'knife-fix-template'
   }
   
   // ✅ Special case: Moon (gameId format: playmode-moon-XXX, template ID: moon-template)
   if (gameId.startsWith('playmode-moon-') || gameId.startsWith('moon-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected moon-template from gameId: ${gameId}`)
     return 'moon-template'
+  }
+  
+  // ✅ Special case: Wall-Bird (gameId format: playmode-wall-bird-XXX, template ID: wall-bird-template)
+  if (gameId.startsWith('playmode-wall-bird-') || gameId.startsWith('wall-bird-')) {
+    return 'wall-bird-template'
   }
   
   // ✅ Loop qua tất cả templates trong registry
@@ -557,7 +554,6 @@ function guessTemplateFromId(gameId) {
     
     for (const pattern of patterns) {
       if (gameId.startsWith(pattern)) {
-        console.log(`[PLAY MODE V2] 🎯 Detected template: ${templateId} from gameId: ${gameId}`)
         return templateId
       }
     }
@@ -566,13 +562,9 @@ function guessTemplateFromId(gameId) {
   // ✅ Fallback: Legacy templates (không có trong registry)
   if (gameId.startsWith('playmode-blocks-') || gameId.startsWith('blocks-')) return BLOCKS_TEMPLATE_ID
   if (gameId.startsWith('playmode-wall-bounce-bird-') || gameId.startsWith('wall-bounce-bird-')) return WALL_BOUNCE_BIRD_TEMPLATE_ID
-  if (gameId.startsWith('playmode-blow-bubble-') || gameId.startsWith('blow-bubble-')) {
-    console.log(`[PLAY MODE V2] 🎯 Detected blow-bubble game: ${gameId}`)
-    return BLOW_BUBBLE_TEMPLATE_ID
-  }
+  if (gameId.startsWith('playmode-blow-bubble-') || gameId.startsWith('blow-bubble-')) return BLOW_BUBBLE_TEMPLATE_ID
   if (gameId.startsWith('playmode-pacman-') || gameId.startsWith('pacman-')) return PACMAN_TEMPLATE_ID
   
-  console.log(`[PLAY MODE V2] ⚠️ Could not guess template from gameId: ${gameId}`)
   return null
 }
 
@@ -700,6 +692,15 @@ function normalizeGame(templateId, gameId, raw = {}, options = {}) {
     }
   }
   
+  // ✅ Wall-Bird: Xử lý storyText (từ localStorage) hoặc story_one (từ Supabase)
+  const isWallBird = normalizedTemplateId === 'wall-bird-template' || templateId === 'wall-bird-template' || templateId === 'wall-bird'
+  if (isWallBird) {
+    const storyText = raw.storyText || raw.story_one || raw.story_text
+    if (typeof storyText === 'string' && storyText.trim()) {
+      stories = [storyText.trim()]
+    }
+  }
+  
   if (!stories.length) {
     if (isBlocks || isWall || isBubble) {
       const story = raw.story || raw.story_one
@@ -725,8 +726,8 @@ function normalizeGame(templateId, gameId, raw = {}, options = {}) {
     (isBlocks ? '#0a0a0a' : isWall ? '#87ceeb' : isBubble ? '#87CEEB' : '#1a1a2e')
   const mapColor = raw.mapColor || raw.map_color || defaultMapColor
   
-  // ✅ Background Color: Chỉ cho wall-bounce-bird và blow-bubble - dùng normalized ID
-  const needsBackgroundColor = ['wall-bounce-bird', 'blow-bubble'].includes(normalizedTemplateId)
+  // ✅ Background Color: Chỉ cho wall-bounce-bird, wall-bird-template và blow-bubble - dùng normalized ID
+  const needsBackgroundColor = ['wall-bounce-bird', 'wall-bird-template', 'blow-bubble'].includes(normalizedTemplateId)
   const backgroundColor = needsBackgroundColor 
     ? (raw.backgroundColor || raw.background_color || raw.map_color || mapColor)
     : undefined
@@ -803,12 +804,9 @@ function loadGameFromLocalStorage(gameId) {
     return null
   }
   
-  console.log(`[PLAY MODE] 🔍 loadGameFromLocalStorage: Looking for gameId: ${gameId}`)
-  
   try {
     // ✅ 1. Guess template từ gameId
     const templateId = guessTemplateFromId(gameId)
-    console.log(`[PLAY MODE] 🔍 Guessed template ID: ${templateId} for gameId: ${gameId}`)
     
     if (!templateId) {
       console.warn(`[PLAY MODE] ⚠️ Could not guess template from gameId: ${gameId}`)
@@ -817,7 +815,6 @@ function loadGameFromLocalStorage(gameId) {
     
     // ✅ 2. Lấy storage prefix từ registry hoặc legacy fallback
     let storagePrefix = getStoragePrefix(templateId)
-    console.log(`[PLAY MODE] 🔍 Storage prefix from registry: ${storagePrefix || 'null'} for template: ${templateId}`)
     
     // ✅ Fallback: Legacy templates (không có trong registry)
     if (!storagePrefix) {
@@ -828,47 +825,28 @@ function loadGameFromLocalStorage(gameId) {
         [PACMAN_TEMPLATE_ID]: PACMAN_STORAGE_PREFIX
       }
       storagePrefix = legacyPrefixes[templateId]
-      if (storagePrefix) {
-        console.log(`[PLAY MODE] 🔍 Using legacy storage prefix: ${storagePrefix}`)
-      }
     }
     
     if (!storagePrefix) {
       console.warn(`[PLAY MODE] ⚠️ No storage prefix found for template: ${templateId}`)
-      console.warn(`[PLAY MODE] ⚠️ Registry config:`, getTemplateConfig(templateId))
       return null
     }
     
     // ✅ 3. Load từ localStorage - thử tất cả variants của gameId (dùng chung cho TẤT CẢ templates)
     const gameIdVariants = getGameIdVariants(gameId)
-    console.log(`[PLAY MODE] 🔍 Trying gameId variants: ${gameIdVariants.join(', ')}`)
     let raw = null
     let foundGameId = null
     
     for (const variant of gameIdVariants) {
       const storageKey = `${storagePrefix}${variant}`
-      console.log(`[PLAY MODE] 🔍 Checking localStorage key: ${storageKey}`)
       raw = localStorage.getItem(storageKey)
       if (raw) {
         foundGameId = variant
-        console.log(`[PLAY MODE] ✅ Found game in localStorage with variant: ${variant} (original: ${gameId})`)
-        console.log(`[PLAY MODE] ✅ Storage key: ${storageKey}`)
         break
-      } else {
-        console.log(`[PLAY MODE] ❌ Not found in localStorage key: ${storageKey}`)
       }
     }
     
     if (!raw) {
-      console.log(`[PLAY MODE] ❌ Game not found in localStorage for variants: ${gameIdVariants.join(', ')}`)
-      console.log(`[PLAY MODE] ❌ Storage prefix used: ${storagePrefix}`)
-      // ✅ DEBUG: List all localStorage keys với prefix này
-      const allKeys = Object.keys(localStorage).filter(key => key.startsWith(storagePrefix))
-      if (allKeys.length > 0) {
-        console.log(`[PLAY MODE] 📋 Available localStorage keys with prefix "${storagePrefix}":`, allKeys)
-      } else {
-        console.log(`[PLAY MODE] 📋 No localStorage keys found with prefix "${storagePrefix}"`)
-      }
       return null
     }
     
@@ -955,6 +933,25 @@ function loadGameFromLocalStorage(gameId) {
       }
     }
     
+    // ✅ Wall-Bird: Hỗ trợ storyText, logoUrl, backgroundColor
+    if (templateId === 'wall-bird-template' || templateId === 'wall-bird') {
+      if (config.storyText || config.story) {
+        const storyText = config.storyText || config.story || 'memeplay'
+        gameData.stories = [storyText]
+        if (!gameData.title) {
+          gameData.title = config.title || `Wall Bird – ${storyText.slice(0, 24)}`
+        }
+      }
+      // Wall-Bird dùng logoUrl làm fragmentLogoUrl
+      if (config.logoUrl && !gameData.fragmentLogoUrl) {
+        gameData.fragmentLogoUrl = config.logoUrl
+      }
+      // Wall-Bird dùng backgroundColor
+      if (config.backgroundColor) {
+        gameData.backgroundColor = config.backgroundColor
+      }
+    }
+    
     // ✅ Legacy: Pacman có creator_id riêng
     if (templateId === PACMAN_TEMPLATE_ID || templateId === 'pacman') {
       const creatorId = localStorage.getItem('pacman_creator_id') || 'Creator'
@@ -979,15 +976,11 @@ function loadGameFromLocalStorage(gameId) {
 // ✅ Refactor: Dùng registry thay vì hardcode
 async function fetchGameFromSupabase(gameId) {
   if (!gameId) {
-    console.log('[PLAY MODE] ⚠️ fetchGameFromSupabase: gameId is empty')
     return null
   }
   
-  console.log(`[PLAY MODE] 🔍 fetchGameFromSupabase: Looking for gameId: ${gameId}`)
-  
   // ✅ 1. Guess template từ gameId
   const guessedTemplate = guessTemplateFromId(gameId)
-  console.log(`[PLAY MODE] 🔍 Guessed template: ${guessedTemplate} for gameId: ${gameId}`)
   
   // ✅ 2. Template ID variants mapping (registry ID ↔ editor ID)
   // Editor saves to Supabase with '-template' suffix, registry uses short ID
@@ -1008,7 +1001,9 @@ async function fetchGameFromSupabase(gameId) {
     'draw-runner-template': ['draw-runner-template', 'draw-runner'],
     'draw-runner': ['draw-runner-template', 'draw-runner'],
     'moon-template': ['moon-template', 'moon'],
-    'moon': ['moon-template', 'moon']
+    'moon': ['moon-template', 'moon'],
+    'wall-bird-template': ['wall-bird-template', 'wall-bird'],
+    'wall-bird': ['wall-bird-template', 'wall-bird']
   }
   
   // ✅ 3. OPTIMIZED: Smart template prioritization
@@ -1038,6 +1033,7 @@ async function fetchGameFromSupabase(gameId) {
       'draw-runner-template',
       'knife-fix-template',
       'moon-template',
+      'wall-bird-template',
       // Thêm editor variants cho các templates này
       'pacman-template',
       'pixel-shooter-template',
@@ -1047,34 +1043,24 @@ async function fetchGameFromSupabase(gameId) {
       'shooter',
       'draw-runner',
       'knife-fix',
-      'moon'
+      'moon',
+      'wall-bird'
     ]
   }
   
   // Remove duplicates
   templateCandidates = [...new Set(templateCandidates)]
-
-  console.log(`[PLAY MODE] 🔍 Template candidates to check: ${templateCandidates.join(', ')}`)
   
   for (const templateId of templateCandidates) {
     try {
-      console.log(`[PLAY MODE] 🔍 Checking Supabase template: ${templateId} for game: ${gameId}`)
       const { data, error } = await supabase.rpc('list_user_created_games', { p_template_id: templateId })
       if (error) {
         console.warn(`[PLAY MODE] Supabase RPC failed (${templateId}):`, error.message || error)
         continue
       }
       if (!Array.isArray(data)) {
-        console.log(`[PLAY MODE] ⚠️ Supabase returned non-array for ${templateId}`)
         continue
       }
-      console.log(`[PLAY MODE] 📋 Found ${data.length} games in template ${templateId}`)
-      // Log all game IDs found for debugging
-      const normalizeId = (id) => (id || '').trim().toLowerCase()
-      const foundGameIds = data
-        .map(item => item?.game_id || item?.id || item?.gameId)
-        .filter(Boolean)
-      console.log(`[PLAY MODE] 📋 Game IDs found in Supabase:`, foundGameIds)
       
       // ✅ OPTIMIZED: Chỉ thử 2 variants quan trọng nhất (bỏ -probe suffix)
       // Variant 1: gameId gốc
@@ -1095,12 +1081,12 @@ async function fetchGameFromSupabase(gameId) {
       
       // Remove duplicates
       const uniqueVariants = [...new Set(gameIdVariants)]
-      console.log(`[PLAY MODE] 🔍 Looking for game ID variants: ${uniqueVariants.join(', ')}`)
       
       let match = null
       let matchedGameId = null
       
       // ✅ OPTIMIZED: Early return khi tìm thấy
+      const normalizeId = (id) => (id || '').trim().toLowerCase()
       for (const variant of uniqueVariants) {
         match = data.find(item => {
           const itemId = item?.game_id || item?.id || item?.gameId
@@ -1108,15 +1094,12 @@ async function fetchGameFromSupabase(gameId) {
         })
         if (match) {
           matchedGameId = variant
-          console.log(`[PLAY MODE] ✅ Found game ${variant} in template ${templateId} (original: ${gameId})`)
           break
         }
       }
       
       // ✅ OPTIMIZED: Bỏ fallback logic (không dùng record đầu tiên nếu không match)
       if (!match) {
-        console.log(`[PLAY MODE] ⚠️ Game variants ${uniqueVariants.join(', ')} not found in template ${templateId}`)
-        console.log(`[PLAY MODE] ⚠️ Available game IDs: ${foundGameIds.join(', ')}`)
         continue // Check template tiếp theo
       }
 
@@ -1218,7 +1201,7 @@ function buildUserGameCard(game) {
 
   // ✅ PostMessage config: Cho legacy templates và Templates V2 with UPDATE_CONFIG
   const legacyTemplates = [BLOCKS_TEMPLATE_ID, WALL_BOUNCE_BIRD_TEMPLATE_ID, BLOW_BUBBLE_TEMPLATE_ID]
-  const templatesV2WithPostMessage = ['space-jump-template', 'shooter-template', 'moon-template', 'knife-fix-template']
+  const templatesV2WithPostMessage = ['space-jump-template', 'shooter-template', 'moon-template', 'knife-fix-template', 'wall-bird-template']
   const needsPostMessage = legacyTemplates.includes(templateId) || templatesV2WithPostMessage.includes(templateId)
   
   if (needsPostMessage) {
@@ -1231,7 +1214,8 @@ function buildUserGameCard(game) {
         'space-jump-template': 'UPDATE_CONFIG',
         'shooter-template': 'UPDATE_CONFIG',
         'moon-template': 'UPDATE_CONFIG',
-        'knife-fix-template': 'UPDATE_CONFIG'
+        'knife-fix-template': 'UPDATE_CONFIG',
+        'wall-bird-template': 'UPDATE_CONFIG'
       }
       
       let payload
@@ -1263,6 +1247,16 @@ function buildUserGameCard(game) {
             logoUrl: game.fragmentLogoUrl || '',
             storyText: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : 'memeplay',
             mapColor: game.mapColor || '#1a1a2e'
+          }
+        }
+      } else if (templateId === 'wall-bird-template') {
+        // Wall-Bird uses UPDATE_CONFIG format
+        payload = {
+          type: 'UPDATE_CONFIG',
+          config: {
+            logoUrl: game.fragmentLogoUrl || '',
+            storyText: Array.isArray(game.stories) && game.stories.length > 0 ? game.stories[0] : 'memeplay',
+            backgroundColor: game.backgroundColor || game.mapColor || '#87ceeb'
           }
         }
       } else {

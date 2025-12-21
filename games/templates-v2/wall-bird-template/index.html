@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Wall Bounce Bird - MemePlay</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas" width="720" height="1000"></canvas>
+        
+        <!-- HUD -->
+        <div id="hud" aria-live="polite">
+            <span id="score-label">Score: 0</span>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay start-screen active">
+            <button id="start-btn">Tap to Start</button>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="overlay game-over-screen" style="display: none !important;">
+            <div class="overlay-card">
+                <h1>GAME OVER</h1>
+                <canvas id="gameover-pill-logo" class="game-over-pill-logo" style="display: none;"></canvas>
+                <p id="final-score-text">Score: 0</p>
+                <p class="promo-text" id="promo-text"></p>
+                <button id="retry-btn">Play Again</button>
+            </div>
+        </div>
+    </div>
+    
+    <script type="module" src="config.js"></script>
+    <script type="module" src="game.js"></script>
+</body>
+</html>
+

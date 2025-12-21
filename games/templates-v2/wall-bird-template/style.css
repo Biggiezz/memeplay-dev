@@ -1,0 +1,204 @@
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  width: 100%;
+  font-family: "Inter", system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  background: #040b1a;
+  color: #fff;
+  overflow: hidden;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  touch-action: none;
+}
+
+body {
+  position: relative;
+}
+
+#game-container {
+  position: relative;
+  width: min(100vw, 720px);
+  height: min(100vh, calc(100vw * 1000 / 720));
+  max-height: 100vh;
+  margin: 0 auto;
+  overflow: hidden;
+}
+
+#game-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: #87ceeb;
+  border-radius: 28px;
+  box-shadow: 0 30px 120px rgba(0,0,0,0.35);
+  touch-action: none;
+  object-fit: contain;
+}
+
+#hud {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  font-size: clamp(16px, 2vw, 24px);
+  text-shadow: 0 4px 14px rgba(0,0,0,0.45);
+  pointer-events: none;
+  z-index: 5;
+}
+
+#score-label {
+  position: relative;
+  left: 50px;
+  top: 10px;
+  font-size: clamp(27.2px, 3.4vw, 40.8px); /* 70% larger than default */
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 24px;
+  z-index: 10;
+  pointer-events: none; /* Allow clicks to pass through to canvas */
+}
+
+.overlay.hidden { 
+  display: none; 
+}
+
+.overlay.active {
+  pointer-events: auto !important;
+}
+
+.overlay-card {
+  width: min(420px, 90vw);
+  background: rgba(5,7,14,0.92);
+  border: 1px solid rgba(255,196,106,0.45);
+  border-radius: 20px;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  box-shadow: 0 20px 80px rgba(0,0,0,0.6);
+}
+
+.overlay-card h1 {
+  margin: 0;
+  font-size: clamp(32px, 8vw, 48px);
+  letter-spacing: 0.12em;
+  color: #ffd447;
+}
+
+.overlay-card p { 
+  margin: 0; 
+  line-height: 1.5; 
+  color: #e6ecff; 
+}
+
+.overlay-card button {
+  padding: 14px 22px;
+  border-radius: 12px;
+  border: none;
+  background: linear-gradient(120deg, #ffd447, #ff9a2f);
+  color: #1d0f00;
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 30px rgba(255,148,55,0.35);
+  transition: transform 0.2s ease;
+  pointer-events: auto; /* Button itself is clickable */
+}
+
+#start-btn {
+  padding: 14px 22px;
+  border-radius: 12px;
+  border: none;
+  background: transparent; /* ✅ Xóa background vàng */
+  color: #fff; /* ✅ Đổi màu chữ thành trắng */
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: none; /* ✅ Xóa shadow */
+  transition: transform 0.2s ease;
+  animation: blink 1.5s ease-in-out infinite;
+  pointer-events: auto;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.5); /* ✅ Thêm text shadow để dễ đọc */
+}
+
+.overlay-card button:active,
+#start-btn:active { 
+  transform: scale(0.96); 
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.promo-text {
+  font-style: italic;
+  color: #c8d6ff;
+  font-size: 15px;
+  opacity: 0.9;
+}
+
+.game-over-logo {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  border: 3px solid #ffd447;
+  object-fit: contain;
+  margin: 0 auto 20px;
+  display: block;
+  background: rgba(255, 255, 255, 0.1);
+  padding: 8px;
+}
+
+.game-over-pill-logo {
+  width: 95px; /* 56px * 1.7 = 95.2px, rounded to 95px */
+  height: 95px;
+  margin: 0 auto 12px;
+  display: block;
+  background: transparent; /* Ensure no background */
+}
+
+@media (max-width: 768px) {
+  #hud { 
+    top: 12px; 
+    font-size: 16px; 
+  }
+  
+  #game-container {
+    width: 100vw;
+    height: min(100vh, calc(100vw * 1000 / 720));
+    max-height: 100vh;
+  }
+  
+  #game-canvas {
+    border-radius: 0; /* Remove border radius on mobile for full screen */
+  }
+  
+  .overlay-card { 
+    padding: 24px; 
+  }
+  
+  .game-over-logo {
+    width: 80px;
+    height: 80px;
+  }
+}
+
