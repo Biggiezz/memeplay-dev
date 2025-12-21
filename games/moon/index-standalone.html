@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Moon Rocket - MemePlay</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html, body {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            touch-action: none;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: #000;
+        }
+
+        #game-container {
+            position: relative;
+            width: 720px;
+            height: 1000px;
+            max-width: 100vw;
+            max-height: 100vh;
+            margin: 0 auto;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        #game-canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            image-rendering: -webkit-optimize-contrast;
+            image-rendering: crisp-edges;
+            will-change: transform;
+        }
+
+        @media (max-width: 720px) {
+            #game-container {
+                width: 100vw;
+                height: calc(100vw * 1000 / 720);
+                max-height: 100vh;
+            }
+        }
+
+        @media (max-height: 1000px) and (min-width: 720px) {
+            #game-container {
+                height: 100vh;
+                width: calc(100vh * 720 / 1000);
+            }
+        }
+
+        #hud {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100px;
+            z-index: 10;
+            pointer-events: none;
+        }
+
+        #score {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 48px;
+            font-weight: bold;
+            color: #F4D03F;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #timer {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 64px;
+            font-weight: bold;
+            color: #FFF;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+        }
+
+        #lives {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 60px;
+            line-height: 1;
+        }
+
+        @media (max-width: 720px) {
+            #score {
+                font-size: 36px;
+                top: 15px;
+                left: 15px;
+            }
+            
+            #timer {
+                font-size: 48px;
+                top: 15px;
+            }
+            
+            #lives {
+                font-size: 45px;
+                top: 15px;
+                right: 15px;
+            }
+        }
+
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+            pointer-events: none;
+            display: none;
+        }
+
+        .overlay.active {
+            display: flex;
+            pointer-events: all;
+        }
+
+        .start-screen {
+            background: rgba(0, 0, 0, 0.6);
+            flex-direction: column;
+            gap: 30px;
+        }
+
+        .start-screen.active {
+            display: flex;
+        }
+
+        .start-screen h1 {
+            font-size: 48px;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 4px 8px rgba(0, 0, 0, 0.8);
+            text-align: center;
+            padding: 0 20px;
+        }
+
+        @media (max-width: 720px) {
+            .start-screen h1 {
+                font-size: 36px;
+                padding: 0 15px;
+            }
+        }
+
+        .game-over-screen {
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            flex-direction: column;
+            gap: 20px;
+            display: none !important;
+        }
+
+        .game-over-screen.active {
+            display: flex !important;
+        }
+
+        .game-over-box {
+            background: white;
+            padding: 40px;
+            border-radius: 20px;
+            text-align: center;
+            min-width: 300px;
+        }
+
+        .game-over-box h2 {
+            font-size: 36px;
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        .game-over-box p {
+            font-size: 24px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+
+        .restart-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            margin-top: 20px;
+        }
+
+        .restart-btn:hover {
+            transform: scale(1.05);
+        }
+
+        @media (max-width: 720px) {
+            .game-over-box {
+                transform: scale(0.7);
+                transform-origin: center center;
+            }
+        }
+    </style>
+    <script>
+        // Inline config để không cần ES modules
+        const BRAND_CONFIG = {
+            logoUrl: 'assets/1download.webp',
+            storyText: 'MEMEPLAY'
+        };
+
+        const TEMPLATE_ID = 'moon-template';
+    </script>
+</head>
+<body>
+    <div id="game-container">
+        <canvas id="game-canvas" width="720" height="1000"></canvas>
+
+        <!-- HUD -->
+        <div id="hud">
+            <div id="score">0</div>
+            <div id="timer">10</div>
+            <div id="lives">❤️❤️❤️</div>
+        </div>
+
+        <!-- Start Screen -->
+        <div id="start-screen" class="overlay start-screen active">
+            <h1>Tap to Launch Rocket</h1>
+        </div>
+
+        <!-- Game Over Screen -->
+        <div id="gameover-screen" class="overlay game-over-screen">
+            <div class="game-over-box">
+                <h2>Game Over!</h2>
+                <img id="gameover-logo" src="assets/bnb-logo.webp" alt="BNB Logo" style="width: 200px; height: 200px; object-fit: contain; margin: 20px auto; display: block;">
+                <p>Score: <span id="final-score">0</span></p>
+                <p id="story-text" style="font-size: 20px; color: #333; margin: 10px 0;">MEMEPLAY</p>
+                <button id="restart-btn" class="restart-btn">Play Again</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Load game.js as regular script (not module)
+        // We'll inline a simplified version here
+        console.log('Moon Rocket Game - Standalone Version');
+        console.log('Note: Full game requires server due to ES modules');
+        console.log('Please use index.html with a local server');
+        
+        // Show message
+        alert('This is a placeholder. Please use index.html with a local server.\n\nTo start server:\n1. Run START-SERVER.bat in this folder\n2. Or run: python -m http.server 8000\n3. Then open: http://localhost:8000/games/moon/index.html');
+    </script>
+</body>
+</html>
+

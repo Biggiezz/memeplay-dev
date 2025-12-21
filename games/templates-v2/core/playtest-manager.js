@@ -282,6 +282,13 @@ export function sendConfigToIframe(iframe, templateId, config) {
         storyText: config.storyText,
         mapColor: config.mapColor
       });
+    } else if (templateId === 'moon-template') {
+      console.log('[PlaytestManager] ✅ Sent UPDATE_CONFIG to iframe (instant update):', {
+        templateId,
+        hasLogo: !!config.logoUrl,
+        storyText: config.storyText,
+        mapColor: config.mapColor
+      });
     } else {
       console.log('[PlaytestManager] ✅ Sent UPDATE_CONFIG to iframe (instant update):', {
         templateId,

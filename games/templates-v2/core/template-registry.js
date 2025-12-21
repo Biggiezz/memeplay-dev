@@ -366,6 +366,55 @@ export const TEMPLATE_REGISTRY = {
     displayName: 'Knife Fix',
     description: 'Knife throwing game - throw knives at rotating cake',
     enabled: true
+  },
+  
+  // ✅ Moon Template
+  'moon-template': {
+    adapterPath: '../moon-template/editor/editor-adapter.js',
+    adapterName: 'MoonEditorAdapter',
+    
+    // Storage keys
+    playtestKey: 'moon_brand_config_playtest',
+    playtestGameId: 'playtest-moon',
+    storagePrefix: 'moon_brand_config_',
+    
+    // Template URL
+    templateUrl: '/games/templates-v2/moon-template/index.html',
+    
+    // Message types
+    messageTypes: {
+      READY: 'MOON_GAME_READY',
+      ERROR: 'MOON_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    
+    // UI Fields configuration
+    uiFields: {
+      mapColor: {
+        enabled: true,
+        containerId: 'mapColors',
+        colors: [
+          { value: '#1a0a2e', label: 'Cosmic Purple' },
+          { value: '#0a0a1a', label: 'Deep Space' },
+          { value: '#0a1a2e', label: 'Nebula Blue' }
+        ]
+      },
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      }
+    },
+    
+    // Template metadata
+    displayName: 'Moon Rocket',
+    description: 'Launch rocket from Earth to hit the Moon',
+    enabled: true
   }
 };
 

@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Moon Rocket - Open in Cursor</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            font-family: Arial, sans-serif;
+            background: #1e1e1e;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        .container {
+            text-align: center;
+            max-width: 600px;
+        }
+        h1 {
+            color: #F4D03F;
+            margin-bottom: 30px;
+        }
+        .link-box {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border: 2px solid #F4D03F;
+        }
+        .link-box a {
+            color: #4A90E2;
+            font-size: 18px;
+            word-break: break-all;
+            text-decoration: none;
+        }
+        .link-box a:hover {
+            text-decoration: underline;
+        }
+        .instructions {
+            background: #2d2d2d;
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+            text-align: left;
+        }
+        .instructions ol {
+            margin: 10px 0;
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 10px 0;
+        }
+        .button {
+            display: inline-block;
+            background: #4A90E2;
+            color: white;
+            padding: 15px 30px;
+            border-radius: 5px;
+            text-decoration: none;
+            margin: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            border: none;
+        }
+        .button:hover {
+            background: #357ABD;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 Moon Rocket Game</h1>
+        
+        <div class="link-box">
+            <p><strong>Link để test game:</strong></p>
+            <a href="http://localhost:5500/games/moon/index.html" target="_blank">
+                http://localhost:5500/games/moon/index.html
+            </a>
+        </div>
+
+        <div class="instructions">
+            <h3>📋 Cách mở game trong Cursor:</h3>
+            <ol>
+                <li><strong>Cách 1 - Dùng server có sẵn:</strong>
+                    <ul>
+                        <li>Chạy file <code>START-LOCAL-SERVER.bat</code> ở thư mục root</li>
+                        <li>Server sẽ chạy trên port 5500</li>
+                        <li>Click vào link phía trên hoặc copy vào Cursor browser</li>
+                    </ul>
+                </li>
+                <li><strong>Cách 2 - Mở file trực tiếp:</strong>
+                    <ul>
+                        <li>Click chuột phải vào file <code>index.html</code></li>
+                        <li>Chọn "Open with Live Server" (nếu có extension)</li>
+                        <li>Hoặc double-click để mở trong browser mặc định</li>
+                    </ul>
+                </li>
+                <li><strong>Cách 3 - Dùng Python server:</strong>
+                    <ul>
+                        <li>Mở terminal trong Cursor</li>
+                        <li>Chạy: <code>python -m http.server 8000</code></li>
+                        <li>Mở: <code>http://localhost:8000/games/moon/index.html</code></li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <button class="button" onclick="window.open('index.html', '_blank')">
+            Mở Game Trực Tiếp
+        </button>
+    </div>
+</body>
+</html>
+
+
