@@ -1526,10 +1526,8 @@ function bindSocialInteractions(card, gameId) {
 
 // ✅ Refactor: Dùng registry thay vì hardcode
 function updateDocumentTitle(card) {
-  const templateId = card?.dataset?.templateId
-  const config = getTemplateConfig(templateId)
-  const templateName = config?.displayName || templateId || 'MemePlay'
-  document.title = `${templateName} – MemePlay`
+  // ✅ Always use "MemePlay" for all playmode links
+  document.title = 'MemePlay'
 }
 
 async function renderGameCard(gameId) {
@@ -1647,6 +1645,7 @@ let activeGame = null
 let activeStartTime = 0
 let progressInterval = null
 let playCountIncremented = false // ✅ Flag to ensure play count is only incremented once per game session
+let stopGameInProgress = false // ✅ Flag to prevent double call to stopGame()
 
 function startGame(gameId) {
   if (activeGame && activeGame !== gameId) stopGame()
@@ -1656,6 +1655,7 @@ function startGame(gameId) {
   activeStartTime = Date.now()
   isGameOver = false // ✅ Reset flag when starting new game
   playCountIncremented = false // ✅ Reset play count flag for new game session
+  stopGameInProgress = false // ✅ Reset flag when starting new game
   console.log(`[PLAY MODE] ▶️ Game ${gameId} started`)
   
   const activeCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
@@ -1892,7 +1892,11 @@ function showPendingAchievements(gameId) {
 }
 
 async function stopGame() {
-  if (!activeGame || !activeStartTime) return
+  // ✅ Prevent double call: if already in progress or no active game, return early
+  if (stopGameInProgress || !activeGame || !activeStartTime) return
+  
+  // ✅ Set flag to prevent concurrent calls
+  stopGameInProgress = true
   
   const seconds = Math.floor((Date.now() - activeStartTime) / 1000)
   if (seconds > 0) {
@@ -1986,6 +1990,9 @@ async function stopGame() {
   
   const activeCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
   if (activeCard) activeCard.classList.remove('is-playing')
+  
+  // ✅ Reset flag after completion
+  stopGameInProgress = false
 }
 
 // Listen for GAME_START, GAME_OVER, and GAME_SCORE messages

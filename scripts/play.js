@@ -1,7 +1,15 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { 
+  TEMPLATE_REGISTRY,
+  getTemplateConfig,
+  getEnabledTemplates,
+  getTemplateUrl
+} from '../games/templates-v2/core/template-registry.js'
 
 const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co'
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ'
+
+// ✅ Legacy V1 template IDs (backward compatibility)
 const PACMAN_TEMPLATE_ID = 'pacman-template'
 const BLOCKS_TEMPLATE_ID = 'blocks-8x8'
 const WALL_BOUNCE_BIRD_TEMPLATE_ID = 'wall-bounce-bird'
@@ -402,16 +410,44 @@ async function fetchStaticGameMarkup(gameId) {
   return root.querySelector(`#${escaped}`) || root.querySelector(`.game-card[data-game-id="${gameId}"]`)
 }
 
+// ✅ Guess template from gameId (support V1 and V2)
 function guessTemplateFromId(gameId) {
   if (!gameId) return null
+  
+  // ✅ V1 templates (backward compatibility)
   if (gameId.startsWith('blocks-')) return BLOCKS_TEMPLATE_ID
   if (gameId.startsWith('wall-bounce-bird-')) return WALL_BOUNCE_BIRD_TEMPLATE_ID
   if (gameId.startsWith('blow-bubble-')) {
-    console.log(`[PLAY MODE] 🎯 Detected blow-bubble game: ${gameId}`)
     return BLOW_BUBBLE_TEMPLATE_ID
   }
   if (gameId.startsWith('pacman-')) return PACMAN_TEMPLATE_ID
-  console.log(`[PLAY MODE] ⚠️ Could not guess template from gameId: ${gameId}`)
+  
+  // ✅ V2 templates (playmode-*)
+  if (gameId.startsWith('playmode-')) {
+    // Extract template name from gameId: playmode-{template}-{id}
+    const parts = gameId.split('-')
+    if (parts.length >= 3) {
+      const templateName = parts[1] // e.g., 'fallen-crypto', 'moon', 'pacman'
+      
+      // Try exact match first
+      if (TEMPLATE_REGISTRY[templateName]) {
+        return templateName
+      }
+      
+      // Try with -template suffix
+      const withSuffix = `${templateName}-template`
+      if (TEMPLATE_REGISTRY[withSuffix]) {
+        return withSuffix
+      }
+      
+      // Try legacy V1 mappings
+      if (templateName === 'pacman') return PACMAN_TEMPLATE_ID
+      if (templateName === 'blocks') return BLOCKS_TEMPLATE_ID
+      if (templateName === 'wall' || templateName === 'wall-bounce-bird') return WALL_BOUNCE_BIRD_TEMPLATE_ID
+      if (templateName === 'blow' || templateName === 'blow-bubble') return BLOW_BUBBLE_TEMPLATE_ID
+    }
+  }
+  
   return null
 }
 
@@ -484,10 +520,8 @@ function loadGameFromLocalStorage(gameId) {
     }
     if (gameId.startsWith('blow-bubble-')) {
       const storageKey = `${BLOW_BUBBLE_STORAGE_PREFIX}${gameId}`
-      console.log(`[PLAY MODE] 🔍 Checking localStorage for Blow Bubble game: ${gameId} (key: ${storageKey})`)
       const raw = localStorage.getItem(storageKey)
       if (!raw) {
-        console.log(`[PLAY MODE] ⚠️ Blow Bubble game not found in localStorage: ${storageKey}`)
         return null
       }
       const config = JSON.parse(raw)
@@ -530,46 +564,86 @@ function loadGameFromLocalStorage(gameId) {
 
 async function fetchGameFromSupabase(gameId) {
   if (!gameId) return null
-  const templateCandidates = guessTemplateFromId(gameId)
-    ? [guessTemplateFromId(gameId)]
-    : [PACMAN_TEMPLATE_ID, BLOCKS_TEMPLATE_ID, WALL_BOUNCE_BIRD_TEMPLATE_ID, BLOW_BUBBLE_TEMPLATE_ID]
+  
+  // ✅ Get template candidates: guessed template first, then all enabled templates
+  const guessedTemplate = guessTemplateFromId(gameId)
+  let templateCandidates = []
+  
+  if (guessedTemplate) {
+    templateCandidates = [guessedTemplate]
+  } else {
+    // ✅ Fallback: Check all enabled templates from registry
+    const enabledTemplates = getEnabledTemplates()
+    templateCandidates = enabledTemplates.map(t => t.id)
+    
+    // ✅ Also include legacy V1 templates for backward compatibility
+    templateCandidates.push(PACMAN_TEMPLATE_ID, BLOCKS_TEMPLATE_ID, WALL_BOUNCE_BIRD_TEMPLATE_ID, BLOW_BUBBLE_TEMPLATE_ID)
+  }
+  
+  // ✅ Also check all enabled templates if gameId starts with playmode- (to be thorough)
+  if (gameId.startsWith('playmode-')) {
+    const enabledTemplates = getEnabledTemplates()
+    const enabledIds = enabledTemplates.map(t => t.id)
+    templateCandidates = [...new Set([...templateCandidates, ...enabledIds])] // Remove duplicates
+  }
 
   for (const templateId of templateCandidates) {
     try {
-      console.log(`[PLAY MODE] 🔍 Checking Supabase template: ${templateId} for game: ${gameId}`)
-      const { data, error } = await supabase.rpc('list_user_created_games', { p_template_id: templateId })
+      // ✅ Normalize template ID for Supabase (add -template suffix if needed)
+      const supabaseTemplateId = templateId.includes('-template')
+        ? templateId
+        : templateId === 'pacman' || templateId === PACMAN_TEMPLATE_ID
+        ? PACMAN_TEMPLATE_ID
+        : templateId === 'blocks' || templateId === BLOCKS_TEMPLATE_ID
+        ? BLOCKS_TEMPLATE_ID
+        : templateId === 'wall-bounce-bird' || templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID
+        ? WALL_BOUNCE_BIRD_TEMPLATE_ID
+        : templateId === 'blow-bubble' || templateId === BLOW_BUBBLE_TEMPLATE_ID
+        ? BLOW_BUBBLE_TEMPLATE_ID
+        : `${templateId}-template`
+      
+      const { data, error } = await supabase.rpc('list_user_created_games', { p_template_id: supabaseTemplateId })
       if (error) {
         console.warn(`[PLAY MODE] Supabase RPC failed (${templateId}):`, error.message || error)
         continue
       }
       if (!Array.isArray(data)) {
-        console.log(`[PLAY MODE] ⚠️ Supabase returned non-array for ${templateId}`)
         continue
       }
-      console.log(`[PLAY MODE] 📋 Found ${data.length} games in template ${templateId}`)
-      // Log all game IDs found for debugging
-      const foundGameIds = data.map(item => item?.game_id || item?.id).filter(Boolean)
-      console.log(`[PLAY MODE] 📋 Game IDs found in Supabase:`, foundGameIds)
-      console.log(`[PLAY MODE] 🔍 Looking for game ID: ${gameId}`)
       
       const match = data.find(item => {
         const itemId = item?.game_id || item?.id
-        const matches = itemId === gameId
-        if (!matches && itemId) {
-          console.log(`[PLAY MODE] ⚠️ Mismatch: Supabase has "${itemId}" but looking for "${gameId}"`)
-        }
-        return matches
+        return itemId === gameId
       })
       if (!match) {
-        console.log(`[PLAY MODE] ⚠️ Game ${gameId} not found in template ${templateId}`)
-        console.log(`[PLAY MODE] ⚠️ Available game IDs: ${foundGameIds.join(', ')}`)
         continue
       }
-      console.log(`[PLAY MODE] ✅ Found game ${gameId} in template ${templateId}`)
 
+      // ✅ Get template config from registry (V2) or use legacy logic (V1)
+      const templateConfig = getTemplateConfig(templateId)
       const isBlocks = templateId === BLOCKS_TEMPLATE_ID
       const isWallBounceBird = templateId === WALL_BOUNCE_BIRD_TEMPLATE_ID
       const isBlowBubble = templateId === BLOW_BUBBLE_TEMPLATE_ID
+      
+      // ✅ Get templateUrl from registry (V2) or use legacy paths (V1)
+      let defaultPath = null
+      if (templateConfig && templateConfig.templateUrl) {
+        // ✅ V2: Use templateUrl from registry
+        defaultPath = getTemplateUrl(templateId, gameId) || templateConfig.templateUrl
+      } else {
+        // ✅ V1: Legacy paths
+        defaultPath = isBlocks
+          ? `/games/crypto-blocks/index.html?game=${gameId}`
+          : isWallBounceBird
+          ? `/games/wall-bounce-bird/index.html?game=${gameId}`
+          : isBlowBubble
+          ? `/games/blow-bubble/index.html?game=${gameId}`
+          : `/games/templates-v2/pacman-template/index.html?game=${gameId}`
+      }
+      
+      const finalTemplateUrl = sanitizeTemplateUrl(match.template_url, defaultPath)
+      
+      // ✅ Parse stories (support both V1 and V2 formats)
       const stories = (() => {
         if (isBlocks || isWallBounceBird || isBlowBubble) {
           const story = typeof match.story_one === 'string' ? match.story_one.trim() : ''
@@ -586,26 +660,7 @@ async function fetchGameFromSupabase(gameId) {
           .filter(story => typeof story === 'string' && story.trim() !== '')
         return legacy
       })()
-
-      const defaultPath = isBlocks
-        ? `/games/crypto-blocks/index.html?game=${gameId}`
-        : isWallBounceBird
-        ? `/games/wall-bounce-bird/index.html?game=${gameId}`
-        : isBlowBubble
-        ? `/games/blow-bubble/index.html?game=${gameId}`
-        : `/games/templates-v2/pacman-template/index.html?game=${gameId}`
       
-      const finalTemplateUrl = sanitizeTemplateUrl(match.template_url, defaultPath)
-      
-      console.log(`[PLAY MODE] 🎮 Building game config for ${gameId}:`, {
-        templateId,
-        isBlowBubble,
-        defaultPath,
-        hasStory: stories.length > 0,
-        backgroundColor: match.background_color || match.map_color,
-        matchTemplateUrl: match.template_url,
-        finalTemplateUrl: finalTemplateUrl
-      })
       
       // ✅ FIX: Force correct templateUrl for blow-bubble games
       const correctedTemplateUrl = isBlowBubble && !finalTemplateUrl.includes('/blow-bubble/')
@@ -1041,9 +1096,8 @@ function bindSocialInteractions(card, gameId) {
 }
 
 function updateDocumentTitle(card, fallbackTitle) {
-  const iframeTitle = card.querySelector('iframe')?.title?.trim()
-  const title = iframeTitle || fallbackTitle || 'MemePlay – Play'
-  document.title = title.includes('MemePlay') ? title : `${title} – MemePlay`
+  // ✅ Always use "MemePlay" for all playmode links
+  document.title = 'MemePlay'
 }
 
 async function renderGameCard(gameId) {
@@ -1055,12 +1109,10 @@ async function renderGameCard(gameId) {
     return
   }
 
-  console.log(`[PLAY MODE] 🔍 Loading game: ${gameId}`)
 
   try {
     const staticCard = await fetchStaticGameMarkup(gameId)
     if (staticCard) {
-      console.log(`[PLAY MODE] ✅ Found in static list: ${gameId}`)
       const cloned = staticCard.cloneNode(true)
       cloned.classList.add('play-mode-card')
       markCardActive(cloned)
@@ -1084,7 +1136,6 @@ async function renderGameCard(gameId) {
 
     const localGame = loadGameFromLocalStorage(gameId)
     if (localGame) {
-      console.log(`[PLAY MODE] ✅ Found in localStorage: ${gameId}`)
       const card = buildUserGameCard(localGame)
       if (!card) throw new Error('Failed to render local game.')
       markCardActive(card)
@@ -1096,11 +1147,8 @@ async function renderGameCard(gameId) {
       setLoaderVisible(false)
       return
     }
-    console.log(`[PLAY MODE] ⚠️ Not found in localStorage, checking Supabase...`)
-
     const remoteGame = await fetchGameFromSupabase(gameId)
     if (remoteGame) {
-      console.log(`[PLAY MODE] ✅ Found in Supabase: ${gameId}`)
       const card = buildUserGameCard(remoteGame)
       if (!card) throw new Error('Unable to render remote game.')
       markCardActive(card)
@@ -1136,6 +1184,7 @@ let activeGame = null
 let activeStartTime = 0
 let progressInterval = null
 let playCountIncremented = false // ✅ Flag to ensure play count is only incremented once per game session
+let stopGameInProgress = false // ✅ Flag to prevent double call to stopGame()
 
 function startGame(gameId) {
   if (activeGame && activeGame !== gameId) stopGame()
@@ -1145,7 +1194,7 @@ function startGame(gameId) {
   activeStartTime = Date.now()
   isGameOver = false // ✅ Reset flag when starting new game
   playCountIncremented = false // ✅ Reset play count flag for new game session
-  console.log(`[PLAY MODE] ▶️ Game ${gameId} started`)
+  stopGameInProgress = false // ✅ Reset flag when starting new game
   
   const activeCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
   if (activeCard) activeCard.classList.add('is-playing')
@@ -1177,7 +1226,6 @@ function startGame(gameId) {
       for (const t of crossedNow) grant += REWARD_VALUES[t]
       if (grant > 0) {
         const last = crossedNow[crossedNow.length - 1]
-        console.log(`🎁 [PLAY MODE] Reward unlocked: +${grant} PLAY for ${last}s threshold!`)
         // ✅ Queue achievement to show after game over (không show ngay)
         showPlayAward(grant, `${last}s`, true)
       }
@@ -1320,8 +1368,6 @@ function showPlayAward(amount, label, isNewAchievement = false) {
       threshold
     })
     
-    console.log(`🎖️ Achievement queued: ${achievementNames[threshold]} (+${amount} PLAY)`)
-    console.log('   → Will show Toast after game over')
   }
 }
 
@@ -1338,7 +1384,6 @@ function showPendingAchievements(gameId) {
     return
   }
   
-  console.log(`🎉 Showing ${achievements.length} pending achievement(s) for ${gameId}`)
   
   // Sort by threshold (10 → 60 → 300)
   achievements.sort((a, b) => a.threshold - b.threshold)
@@ -1352,7 +1397,6 @@ function showPendingAchievements(gameId) {
       // 2. Toast center
       showAchievementToast(ach.name, ach.count, 3, ach.reward)
       
-      console.log(`🎊 Achievement shown: ${ach.name} (+${ach.reward} PLAY)`)
     }, index * 2500) // Each achievement 2.5s apart
   })
   
@@ -1366,11 +1410,14 @@ function showPendingAchievements(gameId) {
 }
 
 async function stopGame() {
-  if (!activeGame || !activeStartTime) return
+  // ✅ Prevent double call: if already in progress or no active game, return early
+  if (stopGameInProgress || !activeGame || !activeStartTime) return
+  
+  // ✅ Set flag to prevent concurrent calls
+  stopGameInProgress = true
   
   const seconds = Math.floor((Date.now() - activeStartTime) / 1000)
   if (seconds > 0) {
-    console.log(`[PLAY MODE] ⏱ Played ${seconds}s on ${activeGame}`)
     
     // Calculate accumulated time and threshold rewards
     const prevTotal = getGameSeconds(activeGame)
@@ -1393,7 +1440,6 @@ async function stopGame() {
       for (const t of newlyAwarded) grant += REWARD_VALUES[t]
       if (grant > 0) {
         const last = newlyAwarded[newlyAwarded.length - 1]
-        console.log(`🎁 [PLAY MODE] Rewards unlocked: +${grant} PLAY for thresholds: ${newlyAwarded.join(', ')}s`)
         // ✅ Queue achievement to show after game over (không show ngay)
         showPlayAward(grant, `${last}s`, true)
       }
@@ -1409,7 +1455,6 @@ async function stopGame() {
       if (error) {
         console.warn('[PLAY MODE] track_playtime_and_reward error:', error)
       } else {
-        console.log(`[PLAY MODE] 🎮 Playtime tracked: ${seconds}s, reward result:`, data)
       }
     } catch (err) {
       console.error('[PLAY MODE] track_playtime_and_reward error:', err)
@@ -1418,7 +1463,6 @@ async function stopGame() {
     // ✅ Increment play count if eligible (ONLY ONCE per game session)
     if (seconds >= 3 && !playCountIncremented) {
       playCountIncremented = true // ✅ Mark as incremented to prevent duplicate calls
-      console.log(`[PLAY MODE] 📊 Incrementing play count for ${activeGame} (played ${seconds}s)`)
       try {
         const { data, error } = await supabase.rpc('increment_play_count', {
           p_user_id: userId,
@@ -1435,7 +1479,6 @@ async function stopGame() {
             if (card) {
               setPlaysLabel(card, activeGame, totalPlays)
             }
-            console.log(`[PLAY MODE] 📊 Play count updated: ${totalPlays} for ${activeGame} (1 play counted for ${seconds}s session)`)
           }
         }
       } catch (err) {
@@ -1443,7 +1486,6 @@ async function stopGame() {
         playCountIncremented = false // ✅ Reset flag on error so it can be retried
       }
     } else if (seconds >= 3 && playCountIncremented) {
-      console.log(`[PLAY MODE] ⚠️ Play count already incremented for this session (${seconds}s), skipping duplicate increment`)
     }
     
     // Update rewards panel if leaderboard is open
@@ -1460,6 +1502,9 @@ async function stopGame() {
   
   const activeCard = document.querySelector(`.game-card[data-game-id="${gameId}"]`)
   if (activeCard) activeCard.classList.remove('is-playing')
+  
+  // ✅ Reset flag after completion
+  stopGameInProgress = false
 }
 
 // Listen for GAME_START, GAME_OVER, and GAME_SCORE messages
@@ -1467,7 +1512,6 @@ window.addEventListener('message', async (event) => {
   // ✅ Handle GAME_START to start timer
   if (event.data?.type === 'GAME_START' && event.data?.gameId) {
     const { gameId } = event.data
-    console.log(`[PLAY MODE] GAME_START received for ${gameId}`)
     startGame(gameId)
     return
   }
@@ -1475,7 +1519,6 @@ window.addEventListener('message', async (event) => {
   // ✅ Handle GAME_OVER to stop timer and grant rewards
   if (event.data?.type === 'GAME_OVER' && event.data?.gameId) {
     const { gameId } = event.data
-    console.log(`[PLAY MODE] GAME_OVER received for ${gameId}`)
     
     // ✅ Play game over sound for Blow Bubble (desktop + mobile)
     if (gameId.startsWith('blow-bubble-')) {
@@ -1484,7 +1527,6 @@ window.addEventListener('message', async (event) => {
         try {
           blowBubbleGameOverSound.currentTime = 0 // Reset to start
           await blowBubbleGameOverSound.play()
-          console.log('[PLAY MODE] ✅ Played blow bubble game over sound')
         } catch (e) {
           console.warn('[PLAY MODE] Failed to play game over sound:', e)
         }
@@ -1510,7 +1552,6 @@ window.addEventListener('message', async (event) => {
     if (!gameId || typeof score !== 'number') return
 
     const finalScore = Math.max(0, Math.trunc(score))
-    console.log(`[PLAY MODE] Received score: ${finalScore} for ${gameId}`)
 
     try {
       const payload = {

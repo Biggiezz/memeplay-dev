@@ -2,9 +2,11 @@ import { PRODUCTION_BASE_URL } from './constants.js';
 
 /**
  * Build public link URL for V2 templates.
- * ✅ FIXED: Use long URL format (/play-v2.html?game=xxx) instead of short URL (/playmode-xxx)
- * This avoids Cloudflare redirect issues and works reliably on both local and production.
- * Example: playmode-pacman-999a -> https://memeplay.dev/play-v2.html?game=playmode-pacman-999a
+ * ✅ UPDATED: Use /play.html?game=xxx format to match Homepage V3 share links
+ * This ensures consistent routing across the platform (V3 homepage and V2 templates use same URL format)
+ * Example: playmode-pacman-999a -> https://memeplay.dev/play.html?game=playmode-pacman-999a
+ * 
+ * Note: /play.html supports both V1 and V2 templates (play.js has TEMPLATE_REGISTRY)
  */
 export function buildPublicLinkUrl(gameId, options = {}) {
   const { forceProduction = false } = options;
@@ -27,10 +29,10 @@ export function buildPublicLinkUrl(gameId, options = {}) {
 
   const baseUrl = forceProduction ? PRODUCTION_BASE_URL : origin || PRODUCTION_BASE_URL;
 
-  // ✅ Use long URL format to avoid Cloudflare redirect issues
-  // Long URL: /play-v2.html?game=playmode-xxx (works reliably)
-  // Short URL: /playmode-xxx (gets redirected by Cloudflare → /play-v2, loses game ID)
-  return `${baseUrl}/play-v2.html?game=${encodeURIComponent(gameId)}`;
+  // ✅ Use /play.html format to match Homepage V3 share links
+  // This ensures consistency: V3 homepage and V2 templates both use /play.html
+  // /play.html supports both V1 and V2 templates (play.js has TEMPLATE_REGISTRY)
+  return `${baseUrl}/play.html?game=${encodeURIComponent(gameId)}`;
 }
 
 

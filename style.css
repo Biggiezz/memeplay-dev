@@ -32,6 +32,14 @@
 #shareCopyBtn svg {
   stroke: #ffb642;
 }
+#shareCopyBtn.copied {
+  background: rgba(255, 182, 66, 0.15) !important;
+  border-color: rgba(255, 182, 66, 0.4) !important;
+  color: #ffb642 !important;
+}
+#shareCopyBtn.copied svg {
+  stroke: #ffb642;
+}
 #shareTelegramBtn svg {
   fill: #0088cc;
 }
@@ -188,6 +196,169 @@
   height: 100%;
   background: linear-gradient(90deg, #ffb642, #ff6b42);
 }
+/* Stats Overlay */
+.stats-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid rgba(255,182,66,0.2);
+}
+.stats-title {
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffb642;
+  letter-spacing: 0.5px;
+}
+.stats-content {
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+.stats-item {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.stats-label {
+  font-size: 14px;
+  color: #a9b1c4;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-weight: 600;
+}
+.stats-metric {
+  font-size: 48px;
+  font-weight: 900;
+  color: #ffb642;
+  line-height: 1.2;
+}
+.stats-divider {
+  height: 1px;
+  background: rgba(255,182,66,0.15);
+  margin: 4px 0;
+}
+.stats-note {
+  font-size: 13px;
+  color: #6b7280;
+  text-align: center;
+  margin-top: 8px;
+  line-height: 1.5;
+}
+
+/* Referral Overlay */
+.referral-content {
+  padding: 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+.referral-coming-soon {
+  text-align: center;
+  padding: 20px 0;
+}
+.referral-icon {
+  font-size: 64px;
+  margin-bottom: 16px;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+.referral-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: #ffb642;
+  margin-bottom: 12px;
+  letter-spacing: 0.5px;
+}
+.referral-description {
+  font-size: 16px;
+  color: #a9b1c4;
+  line-height: 1.6;
+  max-width: 500px;
+  margin: 0 auto;
+}
+.referral-features {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-top: 8px;
+}
+.referral-feature {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 16px;
+  background: rgba(255, 182, 66, 0.05);
+  border: 1px solid rgba(255, 182, 66, 0.15);
+  border-radius: 12px;
+}
+.referral-feature-icon {
+  font-size: 32px;
+  flex-shrink: 0;
+  line-height: 1;
+}
+.referral-feature-text {
+  flex: 1;
+  font-size: 15px;
+  color: #e2e8f0;
+  line-height: 1.5;
+}
+.referral-feature-text strong {
+  color: #ffb642;
+  font-weight: 700;
+}
+.referral-note {
+  text-align: center;
+  font-size: 13px;
+  color: #6b7280;
+  font-style: italic;
+  margin-top: 8px;
+}
+@media (max-width: 480px) {
+  .referral-content {
+    padding: 19.2px 16px; /* Reduced 20% from 24px 20px */
+    gap: 16px; /* Reduced 20% from 20px */
+  }
+  .referral-coming-soon {
+    padding: 16px 0; /* Reduced 20% from 20px 0 */
+  }
+  .referral-icon {
+    font-size: 38.4px; /* Reduced 20% from 48px */
+    margin-bottom: 9.6px; /* Reduced 20% from 12px */
+  }
+  .referral-title {
+    font-size: 19.2px; /* Reduced 20% from 24px */
+    margin-bottom: 8px; /* Reduced 20% from 10px */
+  }
+  .referral-description {
+    font-size: 11.2px; /* Reduced 20% from 14px */
+    line-height: 1.4; /* Reduced from 1.6 */
+  }
+  .referral-features {
+    gap: 12.8px; /* Reduced 20% from 16px */
+    margin-top: 6.4px; /* Reduced 20% from 8px */
+  }
+  .referral-feature {
+    padding: 11.2px; /* Reduced 20% from 14px */
+    gap: 9.6px; /* Reduced 20% from 12px */
+  }
+  .referral-feature-icon {
+    font-size: 22.4px; /* Reduced 20% from 28px */
+  }
+  .referral-feature-text {
+    font-size: 11.2px; /* Reduced 20% from 14px */
+    line-height: 1.3; /* Reduced from 1.5 */
+  }
+  .referral-note {
+    font-size: 10.4px; /* Reduced 20% from 13px */
+    margin-top: 6.4px; /* Reduced 20% from 8px */
+  }
+}
+
 .leaderboard-reward-list {
   display: flex;
   flex-direction: column;
@@ -368,7 +539,9 @@ body::-webkit-scrollbar {
 
 /* ===== FOOTER (responsive) ===== */
 .game-footer {
+  /* ✅ PHASE 1 REFACTOR: Footer không bị co lại */
   width: 100%;
+  flex-shrink: 0; /* ✅ Footer không bị co lại khi game-stage flex */
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -570,7 +743,13 @@ body::-webkit-scrollbar {
 }
 
 .game-card {
-  margin-bottom: 60px;
+  /* ✅ PHASE 1 REFACTOR: Fix layout - game-card = 100vh */
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  margin-bottom: 0; /* ✅ Removed - no longer needed with 100vh */
+  scroll-snap-align: start; /* ✅ Changed from center to start for better snap */
 }
 .game-card.virtual-hidden {
   display: none !important;
@@ -595,9 +774,13 @@ body::-webkit-scrollbar {
 }
 
 .game-stage {
+  /* ✅ Màn hình gaming chuẩn: 720x1000px */
   position: relative;
   width: 100%;
-  aspect-ratio: 720 / 1000 !important;
+  aspect-ratio: 720 / 1000; /* ✅ Chuẩn 720x1000px */
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border-radius: 28px;
   background: linear-gradient(145deg, rgba(14,19,30,0.92), rgba(6,9,15,0.92));
   border: 1px solid rgba(40,58,90,0.35);
@@ -609,6 +792,7 @@ body::-webkit-scrollbar {
 }
 
 .game-stage iframe {
+  /* ✅ PHASE 1 FIX: iframe phải chiếm toàn bộ game-stage */
   position: absolute;
   inset: 0;
   width: 100%;
@@ -622,6 +806,8 @@ body::-webkit-scrollbar {
   overflow: hidden !important;
   scrollbar-width: none !important;
   -ms-overflow-style: none !important;
+  /* ✅ Ensure iframe fills game-stage completely */
+  object-fit: contain;
 }
 
 .game-stage iframe::-webkit-scrollbar {
@@ -664,6 +850,14 @@ body::-webkit-scrollbar {
 body.focus-mode .focus-toggle {
   opacity: 0.1;
   pointer-events: none;
+}
+
+/* Hide focus mode toggle buttons in play mode (play.html, play-v2.html) */
+body[data-mode="play"] .game-card .focus-toggle,
+body[data-mode="play"] .game-stage .focus-toggle,
+body[data-mode="play"] iframe .focus-toggle {
+  display: none !important;
+  visibility: hidden !important;
 }
 
 .comments-overlay {
@@ -784,24 +978,32 @@ body.focus-mode .focus-toggle {
   .icon-wrapper {
     gap: 6px;
   }
-  .icon-wrapper button {
+  .icon-wrapper:not([data-role="marketcap"]) button {
+    width: 30px;
+    height: 30px;
+  }
+  .icon-wrapper:not([data-role="marketcap"]) svg {
+    width: 25.2px;
+    height: 25.2px;
+    stroke-width: 2.2;
+  }
+  .icon-wrapper[data-role="marketcap"] button {
     width: 25px;
     height: 25px;
   }
-  .icon-wrapper svg {
-    width: 21px;
-    height: 21px;
-    stroke-width: 2.2;
-  }
   .icon-wrapper[data-role="marketcap"] button span {
     font-size: 19px !important;
+  }
+  .icon-wrapper[data-role="marketcap"] svg {
+    width: 21px;
+    height: 21px;
   }
   .icon-count {
     font-size: 11px;
     min-width: 20px;
   }
   .creator-text {
-    font-size: 11px;
+    font-size: 13.2px;
   }
 }
 
@@ -814,10 +1016,11 @@ body.focus-mode .focus-toggle {
   .game-card {
     width: 720px !important;
     max-width: 720px !important;
+    height: auto !important; /* ✅ Auto height để fit với game-stage 720x1000px */
   }
   .game-card .game-stage {
     width: 100% !important;
-    aspect-ratio: 720 / 1000 !important;
+    aspect-ratio: 720 / 1000 !important; /* ✅ Màn hình gaming chuẩn: 720x1000px */
   }
   .game-card .game-stage iframe {
     width: 100% !important;
@@ -831,21 +1034,29 @@ body.focus-mode .focus-toggle {
   .game-icons {
     gap: 22px;
   }
-  .icon-wrapper button {
+  .icon-wrapper:not([data-role="marketcap"]) button {
+    width: 50.4px;
+    height: 50.4px;
+  }
+  .icon-wrapper:not([data-role="marketcap"]) svg {
+    width: 43.2px;
+    height: 43.2px;
+    stroke-width: 2.6;
+  }
+  .icon-wrapper[data-role="marketcap"] button {
     width: 42px;
     height: 42px;
   }
-  .icon-wrapper svg {
+  .icon-wrapper[data-role="marketcap"] svg {
     width: 36px;
     height: 36px;
-    stroke-width: 2.6;
   }
   .icon-count {
-    font-size: 17px;
+    font-size: 20.4px;
     min-width: 28px;
   }
   .creator-text {
-    font-size: 17px;
+    font-size: 20.4px;
     line-height: 1.4;
     letter-spacing: 0.25px;
   }

@@ -131,6 +131,13 @@
       background: rgba(255, 255, 255, 0.1);
       padding: 8px;
     }
+    .game-over-pill-logo {
+      width: 95px; /* 56px * 1.7 = 95.2px, rounded to 95px */
+      height: 95px;
+      margin: 0 auto 12px;
+      display: block;
+      background: transparent; /* Ensure no background */
+    }
     @media (max-width: 768px) {
       .hud { top: 12px; font-size: 16px; }
       canvas { 
@@ -162,6 +169,7 @@
       <h1>GAME OVER</h1>
         <img id="gameOverLogo" class="game-over-logo" src="" alt="Logo" style="display: none;">
       <p id="finalScoreText">Score: 0</p>
+      <canvas id="gameOverPillLogo" class="game-over-pill-logo" style="display: none;"></canvas>
       <p class="promo-text" id="promoText"></p>
       <button id="retryBtn">Play Again</button>
       </div>
@@ -218,11 +226,6 @@
       }
     }
     
-    // ✅ Load config ngay khi khởi động (trước khi resetGame)
-    if (EMBEDDED_GAME_ID && EMBEDDED_GAME_ID !== 'wall-bounce-bird') {
-      loadBrandConfigFromLocalStorage(EMBEDDED_GAME_ID);
-    }
-    
     const canvas = document.getElementById('game');
     const ctx = canvas.getContext('2d', { desynchronized: true });
     const scoreLabel = document.getElementById('scoreLabel');
@@ -234,11 +237,7 @@
     const retryBtn = document.getElementById('retryBtn');
 
     const PROMOS = [
-      "From wild idea to global market – it all starts at Four Meme.",
-      "Where memecoins are more than a joke – they're a blockchain movement.",
-      "No code, no dev skills – just your meme and a little BNB.",
-      "Four Meme turns spontaneous ideas into viral tokens on BNB Chain in minutes.",
-      "With just a few clicks, you can create your own memecoin and instantly list it on PancakeSwap."
+      "memeplay"
     ];
 
     const CONFIG = {
@@ -256,7 +255,8 @@
       PILL_POINTS: 5,
       PARTICLES: { desktop: 8, mobile: 2 }, // Reduced for better performance
       PILL_AREA: { minX: 150, maxX: 570, minY: 200, maxY: 600 },
-      DEBUG_HITBOXES: false // Disabled - hitboxes removed after testing
+      DEBUG_HITBOXES: false, // Disabled - hitboxes removed after testing
+      DEBUG_PERFORMANCE: false // Set to true to enable performance logs
     };
 
     const state = {
@@ -273,7 +273,6 @@
       pill: null,
       particles: [],
       scoreTexts: [],
-      lastBounceTime: 0,
       spikesLeftCount: 2,
       spikesRightCount: 2,
       customLogo: null,      // Logo from editor (used for pill)
@@ -293,6 +292,34 @@
 
     const isMobile = /Mobi|Android/i.test(navigator.userAgent);
 
+    // Helper function to create cached flipped images
+    function createCachedFlippedImages(image) {
+      if (!image.width || !image.height) return;
+      
+      const cacheCanvas = document.createElement('canvas');
+      cacheCanvas.width = image.width;
+      cacheCanvas.height = image.height;
+      const cacheCtx = cacheCanvas.getContext('2d');
+      
+      // Create right-facing image (normal)
+      cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
+      cacheCtx.drawImage(image, 0, 0);
+      birdImageRight = new Image();
+      birdImageRight.onload = () => {};
+      birdImageRight.onerror = () => { birdImageRight = null; };
+      birdImageRight.src = cacheCanvas.toDataURL('image/png');
+      
+      // Create left-facing image (flipped horizontally)
+      cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
+      cacheCtx.setTransform(-1, 0, 0, 1, image.width, 0);
+      cacheCtx.drawImage(image, 0, 0);
+      cacheCtx.setTransform(1, 0, 0, 1, 0, 0);
+      birdImageLeft = new Image();
+      birdImageLeft.onload = () => {};
+      birdImageLeft.onerror = () => { birdImageLeft = null; };
+      birdImageLeft.src = cacheCanvas.toDataURL('image/png');
+    }
+
     const birdImage = new Image();
     let birdImageLoaded = false;
     let birdImageRatio = 1;
@@ -302,6 +329,7 @@
     
     // Load and process original image
     const originalBirdImage = new Image();
+    // Note: crossOrigin doesn't work with file:// protocol, so we'll handle errors
     originalBirdImage.src = 'bird.webp';
     originalBirdImage.onload = () => {
       // Process image to remove white background while preserving eye colors
@@ -313,8 +341,59 @@
       // Draw original image
       tempCtx.drawImage(originalBirdImage, 0, 0);
       
-      // Get image data
-      const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      // Get image data (with error handling for tainted canvas)
+      let imageData;
+      try {
+        imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      } catch (e) {
+        console.warn('Cannot process image (tainted canvas), trying alternative method');
+        // Alternative: Try to process using canvas operations
+        // Draw image to temp canvas and try to remove white background using composite
+        const processCanvas = document.createElement('canvas');
+        processCanvas.width = originalBirdImage.width;
+        processCanvas.height = originalBirdImage.height;
+        const processCtx = processCanvas.getContext('2d');
+        
+        // Draw original image
+        processCtx.drawImage(originalBirdImage, 0, 0);
+        
+        // Try to get image data from the canvas we just drew to (might work)
+        try {
+          const altImageData = processCtx.getImageData(0, 0, processCanvas.width, processCanvas.height);
+          const altData = altImageData.data;
+          
+          // Process pixels: make white background transparent
+          for (let i = 0; i < altData.length; i += 4) {
+            const r = altData[i];
+            const g = altData[i + 1];
+            const b = altData[i + 2];
+            
+            // Check if pixel is white/light background
+            const isWhite = r > 240 && g > 240 && b > 240 && 
+                           Math.abs(r - g) < 10 && Math.abs(g - b) < 10 && Math.abs(r - b) < 10;
+            
+            if (isWhite) {
+              altData[i + 3] = 0; // Set alpha to 0
+            }
+          }
+          
+          processCtx.putImageData(altImageData, 0, 0);
+          birdImage.src = processCanvas.toDataURL('image/png');
+        } catch (e2) {
+          // If still fails, use original image (will have white background)
+          console.warn('Alternative processing also failed, using original image');
+          birdImage.src = originalBirdImage.src;
+        }
+        
+        birdImage.onload = () => {
+          birdImageLoaded = true;
+          if (birdImage.width && birdImage.height) {
+            birdImageRatio = birdImage.width / birdImage.height;
+            createCachedFlippedImages(birdImage);
+          }
+        };
+        return;
+      }
       const data = imageData.data;
       
       // Process pixels: make white background transparent, preserve eye colors
@@ -322,11 +401,18 @@
         const r = data[i];
         const g = data[i + 1];
         const b = data[i + 2];
+        const a = data[i + 3];
         
-        // Check if pixel is white (background)
-        // Use threshold to detect white: r, g, b all > 250
-        // This preserves eye white which might have slight variations or black pixels nearby
-        if (r > 250 && g > 250 && b > 250) {
+        // Skip if already transparent
+        if (a === 0) continue;
+        
+        // Check if pixel is white/light background
+        // Use more lenient threshold to catch off-white backgrounds
+        // Check for white: all RGB values are high and similar (within 10 of each other)
+        const isWhite = r > 240 && g > 240 && b > 240 && 
+                       Math.abs(r - g) < 10 && Math.abs(g - b) < 10 && Math.abs(r - b) < 10;
+        
+        if (isWhite) {
           // Make white background transparent
           data[i + 3] = 0; // Set alpha to 0
         }
@@ -341,28 +427,9 @@
       birdImageLoaded = true;
       if (birdImage.width && birdImage.height) {
         birdImageRatio = birdImage.width / birdImage.height;
-          
-          // Create cached flipped images (left and right) for better performance
-          const cacheCanvas = document.createElement('canvas');
-          cacheCanvas.width = birdImage.width;
-          cacheCanvas.height = birdImage.height;
-          const cacheCtx = cacheCanvas.getContext('2d');
-          
-          // Create right-facing image (normal)
-          cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
-          cacheCtx.drawImage(birdImage, 0, 0);
-          birdImageRight = new Image();
-          birdImageRight.src = cacheCanvas.toDataURL('image/png');
-          
-          // Create left-facing image (flipped horizontally)
-          cacheCtx.clearRect(0, 0, cacheCanvas.width, cacheCanvas.height);
-          cacheCtx.setTransform(-1, 0, 0, 1, birdImage.width, 0);
-          cacheCtx.drawImage(birdImage, 0, 0);
-          cacheCtx.setTransform(1, 0, 0, 1, 0, 0);
-          birdImageLeft = new Image();
-          birdImageLeft.src = cacheCanvas.toDataURL('image/png');
-        }
-      };
+        createCachedFlippedImages(birdImage);
+      }
+    };
       birdImage.src = tempCanvas.toDataURL('image/png');
     };
 
@@ -410,9 +477,16 @@
         }
       }
       draw() {
+        // Always reset transform first to ensure clean state
+        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        
         const half = this.size / 2;
         
-        if (birdImageLoaded && birdImageLeft && birdImageRight) {
+        // Check if cached images are fully loaded (complete property)
+        const leftReady = birdImageLeft && birdImageLeft.complete && birdImageLeft.naturalWidth > 0;
+        const rightReady = birdImageRight && birdImageRight.complete && birdImageRight.naturalWidth > 0;
+        
+        if (birdImageLoaded && leftReady && rightReady) {
           // Optimized: Use cached flipped images instead of transform (much faster)
           // Bird image is centered at (this.x, this.y)
           const drawHeight = this.size;
@@ -420,9 +494,12 @@
           // direction = 1 means flip (left), direction = -1 means no flip (right)
           // This matches the old logic: setTransform(-direction, ...) where -1 flips and 1 doesn't
           const imageToDraw = this.direction === 1 ? birdImageLeft : birdImageRight;
-          // Center the image at bird position
-          ctx.drawImage(imageToDraw, this.x - drawWidth / 2, this.y - drawHeight / 2, drawWidth, drawHeight);
-        } else if (birdImageLoaded) {
+          // Center the image at bird position - ensure we're using actual position
+          if (imageToDraw.complete && imageToDraw.naturalWidth > 0) {
+            // Draw image (source-over is default, no need to set)
+            ctx.drawImage(imageToDraw, this.x - drawWidth / 2, this.y - drawHeight / 2, drawWidth, drawHeight);
+          }
+        } else if (birdImageLoaded && birdImage.complete && birdImage.naturalWidth > 0) {
           // Fallback: Use transform if cached images not ready yet
           ctx.setTransform(-this.direction, 0, 0, 1, this.x, this.y);
           const drawHeight = this.size;
@@ -430,9 +507,29 @@
           ctx.drawImage(birdImage, -drawWidth / 2, -drawHeight / 2, drawWidth, drawHeight);
           ctx.setTransform(1, 0, 0, 1, 0, 0);
         } else {
+          // Fallback: Draw simple shape if image not loaded
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          
           ctx.fillStyle = '#d93232';
           ctx.beginPath();
-          ctx.roundRect(-half, -half, this.size, this.size, 18);
+          // Use roundRect with fallback for older browsers
+          if (ctx.roundRect) {
+            ctx.roundRect(-half, -half, this.size, this.size, 18);
+          } else {
+            // Fallback: draw rounded rectangle manually
+            const radius = 18;
+            ctx.moveTo(-half + radius, -half);
+            ctx.lineTo(half - radius, -half);
+            ctx.quadraticCurveTo(half, -half, half, -half + radius);
+            ctx.lineTo(half, half - radius);
+            ctx.quadraticCurveTo(half, half, half - radius, half);
+            ctx.lineTo(-half + radius, half);
+            ctx.quadraticCurveTo(-half, half, -half, half - radius);
+            ctx.lineTo(-half, -half + radius);
+            ctx.quadraticCurveTo(-half, -half, -half + radius, -half);
+            ctx.closePath();
+          }
           ctx.fill();
 
           ctx.fillStyle = '#f5a623';
@@ -459,9 +556,11 @@
           ctx.beginPath();
           ctx.arc(half - 15, -10, 4, 0, Math.PI * 2);
           ctx.fill();
+          
+          ctx.restore();
         }
 
-        // Reset transform instead of restore (faster)
+        // Ensure transform is reset at the end
         ctx.setTransform(1, 0, 0, 1, 0, 0);
 
       }
@@ -555,15 +654,15 @@
             this.size
           );
         } else {
-          // Default gradient pill
-        const grd = ctx.createRadialGradient(0, 0, 6, 0, 0, this.size / 2);
-        grd.addColorStop(0, '#fff6d1');
-        grd.addColorStop(0.5, '#ffd447');
-        grd.addColorStop(1, '#f05a28');
-        ctx.fillStyle = grd;
-        ctx.beginPath();
-        ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
-        ctx.fill();
+          // Default: Draw blue circle (ocean blue)
+          const grd = ctx.createRadialGradient(0, 0, 6, 0, 0, this.size / 2);
+          grd.addColorStop(0, '#4da6ff'); // Light ocean blue
+          grd.addColorStop(0.5, '#0077be'); // Ocean blue
+          grd.addColorStop(1, '#005a8b'); // Dark ocean blue
+          ctx.fillStyle = grd;
+          ctx.beginPath();
+          ctx.arc(0, 0, this.size / 2, 0, Math.PI * 2);
+          ctx.fill();
         }
 
         // Reset transform instead of restore (faster)
@@ -595,10 +694,6 @@
         this.life -= dt / 60;
         this.x += this.vx;
         this.y += this.vy + 0.15;
-      }
-      draw() {
-        // Drawing is now handled in batch in the main loop for better performance
-        // This method is kept for compatibility but not used
       }
     }
 
@@ -685,7 +780,6 @@
       state.pill = new Pill();
       state.spikesLeftCount = 2;
       state.spikesRightCount = 2;
-      state.lastBounceTime = 0;
       state.bird = new Bird();
       state.perfStats = {
         collisionTime: 0,
@@ -847,12 +941,43 @@
         logoImg.style.display = 'none';
       }
       
-      // Update story if available from editor, otherwise use random promo
-      if (state.customStory) {
-        promoText.textContent = state.customStory;
-      } else {
-      promoText.textContent = PROMOS[Math.floor(Math.random() * PROMOS.length)];
+      // Draw pill logo (blue circle) on canvas - 70% larger
+      const pillLogoCanvas = document.getElementById('gameOverPillLogo');
+      if (pillLogoCanvas) {
+        const logoSize = 95; // 56px * 1.7 = 95.2px, rounded to 95px
+        pillLogoCanvas.width = logoSize;
+        pillLogoCanvas.height = logoSize;
+        const pillCtx = pillLogoCanvas.getContext('2d', { alpha: true });
+        
+        // Clear canvas completely to ensure transparent background
+        pillCtx.clearRect(0, 0, logoSize, logoSize);
+        
+        // Draw the same logo as used in Pill class (the +5 points logo)
+        if (state.customLogoImage && state.customLogoImage.complete) {
+          // Draw image directly - preserve transparency from original image
+          // No need to process pixels if original image already has transparent background
+          pillCtx.drawImage(state.customLogoImage, 0, 0, logoSize, logoSize);
+          pillLogoCanvas.style.display = 'block';
+        } else {
+          // Draw blue circle with gradient - transparent background
+          const center = logoSize / 2;
+          pillCtx.save();
+          pillCtx.translate(center, center);
+          const grd = pillCtx.createRadialGradient(0, 0, 6 * 1.7, 0, 0, center);
+          grd.addColorStop(0, '#4da6ff'); // Light ocean blue
+          grd.addColorStop(0.5, '#0077be'); // Ocean blue
+          grd.addColorStop(1, '#005a8b'); // Dark ocean blue
+          pillCtx.fillStyle = grd;
+          pillCtx.beginPath();
+          pillCtx.arc(0, 0, center, 0, Math.PI * 2);
+          pillCtx.fill();
+          pillCtx.restore();
+          pillLogoCanvas.style.display = 'block';
+        }
       }
+      
+      // Always use "memeplay" as story
+      promoText.textContent = "memeplay";
       
       gameOverOverlay.classList.remove('hidden');
     }
@@ -1024,8 +1149,8 @@
       state.perfStats.scoreTextsTime = performance.now() - scoreTextsStartTime;
       state.perfStats.totalScoreTextsTime += state.perfStats.scoreTextsTime;
 
-      // Tăng frameCount và log performance mỗi 60 frames (~1 giây)
-      if (state.running) {
+      // Tăng frameCount và log performance mỗi 60 frames (~1 giây) - chỉ khi DEBUG_PERFORMANCE = true
+      if (state.running && CONFIG.DEBUG_PERFORMANCE) {
         state.perfStats.frameCount++;
         if (state.perfStats.frameCount % 60 === 0) {
           const avgCollisionTime = state.perfStats.totalCollisionTime / 60;
@@ -1034,6 +1159,15 @@
           const totalSpikes = state.spikesLeft.length + state.spikesRight.length;
           console.log(`[Performance] Collision: ${avgCollisionTime.toFixed(3)}ms (${totalSpikes} spikes) | Particles: ${avgParticlesTime.toFixed(3)}ms (${state.particles.length}) | ScoreTexts: ${avgScoreTextsTime.toFixed(3)}ms (${state.scoreTexts.length})`);
           // Reset sau khi log
+          state.perfStats.totalCollisionTime = 0;
+          state.perfStats.totalParticlesTime = 0;
+          state.perfStats.totalScoreTextsTime = 0;
+          state.perfStats.frameCount = 0;
+        }
+      } else if (state.running) {
+        // Vẫn reset stats để tránh overflow, nhưng không log
+        state.perfStats.frameCount++;
+        if (state.perfStats.frameCount % 60 === 0) {
           state.perfStats.totalCollisionTime = 0;
           state.perfStats.totalParticlesTime = 0;
           state.perfStats.totalScoreTextsTime = 0;
@@ -1105,27 +1239,47 @@
         }
         
         // If playing, handle jump
-        if (!state.running) return;
-        handleJump();
+        if (state.running && state.bird) {
+          handleJump();
+        }
       }, { passive: false });
+    });
+    
+    // Also allow clicking on overlay to start (in case button doesn't work)
+    startOverlay.addEventListener('click', (e) => {
+      if (e.target === startOverlay || e.target === startBtn) {
+        beginGame();
+      }
     });
     window.addEventListener('keydown', (e) => {
       if (e.code === 'Space') {
         e.preventDefault();
-        if (!state.running) return;
-        handleJump();
+        // If game not started, start the game
+        if (!state.running && !state.started) {
+          beginGame();
+          return;
+        }
+        // If playing, handle jump
+        if (state.running && state.bird) {
+          handleJump();
+        }
       }
     });
 
     function beginGame() {
+      if (state.running) return; // Prevent double start
       resetGame();
       state.running = true;
       state.started = true;
+      state.gameOver = false;
       startOverlay.classList.add('hidden');
       gameOverOverlay.classList.add('hidden');
       // ✅ Send GAME_START to track play count and start timer (like Pacman and Blocks 8x8)
       window.parent?.postMessage({ type: 'GAME_START', gameId: EMBEDDED_GAME_ID }, '*');
-      handleJump();
+      // Trigger jump immediately after state is set
+      if (state.bird) {
+        handleJump();
+      }
     }
 
     // Listen for messages from parent (template editor)
@@ -1165,14 +1319,9 @@
       }
     });
 
-    // ✅ FIX: Load config từ localStorage TRƯỚC khi resetGame (đảm bảo config được apply ngay trên mobile)
+    // ✅ Load config từ localStorage sau khi state được khai báo (đảm bảo config được apply ngay trên mobile)
     if (EMBEDDED_GAME_ID && EMBEDDED_GAME_ID !== 'wall-bounce-bird') {
-      const configLoaded = loadBrandConfigFromLocalStorage(EMBEDDED_GAME_ID);
-      if (configLoaded) {
-        // Force initial draw với loaded config
-        ctx.fillStyle = state.backgroundColor || '#87ceeb';
-        ctx.fillRect(0, 0, CONFIG.WIDTH, CONFIG.HEIGHT);
-      }
+      loadBrandConfigFromLocalStorage(EMBEDDED_GAME_ID);
     }
 
     resetGame();

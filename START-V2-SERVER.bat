@@ -1,18 +1,9 @@
 @echo off
-echo ========================================
-echo Starting MemePlay V2 Local Server
-echo Port: 5500
-echo Config: serve.json
-echo ========================================
+echo Starting Homepage V2 Server...
+echo.
+echo Server will run on: http://localhost:8000
 echo.
 echo Press Ctrl+C to stop the server
 echo.
-
 cd /d "%~dp0"
-npx serve . -l 5500 --config serve.json --no-clipboard
-
-pause
-
-
-
-
+python -m http.server 8000

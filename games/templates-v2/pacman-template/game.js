@@ -606,12 +606,32 @@ function initGame() {
   setupAudioUnlock();
   
   // ✅ CRITICAL: Auto-focus canvas in public view so arrow keys work immediately without clicking
+  // ✅ PHƯƠNG ÁN 3: Thêm preventScroll: true để tránh auto-scroll trên desktop
+  // ✅ PHƯƠNG ÁN 4: Chỉ thêm tabindex="0" khi game visible trong viewport để tránh auto-scroll
   if (isPublicView && gameCanvas) {
-    // Use setTimeout to ensure canvas is fully rendered before focusing
-    setTimeout(() => {
-      gameCanvas.focus();
-      console.log('[Pacman] Canvas auto-focused for keyboard input');
-    }, 100);
+    // Check if canvas is visible in viewport before adding tabindex and focusing
+    const checkVisibility = () => {
+      const rect = gameCanvas.getBoundingClientRect();
+      const isVisible = rect.top < window.innerHeight && rect.bottom > 0;
+      
+      if (isVisible) {
+        // Only add tabindex when visible to avoid auto-scroll
+        if (!gameCanvas.hasAttribute('tabindex')) {
+          gameCanvas.setAttribute('tabindex', '0');
+        }
+        // Use setTimeout to ensure canvas is fully rendered before focusing
+        setTimeout(() => {
+          gameCanvas.focus({ preventScroll: true });
+          console.log('[Pacman] Canvas auto-focused for keyboard input');
+        }, 100);
+      } else {
+        // If not visible, retry after a short delay
+        setTimeout(checkVisibility, 200);
+      }
+    };
+    
+    // Start checking visibility
+    checkVisibility();
   }
   
   // Start game loop
@@ -1802,8 +1822,9 @@ function setupControls() {
       e.stopPropagation(); // Also stop propagation to ensure no scroll
       
       // ✅ CRITICAL: Auto-focus canvas if not already focused (for better UX)
+      // ✅ PHƯƠNG ÁN 3: Thêm preventScroll: true để tránh auto-scroll trên desktop
       if (isPublicView && gameCanvas && document.activeElement !== gameCanvas) {
-        gameCanvas.focus();
+        gameCanvas.focus({ preventScroll: true });
       }
       
       requestGameStartFromParent('keyboard');
@@ -2242,7 +2263,8 @@ function setupMemePlayIntegration() {
   const handleFocusRequest = () => {
     if (gameCanvas) {
       try {
-        gameCanvas.focus();
+        // ✅ PHƯƠNG ÁN 3: Thêm preventScroll: true để tránh auto-scroll trên desktop
+        gameCanvas.focus({ preventScroll: true });
       } catch (err) {
         console.warn('[Pacman] Failed to focus canvas from parent message:', err);
       }
@@ -2563,10 +2585,8 @@ window.addEventListener('DOMContentLoaded', async () => {
       // Initialize level (reset positions)
       initLevel(1);
 
-      // ✅ CRITICAL: Auto-focus canvas so arrow keys work immediately without clicking
-      if (gameCanvas) {
-        gameCanvas.focus();
-      }
+      // ✅ PHƯƠNG ÁN 3: Focus đã được xử lý trong initGame(), không cần focus lại ở đây
+      // (initGame() được gọi trước đó và đã focus với preventScroll: true)
       
       // Force a render to ensure canvas is drawn
       if (ctx && canvas) {
@@ -2642,10 +2662,8 @@ window.addEventListener('DOMContentLoaded', async () => {
         // Initialize level (reset positions)
         initLevel(1);
         
-        // ✅ CRITICAL: Auto-focus canvas so arrow keys work immediately without clicking
-        if (gameCanvas) {
-          gameCanvas.focus();
-        }
+        // ✅ PHƯƠNG ÁN 3: Focus đã được xử lý trong initGame(), không cần focus lại ở đây
+        // (initGame() được gọi trước đó và đã focus với preventScroll: true)
         
         if (ctx && canvas) {
           render();
