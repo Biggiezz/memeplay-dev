@@ -1883,6 +1883,58 @@ function initStatsOverlay() {
 // ==========================================
 // DAILY CHECK-IN
 // ==========================================
+
+// Show daily check-in toast with stats
+function showDailyCheckInToast(streak, reward, totalDays = null) {
+  // Remove old toast if exists
+  const oldToast = document.querySelector('.daily-checkin-toast')
+  if (oldToast) oldToast.remove()
+  
+  // Create toast element
+  const toast = document.createElement('div')
+  toast.className = 'daily-checkin-toast'
+  
+  // Build stats HTML
+  let statsHTML = `
+    <div class="daily-checkin-stat">
+      <span class="daily-checkin-stat-value">${streak}</span>
+      <span class="daily-checkin-stat-label">🔥 Day Streak</span>
+    </div>
+  `
+  
+  // Add total days if available
+  if (totalDays && totalDays > 0) {
+    statsHTML += `
+      <div class="daily-checkin-stat">
+        <span class="daily-checkin-stat-value">${totalDays}</span>
+        <span class="daily-checkin-stat-label">📅 Total Days</span>
+      </div>
+    `
+  }
+  
+  toast.innerHTML = `
+    <div class="daily-checkin-icon">🎁</div>
+    <div class="daily-checkin-title">Daily Check-in!</div>
+    <div class="daily-checkin-stats">
+      ${statsHTML}
+    </div>
+    <div class="daily-checkin-reward">+${reward} PLAY</div>
+  `
+  
+  document.body.appendChild(toast)
+  
+  // Show toast
+  setTimeout(() => toast.classList.add('show'), 100)
+  
+  // Hide after 5 seconds
+  setTimeout(() => {
+    toast.classList.remove('show')
+    setTimeout(() => {
+      toast.remove()
+    }, 500)
+  }, 5000)
+}
+
 function initDailyCheckin() {
   function todayKey() {
     const d = new Date()
@@ -1911,6 +1963,9 @@ function initDailyCheckin() {
       
       if (data?.awarded > 0) {
         const streak = Number(data.streak) || 1
+        const totalDays = Number(data.total_days) || null // If backend provides it
+        // Show daily check-in toast
+        showDailyCheckInToast(streak, Number(data.awarded), totalDays)
         // Update localStorage
         lsSetInt('mp_streak_count', streak)
         markCheckedInToday()
