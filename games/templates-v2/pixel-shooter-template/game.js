@@ -1979,8 +1979,9 @@
         }
       } else {
         // ✅ Editor mode: Load config từ localStorage (playtest)
+        // Load với gameId 'playtest-pixel-shooter' để tìm key 'pixel_shooter_brand_config_playtest'
         if (typeof loadBrandConfig === 'function') {
-          loadBrandConfig();
+          loadBrandConfig('playtest-pixel-shooter');
         }
       }
       

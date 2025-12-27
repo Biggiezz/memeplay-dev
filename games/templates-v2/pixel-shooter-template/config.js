@@ -102,7 +102,10 @@ window.loadBrandConfig = loadBrandConfig;
 window.saveBrandConfig = saveBrandConfig;
 window.generateGameId = generateGameId;
 
-// Initialize on load
-loadBrandConfig();
+// ✅ FIX: KHÔNG gọi loadBrandConfig() ngay khi file load
+// Để game.js initializeGame() gọi loadBrandConfig(gameId) với gameId rõ ràng từ URL
+// Điều này đảm bảo config được load đúng với gameId, tránh race condition
+// Trong editor mode: game.js sẽ gọi loadBrandConfig() với playtest gameId
+// Trong public game mode: game.js sẽ gọi loadBrandConfig(gameId) với gameId từ URL
 
 
