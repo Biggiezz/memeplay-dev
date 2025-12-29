@@ -2520,7 +2520,8 @@ async function getOrCreateReferralCode() {
     if (error) {
       console.error('[Referral] Get code error:', error)
       console.error('[Referral] Error details:', JSON.stringify(error, null, 2))
-      return null
+      // Throw error with message for UI display
+      throw new Error(error.message || `RPC error: ${error.code || 'UNKNOWN'}`)
     }
     
     console.log('[Referral] Referral code result:', data)
@@ -2528,7 +2529,8 @@ async function getOrCreateReferralCode() {
   } catch (err) {
     console.error('[Referral] Get code exception:', err)
     console.error('[Referral] Exception stack:', err.stack)
-    return null
+    // Re-throw for UI display
+    throw err
   }
 }
 
@@ -2551,7 +2553,8 @@ async function getReferralStats() {
     if (error) {
       console.error('[Referral] Get stats error:', error)
       console.error('[Referral] Error details:', JSON.stringify(error, null, 2))
-      return null
+      // Throw error with message for UI display
+      throw new Error(error.message || `RPC error: ${error.code || 'UNKNOWN'}`)
     }
     
     console.log('[Referral] Stats result:', data)
@@ -2559,7 +2562,8 @@ async function getReferralStats() {
   } catch (err) {
     console.error('[Referral] Get stats exception:', err)
     console.error('[Referral] Exception stack:', err.stack)
-    return null
+    // Re-throw for UI display
+    throw err
   }
 }
 
@@ -2579,13 +2583,36 @@ async function updateReferralOverlay() {
   }
   
   const userId = getUserId()
-  if (!userId || !userId.startsWith('base_')) {
-    console.warn('[Referral] Invalid user ID for Base App:', userId)
+  let errorMessage = null
+  
+  // ✅ DEBUG: Show user ID in UI for mobile testing
+  if (!userId) {
+    errorMessage = 'User ID not available. Please wait...'
     content.innerHTML = `
       <div class="referral-stats-section">
-        <div class="referral-stat-card">
-          <div class="referral-stat-label">Your Referral Link</div>
-          <div class="referral-stat-value" style="color: #f88;">Invalid User ID</div>
+        <div class="referral-stat-card" style="background: rgba(255, 136, 136, 0.1); border: 1px solid #f88;">
+          <div class="referral-stat-label">Debug Info</div>
+          <div class="referral-stat-value" style="color: #f88; font-size: 12px; word-break: break-all;">
+            ${errorMessage}<br/>
+            User ID: ${userId || 'null'}
+          </div>
+        </div>
+      </div>
+    `
+    // Retry after 1 second
+    setTimeout(() => updateReferralOverlay(), 1000)
+    return
+  }
+  
+  if (!userId.startsWith('base_')) {
+    errorMessage = `Invalid User ID format. Expected: base_<fid>, Got: ${userId}`
+    content.innerHTML = `
+      <div class="referral-stats-section">
+        <div class="referral-stat-card" style="background: rgba(255, 136, 136, 0.1); border: 1px solid #f88;">
+          <div class="referral-stat-label">Debug Info</div>
+          <div class="referral-stat-value" style="color: #f88; font-size: 12px; word-break: break-all;">
+            ${errorMessage}
+          </div>
         </div>
       </div>
     `
@@ -2593,7 +2620,14 @@ async function updateReferralOverlay() {
   }
   
   // Try to get stats
-  const stats = await getReferralStats()
+  let stats = null
+  let statsError = null
+  try {
+    stats = await getReferralStats()
+  } catch (err) {
+    statsError = err.message || 'Unknown error'
+    console.error('[Referral] Get stats failed:', err)
+  }
   
   // Use stats if available, otherwise use default/placeholder values
   let referralCode = 'Loading...'
@@ -2608,37 +2642,63 @@ async function updateReferralOverlay() {
   } else {
     // If stats is null, try to get/create referral code directly
     console.warn('[Referral] Stats is null, trying to get/create referral code directly')
-    const code = await getOrCreateReferralCode()
-    if (code) {
-      referralCode = code
-      console.log('[Referral] Referral code created:', code)
-    } else {
-      console.error('[Referral] Failed to get/create referral code')
+    try {
+      const code = await getOrCreateReferralCode()
+      if (code) {
+        referralCode = code
+        console.log('[Referral] Referral code created:', code)
+      } else {
+        errorMessage = statsError || 'Failed to get/create referral code. Please check SQL setup.'
+        referralCode = 'Error'
+      }
+    } catch (err) {
+      errorMessage = err.message || 'RPC function error. Please check SQL setup.'
+      console.error('[Referral] Failed to get/create referral code:', err)
       referralCode = 'Error'
     }
   }
   
-  const referralLink = referralCode !== 'Loading...' 
+  const referralLink = referralCode !== 'Loading...' && referralCode !== 'Error'
     ? `https://memeplay.dev/base-app-mini-app.html?ref=${referralCode}`
-    : 'Loading...'
+    : referralCode
   
   // Always update HTML with new UI
   content.innerHTML = `
     <div class="referral-stats-section">
-      <div class="referral-stat-card">
+      ${errorMessage ? `
+        <div class="referral-stat-card" style="background: rgba(255, 136, 136, 0.1); border: 1px solid #f88; margin-bottom: 16px;">
+          <div class="referral-stat-label" style="color: #f88;">⚠️ Error</div>
+          <div class="referral-stat-value" style="color: #f88; font-size: 12px; word-break: break-all;">
+            ${errorMessage}
+          </div>
+        </div>
+      ` : ''}
+      <div class="referral-stat-card" style="${errorMessage ? 'opacity: 0.5;' : ''}">
         <div class="referral-stat-label">Your Referral Link</div>
-        <div class="referral-stat-value link-value">${referralLink}</div>
-        ${referralLink !== 'Loading...' ? `<button class="referral-copy-btn" data-copy="${referralLink}">Copy Link</button>` : ''}
+        <div class="referral-stat-value link-value" style="color: ${referralCode === 'Error' ? '#f88' : referralCode === 'Loading...' ? '#ffb642' : '#0ff'};">
+          ${referralLink}
+        </div>
+        ${referralLink !== 'Loading...' && referralLink !== 'Error' ? `<button class="referral-copy-btn" data-copy="${referralLink}">Copy Link</button>` : ''}
       </div>
       
-      <div class="referral-stats-grid">
-        <div class="referral-stat-item">
-          <div class="referral-stat-number">${friendsReferred}</div>
-          <div class="referral-stat-text">Friends Referred</div>
+      ${!errorMessage ? `
+        <div class="referral-stats-grid">
+          <div class="referral-stat-item">
+            <div class="referral-stat-number">${friendsReferred}</div>
+            <div class="referral-stat-text">Friends Referred</div>
+          </div>
+          <div class="referral-stat-item">
+            <div class="referral-stat-number">${totalRewards.toLocaleString()}</div>
+            <div class="referral-stat-text">Total Rewards (PLAY)</div>
+          </div>
         </div>
-        <div class="referral-stat-item">
-          <div class="referral-stat-number">${totalRewards.toLocaleString()}</div>
-          <div class="referral-stat-text">Total Rewards (PLAY)</div>
+      ` : ''}
+      
+      <!-- ✅ DEBUG: Show user ID for mobile testing -->
+      <div class="referral-stat-card" style="background: rgba(0, 255, 255, 0.05); border: 1px solid rgba(0, 255, 255, 0.3); margin-top: 16px;">
+        <div class="referral-stat-label" style="color: #0ff; font-size: 11px;">Debug: User ID</div>
+        <div class="referral-stat-value" style="color: #0ff; font-size: 11px; word-break: break-all;">
+          ${userId}
         </div>
       </div>
     </div>
