@@ -9,8 +9,82 @@
   <link rel="apple-touch-icon" href="assets/favicon.svg?v=2">
   <link rel="stylesheet" href="style.css">
   
-  <!-- ✅ Base App Mini App SDK - Load in app-base.js (like Telegram loads in app-telegram.js) -->
-  <!-- SDK sẽ được load trong scripts/app-base.js để tránh module script issues -->
+  <!-- ✅ Base App Mini App SDK - Load trước app script để window.BaseAppSDK có sẵn (giống Telegram) -->
+  <!-- Try multiple CDNs for compatibility -->
+  <script type="module">
+    // Try to load Base App SDK from CDN
+    (async function() {
+      const sdkSources = [
+        'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@1.0.0/+esm',
+        'https://unpkg.com/@farcaster/miniapp-sdk@latest/+esm',
+        'https://esm.sh/@farcaster/miniapp-sdk@latest'
+      ];
+      
+      for (const source of sdkSources) {
+        try {
+          console.log('[Base App] Trying SDK from:', source);
+          const module = await import(source);
+          const sdk = module.sdk || module.default?.sdk || module;
+          
+          if (sdk && typeof sdk.actions === 'object') {
+            window.BaseAppSDK = sdk;
+            console.log('[Base App] ✅ SDK loaded from:', source);
+            
+            // Initialize SDK
+            try {
+              await sdk.actions.ready();
+              console.log('[Base App] ✅ SDK initialized');
+              
+              // Store context globally
+              window.__baseAppSDKReady = true;
+              window.__baseAppSDKContext = sdk.context;
+              
+              // Extract FID if available
+              if (sdk.context?.user?.fid) {
+                const fidRaw = sdk.context.user.fid;
+                // Try to extract FID value
+                let fidValue = null;
+                if (typeof fidRaw === 'function') {
+                  try {
+                    fidValue = fidRaw();
+                  } catch (e) {}
+                } else if (typeof fidRaw === 'object' && 'value' in fidRaw) {
+                  fidValue = fidRaw.value;
+                } else if (typeof fidRaw === 'number' || typeof fidRaw === 'string') {
+                  fidValue = fidRaw;
+                }
+                
+                if (fidValue) {
+                  // Store extracted FID in context
+                  if (window.__baseAppSDKContext && window.__baseAppSDKContext.user) {
+                    window.__baseAppSDKContext.user.fid = fidValue;
+                  }
+                  console.log('[Base App] ✅ FID extracted:', fidValue);
+                }
+              }
+              
+              // Trigger event for app-base.js
+              window.dispatchEvent(new CustomEvent('baseAppSDKReady', { detail: sdk }));
+              break; // Success, exit loop
+            } catch (error) {
+              console.warn('[Base App] SDK init error:', error);
+              window.__baseAppSDKReady = false;
+              window.__sdkLoadError = error.message || 'SDK initialization failed';
+            }
+          }
+        } catch (error) {
+          console.warn('[Base App] Failed to load from', source, ':', error.message);
+          continue; // Try next CDN
+        }
+      }
+      
+      if (!window.BaseAppSDK) {
+        console.warn('[Base App] ⚠️ SDK not loaded - running in browser or SDK unavailable');
+        window.__baseAppSDKReady = false;
+        window.__sdkLoadError = 'All SDK CDN sources failed';
+      }
+    })();
+  </script>
   
   <!-- ✅ Embed Metadata for Base App -->
   <meta name="fc:miniapp" content='{
@@ -28,7 +102,7 @@
   
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
   <!-- ✅ Load app-base.js (SDK sẽ được load trong file này, giống Telegram) -->
-  <script type="module" src="scripts/app-base.js?v=3" onerror="window.__appBaseLoadError = 'Failed to load app-base.js'; if (!window.__debugErrors) window.__debugErrors = []; window.__debugErrors.push('app-base.js load error'); if (typeof window.updateDebugPanel === 'function') window.updateDebugPanel();"></script>
+  <script type="module" src="scripts/app-base.js?v=4" onerror="window.__appBaseLoadError = 'Failed to load app-base.js'; if (!window.__debugErrors) window.__debugErrors = []; window.__debugErrors.push('app-base.js load error'); if (typeof window.updateDebugPanel === 'function') window.updateDebugPanel();"></script>
   
   <!-- ✅ Fallback: Check if app-base.js loaded after 5 seconds -->
   <script>

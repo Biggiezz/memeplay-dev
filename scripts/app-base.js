@@ -14,187 +14,23 @@ import {
 // ==========================================
 // ✅ BASE APP SDK INITIALIZATION
 // ==========================================
-// Load Base App SDK here (like Telegram loads SDK in app-telegram.js)
-// This avoids module script loading issues in Base App client
+// Base App SDK is loaded in <head> of HTML (like Telegram WebApp SDK)
+// This code just checks if SDK is available and waits for it to be ready
 
-(async function initBaseAppSDK() {
-  // ✅ Try multiple CDNs and versions for compatibility
-  const sdkSources = [
-    'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@1.0.0/+esm', // Try specific version first
-    'https://unpkg.com/@farcaster/miniapp-sdk@latest/+esm', // Fallback to unpkg
-    'https://esm.sh/@farcaster/miniapp-sdk@latest', // Fallback to esm.sh
-    'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/+esm' // Last resort: jsdelivr latest
-  ];
-  
-  let sdk = null;
-  let lastError = null;
-  
-  // Try each CDN until one works
-  for (const source of sdkSources) {
-    try {
-      console.log('[Base App] Trying SDK from:', source);
-      const module = await import(source);
-      sdk = module.sdk || module.default?.sdk || module;
-      
-      if (sdk && typeof sdk.actions === 'object') {
-        window.BaseAppSDK = sdk;
-        console.log('[Base App] ✅ SDK module loaded successfully from:', source);
-        break; // Success, exit loop
-      } else {
-        throw new Error('SDK object not found in module');
-      }
-    } catch (error) {
-      console.warn('[Base App] Failed to load from', source, ':', error.message);
-      lastError = error;
-      continue; // Try next CDN
-    }
+(function initBaseAppSDK() {
+  // Check if SDK is already loaded (from HTML)
+  if (window.BaseAppSDK && window.__baseAppSDKReady) {
+    console.log('[Base App] SDK already ready from HTML');
+    return; // SDK already initialized in HTML
   }
   
-  if (!sdk) {
-    console.error('[Base App] ❌ All CDN sources failed. Last error:', lastError);
-    window.__sdkLoadError = lastError?.message || 'All CDN sources failed';
-    if (!window.__debugErrors) window.__debugErrors = [];
-    window.__debugErrors.push('[Base App] All SDK CDN sources failed: ' + (lastError?.message || 'Unknown error'));
-    
-    // Update debug panel if available
-    if (typeof window.updateDebugPanel === 'function') {
-      setTimeout(() => window.updateDebugPanel(), 100);
-    }
-    return; // Exit early if SDK failed to load
-  }
-  
-  // Initialize Base App SDK
-  try {
-    // Call ready() when app is loaded to hide splash screen
-    await sdk.actions.ready();
-    console.log('[Base App] SDK initialized');
-    
-    // ✅ DEBUG: Log context after ready
-    console.log('[Base App] SDK object:', sdk);
-    console.log('[Base App] SDK keys:', Object.keys(sdk || {}));
-    
-    if (sdk.context) {
-      console.log('[Base App] Context available:', sdk.context);
-      console.log('[Base App] Context keys:', Object.keys(sdk.context || {}));
-      if (sdk.context.user) {
-        console.log('[Base App] User object:', sdk.context.user);
-        console.log('[Base App] User keys:', Object.keys(sdk.context.user || {}));
-        console.log('[Base App] FID:', sdk.context.user.fid);
-      } else {
-        console.warn('[Base App] Context exists but no user object');
-      }
-    } else {
-      console.warn('[Base App] Context not available');
-      console.log('[Base App] SDK structure:', JSON.stringify(sdk, null, 2));
-    }
-    
-    // ✅ Set flag that SDK is ready
-    window.__baseAppSDKReady = true;
-    
-    // ✅ Store SDK context globally for easier access (CRITICAL!)
-    window.__baseAppSDKContext = sdk.context;
-    
-    // ✅ Log context for debugging
-    // ✅ FIX: Handle FID as Proxy/Function - try multiple extraction methods
-    let fidValue = null;
-    const fidRaw = sdk.context?.user?.fid;
-    
-    if (fidRaw) {
-      console.log('[Base App] FID raw type:', typeof fidRaw, fidRaw);
-      
-      // Method 1: If it's a function, try calling it
-      if (typeof fidRaw === 'function') {
-        try {
-          fidValue = fidRaw();
-          console.log('[Base App] FID from function call:', fidValue);
-        } catch (e) {
-          console.warn('[Base App] FID function call failed:', e);
-        }
-      }
-      
-      // Method 2: If it's a Proxy, try accessing .value or direct value
-      if (!fidValue && typeof fidRaw === 'object') {
-        try {
-          // Try .value property
-          if ('value' in fidRaw) {
-            fidValue = fidRaw.value;
-            console.log('[Base App] FID from .value:', fidValue);
-          }
-          // Try direct conversion
-          else if (typeof fidRaw === 'number') {
-            fidValue = fidRaw;
-            console.log('[Base App] FID is number:', fidValue);
-          }
-          // Try toString or valueOf
-          else {
-            const str = String(fidRaw);
-            const num = Number(fidRaw);
-            if (!isNaN(num) && num > 0) {
-              fidValue = num;
-              console.log('[Base App] FID from conversion:', fidValue);
-            }
-          }
-        } catch (e) {
-          console.warn('[Base App] FID extraction failed:', e);
-        }
-      }
-      
-      // Method 3: Direct use if it's already a number/string
-      if (!fidValue && (typeof fidRaw === 'number' || typeof fidRaw === 'string')) {
-        fidValue = fidRaw;
-        console.log('[Base App] FID direct value:', fidValue);
-      }
-      
-      // Method 4: Try JSON.stringify to extract value
-      if (!fidValue) {
-        try {
-          const jsonStr = JSON.stringify(sdk.context.user);
-          const userObj = JSON.parse(jsonStr);
-          if (userObj.fid) {
-            fidValue = userObj.fid;
-            console.log('[Base App] FID from JSON:', fidValue);
-          }
-        } catch (e) {
-          console.warn('[Base App] FID JSON extraction failed:', e);
-        }
-      }
-      
-      if (fidValue) {
-        console.log('[Base App] ✅ FID extracted:', fidValue);
-        console.log('[Base App] ✅ User ID will be: base_' + fidValue);
-        // ✅ Store extracted FID in context for faster access
-        if (window.__baseAppSDKContext && window.__baseAppSDKContext.user) {
-          window.__baseAppSDKContext.user.fid = fidValue;
-        }
-      } else {
-        console.warn('[Base App] ⚠️ Could not extract FID value from:', fidRaw);
-        if (!window.__debugErrors) window.__debugErrors = [];
-        window.__debugErrors.push('[Base App] FID is Proxy/Function but extraction failed');
-      }
-    } else {
-      console.warn('[Base App] ⚠️ FID not available in context');
-      if (!window.__debugErrors) window.__debugErrors = [];
-      window.__debugErrors.push('[Base App] FID not available in context');
-    }
-    
-    // Update debug panel if available
-    if (typeof window.updateDebugPanel === 'function') {
-      setTimeout(() => window.updateDebugPanel(), 100);
-    }
-    
-    // ✅ Trigger custom event for other scripts (MUST be after context is set)
-    window.dispatchEvent(new CustomEvent('baseAppSDKReady', { detail: sdk }));
-  } catch (error) {
-    console.warn('[Base App] SDK not available - running in browser:', error);
+  // If SDK not ready yet, wait for baseAppSDKReady event (triggered by HTML script)
+  if (window.BaseAppSDK) {
+    console.log('[Base App] SDK loaded but not ready yet, waiting for ready event...');
+    // SDK will trigger baseAppSDKReady event when ready
+  } else {
+    console.warn('[Base App] SDK not found - running in browser or SDK failed to load');
     window.__baseAppSDKReady = false;
-    window.__sdkLoadError = error.message || 'SDK initialization failed';
-    if (!window.__debugErrors) window.__debugErrors = [];
-    window.__debugErrors.push('[Base App] SDK init error: ' + (error.message || error));
-    
-    // Update debug panel if available
-    if (typeof window.updateDebugPanel === 'function') {
-      setTimeout(() => window.updateDebugPanel(), 100);
-    }
   }
 })();
 
