@@ -39,27 +39,62 @@
               window.__baseAppSDKReady = true;
               window.__baseAppSDKContext = sdk.context;
               
-              // Extract FID if available
+              // Extract FID if available - CRITICAL: Handle Promise if FID is async
               if (sdk.context?.user?.fid) {
                 const fidRaw = sdk.context.user.fid;
-                // Try to extract FID value
+                // Try to extract FID value - handle Promise if needed
                 let fidValue = null;
+                
                 if (typeof fidRaw === 'function') {
                   try {
-                    fidValue = fidRaw();
-                  } catch (e) {}
+                    const result = fidRaw();
+                    // ✅ FIX: Check if result is Promise and await it
+                    if (result instanceof Promise) {
+                      result.then(value => {
+                        if (value && (typeof value === 'number' || typeof value === 'string')) {
+                          // Store extracted FID in context
+                          if (window.__baseAppSDKContext && window.__baseAppSDKContext.user) {
+                            window.__baseAppSDKContext.user.fid = value;
+                          }
+                          console.log('[Base App] ✅ FID extracted (async):', value);
+                        }
+                      }).catch(e => {
+                        console.warn('[Base App] FID Promise rejected:', e);
+                      });
+                      // Don't set fidValue here - wait for Promise to resolve
+                      fidValue = null; // Will be set in Promise callback
+                    } else {
+                      fidValue = result;
+                    }
+                  } catch (e) {
+                    console.warn('[Base App] FID function call failed:', e);
+                  }
                 } else if (typeof fidRaw === 'object' && 'value' in fidRaw) {
                   fidValue = fidRaw.value;
                 } else if (typeof fidRaw === 'number' || typeof fidRaw === 'string') {
                   fidValue = fidRaw;
+                } else if (fidRaw instanceof Promise) {
+                  // ✅ FIX: Handle direct Promise
+                  fidRaw.then(value => {
+                    if (value && (typeof value === 'number' || typeof value === 'string')) {
+                      if (window.__baseAppSDKContext && window.__baseAppSDKContext.user) {
+                        window.__baseAppSDKContext.user.fid = value;
+                      }
+                      console.log('[Base App] ✅ FID extracted (Promise):', value);
+                    }
+                  }).catch(e => {
+                    console.warn('[Base App] FID Promise rejected:', e);
+                  });
+                  fidValue = null; // Will be set in Promise callback
                 }
                 
-                if (fidValue) {
+                // Only set if we have a synchronous value (not Promise)
+                if (fidValue && !(fidValue instanceof Promise)) {
                   // Store extracted FID in context
                   if (window.__baseAppSDKContext && window.__baseAppSDKContext.user) {
                     window.__baseAppSDKContext.user.fid = fidValue;
                   }
-                  console.log('[Base App] ✅ FID extracted:', fidValue);
+                  console.log('[Base App] ✅ FID extracted (sync):', fidValue);
                 }
               }
               
