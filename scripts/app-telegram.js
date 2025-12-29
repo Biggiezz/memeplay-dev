@@ -1900,26 +1900,17 @@ function initStatsOverlay() {
       if (streakEl) streakEl.textContent = String(streak)
     }
     
-    // Load Play Points: Query from game_playtime + telegram_referral_rewards, fallback to localStorage
+    // Load Play Points: localStorage (playtime) + telegram_referral_rewards (referral)
     try {
       let totalPoints = 0
       let playtimeRewards = 0
       let referralRewards = 0
       let referredRewards = 0
       
-      // 1. Query rewards from game_playtime table
-      const { data: playtimeData, error: playtimeError } = await supabase
-        .from('game_playtime')
-        .select('reward')
-        .eq('user_id', userId)
-      
-      if (!playtimeError && Array.isArray(playtimeData)) {
-        playtimeRewards = playtimeData.reduce((sum, row) => sum + (Number(row.reward) || 0), 0)
-        totalPoints += playtimeRewards
-        console.log('[Stats] Playtime rewards:', playtimeRewards, 'from', playtimeData.length, 'records')
-      } else if (playtimeError) {
-        console.warn('[Stats] Playtime query error:', playtimeError)
-      }
+      // 1. Get playtime rewards from localStorage (bảng game_playtime không tồn tại)
+      playtimeRewards = lsGetInt('mp_total_earned_plays', 0)
+      totalPoints += playtimeRewards
+      console.log('[Stats] Playtime rewards (localStorage):', playtimeRewards)
       
       // 2. Query referral rewards from telegram_referral_rewards table (as referrer)
       if (userId && userId.startsWith('tg_')) {
@@ -1955,18 +1946,11 @@ function initStatsOverlay() {
       
       console.log('[Stats] Total Play Points:', totalPoints, '(playtime:', playtimeRewards, '+ referral:', referralRewards, '+ referred:', referredRewards, ')')
       
-      // Update UI and localStorage
-      if (totalPoints > 0) {
-        if (playsEl) playsEl.textContent = String(totalPoints)
-        // Sync to localStorage
-        lsSetInt('mp_total_earned_plays', totalPoints)
-        console.log('[Stats] Updated UI with total:', totalPoints)
-      } else {
-        // Fallback to localStorage
-        const plays = lsGetInt('mp_total_earned_plays', 0)
-        if (playsEl) playsEl.textContent = String(plays)
-        console.log('[Stats] Using localStorage fallback:', plays)
-      }
+      // Update UI and localStorage (sync total)
+      if (playsEl) playsEl.textContent = String(totalPoints)
+      // Sync total to localStorage để đồng bộ với referral overlay
+      lsSetInt('mp_total_earned_plays', totalPoints)
+      console.log('[Stats] Updated UI with total:', totalPoints)
     } catch (err) {
       console.warn('[Stats] Failed to load Play Points:', err)
       // Fallback to localStorage if query fails
