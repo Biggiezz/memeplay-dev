@@ -101,8 +101,54 @@
   }' />
   
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
-  <!-- ✅ Load app-base.js as module (SDK đã load trong HTML ở trên) -->
-  <script type="module" src="scripts/app-base.js?v=4" onerror="window.__appBaseLoadError = 'Failed to load app-base.js'; if (!window.__debugErrors) window.__debugErrors = []; window.__debugErrors.push('app-base.js load error'); if (typeof window.updateDebugPanel === 'function') window.updateDebugPanel();"></script>
+  <!-- ✅ Load app-base.js as module - Wait for SDK ready first -->
+  <script>
+    // Wait for SDK to be ready before loading app-base.js
+    (function() {
+      let sdkReady = false;
+      let appBaseLoaded = false;
+      
+      // Check if SDK is already ready
+      if (window.__baseAppSDKReady) {
+        sdkReady = true;
+        loadAppBase();
+      } else {
+        // Wait for SDK ready event (max 5 seconds)
+        const sdkTimeout = setTimeout(() => {
+          if (!sdkReady) {
+            console.warn('[Base App] SDK not ready after 5s, loading app-base.js anyway');
+            sdkReady = true;
+            loadAppBase();
+          }
+        }, 5000);
+        
+        window.addEventListener('baseAppSDKReady', () => {
+          clearTimeout(sdkTimeout);
+          sdkReady = true;
+          console.log('[Base App] SDK ready, loading app-base.js');
+          loadAppBase();
+        }, { once: true });
+      }
+      
+      function loadAppBase() {
+        if (appBaseLoaded) return;
+        appBaseLoaded = true;
+        
+        const script = document.createElement('script');
+        script.type = 'module';
+        script.src = 'scripts/app-base.js?v=4';
+        script.onerror = function() {
+          window.__appBaseLoadError = 'Failed to load app-base.js';
+          if (!window.__debugErrors) window.__debugErrors = [];
+          window.__debugErrors.push('app-base.js load error');
+          if (typeof window.updateDebugPanel === 'function') {
+            window.updateDebugPanel();
+          }
+        };
+        document.head.appendChild(script);
+      }
+    })();
+  </script>
   
   <!-- ✅ Fallback: Check if app-base.js loaded and retry if needed -->
   <script>
