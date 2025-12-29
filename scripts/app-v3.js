@@ -1967,8 +1967,10 @@ function initDailyCheckin() {
         const awarded = Number(data.awarded)
         
         // ✅ Cộng điểm vào PLAY points
-        const newTotal = lsGetInt('mp_total_earned_plays', 0) + awarded
+        const currentTotal = lsGetInt('mp_total_earned_plays', 0)
+        const newTotal = currentTotal + awarded
         lsSetInt('mp_total_earned_plays', newTotal)
+        console.log(`[V3] Daily checkin: +${awarded} PLAY points (${currentTotal} → ${newTotal})`)
         
         // Show daily check-in toast
         showDailyCheckInToast(streak, awarded, totalDays)
