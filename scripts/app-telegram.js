@@ -2384,12 +2384,19 @@ async function getReferralStats() {
 
 // ✅ Update referral overlay with stats
 async function updateReferralOverlay() {
+  console.log('[Referral] updateReferralOverlay called')
   const overlay = document.getElementById('referralOverlay')
-  if (!overlay) return
+  if (!overlay) {
+    console.warn('[Referral] Overlay not found')
+    return
+  }
   
+  console.log('[Referral] Getting stats...')
   const stats = await getReferralStats()
+  console.log('[Referral] Stats received:', stats)
+  
   if (!stats) {
-    // Show error or keep "Coming Soon"
+    console.warn('[Referral] No stats, keeping "Coming Soon"')
     return
   }
   
