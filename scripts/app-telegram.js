@@ -2615,3 +2615,32 @@ function initReferralOverlay() {
   window.__updateReferralOverlay = updateReferralOverlay
 }
 
+// ✅ Sync localStorage playtime rewards to database (one-time migration)
+async function syncLocalStorageToDatabase() {
+  const userId = getUserId()
+  if (!userId) return
+  
+  const supabase = initSupabaseClient()
+  const localTotal = lsGetInt('mp_total_earned_plays', 0)
+  
+  // Only sync if localStorage has rewards and user hasn't synced before
+  if (localTotal > 0 && !localStorage.getItem('mp_playtime_synced')) {
+    try {
+      const { data, error } = await supabase.rpc('sync_user_playtime_rewards', {
+        p_user_id: userId,
+        p_total_from_localstorage: localTotal
+      })
+      
+      if (!error && data?.success) {
+        console.log('[Sync] Migrated playtime rewards to database:', data)
+        // Mark as synced to avoid duplicate syncs
+        localStorage.setItem('mp_playtime_synced', 'true')
+      } else {
+        console.warn('[Sync] Failed to sync playtime rewards:', error)
+      }
+    } catch (err) {
+      console.warn('[Sync] Sync exception:', err)
+    }
+  }
+}
+
