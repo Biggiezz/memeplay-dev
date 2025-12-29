@@ -101,22 +101,64 @@
   }' />
   
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
-  <!-- ✅ Load app-base.js (SDK sẽ được load trong file này, giống Telegram) -->
+  <!-- ✅ Load app-base.js as module (SDK đã load trong HTML ở trên) -->
   <script type="module" src="scripts/app-base.js?v=4" onerror="window.__appBaseLoadError = 'Failed to load app-base.js'; if (!window.__debugErrors) window.__debugErrors = []; window.__debugErrors.push('app-base.js load error'); if (typeof window.updateDebugPanel === 'function') window.updateDebugPanel();"></script>
   
-  <!-- ✅ Fallback: Check if app-base.js loaded after 5 seconds -->
+  <!-- ✅ Fallback: Check if app-base.js loaded and retry if needed -->
   <script>
-    setTimeout(() => {
-      if (typeof getUserId === 'undefined' && !window.__appBaseLoadError) {
-        console.warn('[Base App] app-base.js not loaded after 5s - may be blocked by client');
-        window.__appBaseLoadError = 'Script timeout - may be blocked';
+    let appBaseLoadCheckCount = 0;
+    const maxChecks = 10; // Check for 10 seconds (10 x 1s)
+    
+    function checkAppBaseLoaded() {
+      appBaseLoadCheckCount++;
+      
+      // Check if app-base.js loaded successfully
+      if (typeof getUserId === 'function') {
+        console.log('[Base App] ✅ app-base.js loaded successfully');
+        return; // Success, exit
+      }
+      
+      // If not loaded and haven't exceeded max checks
+      if (appBaseLoadCheckCount < maxChecks) {
+        setTimeout(checkAppBaseLoaded, 1000); // Check again in 1 second
+        return;
+      }
+      
+      // Timeout reached
+      if (!window.__appBaseLoadError) {
+        console.error('[Base App] ❌ app-base.js not loaded after 10s - may be blocked by Base App client');
+        window.__appBaseLoadError = 'Script timeout - may be blocked by Base App client';
         if (!window.__debugErrors) window.__debugErrors = [];
-        window.__debugErrors.push('[Base App] app-base.js timeout - may be blocked');
+        window.__debugErrors.push('[Base App] app-base.js timeout - may be blocked by Base App client');
+        
+        // Show user-friendly error
+        const container = document.querySelector('.game-container');
+        if (container) {
+          container.innerHTML = `
+            <div style="padding: 40px 20px; text-align: center; color: #fff;">
+              <h2 style="color: #ffb642; margin-bottom: 20px;">⚠️ Script Loading Issue</h2>
+              <p style="color: #bbb; margin-bottom: 20px;">
+                The app script is taking longer than expected to load.<br>
+                This may be due to Base App client restrictions.
+              </p>
+              <p style="color: #888; font-size: 14px;">
+                Please try:<br>
+                1. Force close and reopen Base App<br>
+                2. Check your network connection<br>
+                3. Try again later
+              </p>
+            </div>
+          `;
+        }
+        
         if (typeof window.updateDebugPanel === 'function') {
           window.updateDebugPanel();
         }
       }
-    }, 5000);
+    }
+    
+    // Start checking after 1 second
+    setTimeout(checkAppBaseLoaded, 1000);
   </script>
   <style>
     :root { --header-h: 60px; }
