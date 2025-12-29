@@ -824,7 +824,16 @@ function getBaseAppUserId() {
   // Check if running inside Base App
   const sdk = window.BaseAppSDK
   
-  if (!sdk) return null
+  if (!sdk) {
+    // Try to access SDK from global scope
+    if (typeof window !== 'undefined' && window.sdk) {
+      const globalSdk = window.sdk
+      if (globalSdk.context?.user?.fid) {
+        return `base_${globalSdk.context.user.fid}`
+      }
+    }
+    return null
+  }
   
   // Method 1: Direct access to context
   if (sdk.context?.user?.fid) {
@@ -832,13 +841,32 @@ function getBaseAppUserId() {
     return `base_${fid}`
   }
   
-  // Method 2: Wait for SDK ready event (if not ready yet)
-  // SDK context might be available after ready() is called
-  if (window.__baseAppSDKReady && sdk.context) {
-    // Retry after SDK ready
-    if (sdk.context.user?.fid) {
-      return `base_${sdk.context.user.fid}`
+  // Method 2: Try accessing context property directly
+  try {
+    const context = sdk.context
+    if (context && context.user && context.user.fid) {
+      return `base_${context.user.fid}`
     }
+  } catch (e) {
+    // Ignore
+  }
+  
+  // Method 3: Try getContext() method if available
+  if (typeof sdk.getContext === 'function') {
+    try {
+      const context = sdk.getContext()
+      if (context?.user?.fid) {
+        return `base_${context.user.fid}`
+      }
+    } catch (e) {
+      // Ignore
+    }
+  }
+  
+  // Method 4: Check if context is available but user is null
+  if (sdk.context && !sdk.context.user) {
+    // Context exists but user not set yet - might need to wait
+    return null
   }
   
   return null
@@ -1882,28 +1910,50 @@ function initStatsOverlay() {
   const streakEl = document.getElementById('statsStreak')
   const playsEl = document.getElementById('statsPlays')
   
+  // ✅ Listen for SDK ready event
+  window.addEventListener('baseAppSDKReady', (event) => {
+    // SDK is ready, try to update User ID
+    if (userIdEl) {
+      setTimeout(() => {
+        const userId = getUserId()
+        if (userId) {
+          const isBaseFormat = userId.startsWith('base_')
+          const formatStatus = isBaseFormat ? '✅' : '❌'
+          userIdEl.textContent = `${formatStatus} ${userId}`
+          userIdEl.style.color = isBaseFormat ? '#0ff' : '#f88'
+        }
+      }, 100)
+    }
+  })
+  
   async function updateStatsOverlay() {
     // ✅ DEBUG: Check Base App SDK status
     let userId = getUserId()
     let debugInfo = ''
     
-    // Check SDK availability
-    if (window.BaseAppSDK) {
-      if (window.BaseAppSDK.context) {
-        if (window.BaseAppSDK.context.user) {
-          if (window.BaseAppSDK.context.user.fid) {
-            debugInfo = 'SDK OK'
+    // Check SDK availability with detailed info
+    const sdk = window.BaseAppSDK
+    if (sdk) {
+      if (sdk.context) {
+        if (sdk.context.user) {
+          if (sdk.context.user.fid) {
+            debugInfo = `SDK OK (FID: ${sdk.context.user.fid})`
           } else {
-            debugInfo = 'SDK: no FID'
+            debugInfo = `SDK: no FID (user exists: ${JSON.stringify(Object.keys(sdk.context.user || {}))})`
           }
         } else {
-          debugInfo = 'SDK: no user'
+          debugInfo = 'SDK: no user object'
         }
       } else {
         debugInfo = 'SDK: no context'
       }
     } else {
-      debugInfo = 'SDK: not loaded'
+      // Check if SDK exists in other places
+      if (window.sdk) {
+        debugInfo = 'SDK: found as window.sdk'
+      } else {
+        debugInfo = 'SDK: not loaded'
+      }
     }
     
     // ✅ DEBUG: Update User ID display with retry
