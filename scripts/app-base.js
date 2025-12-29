@@ -124,18 +124,6 @@ import {
         setTimeout(() => window.updateDebugPanel(), 100);
       }
     }
-  } catch (error) {
-    // This catch block is now unreachable since we handle errors in the loop above
-    // But keep it for safety
-    console.error('[Base App] Unexpected error:', error);
-    window.__sdkLoadError = error.message || 'Unexpected error';
-    if (!window.__debugErrors) window.__debugErrors = [];
-    window.__debugErrors.push('[Base App] Unexpected error: ' + (error.message || error));
-    
-    // Update debug panel if available
-    if (typeof window.updateDebugPanel === 'function') {
-      setTimeout(() => window.updateDebugPanel(), 100);
-    }
   }
 })();
 
