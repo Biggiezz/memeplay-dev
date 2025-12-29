@@ -1867,11 +1867,6 @@ if (document.readyState === 'loading') {
       syncLocalStorageToDatabase()
     }, 1000) // Wait a bit for initialization
     
-    // ✅ Sync localStorage to database (one-time migration)
-    setTimeout(() => {
-      syncLocalStorageToDatabase()
-    }, 1000) // Wait a bit for initialization
-    
     // ✅ Detect referral code when app loads
     setTimeout(() => {
       detectReferralCode()
