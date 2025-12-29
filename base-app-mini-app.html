@@ -9,104 +9,8 @@
   <link rel="apple-touch-icon" href="assets/favicon.svg?v=2">
   <link rel="stylesheet" href="style.css">
   
-  <!-- ✅ Base App Mini App SDK - Load from CDN -->
-  <script type="module">
-    // ✅ Error handling for module script loading
-    window.__sdkLoadError = null;
-    
-    try {
-      import('https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/+esm')
-        .then((module) => {
-          const sdk = module.sdk;
-          window.BaseAppSDK = sdk;
-          console.log('[Base App] SDK module loaded successfully');
-          
-          // Initialize Base App SDK
-          (async function initBaseApp() {
-            try {
-              // Call ready() when app is loaded to hide splash screen
-              await sdk.actions.ready();
-              console.log('[Base App] SDK initialized');
-        
-        // ✅ DEBUG: Log context after ready
-        console.log('[Base App] SDK object:', sdk);
-        console.log('[Base App] SDK keys:', Object.keys(sdk || {}));
-        
-        if (sdk.context) {
-          console.log('[Base App] Context available:', sdk.context);
-          console.log('[Base App] Context keys:', Object.keys(sdk.context || {}));
-          if (sdk.context.user) {
-            console.log('[Base App] User object:', sdk.context.user);
-            console.log('[Base App] User keys:', Object.keys(sdk.context.user || {}));
-            console.log('[Base App] FID:', sdk.context.user.fid);
-          } else {
-            console.warn('[Base App] Context exists but no user object');
-          }
-        } else {
-          console.warn('[Base App] Context not available');
-          console.log('[Base App] SDK structure:', JSON.stringify(sdk, null, 2));
-        }
-        
-        // ✅ Set flag that SDK is ready
-        window.__baseAppSDKReady = true;
-        
-        // ✅ Store SDK context globally for easier access (CRITICAL!)
-        window.__baseAppSDKContext = sdk.context;
-        
-        // ✅ Log context for debugging
-        if (sdk.context?.user?.fid) {
-          console.log('[Base App] ✅ FID available:', sdk.context.user.fid);
-          console.log('[Base App] ✅ User ID will be: base_' + sdk.context.user.fid);
-        } else {
-          console.warn('[Base App] ⚠️ FID not available in context');
-          // Store error for debug panel
-          if (!window.__debugErrors) window.__debugErrors = [];
-          window.__debugErrors.push('[Base App] FID not available in context');
-        }
-        
-        // Update debug panel if available
-        if (typeof window.updateDebugPanel === 'function') {
-          setTimeout(() => window.updateDebugPanel(), 100);
-        }
-        
-              // ✅ Trigger custom event for other scripts (MUST be after context is set)
-              window.dispatchEvent(new CustomEvent('baseAppSDKReady', { detail: sdk }));
-            } catch (error) {
-              console.warn('[Base App] SDK not available - running in browser:', error);
-              window.__baseAppSDKReady = false;
-              window.__sdkLoadError = error.message || 'SDK initialization failed';
-              if (!window.__debugErrors) window.__debugErrors = [];
-              window.__debugErrors.push('[Base App] SDK init error: ' + (error.message || error));
-            }
-          })();
-        })
-        .catch((error) => {
-          console.error('[Base App] Failed to load SDK module:', error);
-          window.__sdkLoadError = error.message || 'Failed to import SDK module';
-          if (!window.__debugErrors) window.__debugErrors = [];
-          window.__debugErrors.push('[Base App] SDK import error: ' + (error.message || error));
-        });
-    } catch (error) {
-      console.error('[Base App] Module script error:', error);
-      window.__sdkLoadError = error.message || 'Module script execution error';
-      if (!window.__debugErrors) window.__debugErrors = [];
-      window.__debugErrors.push('[Base App] Script error: ' + (error.message || error));
-    }
-  </script>
-  
-  <!-- ✅ Fallback: Check if SDK loaded after 3 seconds -->
-  <script>
-    setTimeout(() => {
-      if (!window.BaseAppSDK && !window.__sdkLoadError) {
-        console.warn('[Base App] SDK not loaded after 3s - may be blocked by client');
-        if (!window.__debugErrors) window.__debugErrors = [];
-        window.__debugErrors.push('[Base App] SDK script timeout - may be blocked');
-        if (typeof window.updateDebugPanel === 'function') {
-          window.updateDebugPanel();
-        }
-      }
-    }, 3000);
-  </script>
+  <!-- ✅ Base App Mini App SDK - Load in app-base.js (like Telegram loads in app-telegram.js) -->
+  <!-- SDK sẽ được load trong scripts/app-base.js để tránh module script issues -->
   
   <!-- ✅ Embed Metadata for Base App -->
   <meta name="fc:miniapp" content='{
@@ -123,13 +27,14 @@
   }' />
   
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
-  <script type="module" src="scripts/app-base.js?v=1" onerror="window.__appBaseLoadError = 'Failed to load app-base.js'; if (!window.__debugErrors) window.__debugErrors = []; window.__debugErrors.push('app-base.js load error'); if (typeof window.updateDebugPanel === 'function') window.updateDebugPanel();"></script>
+  <!-- ✅ Load app-base.js (SDK sẽ được load trong file này, giống Telegram) -->
+  <script type="module" src="scripts/app-base.js?v=2" onerror="window.__appBaseLoadError = 'Failed to load app-base.js'; if (!window.__debugErrors) window.__debugErrors = []; window.__debugErrors.push('app-base.js load error'); if (typeof window.updateDebugPanel === 'function') window.updateDebugPanel();"></script>
   
-  <!-- ✅ Fallback: Check if app-base.js loaded after 3 seconds -->
+  <!-- ✅ Fallback: Check if app-base.js loaded after 5 seconds -->
   <script>
     setTimeout(() => {
       if (typeof getUserId === 'undefined' && !window.__appBaseLoadError) {
-        console.warn('[Base App] app-base.js not loaded after 3s - may be blocked by client');
+        console.warn('[Base App] app-base.js not loaded after 5s - may be blocked by client');
         window.__appBaseLoadError = 'Script timeout - may be blocked';
         if (!window.__debugErrors) window.__debugErrors = [];
         window.__debugErrors.push('[Base App] app-base.js timeout - may be blocked');
@@ -137,7 +42,7 @@
           window.updateDebugPanel();
         }
       }
-    }, 3000);
+    }, 5000);
   </script>
   <style>
     :root { --header-h: 60px; }

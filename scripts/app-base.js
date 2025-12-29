@@ -14,9 +14,84 @@ import {
 // ==========================================
 // ✅ BASE APP SDK INITIALIZATION
 // ==========================================
-// Base App SDK is loaded in <head> of base-app-mini-app.html
-// SDK.actions.ready() is called in HTML to hide splash screen
-// No initialization needed here - SDK is already initialized in HTML
+// Load Base App SDK here (like Telegram loads SDK in app-telegram.js)
+// This avoids module script loading issues in Base App client
+
+(async function initBaseAppSDK() {
+  try {
+    // Import SDK module
+    const { sdk } = await import('https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/+esm');
+    window.BaseAppSDK = sdk;
+    console.log('[Base App] SDK module loaded successfully');
+    
+    // Initialize Base App SDK
+    try {
+      // Call ready() when app is loaded to hide splash screen
+      await sdk.actions.ready();
+      console.log('[Base App] SDK initialized');
+      
+      // ✅ DEBUG: Log context after ready
+      console.log('[Base App] SDK object:', sdk);
+      console.log('[Base App] SDK keys:', Object.keys(sdk || {}));
+      
+      if (sdk.context) {
+        console.log('[Base App] Context available:', sdk.context);
+        console.log('[Base App] Context keys:', Object.keys(sdk.context || {}));
+        if (sdk.context.user) {
+          console.log('[Base App] User object:', sdk.context.user);
+          console.log('[Base App] User keys:', Object.keys(sdk.context.user || {}));
+          console.log('[Base App] FID:', sdk.context.user.fid);
+        } else {
+          console.warn('[Base App] Context exists but no user object');
+        }
+      } else {
+        console.warn('[Base App] Context not available');
+        console.log('[Base App] SDK structure:', JSON.stringify(sdk, null, 2));
+      }
+      
+      // ✅ Set flag that SDK is ready
+      window.__baseAppSDKReady = true;
+      
+      // ✅ Store SDK context globally for easier access (CRITICAL!)
+      window.__baseAppSDKContext = sdk.context;
+      
+      // ✅ Log context for debugging
+      if (sdk.context?.user?.fid) {
+        console.log('[Base App] ✅ FID available:', sdk.context.user.fid);
+        console.log('[Base App] ✅ User ID will be: base_' + sdk.context.user.fid);
+      } else {
+        console.warn('[Base App] ⚠️ FID not available in context');
+        // Store error for debug panel
+        if (!window.__debugErrors) window.__debugErrors = [];
+        window.__debugErrors.push('[Base App] FID not available in context');
+      }
+      
+      // Update debug panel if available
+      if (typeof window.updateDebugPanel === 'function') {
+        setTimeout(() => window.updateDebugPanel(), 100);
+      }
+      
+      // ✅ Trigger custom event for other scripts (MUST be after context is set)
+      window.dispatchEvent(new CustomEvent('baseAppSDKReady', { detail: sdk }));
+    } catch (error) {
+      console.warn('[Base App] SDK not available - running in browser:', error);
+      window.__baseAppSDKReady = false;
+      window.__sdkLoadError = error.message || 'SDK initialization failed';
+      if (!window.__debugErrors) window.__debugErrors = [];
+      window.__debugErrors.push('[Base App] SDK init error: ' + (error.message || error));
+    }
+  } catch (error) {
+    console.error('[Base App] Failed to load SDK module:', error);
+    window.__sdkLoadError = error.message || 'Failed to import SDK module';
+    if (!window.__debugErrors) window.__debugErrors = [];
+    window.__debugErrors.push('[Base App] SDK import error: ' + (error.message || error));
+    
+    // Update debug panel if available
+    if (typeof window.updateDebugPanel === 'function') {
+      setTimeout(() => window.updateDebugPanel(), 100);
+    }
+  }
+})();
 
 // ==========================================
 // STEP 2.1: Setup Supabase Client
