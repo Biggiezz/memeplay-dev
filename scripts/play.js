@@ -660,7 +660,7 @@ async function fetchGameFromSupabase(gameId) {
           .filter(story => typeof story === 'string' && story.trim() !== '')
         return legacy
       })()
-      
+
       
       // ✅ FIX: Force correct templateUrl for blow-bubble games
       const correctedTemplateUrl = isBlowBubble && !finalTemplateUrl.includes('/blow-bubble/')

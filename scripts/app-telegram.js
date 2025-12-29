@@ -1841,6 +1841,11 @@ if (document.readyState === 'loading') {
     initStatsOverlay()
     initDailyCheckin()
     initReferralOverlay()
+    
+    // ✅ Detect referral code when app loads
+    setTimeout(() => {
+      detectReferralCode()
+    }, 500) // Wait a bit for Telegram WebApp SDK to initialize
   })
 } else {
   loadGame0()
@@ -1848,6 +1853,11 @@ if (document.readyState === 'loading') {
   initStatsOverlay()
   initDailyCheckin()
   initReferralOverlay()
+  
+  // ✅ Detect referral code when app loads
+  setTimeout(() => {
+    detectReferralCode()
+  }, 500) // Wait a bit for Telegram WebApp SDK to initialize
 }
 
 // ==========================================
@@ -2053,8 +2063,393 @@ function initDailyCheckin() {
 }
 
 // ==========================================
-// REFERRAL OVERLAY (Coming Soon)
+// REFERRAL SYSTEM
 // ==========================================
+
+// ✅ Show referral welcome popup
+function showReferralWelcomePopup(referralCode) {
+  // Check if already shown (avoid duplicate)
+  if (localStorage.getItem('mp_referral_popup_shown') === 'true') {
+    return
+  }
+  
+  // Create popup element
+  const popup = document.createElement('div')
+  popup.className = 'referral-welcome-popup'
+  popup.innerHTML = `
+    <div class="referral-welcome-content">
+      <div class="referral-welcome-icon">🎁</div>
+      <div class="referral-welcome-title">Welcome Bonus!</div>
+      <div class="referral-welcome-text">
+        <div>✅ You'll receive: 2000 PLAYS</div>
+        <div>✅ Your friend will receive: 2000 PLAYS</div>
+      </div>
+      <button class="referral-welcome-btn" data-referral-code="${referralCode}">Join to claim!</button>
+    </div>
+  `
+  
+  // Add styles
+  popup.style.cssText = `
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    animation: fadeIn 0.3s ease;
+  `
+  
+  const content = popup.querySelector('.referral-welcome-content')
+  content.style.cssText = `
+    background: #1a1a2e;
+    border: 2px solid #ffb642;
+    border-radius: 20px;
+    padding: 32px;
+    text-align: center;
+    max-width: 320px;
+    width: 90%;
+    animation: slideUp 0.3s ease;
+  `
+  
+  const icon = popup.querySelector('.referral-welcome-icon')
+  icon.style.cssText = `font-size: 64px; margin-bottom: 16px;`
+  
+  const title = popup.querySelector('.referral-welcome-title')
+  title.style.cssText = `
+    font-size: 24px;
+    font-weight: 700;
+    color: #ffb642;
+    margin-bottom: 20px;
+  `
+  
+  const text = popup.querySelector('.referral-welcome-text')
+  text.style.cssText = `
+    color: #fff;
+    font-size: 16px;
+    line-height: 1.8;
+    margin-bottom: 24px;
+  `
+  
+  const btn = popup.querySelector('.referral-welcome-btn')
+  btn.style.cssText = `
+    background: #ffb642;
+    color: #000;
+    border: none;
+    border-radius: 12px;
+    padding: 16px 32px;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+    width: 100%;
+    transition: transform 0.2s ease, background 0.2s ease;
+  `
+  
+  btn.addEventListener('mouseenter', () => {
+    btn.style.transform = 'scale(1.05)'
+    btn.style.background = '#ffce7a'
+  })
+  
+  btn.addEventListener('mouseleave', () => {
+    btn.style.transform = 'scale(1)'
+    btn.style.background = '#ffb642'
+  })
+  
+  // Add CSS animations
+  if (!document.getElementById('referral-popup-styles')) {
+    const style = document.createElement('style')
+    style.id = 'referral-popup-styles'
+    style.textContent = `
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      @keyframes slideUp {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+    `
+    document.head.appendChild(style)
+  }
+  
+  document.body.appendChild(popup)
+  
+  // Handle button click
+  btn.addEventListener('click', async () => {
+    const code = btn.dataset.referralCode
+    if (code) {
+      await processReferralJoin(code)
+    }
+    popup.remove()
+    localStorage.setItem('mp_referral_popup_shown', 'true')
+  })
+}
+
+// ✅ Process referral when user clicks "Join to claim!"
+async function processReferralJoin(referralCode) {
+  const userId = getUserId()
+  const supabase = initSupabaseClient()
+  
+  // Validate: chỉ Telegram users
+  if (!userId || !userId.startsWith('tg_')) {
+    console.warn('[Referral] Only Telegram users can use referral system')
+    return
+  }
+  
+  try {
+    // Call RPC: process_referral
+    const { data, error } = await supabase.rpc('process_referral', {
+      p_referred_id: userId,
+      p_referral_code: referralCode
+    })
+    
+    if (error) {
+      console.error('[Referral] Process error:', error)
+      // Show error toast if needed
+      return
+    }
+    
+    if (data && data.success) {
+      // Mark referral code as processed
+      localStorage.setItem(`mp_referral_processed_${referralCode}`, 'true')
+      
+      // Grant reward to user (update localStorage)
+      const currentPlays = parseInt(localStorage.getItem('mp_total_earned_plays') || '0', 10)
+      const newPlays = currentPlays + 2000
+      localStorage.setItem('mp_total_earned_plays', newPlays.toString())
+      
+      // Show success toast
+      showReferralRewardToast(2000)
+      
+      // Update stats overlay if open
+      if (typeof window.__updateStatsOverlay === 'function') {
+        window.__updateStatsOverlay()
+      }
+      
+      // Update referral overlay if open
+      if (typeof window.__updateReferralOverlay === 'function') {
+        window.__updateReferralOverlay()
+      }
+    }
+  } catch (err) {
+    console.error('[Referral] Process exception:', err)
+  }
+}
+
+// ✅ Show referral reward toast
+function showReferralRewardToast(reward) {
+  // Use existing achievement toast if available
+  const toast = document.getElementById('achievementToast')
+  const nameEl = document.getElementById('achievementName')
+  const rewardEl = document.getElementById('achievementReward')
+  
+  if (toast && nameEl && rewardEl) {
+    nameEl.textContent = '🎉 Referral Bonus!'
+    rewardEl.textContent = `+${reward} PLAYS`
+    toast.classList.add('show')
+    
+    const autoHideTimeout = setTimeout(() => {
+      toast.classList.remove('show')
+    }, 5000)
+    
+    toast.dataset.autoHideTimeout = autoHideTimeout
+    return
+  }
+  
+  // Fallback: create simple toast
+  const fallbackToast = document.createElement('div')
+  fallbackToast.className = 'referral-reward-toast'
+  fallbackToast.textContent = `🎉 +${reward} PLAYS`
+  fallbackToast.style.cssText = `
+    position: fixed;
+    top: 80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #ffb642;
+    color: #000;
+    padding: 16px 24px;
+    border-radius: 12px;
+    font-size: 18px;
+    font-weight: 700;
+    z-index: 10001;
+    animation: slideDown 0.3s ease;
+  `
+  
+  if (!document.getElementById('referral-toast-styles')) {
+    const style = document.createElement('style')
+    style.id = 'referral-toast-styles'
+    style.textContent = `
+      @keyframes slideDown {
+        from { transform: translateX(-50%) translateY(-20px); opacity: 0; }
+        to { transform: translateX(-50%) translateY(0); opacity: 1; }
+      }
+    `
+    document.head.appendChild(style)
+  }
+  
+  document.body.appendChild(fallbackToast)
+  
+  setTimeout(() => {
+    fallbackToast.style.opacity = '0'
+    setTimeout(() => fallbackToast.remove(), 300)
+  }, 3000)
+}
+
+// ✅ Detect start parameter when Mini App loads
+function detectReferralCode() {
+  // Method 1: Check Telegram WebApp start_param
+  if (window.Telegram?.WebApp?.initDataUnsafe?.start_param) {
+    const code = window.Telegram.WebApp.initDataUnsafe.start_param
+    if (code) {
+      // Check if already processed
+      const processed = localStorage.getItem(`mp_referral_processed_${code}`)
+      if (!processed) {
+        showReferralWelcomePopup(code)
+      }
+      return code
+    }
+  }
+  
+  // Method 2: Check URL parameter
+  const urlParams = new URLSearchParams(window.location.search)
+  const code = urlParams.get('start')
+  if (code) {
+    const processed = localStorage.getItem(`mp_referral_processed_${code}`)
+    if (!processed) {
+      showReferralWelcomePopup(code)
+    }
+    return code
+  }
+  
+  return null
+}
+
+// ✅ Get or create referral code
+async function getOrCreateReferralCode() {
+  const userId = getUserId()
+  const supabase = initSupabaseClient()
+  
+  // Validate: chỉ Telegram users
+  if (!userId || !userId.startsWith('tg_')) {
+    console.warn('[Referral] Only Telegram users can use referral system')
+    return null
+  }
+  
+  try {
+    const { data, error } = await supabase.rpc('get_or_create_referral_code', {
+      p_user_id: userId
+    })
+    
+    if (error) {
+      console.error('[Referral] Get code error:', error)
+      return null
+    }
+    
+    return data
+  } catch (err) {
+    console.error('[Referral] Get code exception:', err)
+    return null
+  }
+}
+
+// ✅ Get referral stats
+async function getReferralStats() {
+  const userId = getUserId()
+  const supabase = initSupabaseClient()
+  
+  // Validate: chỉ Telegram users
+  if (!userId || !userId.startsWith('tg_')) {
+    return null
+  }
+  
+  try {
+    const { data, error } = await supabase.rpc('get_referral_stats', {
+      p_user_id: userId
+    })
+    
+    if (error) {
+      console.error('[Referral] Get stats error:', error)
+      return null
+    }
+    
+    return data
+  } catch (err) {
+    console.error('[Referral] Get stats exception:', err)
+    return null
+  }
+}
+
+// ✅ Update referral overlay with stats
+async function updateReferralOverlay() {
+  const overlay = document.getElementById('referralOverlay')
+  if (!overlay) return
+  
+  const stats = await getReferralStats()
+  if (!stats) {
+    // Show error or keep "Coming Soon"
+    return
+  }
+  
+  const referralCode = stats.referral_code || ''
+  const friendsReferred = stats.friends_referred || 0
+  const totalRewards = stats.total_rewards || 0
+  const referralLink = `https://t.me/memeplay_bot?start=${referralCode}`
+  
+  // Update overlay content
+  const content = overlay.querySelector('.referral-content')
+  if (content) {
+    content.innerHTML = `
+      <div class="referral-stats-section">
+        <div class="referral-stat-card">
+          <div class="referral-stat-label">Your Referral Code</div>
+          <div class="referral-stat-value code-value">${referralCode}</div>
+          <button class="referral-copy-btn" data-copy="${referralCode}">Copy Code</button>
+        </div>
+        
+        <div class="referral-stat-card">
+          <div class="referral-stat-label">Your Referral Link</div>
+          <div class="referral-stat-value link-value">${referralLink}</div>
+          <button class="referral-copy-btn" data-copy="${referralLink}">Copy Link</button>
+        </div>
+        
+        <div class="referral-stats-grid">
+          <div class="referral-stat-item">
+            <div class="referral-stat-number">${friendsReferred}</div>
+            <div class="referral-stat-text">Friends Referred</div>
+          </div>
+          <div class="referral-stat-item">
+            <div class="referral-stat-number">${totalRewards.toLocaleString()}</div>
+            <div class="referral-stat-text">Total Rewards (PLAY)</div>
+          </div>
+        </div>
+      </div>
+    `
+    
+    // Add copy button handlers
+    const copyButtons = content.querySelectorAll('.referral-copy-btn')
+    copyButtons.forEach(btn => {
+      btn.addEventListener('click', async () => {
+        const text = btn.dataset.copy
+        if (text) {
+          try {
+            await navigator.clipboard.writeText(text)
+            const originalText = btn.textContent
+            btn.textContent = '✓ Copied!'
+            setTimeout(() => {
+              btn.textContent = originalText
+            }, 2000)
+          } catch (err) {
+            console.error('Copy failed:', err)
+          }
+        }
+      })
+    })
+  }
+}
+
 function initReferralOverlay() {
   const overlay = document.getElementById('referralOverlay')
   if (!overlay) return
@@ -2062,6 +2457,7 @@ function initReferralOverlay() {
   const closeBtn = document.getElementById('referralCloseBtn')
   
   function openReferralOverlay() {
+    updateReferralOverlay()
     overlay.classList.add('open')
   }
   
@@ -2080,5 +2476,6 @@ function initReferralOverlay() {
   })
   
   window.__openReferralOverlay = openReferralOverlay
+  window.__updateReferralOverlay = updateReferralOverlay
 }
 
