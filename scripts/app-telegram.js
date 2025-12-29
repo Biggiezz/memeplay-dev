@@ -1946,11 +1946,12 @@ function initStatsOverlay() {
       
       console.log('[Stats] Total Play Points:', totalPoints, '(playtime:', playtimeRewards, '+ referral:', referralRewards, '+ referred:', referredRewards, ')')
       
-      // Update UI and localStorage (sync total)
+      // ✅ CRITICAL: Update UI ONLY - DO NOT write total to localStorage!
+      // localStorage chỉ chứa playtime rewards (từ gameplay)
+      // Referral rewards chỉ query từ database, không lưu vào localStorage
+      // Total = playtime (localStorage) + referral (database) - chỉ để hiển thị
       if (playsEl) playsEl.textContent = String(totalPoints)
-      // Sync total to localStorage để đồng bộ với referral overlay
-      lsSetInt('mp_total_earned_plays', totalPoints)
-      console.log('[Stats] Updated UI with total:', totalPoints)
+      console.log('[Stats] Updated UI with total:', totalPoints, '(playtime:', playtimeRewards, 'from localStorage, referral:', referralRewards + referredRewards, 'from database)')
     } catch (err) {
       console.warn('[Stats] Failed to load Play Points:', err)
       // Fallback to localStorage if query fails
