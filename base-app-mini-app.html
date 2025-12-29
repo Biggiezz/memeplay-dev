@@ -22,20 +22,39 @@
         console.log('[Base App] SDK initialized');
         
         // ✅ DEBUG: Log context after ready
+        console.log('[Base App] SDK object:', sdk);
+        console.log('[Base App] SDK keys:', Object.keys(sdk || {}));
+        
         if (sdk.context) {
-          console.log('[Base App] Context available:', {
-            hasUser: !!sdk.context.user,
-            hasFid: !!sdk.context.user?.fid,
-            fid: sdk.context.user?.fid
-          });
+          console.log('[Base App] Context available:', sdk.context);
+          console.log('[Base App] Context keys:', Object.keys(sdk.context || {}));
+          if (sdk.context.user) {
+            console.log('[Base App] User object:', sdk.context.user);
+            console.log('[Base App] User keys:', Object.keys(sdk.context.user || {}));
+            console.log('[Base App] FID:', sdk.context.user.fid);
+          } else {
+            console.warn('[Base App] Context exists but no user object');
+          }
         } else {
-          console.warn('[Base App] Context not available yet');
+          console.warn('[Base App] Context not available');
+          console.log('[Base App] SDK structure:', JSON.stringify(sdk, null, 2));
         }
         
         // ✅ Set flag that SDK is ready
         window.__baseAppSDKReady = true;
         
-        // ✅ Trigger custom event for other scripts
+        // ✅ Store SDK context globally for easier access (CRITICAL!)
+        window.__baseAppSDKContext = sdk.context;
+        
+        // ✅ Log context for debugging
+        if (sdk.context?.user?.fid) {
+          console.log('[Base App] ✅ FID available:', sdk.context.user.fid);
+          console.log('[Base App] ✅ User ID will be: base_' + sdk.context.user.fid);
+        } else {
+          console.warn('[Base App] ⚠️ FID not available in context');
+        }
+        
+        // ✅ Trigger custom event for other scripts (MUST be after context is set)
         window.dispatchEvent(new CustomEvent('baseAppSDKReady', { detail: sdk }));
       } catch (error) {
         console.warn('[Base App] SDK not available - running in browser:', error);

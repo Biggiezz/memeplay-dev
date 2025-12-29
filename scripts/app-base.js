@@ -821,9 +821,11 @@ function getWalletAddress() {
 // ✅ BASE APP: Get Base App User ID (FID)
 // Base App SDK provides user.fid in sdk.context.user.fid
 function getBaseAppUserId() {
-  // Method 1: Try global context storage (set after SDK ready)
+  // Method 1: Try global context storage (set after SDK ready) - MOST RELIABLE
   if (window.__baseAppSDKContext?.user?.fid) {
-    return `base_${window.__baseAppSDKContext.user.fid}`
+    const fid = window.__baseAppSDKContext.user.fid
+    console.log('[Base App] Got FID from __baseAppSDKContext:', fid)
+    return `base_${fid}`
   }
   
   // Method 2: Check if running inside Base App
@@ -834,15 +836,23 @@ function getBaseAppUserId() {
     if (typeof window !== 'undefined' && window.sdk) {
       const globalSdk = window.sdk
       if (globalSdk.context?.user?.fid) {
-        return `base_${globalSdk.context.user.fid}`
+        const fid = globalSdk.context.user.fid
+        console.log('[Base App] Got FID from window.sdk:', fid)
+        return `base_${fid}`
       }
     }
+    console.warn('[Base App] SDK not found')
     return null
   }
   
-  // Method 3: Direct access to context
+  // Method 3: Direct access to context (may not be ready yet)
   if (sdk.context?.user?.fid) {
     const fid = sdk.context.user.fid
+    console.log('[Base App] Got FID from sdk.context:', fid)
+    // ✅ Store in global context for faster access next time
+    if (!window.__baseAppSDKContext) {
+      window.__baseAppSDKContext = sdk.context
+    }
     return `base_${fid}`
   }
   
@@ -850,7 +860,13 @@ function getBaseAppUserId() {
   try {
     const context = sdk.context
     if (context && context.user && context.user.fid) {
-      return `base_${context.user.fid}`
+      const fid = context.user.fid
+      console.log('[Base App] Got FID from sdk.context (method 4):', fid)
+      // ✅ Store in global context
+      if (!window.__baseAppSDKContext) {
+        window.__baseAppSDKContext = context
+      }
+      return `base_${fid}`
     }
   } catch (e) {
     // Ignore
@@ -861,13 +877,20 @@ function getBaseAppUserId() {
     try {
       const context = sdk.getContext()
       if (context?.user?.fid) {
-        return `base_${context.user.fid}`
+        const fid = context.user.fid
+        console.log('[Base App] Got FID from sdk.getContext():', fid)
+        // ✅ Store in global context
+        if (!window.__baseAppSDKContext) {
+          window.__baseAppSDKContext = context
+        }
+        return `base_${fid}`
       }
     } catch (e) {
       // Ignore
     }
   }
   
+  console.warn('[Base App] No FID found in SDK context')
   return null
 }
 
@@ -1880,38 +1903,57 @@ window.addEventListener('message', async (event) => {
 })
 
 // ==========================================
-// Auto-load when DOM ready
+// Auto-load when DOM ready + Base App SDK ready
 // ==========================================
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    loadGame0()
-    initSocialHandlers()
-    initStatsOverlay()
-    initDailyCheckin()
-    initReferralOverlay()
-    
-    // ✅ Sync localStorage to database (one-time migration)
-    setTimeout(() => {
-      syncLocalStorageToDatabase()
-    }, 1000) // Wait a bit for initialization
-    
-    // ✅ Detect referral code when app loads
-    setTimeout(() => {
-      detectReferralCode()
-    }, 500) // Wait a bit for Telegram WebApp SDK to initialize
-  })
-} else {
+function initializeApp() {
   loadGame0()
   initSocialHandlers()
   initStatsOverlay()
   initDailyCheckin()
   initReferralOverlay()
   
+  // ✅ Sync localStorage to database (one-time migration)
+  setTimeout(() => {
+    syncLocalStorageToDatabase()
+  }, 1000) // Wait a bit for initialization
+  
   // ✅ Detect referral code when app loads
   setTimeout(() => {
     detectReferralCode()
-  }, 500) // Wait a bit for Telegram WebApp SDK to initialize
+  }, 500) // Wait a bit for Base App SDK to initialize
+}
+
+// ✅ Wait for both DOM ready AND Base App SDK ready
+function waitForSDKAndInit() {
+  // Check if SDK is already ready
+  if (window.__baseAppSDKReady && window.__baseAppSDKContext) {
+    console.log('[Base App] SDK already ready, initializing app')
+    initializeApp()
+    return
+  }
+  
+  // Wait for SDK ready event
+  window.addEventListener('baseAppSDKReady', () => {
+    console.log('[Base App] SDK ready event received, initializing app')
+    initializeApp()
+  }, { once: true })
+  
+  // Fallback: If SDK ready after 3 seconds, initialize anyway
+  setTimeout(() => {
+    if (!window.__baseAppSDKReady) {
+      console.warn('[Base App] SDK not ready after 3s, initializing anyway (may run in browser)')
+      initializeApp()
+    }
+  }, 3000)
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', () => {
+    waitForSDKAndInit()
+  })
+} else {
+  waitForSDKAndInit()
 }
 
 // ==========================================
