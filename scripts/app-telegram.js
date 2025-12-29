@@ -2025,10 +2025,8 @@ function initDailyCheckin() {
         const awarded = Number(data.awarded)
         
         // ✅ Cộng điểm vào PLAY points
-        const currentTotal = lsGetInt('mp_total_earned_plays', 0)
-        const newTotal = currentTotal + awarded
+        const newTotal = lsGetInt('mp_total_earned_plays', 0) + awarded
         lsSetInt('mp_total_earned_plays', newTotal)
-        console.log(`[Telegram] Daily checkin: +${awarded} PLAY points (${currentTotal} → ${newTotal})`)
         
         // Show daily check-in toast
         showDailyCheckInToast(streak, awarded, totalDays)
