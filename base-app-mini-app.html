@@ -52,6 +52,14 @@
           console.log('[Base App] ✅ User ID will be: base_' + sdk.context.user.fid);
         } else {
           console.warn('[Base App] ⚠️ FID not available in context');
+          // Store error for debug panel
+          if (!window.__debugErrors) window.__debugErrors = [];
+          window.__debugErrors.push('[Base App] FID not available in context');
+        }
+        
+        // Update debug panel if available
+        if (typeof window.updateDebugPanel === 'function') {
+          setTimeout(() => window.updateDebugPanel(), 100);
         }
         
         // ✅ Trigger custom event for other scripts (MUST be after context is set)
