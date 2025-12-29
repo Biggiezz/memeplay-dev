@@ -2391,69 +2391,98 @@ async function updateReferralOverlay() {
     return
   }
   
+  // Update overlay content - ALWAYS show new UI, even if stats is null
+  const content = overlay.querySelector('.referral-content')
+  if (!content) {
+    console.warn('[Referral] Content element not found')
+    return
+  }
+  
   console.log('[Referral] Getting stats...')
   const stats = await getReferralStats()
   console.log('[Referral] Stats received:', stats)
   
-  if (!stats) {
-    console.warn('[Referral] No stats, keeping "Coming Soon"')
-    return
+  // Use stats if available, otherwise use default/placeholder values
+  let referralCode = 'Loading...'
+  let friendsReferred = 0
+  let totalRewards = 0
+  
+  if (stats) {
+    referralCode = stats.referral_code || 'Loading...'
+    friendsReferred = stats.friends_referred || 0
+    totalRewards = stats.total_rewards || 0
+  } else {
+    // If stats is null, try to get/create referral code directly
+    console.log('[Referral] Stats null, trying to get referral code...')
+    const userId = getUserId()
+    if (userId && userId.startsWith('tg_')) {
+      const code = await getOrCreateReferralCode()
+      if (code) {
+        referralCode = code
+      }
+    }
   }
   
-  const referralCode = stats.referral_code || ''
-  const friendsReferred = stats.friends_referred || 0
-  const totalRewards = stats.total_rewards || 0
-  const referralLink = `https://t.me/memeplay_bot?start=${referralCode}`
+  const referralLink = referralCode !== 'Loading...' 
+    ? `https://t.me/memeplay_bot?start=${referralCode}`
+    : 'Loading...'
   
-  // Update overlay content
-  const content = overlay.querySelector('.referral-content')
-  if (content) {
-    content.innerHTML = `
-      <div class="referral-stats-section">
-        <div class="referral-stat-card">
-          <div class="referral-stat-label">Your Referral Code</div>
-          <div class="referral-stat-value code-value">${referralCode}</div>
-          <button class="referral-copy-btn" data-copy="${referralCode}">Copy Code</button>
+  // Always update HTML with new UI
+  content.innerHTML = `
+    <div class="referral-stats-section">
+      <div class="referral-stat-card">
+        <div class="referral-stat-label">Your Referral Code</div>
+        <div class="referral-stat-value code-value">${referralCode}</div>
+        ${referralCode !== 'Loading...' ? `<button class="referral-copy-btn" data-copy="${referralCode}">Copy Code</button>` : ''}
+      </div>
+      
+      <div class="referral-stat-card">
+        <div class="referral-stat-label">Your Referral Link</div>
+        <div class="referral-stat-value link-value">${referralLink}</div>
+        ${referralLink !== 'Loading...' ? `<button class="referral-copy-btn" data-copy="${referralLink}">Copy Link</button>` : ''}
+      </div>
+      
+      <div class="referral-stats-grid">
+        <div class="referral-stat-item">
+          <div class="referral-stat-number">${friendsReferred}</div>
+          <div class="referral-stat-text">Friends Referred</div>
         </div>
-        
-        <div class="referral-stat-card">
-          <div class="referral-stat-label">Your Referral Link</div>
-          <div class="referral-stat-value link-value">${referralLink}</div>
-          <button class="referral-copy-btn" data-copy="${referralLink}">Copy Link</button>
-        </div>
-        
-        <div class="referral-stats-grid">
-          <div class="referral-stat-item">
-            <div class="referral-stat-number">${friendsReferred}</div>
-            <div class="referral-stat-text">Friends Referred</div>
-          </div>
-          <div class="referral-stat-item">
-            <div class="referral-stat-number">${totalRewards.toLocaleString()}</div>
-            <div class="referral-stat-text">Total Rewards (PLAY)</div>
-          </div>
+        <div class="referral-stat-item">
+          <div class="referral-stat-number">${totalRewards.toLocaleString()}</div>
+          <div class="referral-stat-text">Total Rewards (PLAY)</div>
         </div>
       </div>
-    `
-    
-    // Add copy button handlers
-    const copyButtons = content.querySelectorAll('.referral-copy-btn')
-    copyButtons.forEach(btn => {
-      btn.addEventListener('click', async () => {
-        const text = btn.dataset.copy
-        if (text) {
-          try {
-            await navigator.clipboard.writeText(text)
-            const originalText = btn.textContent
-            btn.textContent = '✓ Copied!'
-            setTimeout(() => {
-              btn.textContent = originalText
-            }, 2000)
-          } catch (err) {
-            console.error('Copy failed:', err)
-          }
+    </div>
+  `
+  
+  // Add copy button handlers
+  const copyButtons = content.querySelectorAll('.referral-copy-btn')
+  copyButtons.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const text = btn.dataset.copy
+      if (text) {
+        try {
+          await navigator.clipboard.writeText(text)
+          const originalText = btn.textContent
+          btn.textContent = '✓ Copied!'
+          setTimeout(() => {
+            btn.textContent = originalText
+          }, 2000)
+        } catch (err) {
+          console.error('Copy failed:', err)
         }
-      })
+      }
     })
+  })
+  
+  // If stats was null, try to refresh after a short delay
+  if (!stats) {
+    setTimeout(async () => {
+      const refreshedStats = await getReferralStats()
+      if (refreshedStats) {
+        updateReferralOverlay() // Recursive call to update with real data
+      }
+    }, 1000)
   }
 }
 
