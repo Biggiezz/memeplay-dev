@@ -134,18 +134,55 @@
         if (appBaseLoaded) return;
         appBaseLoaded = true;
         
-        const script = document.createElement('script');
-        script.type = 'module';
-        script.src = 'scripts/app-base.js?v=4';
-        script.onerror = function() {
-          window.__appBaseLoadError = 'Failed to load app-base.js';
-          if (!window.__debugErrors) window.__debugErrors = [];
-          window.__debugErrors.push('app-base.js load error');
-          if (typeof window.updateDebugPanel === 'function') {
-            window.updateDebugPanel();
+        // Try multiple methods to load app-base.js
+        const scriptSources = [
+          'scripts/app-base.js?v=5', // Relative path
+          'https://memeplay.dev/scripts/app-base.js?v=5', // Absolute URL
+          '/scripts/app-base.js?v=5' // Root-relative path
+        ];
+        
+        let currentSourceIndex = 0;
+        
+        function tryLoadScript() {
+          if (currentSourceIndex >= scriptSources.length) {
+            // All sources failed
+            window.__appBaseLoadError = 'All script sources failed - Base App may block module scripts';
+            if (!window.__debugErrors) window.__debugErrors = [];
+            window.__debugErrors.push('[Base App] All app-base.js sources failed');
+            if (typeof window.updateDebugPanel === 'function') {
+              window.updateDebugPanel();
+            }
+            return;
           }
-        };
-        document.head.appendChild(script);
+          
+          const script = document.createElement('script');
+          script.type = 'module';
+          script.src = scriptSources[currentSourceIndex];
+          script.crossOrigin = 'anonymous';
+          
+          script.onload = function() {
+            console.log('[Base App] ✅ app-base.js loaded from:', scriptSources[currentSourceIndex]);
+          };
+          
+          script.onerror = function() {
+            console.warn('[Base App] Failed to load from:', scriptSources[currentSourceIndex]);
+            currentSourceIndex++;
+            // Try next source
+            setTimeout(tryLoadScript, 100);
+          };
+          
+          // Timeout after 10 seconds
+          setTimeout(() => {
+            if (!script.onload) {
+              console.warn('[Base App] Script load timeout for:', scriptSources[currentSourceIndex]);
+              script.onerror();
+            }
+          }, 10000);
+          
+          document.head.appendChild(script);
+        }
+        
+        tryLoadScript();
       }
     })();
   </script>
