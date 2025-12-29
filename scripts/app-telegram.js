@@ -1548,12 +1548,32 @@ document.addEventListener('DOMContentLoaded', () => {
 })
 
 // ✅ Show PLAY reward (queue để show sau game over)
-function showPlayAward(amount, label, isNewAchievement = false) {
+async function showPlayAward(amount, label, isNewAchievement = false) {
   if (!amount || amount <= 0) return
   
-  // ✅ Update total earned plays
-  const newTotal = lsGetInt('mp_total_earned_plays') + amount
-  lsSetInt('mp_total_earned_plays', newTotal)
+  const userId = getUserId()
+  const supabase = initSupabaseClient()
+  
+  // ✅ Save to database (sync between devices)
+  if (userId) {
+    try {
+      await supabase.rpc('add_playtime_reward', {
+        p_user_id: userId,
+        p_reward_amount: amount,
+        p_reward_type: isNewAchievement ? 'achievement' : 'playtime',
+        p_game_id: activeGame || null
+      })
+    } catch (err) {
+      console.warn('[PlayAward] Failed to save to database:', err)
+      // Fallback to localStorage if database fails
+      const newTotal = lsGetInt('mp_total_earned_plays') + amount
+      lsSetInt('mp_total_earned_plays', newTotal)
+    }
+  } else {
+    // Fallback to localStorage if no user ID
+    const newTotal = lsGetInt('mp_total_earned_plays') + amount
+    lsSetInt('mp_total_earned_plays', newTotal)
+  }
   
   // ✅ If new achievement, QUEUE to show after game over
   if (isNewAchievement && activeGame) {
@@ -1842,6 +1862,11 @@ if (document.readyState === 'loading') {
     initDailyCheckin()
     initReferralOverlay()
     
+    // ✅ Sync localStorage to database (one-time migration)
+    setTimeout(() => {
+      syncLocalStorageToDatabase()
+    }, 1000) // Wait a bit for initialization
+    
     // ✅ Detect referral code when app loads
     setTimeout(() => {
       detectReferralCode()
@@ -1900,17 +1925,46 @@ function initStatsOverlay() {
       if (streakEl) streakEl.textContent = String(streak)
     }
     
-    // Load Play Points: localStorage (playtime) + telegram_referral_rewards (referral)
+    // Load Play Points: database (playtime) + telegram_referral_rewards (referral)
     try {
       let totalPoints = 0
       let playtimeRewards = 0
       let referralRewards = 0
       let referredRewards = 0
       
-      // 1. Get playtime rewards from localStorage (bảng game_playtime không tồn tại)
-      playtimeRewards = lsGetInt('mp_total_earned_plays', 0)
-      totalPoints += playtimeRewards
-      console.log('[Stats] Playtime rewards (localStorage):', playtimeRewards)
+      // 1. Get playtime rewards from database
+      if (userId) {
+        try {
+          const { data: playtimeData, error: playtimeError } = await supabase.rpc('get_user_total_playtime_rewards', {
+            p_user_id: userId
+          })
+          
+          if (!playtimeError && Number.isFinite(playtimeData)) {
+            playtimeRewards = Number(playtimeData) || 0
+            totalPoints += playtimeRewards
+            console.log('[Stats] Playtime rewards (database):', playtimeRewards)
+            
+            // Sync to localStorage for offline fallback
+            lsSetInt('mp_total_earned_plays', playtimeRewards)
+          } else {
+            // Fallback to localStorage if database query fails
+            playtimeRewards = lsGetInt('mp_total_earned_plays', 0)
+            totalPoints += playtimeRewards
+            console.log('[Stats] Playtime rewards (localStorage fallback):', playtimeRewards)
+          }
+        } catch (err) {
+          console.warn('[Stats] Failed to load playtime rewards from database:', err)
+          // Fallback to localStorage
+          playtimeRewards = lsGetInt('mp_total_earned_plays', 0)
+          totalPoints += playtimeRewards
+          console.log('[Stats] Playtime rewards (localStorage fallback):', playtimeRewards)
+        }
+      } else {
+        // Fallback to localStorage if no user ID
+        playtimeRewards = lsGetInt('mp_total_earned_plays', 0)
+        totalPoints += playtimeRewards
+        console.log('[Stats] Playtime rewards (localStorage - no user):', playtimeRewards)
+      }
       
       // 2. Query referral rewards from telegram_referral_rewards table (as referrer)
       if (userId && userId.startsWith('tg_')) {
@@ -2069,9 +2123,26 @@ function initDailyCheckin() {
         const totalDays = Number(data.total_days) || null // If backend provides it
         const awarded = Number(data.awarded)
         
-        // ✅ Cộng điểm vào PLAY points
-        const newTotal = lsGetInt('mp_total_earned_plays', 0) + awarded
-        lsSetInt('mp_total_earned_plays', newTotal)
+        // ✅ Save daily check-in reward to database
+        if (userId) {
+          try {
+            await supabase.rpc('add_playtime_reward', {
+              p_user_id: userId,
+              p_reward_amount: awarded,
+              p_reward_type: 'daily_checkin',
+              p_game_id: null
+            })
+          } catch (err) {
+            console.warn('[DailyCheckIn] Failed to save to database:', err)
+            // Fallback to localStorage if database fails
+            const newTotal = lsGetInt('mp_total_earned_plays', 0) + awarded
+            lsSetInt('mp_total_earned_plays', newTotal)
+          }
+        } else {
+          // Fallback to localStorage if no user ID
+          const newTotal = lsGetInt('mp_total_earned_plays', 0) + awarded
+          lsSetInt('mp_total_earned_plays', newTotal)
+        }
         
         // Show daily check-in toast
         showDailyCheckInToast(streak, awarded, totalDays)
