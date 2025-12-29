@@ -1554,7 +1554,8 @@ async function showPlayAward(amount, label, isNewAchievement = false) {
   const userId = getUserId()
   const supabase = initSupabaseClient()
   
-  // ✅ Save to database (sync between devices)
+  // ✅ Save to database ONLY (sync between devices)
+  // All rewards are stored in database, not localStorage
   if (userId) {
     try {
       await supabase.rpc('add_playtime_reward', {
@@ -1564,15 +1565,12 @@ async function showPlayAward(amount, label, isNewAchievement = false) {
         p_game_id: activeGame || null
       })
     } catch (err) {
-      console.warn('[PlayAward] Failed to save to database:', err)
-      // Fallback to localStorage if database fails
-      const newTotal = lsGetInt('mp_total_earned_plays') + amount
-      lsSetInt('mp_total_earned_plays', newTotal)
+      console.error('[PlayAward] Failed to save to database:', err)
+      // No localStorage fallback - rewards must be in database for sync
     }
   } else {
-    // Fallback to localStorage if no user ID
-    const newTotal = lsGetInt('mp_total_earned_plays') + amount
-    lsSetInt('mp_total_earned_plays', newTotal)
+    console.warn('[PlayAward] No user ID - reward not saved (anonymous user)')
+    // No localStorage fallback - anonymous users won't have synced rewards
   }
   
   // ✅ If new achievement, QUEUE to show after game over
@@ -1932,7 +1930,7 @@ function initStatsOverlay() {
       let referralRewards = 0
       let referredRewards = 0
       
-      // 1. Get playtime rewards from database
+      // 1. Get playtime rewards from database ONLY (no localStorage)
       if (userId) {
         try {
           const { data: playtimeData, error: playtimeError } = await supabase.rpc('get_user_total_playtime_rewards', {
@@ -1943,27 +1941,20 @@ function initStatsOverlay() {
             playtimeRewards = Number(playtimeData) || 0
             totalPoints += playtimeRewards
             console.log('[Stats] Playtime rewards (database):', playtimeRewards)
-            
-            // Sync to localStorage for offline fallback
-            lsSetInt('mp_total_earned_plays', playtimeRewards)
           } else {
-            // Fallback to localStorage if database query fails
-            playtimeRewards = lsGetInt('mp_total_earned_plays', 0)
-            totalPoints += playtimeRewards
-            console.log('[Stats] Playtime rewards (localStorage fallback):', playtimeRewards)
+            console.warn('[Stats] Failed to load playtime rewards from database:', playtimeError)
+            playtimeRewards = 0
+            // No localStorage fallback - all rewards must be in database
           }
         } catch (err) {
-          console.warn('[Stats] Failed to load playtime rewards from database:', err)
-          // Fallback to localStorage
-          playtimeRewards = lsGetInt('mp_total_earned_plays', 0)
-          totalPoints += playtimeRewards
-          console.log('[Stats] Playtime rewards (localStorage fallback):', playtimeRewards)
+          console.error('[Stats] Failed to load playtime rewards from database:', err)
+          playtimeRewards = 0
+          // No localStorage fallback - all rewards must be in database
         }
       } else {
-        // Fallback to localStorage if no user ID
-        playtimeRewards = lsGetInt('mp_total_earned_plays', 0)
-        totalPoints += playtimeRewards
-        console.log('[Stats] Playtime rewards (localStorage - no user):', playtimeRewards)
+        console.warn('[Stats] No user ID - cannot load rewards')
+        playtimeRewards = 0
+        // No localStorage fallback - anonymous users won't have synced rewards
       }
       
       // 2. Query referral rewards from telegram_referral_rewards table (as referrer)
@@ -2000,17 +1991,14 @@ function initStatsOverlay() {
       
       console.log('[Stats] Total Play Points:', totalPoints, '(playtime:', playtimeRewards, '+ referral:', referralRewards, '+ referred:', referredRewards, ')')
       
-      // ✅ CRITICAL: Update UI ONLY - DO NOT write total to localStorage!
-      // localStorage chỉ chứa playtime rewards (từ gameplay)
-      // Referral rewards chỉ query từ database, không lưu vào localStorage
-      // Total = playtime (localStorage) + referral (database) - chỉ để hiển thị
+      // ✅ CRITICAL: All rewards are in database - no localStorage!
+      // Total = playtime (database) + referral (database) - only for display
       if (playsEl) playsEl.textContent = String(totalPoints)
-      console.log('[Stats] Updated UI with total:', totalPoints, '(playtime:', playtimeRewards, 'from localStorage, referral:', referralRewards + referredRewards, 'from database)')
+      console.log('[Stats] Updated UI with total:', totalPoints, '(all from database)')
     } catch (err) {
-      console.warn('[Stats] Failed to load Play Points:', err)
-      // Fallback to localStorage if query fails
-      const plays = lsGetInt('mp_total_earned_plays', 0)
-      if (playsEl) playsEl.textContent = String(plays)
+      console.error('[Stats] Failed to load Play Points:', err)
+      // No localStorage fallback - all rewards must be in database
+      if (playsEl) playsEl.textContent = '0'
     }
   }
   
@@ -2123,7 +2111,7 @@ function initDailyCheckin() {
         const totalDays = Number(data.total_days) || null // If backend provides it
         const awarded = Number(data.awarded)
         
-        // ✅ Save daily check-in reward to database
+        // ✅ Save daily check-in reward to database ONLY (no localStorage)
         if (userId) {
           try {
             await supabase.rpc('add_playtime_reward', {
@@ -2133,15 +2121,12 @@ function initDailyCheckin() {
               p_game_id: null
             })
           } catch (err) {
-            console.warn('[DailyCheckIn] Failed to save to database:', err)
-            // Fallback to localStorage if database fails
-            const newTotal = lsGetInt('mp_total_earned_plays', 0) + awarded
-            lsSetInt('mp_total_earned_plays', newTotal)
+            console.error('[DailyCheckIn] Failed to save to database:', err)
+            // No localStorage fallback - rewards must be in database for sync
           }
         } else {
-          // Fallback to localStorage if no user ID
-          const newTotal = lsGetInt('mp_total_earned_plays', 0) + awarded
-          lsSetInt('mp_total_earned_plays', newTotal)
+          console.warn('[DailyCheckIn] No user ID - reward not saved (anonymous user)')
+          // No localStorage fallback - anonymous users won't have synced rewards
         }
         
         // Show daily check-in toast
@@ -2322,10 +2307,8 @@ async function processReferralJoin(referralCode) {
       // Mark referral code as processed
       localStorage.setItem(`mp_referral_processed_${referralCode}`, 'true')
       
-      // Grant reward to user (update localStorage)
-      const currentPlays = parseInt(localStorage.getItem('mp_total_earned_plays') || '0', 10)
-      const newPlays = currentPlays + 2000
-      localStorage.setItem('mp_total_earned_plays', newPlays.toString())
+      // ✅ Referral rewards are already saved in database by process_referral RPC
+      // No need to update localStorage - all rewards are in database now
       
       // Show success toast
       showReferralRewardToast(2000)
@@ -2635,6 +2618,9 @@ async function syncLocalStorageToDatabase() {
         console.log('[Sync] Migrated playtime rewards to database:', data)
         // Mark as synced to avoid duplicate syncs
         localStorage.setItem('mp_playtime_synced', 'true')
+        // ✅ Clear localStorage after successful sync - all rewards are now in database
+        localStorage.removeItem('mp_total_earned_plays')
+        console.log('[Sync] Cleared mp_total_earned_plays from localStorage - all rewards are in database now')
       } else {
         console.warn('[Sync] Failed to sync playtime rewards:', error)
       }
