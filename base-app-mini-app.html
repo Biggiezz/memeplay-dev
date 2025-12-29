@@ -1582,11 +1582,69 @@
             fidEl.textContent = 'SDK script not loaded';
             fidEl.style.color = '#f88';
           } else {
-            const fid = window.__baseAppSDKContext?.user?.fid || 
-                       window.BaseAppSDK?.context?.user?.fid || 
-                       'Not available';
-            fidEl.textContent = fid;
-            fidEl.style.color = fid !== 'Not available' ? '#0ff' : '#f88';
+            // Try to extract FID using getBaseAppUserId (which uses extractFidValue)
+            try {
+              if (typeof getBaseAppUserId === 'function') {
+                const userId = getBaseAppUserId();
+                if (userId && userId.startsWith('base_')) {
+                  const fid = userId.replace('base_', '');
+                  fidEl.textContent = fid;
+                  fidEl.style.color = '#0ff';
+                } else {
+                  // Fallback: try direct access with extraction
+                  const fidRaw = window.__baseAppSDKContext?.user?.fid || 
+                                 window.BaseAppSDK?.context?.user?.fid;
+                  if (fidRaw) {
+                    // Try multiple extraction methods
+                    let fidValue = null;
+                    if (typeof fidRaw === 'function') {
+                      try {
+                        fidValue = fidRaw();
+                      } catch (e) {
+                        fidValue = 'Function call failed';
+                      }
+                    } else if (typeof fidRaw === 'object') {
+                      if ('value' in fidRaw) {
+                        fidValue = fidRaw.value;
+                      } else {
+                        try {
+                          const str = String(fidRaw);
+                          const num = Number(str);
+                          if (!isNaN(num) && num > 0) fidValue = num;
+                        } catch (e) {}
+                      }
+                    } else if (typeof fidRaw === 'number' || typeof fidRaw === 'string') {
+                      fidValue = fidRaw;
+                    }
+                    
+                    if (fidValue) {
+                      fidEl.textContent = String(fidValue);
+                      fidEl.style.color = typeof fidValue === 'number' ? '#0ff' : '#ffb642';
+                    } else {
+                      fidEl.textContent = 'FID is Proxy/Function (extraction failed)';
+                      fidEl.style.color = '#ffb642';
+                    }
+                  } else {
+                    fidEl.textContent = 'Not available';
+                    fidEl.style.color = '#f88';
+                  }
+                }
+              } else {
+                // Fallback if getBaseAppUserId not available yet
+                const fidRaw = window.__baseAppSDKContext?.user?.fid || 
+                               window.BaseAppSDK?.context?.user?.fid;
+                if (fidRaw) {
+                  fidEl.textContent = typeof fidRaw === 'function' ? 'Function (use getBaseAppUserId)' : String(fidRaw);
+                  fidEl.style.color = '#ffb642';
+                } else {
+                  fidEl.textContent = 'Not available';
+                  fidEl.style.color = '#f88';
+                }
+              }
+            } catch (e) {
+              fidEl.textContent = 'Error: ' + e.message;
+              fidEl.style.color = '#f88';
+            }
           }
         }
         
