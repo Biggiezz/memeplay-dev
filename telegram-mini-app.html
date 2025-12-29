@@ -1285,6 +1285,150 @@
         letter-spacing: 1px;
       }
     }
+    /* Referral Stats Section */
+    .referral-stats-section {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+      padding: 8px 0;
+    }
+    
+    .referral-stat-card {
+      background: rgba(255, 182, 66, 0.08);
+      border: 1px solid rgba(255, 182, 66, 0.2);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    
+    .referral-stat-label {
+      font-size: 13px;
+      font-weight: 600;
+      color: rgba(255, 255, 255, 0.7);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .referral-stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: #ffb642;
+      word-break: break-all;
+      line-height: 1.4;
+    }
+    
+    .referral-stat-value.code-value {
+      font-size: 20px;
+      letter-spacing: 2px;
+      font-family: 'Courier New', monospace;
+    }
+    
+    .referral-stat-value.link-value {
+      font-size: 13px;
+      word-break: break-all;
+      color: rgba(255, 182, 66, 0.9);
+    }
+    
+    .referral-copy-btn {
+      width: 100%;
+      padding: 14px 20px;
+      background: #ffb642;
+      color: #000;
+      border: none;
+      border-radius: 10px;
+      font-size: 16px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-top: 4px;
+      min-height: 48px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    
+    .referral-copy-btn:hover {
+      background: #ffce7a;
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(255, 182, 66, 0.3);
+    }
+    
+    .referral-copy-btn:active {
+      transform: translateY(0);
+    }
+    
+    .referral-stats-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 8px;
+    }
+    
+    .referral-stat-item {
+      background: rgba(255, 182, 66, 0.06);
+      border: 1px solid rgba(255, 182, 66, 0.15);
+      border-radius: 12px;
+      padding: 20px 16px;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    
+    .referral-stat-number {
+      font-size: 28px;
+      font-weight: 800;
+      color: #ffb642;
+      line-height: 1;
+    }
+    
+    .referral-stat-text {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255, 255, 255, 0.6);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    @media (max-width: 480px) {
+      .referral-stat-card {
+        padding: 14px;
+        gap: 10px;
+      }
+      
+      .referral-stat-value.code-value {
+        font-size: 18px;
+      }
+      
+      .referral-stat-value.link-value {
+        font-size: 12px;
+      }
+      
+      .referral-copy-btn {
+        padding: 12px 18px;
+        font-size: 15px;
+        min-height: 44px;
+      }
+      
+      .referral-stats-grid {
+        gap: 12px;
+      }
+      
+      .referral-stat-item {
+        padding: 16px 12px;
+      }
+      
+      .referral-stat-number {
+        font-size: 24px;
+      }
+      
+      .referral-stat-text {
+        font-size: 11px;
+      }
+    }
+    
     /* Confetti Canvas */
     .confetti-canvas {
       position: fixed;
