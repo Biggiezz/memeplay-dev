@@ -785,7 +785,7 @@ function setupGameReadyDetection(card, iframe, loadingOverlay) {
   
   window.addEventListener('message', messageHandler)
   
-  // ✅ 3. Fallback timeout (nếu game không support PostMessage)
+  // ✅ 3. Fallback timeout (if game doesn't support PostMessage)
   loadingTimeout = setTimeout(() => {
     if (!gameReady) {
       // Fallback: Hide loading bar after 3s (game may be ready but didn't send PostMessage)
@@ -1050,7 +1050,7 @@ function initSocialHandlers() {
     shareOverlay?.classList.add('open')
   }
   
-  // ✅ Share: Copy URL (với fallback)
+  // ✅ Share: Copy URL (with fallback)
   async function copyShareUrl() {
     if (!currentShareGameId) return
     const url = buildShareUrl(currentShareGameId)
@@ -1840,7 +1840,7 @@ window.addEventListener('message', async (event) => {
 })
 
 // ==========================================
-// Auto-load khi DOM ready
+// Auto-load when DOM ready
 // ==========================================
 
 if (document.readyState === 'loading') {
