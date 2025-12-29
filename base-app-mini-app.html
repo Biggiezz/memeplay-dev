@@ -11,15 +11,22 @@
   
   <!-- ✅ Base App Mini App SDK - Load from CDN -->
   <script type="module">
-    import { sdk } from 'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/+esm';
-    window.BaseAppSDK = sdk;
+    // ✅ Error handling for module script loading
+    window.__sdkLoadError = null;
     
-    // Initialize Base App SDK
-    (async function initBaseApp() {
-      try {
-        // Call ready() when app is loaded to hide splash screen
-        await sdk.actions.ready();
-        console.log('[Base App] SDK initialized');
+    try {
+      import('https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/+esm')
+        .then((module) => {
+          const sdk = module.sdk;
+          window.BaseAppSDK = sdk;
+          console.log('[Base App] SDK module loaded successfully');
+          
+          // Initialize Base App SDK
+          (async function initBaseApp() {
+            try {
+              // Call ready() when app is loaded to hide splash screen
+              await sdk.actions.ready();
+              console.log('[Base App] SDK initialized');
         
         // ✅ DEBUG: Log context after ready
         console.log('[Base App] SDK object:', sdk);
@@ -62,13 +69,43 @@
           setTimeout(() => window.updateDebugPanel(), 100);
         }
         
-        // ✅ Trigger custom event for other scripts (MUST be after context is set)
-        window.dispatchEvent(new CustomEvent('baseAppSDKReady', { detail: sdk }));
-      } catch (error) {
-        console.warn('[Base App] SDK not available - running in browser:', error);
-        window.__baseAppSDKReady = false;
+              // ✅ Trigger custom event for other scripts (MUST be after context is set)
+              window.dispatchEvent(new CustomEvent('baseAppSDKReady', { detail: sdk }));
+            } catch (error) {
+              console.warn('[Base App] SDK not available - running in browser:', error);
+              window.__baseAppSDKReady = false;
+              window.__sdkLoadError = error.message || 'SDK initialization failed';
+              if (!window.__debugErrors) window.__debugErrors = [];
+              window.__debugErrors.push('[Base App] SDK init error: ' + (error.message || error));
+            }
+          })();
+        })
+        .catch((error) => {
+          console.error('[Base App] Failed to load SDK module:', error);
+          window.__sdkLoadError = error.message || 'Failed to import SDK module';
+          if (!window.__debugErrors) window.__debugErrors = [];
+          window.__debugErrors.push('[Base App] SDK import error: ' + (error.message || error));
+        });
+    } catch (error) {
+      console.error('[Base App] Module script error:', error);
+      window.__sdkLoadError = error.message || 'Module script execution error';
+      if (!window.__debugErrors) window.__debugErrors = [];
+      window.__debugErrors.push('[Base App] Script error: ' + (error.message || error));
+    }
+  </script>
+  
+  <!-- ✅ Fallback: Check if SDK loaded after 3 seconds -->
+  <script>
+    setTimeout(() => {
+      if (!window.BaseAppSDK && !window.__sdkLoadError) {
+        console.warn('[Base App] SDK not loaded after 3s - may be blocked by client');
+        if (!window.__debugErrors) window.__debugErrors = [];
+        window.__debugErrors.push('[Base App] SDK script timeout - may be blocked');
+        if (typeof window.updateDebugPanel === 'function') {
+          window.updateDebugPanel();
+        }
       }
-    })();
+    }, 3000);
   </script>
   
   <!-- ✅ Embed Metadata for Base App -->
@@ -86,7 +123,22 @@
   }' />
   
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
-  <script type="module" src="scripts/app-base.js?v=1"></script>
+  <script type="module" src="scripts/app-base.js?v=1" onerror="window.__appBaseLoadError = 'Failed to load app-base.js'; if (!window.__debugErrors) window.__debugErrors = []; window.__debugErrors.push('app-base.js load error'); if (typeof window.updateDebugPanel === 'function') window.updateDebugPanel();"></script>
+  
+  <!-- ✅ Fallback: Check if app-base.js loaded after 3 seconds -->
+  <script>
+    setTimeout(() => {
+      if (typeof getUserId === 'undefined' && !window.__appBaseLoadError) {
+        console.warn('[Base App] app-base.js not loaded after 3s - may be blocked by client');
+        window.__appBaseLoadError = 'Script timeout - may be blocked';
+        if (!window.__debugErrors) window.__debugErrors = [];
+        window.__debugErrors.push('[Base App] app-base.js timeout - may be blocked');
+        if (typeof window.updateDebugPanel === 'function') {
+          window.updateDebugPanel();
+        }
+      }
+    }, 3000);
+  </script>
   <style>
     :root { --header-h: 60px; }
     
@@ -1593,10 +1645,19 @@
           app: typeof getUserId === 'function'
         };
         
+        // Check for load errors
+        const loadErrors = {
+          sdk: window.__sdkLoadError || null,
+          app: window.__appBaseLoadError || null
+        };
+        
         // SDK Status
         if (sdkStatusEl) {
-          if (!scriptsLoaded.sdk) {
-            sdkStatusEl.textContent = '❌ Script Not Loaded';
+          if (loadErrors.sdk) {
+            sdkStatusEl.textContent = '❌ Error: ' + loadErrors.sdk;
+            sdkStatusEl.style.color = '#f88';
+          } else if (!scriptsLoaded.sdk) {
+            sdkStatusEl.textContent = '❌ Script Not Loaded (check network/CDN)';
             sdkStatusEl.style.color = '#f88';
           } else if (window.__baseAppSDKReady) {
             sdkStatusEl.textContent = '✅ Ready';
@@ -1626,8 +1687,11 @@
         
         // User ID
         if (userIdEl) {
-          if (!scriptsLoaded.app) {
-            userIdEl.textContent = 'app-base.js not loaded';
+          if (loadErrors.app) {
+            userIdEl.textContent = 'Error: ' + loadErrors.app;
+            userIdEl.style.color = '#f88';
+          } else if (!scriptsLoaded.app) {
+            userIdEl.textContent = 'app-base.js not loaded (check path/network)';
             userIdEl.style.color = '#f88';
           } else {
             try {
@@ -1663,8 +1727,10 @@
         if (errorsEl) {
           const errors = window.__debugErrors || [];
           const scriptErrors = [];
-          if (!scriptsLoaded.sdk) scriptErrors.push('SDK script not loaded');
-          if (!scriptsLoaded.app) scriptErrors.push('app-base.js not loaded');
+          if (loadErrors.sdk) scriptErrors.push('SDK: ' + loadErrors.sdk);
+          if (loadErrors.app) scriptErrors.push('app-base.js: ' + loadErrors.app);
+          if (!scriptsLoaded.sdk && !loadErrors.sdk) scriptErrors.push('SDK script not loaded (no error caught)');
+          if (!scriptsLoaded.app && !loadErrors.app) scriptErrors.push('app-base.js not loaded (no error caught)');
           
           const allErrors = [...scriptErrors, ...errors];
           if (allErrors.length > 0) {
