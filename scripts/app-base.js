@@ -18,14 +18,53 @@ import {
 // This avoids module script loading issues in Base App client
 
 (async function initBaseAppSDK() {
-  try {
-    // Import SDK module
-    const { sdk } = await import('https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/+esm');
-    window.BaseAppSDK = sdk;
-    console.log('[Base App] SDK module loaded successfully');
-    
-    // Initialize Base App SDK
+  // ✅ Try multiple CDNs and versions for compatibility
+  const sdkSources = [
+    'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@1.0.0/+esm', // Try specific version first
+    'https://unpkg.com/@farcaster/miniapp-sdk@latest/+esm', // Fallback to unpkg
+    'https://esm.sh/@farcaster/miniapp-sdk@latest', // Fallback to esm.sh
+    'https://cdn.jsdelivr.net/npm/@farcaster/miniapp-sdk@latest/+esm' // Last resort: jsdelivr latest
+  ];
+  
+  let sdk = null;
+  let lastError = null;
+  
+  // Try each CDN until one works
+  for (const source of sdkSources) {
     try {
+      console.log('[Base App] Trying SDK from:', source);
+      const module = await import(source);
+      sdk = module.sdk || module.default?.sdk || module;
+      
+      if (sdk && typeof sdk.actions === 'object') {
+        window.BaseAppSDK = sdk;
+        console.log('[Base App] ✅ SDK module loaded successfully from:', source);
+        break; // Success, exit loop
+      } else {
+        throw new Error('SDK object not found in module');
+      }
+    } catch (error) {
+      console.warn('[Base App] Failed to load from', source, ':', error.message);
+      lastError = error;
+      continue; // Try next CDN
+    }
+  }
+  
+  if (!sdk) {
+    console.error('[Base App] ❌ All CDN sources failed. Last error:', lastError);
+    window.__sdkLoadError = lastError?.message || 'All CDN sources failed';
+    if (!window.__debugErrors) window.__debugErrors = [];
+    window.__debugErrors.push('[Base App] All SDK CDN sources failed: ' + (lastError?.message || 'Unknown error'));
+    
+    // Update debug panel if available
+    if (typeof window.updateDebugPanel === 'function') {
+      setTimeout(() => window.updateDebugPanel(), 100);
+    }
+    return; // Exit early if SDK failed to load
+  }
+  
+  // Initialize Base App SDK
+  try {
       // Call ready() when app is loaded to hide splash screen
       await sdk.actions.ready();
       console.log('[Base App] SDK initialized');
