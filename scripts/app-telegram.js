@@ -1,8 +1,8 @@
 // ==========================================
 // Telegram Mini App - Game Loading System
 // ==========================================
-// ✅ Phiên bản Telegram của app-v3.js
-// ✅ Chỉ khác ở getUserId() - detect Telegram user thay vì wallet/local
+// ✅ Telegram version of app-v3.js
+// ✅ Only difference is getUserId() - detects Telegram user instead of wallet/local
 
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 import { 
@@ -14,11 +14,11 @@ import {
 // ==========================================
 // ✅ TELEGRAM WEBAPP INITIALIZATION
 // ==========================================
-// Telegram WebApp SDK được load trong <head> của HTML
-// Code này chạy ngay khi module load để init Telegram WebApp
+// Telegram WebApp SDK is loaded in <head> of HTML
+// This code runs immediately when module loads to init Telegram WebApp
 
 (function initTelegramWebApp() {
-  // Kiểm tra xem có đang chạy trong Telegram không
+  // Check if running inside Telegram
   if (typeof window.Telegram === 'undefined' || !window.Telegram.WebApp) {
     console.warn('[Telegram] WebApp SDK not found - running in browser, not Telegram')
     return // Fallback to wallet/local storage
@@ -26,14 +26,14 @@ import {
   
   const tg = window.Telegram.WebApp
   
-  // ✅ QUAN TRỌNG: Expand app để chiếm full height (không có space phía trên)
+  // ✅ IMPORTANT: Expand app to full height (no space at top)
   tg.expand()
   
-  // ✅ Đánh dấu app đã ready (Telegram sẽ hide loading spinner)
+  // ✅ Mark app as ready (Telegram will hide loading spinner)
   tg.ready()
   
-  // ✅ Optional: Enable closing confirmation (nếu muốn)
-  // tg.enableClosingConfirmation() // Uncomment nếu muốn confirm khi user đóng app
+  // ✅ Optional: Enable closing confirmation (if needed)
+  // tg.enableClosingConfirmation() // Uncomment if you want to confirm when user closes app
 })()
 
 // ==========================================
@@ -91,24 +91,24 @@ function initSupabaseClient() {
 // ==========================================
 
 const GAME_LIST_CACHE_KEY = 'mp_v3_game_list_cache'
-const GAME_LIST_CACHE_TTL = 5 * 60 * 1000 // 5 phút
+const GAME_LIST_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
 async function loadGameListFromSupabase() {
-  // ✅ OPTIMIZATION 1: Check cache first (chỉ dùng nếu có games)
+  // ✅ OPTIMIZATION 1: Check cache first (only use if games exist)
   const cached = localStorage.getItem(GAME_LIST_CACHE_KEY)
   if (cached) {
     try {
       const { games, timestamp } = JSON.parse(cached)
       const age = Date.now() - timestamp
-      // ✅ FIX: Chỉ dùng cache nếu có games và chưa hết hạn
+      // ✅ FIX: Only use cache if games exist and not expired
       if (Array.isArray(games) && games.length > 0 && age < GAME_LIST_CACHE_TTL) {
         return games
       } else {
-        // Cache invalid hoặc empty, xóa cache cũ
+        // Cache invalid or empty, remove old cache
         localStorage.removeItem(GAME_LIST_CACHE_KEY)
       }
     } catch (e) {
-      // Cache invalid, xóa cache cũ
+      // Cache invalid, remove old cache
       localStorage.removeItem(GAME_LIST_CACHE_KEY)
     }
   }
@@ -145,7 +145,7 @@ async function loadGameListFromSupabase() {
 
   const results = await Promise.all(promises)
   
-  // ✅ OPTIMIZATION 3: Filter playmode-* chỉ 1 lần và normalize
+  // ✅ OPTIMIZATION 3: Filter playmode-* only once and normalize
   const allGames = results.flatMap((r) => {
     const templateId = r.templateId
     const config = r.config || getTemplateConfig(templateId)
@@ -159,7 +159,7 @@ async function loadGameListFromSupabase() {
       .map(item => {
         const gameId = item.game_id || item.id
         
-        // ✅ OPTIMIZATION: Tối ưu stories parsing
+        // ✅ OPTIMIZATION: Optimize stories parsing
         let stories = []
         if (Array.isArray(item.stories)) {
           stories = item.stories
@@ -224,7 +224,7 @@ async function loadGameListFromSupabase() {
   return allGames
 }
 
-// ✅ OPTIMIZATION 4: Inline getGame0() - không cần function riêng
+// ✅ OPTIMIZATION 4: Inline getGame0() - no need for separate function
 
 // ==========================================
 // STEP 2.4: Load Game Config
@@ -243,7 +243,7 @@ async function loadGameConfig(gameId, templateId) {
     }
   }
   
-  // Load from Supabase (nếu cần - tạm thời return empty config)
+  // Load from Supabase (if needed - temporarily return empty config)
   return {
     title: '',
     stories: [],
@@ -255,7 +255,7 @@ async function loadGameConfig(gameId, templateId) {
 // Helper: Get Game URL
 // ==========================================
 
-// ✅ OPTIMIZATION 7: Tối ưu getGameUrl() - đơn giản hóa
+// ✅ OPTIMIZATION 7: Optimize getGameUrl() - simplify
 function getGameUrl(gameId, templateId) {
   const baseUrl = window.location.origin.replace(/\/$/, '')
   const config = getTemplateConfig(templateId)
@@ -356,7 +356,7 @@ function renderGameCard(game, config, options = {}) {
   card.setAttribute('data-template-id', game.template_id)
   card.setAttribute('data-game-ready', 'false') // Track game ready state
   
-  // Game stage với iframe
+  // Game stage with iframe
   const stage = document.createElement('div')
   stage.className = 'game-stage'
   
@@ -591,7 +591,7 @@ async function updateGameWindow(gameAId) {
     loadGamePreloaded(gamePrev).catch(err => console.error(`[V3] Failed to preload prev game:`, err))
   }
   
-  // ✅ Load prev/next games (handle scroll back - Option B: giữ DOM, chỉ load lại iframe)
+  // ✅ Load prev/next games (handle scroll back - Option B: keep DOM, only reload iframe)
   if (gamePrev) {
     await loadGamePreloaded(gamePrev)
   }
@@ -714,7 +714,7 @@ function activateGame(gameId) {
   }
 }
 
-// ✅ Option B: Giữ DOM, chỉ xóa iframe
+// ✅ Option B: Keep DOM, only remove iframe
 function cleanupGamesOutsideWindow(windowGameIds) {
   const allCards = document.querySelectorAll('.game-card')
   const windowSet = new Set(windowGameIds)
@@ -722,7 +722,7 @@ function cleanupGamesOutsideWindow(windowGameIds) {
   allCards.forEach(card => {
     const gameId = card.id
     if (!windowSet.has(gameId)) {
-      // ✅ Option B: Chỉ xóa iframe, giữ DOM
+      // ✅ Option B: Only remove iframe, keep DOM
       const stage = card.querySelector('.game-stage')
       if (stage) {
         const iframe = stage.querySelector('iframe')
@@ -758,9 +758,9 @@ function setupGameReadyDetection(card, iframe, loadingOverlay) {
   
   // ✅ 1. Iframe onload (HTML loaded)
   iframe.onload = () => {
-    // Start timeout (1s) - nếu game chưa ready thì vẫn hiện loading bar
+    // Start timeout (1s) - if game not ready, still show loading bar
     iframeLoadTimeout = setTimeout(() => {
-      // Iframe loaded nhưng game chưa ready, keep loading bar
+      // Iframe loaded but game not ready, keep loading bar
     }, 1000)
   }
   
@@ -788,7 +788,7 @@ function setupGameReadyDetection(card, iframe, loadingOverlay) {
   // ✅ 3. Fallback timeout (nếu game không support PostMessage)
   loadingTimeout = setTimeout(() => {
     if (!gameReady) {
-      // Fallback: Ẩn loading bar sau 3s (game có thể đã ready nhưng không gửi PostMessage)
+      // Fallback: Hide loading bar after 3s (game may be ready but didn't send PostMessage)
       hideLoadingBar(card, loadingOverlay)
       card.setAttribute('data-game-ready', 'true')
       window.removeEventListener('message', messageHandler)
@@ -806,7 +806,7 @@ function hideLoadingBar(card, loadingOverlay) {
 // PHASE 4: Social Interactions
 // ==========================================
 
-// ✅ Helper: Get User ID (đồng bộ với play mode)
+// ✅ Helper: Get User ID (synchronized with play mode)
 function getLocalUserId() {
   let id = localStorage.getItem('mp_user_id')
   if (!id) {
@@ -837,25 +837,25 @@ function getWalletAddress() {
 }
 
 // ✅ TELEGRAM: Get Telegram User ID
-// Telegram WebApp cung cấp user.id trong window.Telegram.WebApp.initDataUnsafe.user
+// Telegram WebApp provides user.id in window.Telegram.WebApp.initDataUnsafe.user
 function getTelegramUserId() {
-  // Kiểm tra xem có đang chạy trong Telegram WebApp không
+  // Check if running inside Telegram WebApp
   if (window.Telegram?.WebApp?.initDataUnsafe?.user?.id) {
     const tgUserId = window.Telegram.WebApp.initDataUnsafe.user.id
-    // Format: "tg_" + telegram_user_id (ví dụ: "tg_123456789")
+    // Format: "tg_" + telegram_user_id (e.g., "tg_123456789")
     return `tg_${tgUserId}`
   }
   return null
 }
 
 // ✅ TELEGRAM: Override getUserId() - Priority: Telegram > Wallet > Local
-// Đây là điểm khác biệt duy nhất so với app-v3.js
+// This is the only difference compared to app-v3.js
 function getUserId() {
-  // Priority 1: Telegram user (nếu đang chạy trong Telegram)
+  // Priority 1: Telegram user (if running inside Telegram)
   const tgUserId = getTelegramUserId()
   if (tgUserId) return tgUserId
   
-  // Priority 2: Wallet (fallback nếu mở trong browser và có wallet)
+  // Priority 2: Wallet (fallback if opened in browser and has wallet)
   const wallet = getWalletAddress()
   if (wallet) return wallet
   
@@ -863,7 +863,7 @@ function getUserId() {
   return getLocalUserId()
 }
 
-// ✅ Helper: Format functions (đồng bộ với play mode)
+// ✅ Helper: Format functions (synchronized with play mode)
 function shortAddr(addr) {
   if (!addr) return ''
   return addr.length <= 10 ? addr : addr.slice(0, 6) + '…' + addr.slice(-4)
@@ -1129,7 +1129,7 @@ function initSocialHandlers() {
       <div style="margin-top:6px;font-size:13px;color:#a9b1c4;">Play more to unlock bonus PLAY rewards</div>
     `
     
-    // ✅ Render reward thresholds (simplified - không track awards trong homepage)
+    // ✅ Render reward thresholds (simplified - don't track awards in homepage)
     leaderboardRewardList.innerHTML = ''
   }
   
@@ -1538,7 +1538,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 })
 
-// ✅ Show PLAY reward (queue để show sau game over)
+// ✅ Show PLAY reward (queue to show after game over)
 async function showPlayAward(amount, label, isNewAchievement = false) {
   if (!amount || amount <= 0) return
   
@@ -1570,7 +1570,7 @@ async function showPlayAward(amount, label, isNewAchievement = false) {
     const achievementNames = { 10: '10s Play Reward', 60: 'Engaged', 300: 'Champion' }
     const threshold = parseInt(label.replace('s', ''))
     
-    // Add to pending queue (không show ngay)
+    // Add to pending queue (don't show immediately)
     if (!pendingAchievements[activeGame]) {
       pendingAchievements[activeGame] = []
     }
@@ -1583,7 +1583,7 @@ async function showPlayAward(amount, label, isNewAchievement = false) {
   }
 }
 
-// ✅ Show all pending achievements for a game (chỉ sau game over)
+// ✅ Show all pending achievements for a game (only after game over)
 function showPendingAchievements(gameId) {
   // SECURITY: Only allow showing achievements after game over
   if (!isGameOver) {
@@ -1654,7 +1654,7 @@ function startGame(gameId) {
       for (const t of crossedNow) grant += REWARD_VALUES[t]
       if (grant > 0) {
         const last = crossedNow[crossedNow.length - 1]
-        // ✅ Queue achievement to show after game over (không show ngay)
+        // ✅ Queue achievement to show after game over (don't show immediately)
         showPlayAward(grant, `${last}s`, true)
       }
     }
@@ -1696,7 +1696,7 @@ async function stopGame() {
       for (const t of newlyAwarded) grant += REWARD_VALUES[t]
       if (grant > 0) {
         const last = newlyAwarded[newlyAwarded.length - 1]
-        // ✅ Queue achievement to show after game over (không show ngay)
+        // ✅ Queue achievement to show after game over (don't show immediately)
         showPlayAward(grant, `${last}s`, true)
       }
     }
@@ -1827,8 +1827,8 @@ window.addEventListener('message', async (event) => {
           result = data.length > 0 ? data[0] : null
         }
         
-        // ✅ Note: Best score được hiển thị ở vị trí khác (không phải footer)
-        // Chỉ cần lưu vào Supabase, UI sẽ tự update khi hydrate
+        // ✅ Note: Best score is displayed in a different location (not footer)
+        // Just save to Supabase, UI will auto-update when hydrated
       }
     } catch (err) {
       console.error('[V3] Submit score error:', err)
@@ -2269,7 +2269,7 @@ async function processReferralJoin(referralCode) {
   const userId = getUserId()
   const supabase = initSupabaseClient()
   
-  // Validate: chỉ Telegram users
+  // Validate: only Telegram users
   if (!userId || !userId.startsWith('tg_')) {
     console.warn('[Referral] Only Telegram users can use referral system')
     return
@@ -2406,7 +2406,7 @@ async function getOrCreateReferralCode() {
   const userId = getUserId()
   const supabase = initSupabaseClient()
   
-  // Validate: chỉ Telegram users
+  // Validate: only Telegram users
   if (!userId || !userId.startsWith('tg_')) {
     console.warn('[Referral] Only Telegram users can use referral system')
     return null
@@ -2434,7 +2434,7 @@ async function getReferralStats() {
   const userId = getUserId()
   const supabase = initSupabaseClient()
   
-  // Validate: chỉ Telegram users
+  // Validate: only Telegram users
   if (!userId || !userId.startsWith('tg_')) {
     return null
   }
