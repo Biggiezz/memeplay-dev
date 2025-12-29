@@ -101,6 +101,43 @@
   }' />
   
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
+  <!-- ✅ DEBUG: Network logging for script loads -->
+  <script>
+    // Log all script loads for debugging
+    (function() {
+      const originalAppendChild = document.head.appendChild.bind(document.head);
+      document.head.appendChild = function(element) {
+        if (element.tagName === 'SCRIPT') {
+          const src = element.src || 'inline';
+          console.log('[Network] 📥 Loading script:', src);
+          
+          element.addEventListener('load', () => {
+            console.log('[Network] ✅ Script loaded successfully:', src);
+            if (typeof window.updateDebugPanel === 'function') {
+              setTimeout(() => window.updateDebugPanel(), 100);
+            }
+          });
+          
+          element.addEventListener('error', (e) => {
+            console.error('[Network] ❌ Script failed to load:', src, e);
+            if (!window.__debugErrors) window.__debugErrors = [];
+            window.__debugErrors.push(`[Network] Script failed: ${src}`);
+            if (typeof window.updateDebugPanel === 'function') {
+              setTimeout(() => window.updateDebugPanel(), 100);
+            }
+          });
+        }
+        return originalAppendChild(element);
+      };
+      
+      // Also log existing scripts
+      const existingScripts = document.querySelectorAll('script[src]');
+      existingScripts.forEach(script => {
+        console.log('[Network] 📋 Existing script:', script.src);
+      });
+    })();
+  </script>
+  
   <!-- ✅ Load app-base.js as module - Wait for SDK ready first -->
   <script>
     // Wait for SDK to be ready before loading app-base.js
