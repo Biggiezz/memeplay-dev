@@ -29,12 +29,12 @@ export default {
           if (referralCode) {
             // User joined via referral link
             welcomeText += `🎁 You've been invited by a friend!\n\n`;
-            welcomeText += `When you join, both you and your friend will receive 2000 PLAY tokens! 🎉\n\n`;
+            welcomeText += `When you join, both you and your friend will receive 2000 PLAY points! 🎉\n\n`;
           } else {
             // User joined without referral link - encourage them to invite friends
             welcomeText += `🎁 Invite friends and earn rewards!\n\n`;
-            welcomeText += `Share your referral link and get 2000 PLAY tokens for each friend who joins!\n\n`;
-            welcomeText += `Your friend will also receive 2000 PLAY tokens when they join! 🎉\n\n`;
+            welcomeText += `Share your referral link and get 2000 PLAY points for each friend who joins!\n\n`;
+            welcomeText += `Your friend will also receive 2000 PLAY points when they join! 🎉\n\n`;
           }
           
           welcomeText += `Click "🎮 Start App" to begin! 🚀`;
