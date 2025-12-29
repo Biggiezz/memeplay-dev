@@ -2431,12 +2431,6 @@ async function updateReferralOverlay() {
   content.innerHTML = `
     <div class="referral-stats-section">
       <div class="referral-stat-card">
-        <div class="referral-stat-label">Your Referral Code</div>
-        <div class="referral-stat-value code-value">${referralCode}</div>
-        ${referralCode !== 'Loading...' ? `<button class="referral-copy-btn" data-copy="${referralCode}">Copy Code</button>` : ''}
-      </div>
-      
-      <div class="referral-stat-card">
         <div class="referral-stat-label">Your Referral Link</div>
         <div class="referral-stat-value link-value">${referralLink}</div>
         ${referralLink !== 'Loading...' ? `<button class="referral-copy-btn" data-copy="${referralLink}">Copy Link</button>` : ''}
