@@ -20,8 +20,26 @@
         // Call ready() when app is loaded to hide splash screen
         await sdk.actions.ready();
         console.log('[Base App] SDK initialized');
+        
+        // ✅ DEBUG: Log context after ready
+        if (sdk.context) {
+          console.log('[Base App] Context available:', {
+            hasUser: !!sdk.context.user,
+            hasFid: !!sdk.context.user?.fid,
+            fid: sdk.context.user?.fid
+          });
+        } else {
+          console.warn('[Base App] Context not available yet');
+        }
+        
+        // ✅ Set flag that SDK is ready
+        window.__baseAppSDKReady = true;
+        
+        // ✅ Trigger custom event for other scripts
+        window.dispatchEvent(new CustomEvent('baseAppSDKReady', { detail: sdk }));
       } catch (error) {
         console.warn('[Base App] SDK not available - running in browser:', error);
+        window.__baseAppSDKReady = false;
       }
     })();
   </script>

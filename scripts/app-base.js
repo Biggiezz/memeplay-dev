@@ -822,11 +822,25 @@ function getWalletAddress() {
 // Base App SDK provides user.fid in sdk.context.user.fid
 function getBaseAppUserId() {
   // Check if running inside Base App
-  if (window.BaseAppSDK?.context?.user?.fid) {
-    const fid = window.BaseAppSDK.context.user.fid
-    // Format: "base_" + farcaster_id (e.g., "base_12345")
+  const sdk = window.BaseAppSDK
+  
+  if (!sdk) return null
+  
+  // Method 1: Direct access to context
+  if (sdk.context?.user?.fid) {
+    const fid = sdk.context.user.fid
     return `base_${fid}`
   }
+  
+  // Method 2: Wait for SDK ready event (if not ready yet)
+  // SDK context might be available after ready() is called
+  if (window.__baseAppSDKReady && sdk.context) {
+    // Retry after SDK ready
+    if (sdk.context.user?.fid) {
+      return `base_${sdk.context.user.fid}`
+    }
+  }
+  
   return null
 }
 
@@ -1897,24 +1911,38 @@ function initStatsOverlay() {
       if (userId) {
         const isBaseFormat = userId.startsWith('base_')
         const formatStatus = isBaseFormat ? '✅' : '❌'
-        userIdEl.textContent = `${formatStatus} ${userId} (${debugInfo})`
+        userIdEl.textContent = `${formatStatus} ${userId}`
         userIdEl.style.color = isBaseFormat ? '#0ff' : '#f88'
       } else {
-        // Retry after 500ms if no userId yet
-        setTimeout(() => {
+        // Retry multiple times if no userId yet (SDK might need time to initialize)
+        let retryCount = 0
+        const maxRetries = 5
+        
+        const retryCheck = () => {
+          retryCount++
           const retryUserId = getUserId()
+          
           if (retryUserId && userIdEl) {
             const isBaseFormat = retryUserId.startsWith('base_')
             const formatStatus = isBaseFormat ? '✅' : '❌'
-            userIdEl.textContent = `${formatStatus} ${retryUserId} (${debugInfo})`
+            userIdEl.textContent = `${formatStatus} ${retryUserId}`
             userIdEl.style.color = isBaseFormat ? '#0ff' : '#f88'
+          } else if (retryCount < maxRetries && userIdEl) {
+            // Show retry status
+            userIdEl.textContent = `⏳ Loading... (${retryCount}/${maxRetries}) ${debugInfo}`
+            userIdEl.style.color = '#ffb642'
+            setTimeout(retryCheck, 500) // Retry every 500ms
           } else if (userIdEl) {
+            // Max retries reached
             userIdEl.textContent = `❌ Not available (${debugInfo})`
             userIdEl.style.color = '#f88'
           }
-        }, 500)
+        }
         
-        // Show loading state
+        // Start retry after 500ms
+        setTimeout(retryCheck, 500)
+        
+        // Show initial loading state
         userIdEl.textContent = `⏳ Loading... (${debugInfo})`
         userIdEl.style.color = '#ffb642'
       }
