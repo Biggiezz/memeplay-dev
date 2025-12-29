@@ -1864,11 +1864,21 @@ function initStatsOverlay() {
   if (!overlay) return
   
   const closeBtn = document.getElementById('statsCloseBtn')
+  const userIdEl = document.getElementById('statsUserId')
   const streakEl = document.getElementById('statsStreak')
   const playsEl = document.getElementById('statsPlays')
   
   async function updateStatsOverlay() {
     const userId = getUserId()
+    
+    // ✅ DEBUG: Update User ID display
+    if (userIdEl) {
+      const isBaseFormat = userId && userId.startsWith('base_')
+      const formatStatus = isBaseFormat ? '✅' : '❌'
+      userIdEl.textContent = `${formatStatus} ${userId || 'Not available'}`
+      userIdEl.style.color = isBaseFormat ? '#0ff' : '#f88'
+    }
+    
     if (!userId) {
       if (streakEl) streakEl.textContent = '0'
       if (playsEl) playsEl.textContent = '0'
