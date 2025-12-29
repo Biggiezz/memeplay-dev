@@ -1900,16 +1900,49 @@ function initStatsOverlay() {
       if (streakEl) streakEl.textContent = String(streak)
     }
     
-    // Load Play Points: Try query from game_playtime table, fallback to localStorage
+    // Load Play Points: Query from game_playtime + telegram_referral_rewards, fallback to localStorage
     try {
-      // Query total rewards from game_playtime table (if exists)
+      let totalPoints = 0
+      
+      // 1. Query rewards from game_playtime table
       const { data: playtimeData, error: playtimeError } = await supabase
         .from('game_playtime')
         .select('reward')
         .eq('user_id', userId)
       
       if (!playtimeError && Array.isArray(playtimeData)) {
-        const totalPoints = playtimeData.reduce((sum, row) => sum + (Number(row.reward) || 0), 0)
+        const playtimeRewards = playtimeData.reduce((sum, row) => sum + (Number(row.reward) || 0), 0)
+        totalPoints += playtimeRewards
+      }
+      
+      // 2. Query referral rewards from telegram_referral_rewards table (as referrer)
+      if (userId && userId.startsWith('tg_')) {
+        const { data: referralData, error: referralError } = await supabase
+          .from('telegram_referral_rewards')
+          .select('commission_earned')
+          .eq('referrer_id', userId)
+        
+        if (!referralError && Array.isArray(referralData)) {
+          const referralRewards = referralData.reduce((sum, row) => sum + (Number(row.commission_earned) || 0), 0)
+          totalPoints += referralRewards
+        }
+      }
+      
+      // 3. Query referral rewards as referred user (when user joins via referral link)
+      if (userId && userId.startsWith('tg_')) {
+        const { data: referredData, error: referredError } = await supabase
+          .from('telegram_referral_rewards')
+          .select('reward_amount')
+          .eq('referred_id', userId)
+        
+        if (!referredError && Array.isArray(referredData)) {
+          const referredRewards = referredData.reduce((sum, row) => sum + (Number(row.reward_amount) || 0), 0)
+          totalPoints += referredRewards
+        }
+      }
+      
+      // Update UI and localStorage
+      if (totalPoints > 0) {
         if (playsEl) playsEl.textContent = String(totalPoints)
         // Sync to localStorage
         lsSetInt('mp_total_earned_plays', totalPoints)
@@ -1919,7 +1952,8 @@ function initStatsOverlay() {
         if (playsEl) playsEl.textContent = String(plays)
       }
     } catch (err) {
-      // Fallback to localStorage if table doesn't exist or query fails
+      console.warn('[Stats] Failed to load Play Points:', err)
+      // Fallback to localStorage if query fails
       const plays = lsGetInt('mp_total_earned_plays', 0)
       if (playsEl) playsEl.textContent = String(plays)
     }
