@@ -1903,6 +1903,9 @@ function initStatsOverlay() {
     // Load Play Points: Query from game_playtime + telegram_referral_rewards, fallback to localStorage
     try {
       let totalPoints = 0
+      let playtimeRewards = 0
+      let referralRewards = 0
+      let referredRewards = 0
       
       // 1. Query rewards from game_playtime table
       const { data: playtimeData, error: playtimeError } = await supabase
@@ -1911,8 +1914,11 @@ function initStatsOverlay() {
         .eq('user_id', userId)
       
       if (!playtimeError && Array.isArray(playtimeData)) {
-        const playtimeRewards = playtimeData.reduce((sum, row) => sum + (Number(row.reward) || 0), 0)
+        playtimeRewards = playtimeData.reduce((sum, row) => sum + (Number(row.reward) || 0), 0)
         totalPoints += playtimeRewards
+        console.log('[Stats] Playtime rewards:', playtimeRewards, 'from', playtimeData.length, 'records')
+      } else if (playtimeError) {
+        console.warn('[Stats] Playtime query error:', playtimeError)
       }
       
       // 2. Query referral rewards from telegram_referral_rewards table (as referrer)
@@ -1923,8 +1929,11 @@ function initStatsOverlay() {
           .eq('referrer_id', userId)
         
         if (!referralError && Array.isArray(referralData)) {
-          const referralRewards = referralData.reduce((sum, row) => sum + (Number(row.commission_earned) || 0), 0)
+          referralRewards = referralData.reduce((sum, row) => sum + (Number(row.commission_earned) || 0), 0)
           totalPoints += referralRewards
+          console.log('[Stats] Referral rewards (as referrer):', referralRewards, 'from', referralData.length, 'records')
+        } else if (referralError) {
+          console.warn('[Stats] Referral query error:', referralError)
         }
       }
       
@@ -1936,20 +1945,27 @@ function initStatsOverlay() {
           .eq('referred_id', userId)
         
         if (!referredError && Array.isArray(referredData)) {
-          const referredRewards = referredData.reduce((sum, row) => sum + (Number(row.reward_amount) || 0), 0)
+          referredRewards = referredData.reduce((sum, row) => sum + (Number(row.reward_amount) || 0), 0)
           totalPoints += referredRewards
+          console.log('[Stats] Referral rewards (as referred):', referredRewards, 'from', referredData.length, 'records')
+        } else if (referredError) {
+          console.warn('[Stats] Referred query error:', referredError)
         }
       }
+      
+      console.log('[Stats] Total Play Points:', totalPoints, '(playtime:', playtimeRewards, '+ referral:', referralRewards, '+ referred:', referredRewards, ')')
       
       // Update UI and localStorage
       if (totalPoints > 0) {
         if (playsEl) playsEl.textContent = String(totalPoints)
         // Sync to localStorage
         lsSetInt('mp_total_earned_plays', totalPoints)
+        console.log('[Stats] Updated UI with total:', totalPoints)
       } else {
         // Fallback to localStorage
         const plays = lsGetInt('mp_total_earned_plays', 0)
         if (playsEl) playsEl.textContent = String(plays)
+        console.log('[Stats] Using localStorage fallback:', plays)
       }
     } catch (err) {
       console.warn('[Stats] Failed to load Play Points:', err)
