@@ -2274,7 +2274,21 @@ function initDailyCheckin() {
     if (data?.awarded > 0) {
       const streak = Number(data.streak) || 1
       const totalDays = Number(data.total_days) || null
-      showDailyCheckInToast(streak, Number(data.awarded), totalDays)
+      const awarded = Number(data.awarded)
+      
+      // ✅ Cộng điểm vào PLAY points
+      const newTotal = lsGetInt('mp_total_earned_plays', 0) + awarded
+      lsSetInt('mp_total_earned_plays', newTotal)
+      
+      // ✅ Update UI
+      if (typeof window.__updateStatsOverlay === 'function') {
+        window.__updateStatsOverlay()
+      }
+      if (typeof window.__updateWalletOverlay === 'function') {
+        window.__updateWalletOverlay()
+      }
+      
+      showDailyCheckInToast(streak, awarded, totalDays)
       markCheckedInToday()
     }
     
