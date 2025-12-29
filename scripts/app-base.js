@@ -821,7 +821,12 @@ function getWalletAddress() {
 // ✅ BASE APP: Get Base App User ID (FID)
 // Base App SDK provides user.fid in sdk.context.user.fid
 function getBaseAppUserId() {
-  // Check if running inside Base App
+  // Method 1: Try global context storage (set after SDK ready)
+  if (window.__baseAppSDKContext?.user?.fid) {
+    return `base_${window.__baseAppSDKContext.user.fid}`
+  }
+  
+  // Method 2: Check if running inside Base App
   const sdk = window.BaseAppSDK
   
   if (!sdk) {
@@ -835,13 +840,13 @@ function getBaseAppUserId() {
     return null
   }
   
-  // Method 1: Direct access to context
+  // Method 3: Direct access to context
   if (sdk.context?.user?.fid) {
     const fid = sdk.context.user.fid
     return `base_${fid}`
   }
   
-  // Method 2: Try accessing context property directly
+  // Method 4: Try accessing context property directly
   try {
     const context = sdk.context
     if (context && context.user && context.user.fid) {
@@ -851,7 +856,7 @@ function getBaseAppUserId() {
     // Ignore
   }
   
-  // Method 3: Try getContext() method if available
+  // Method 5: Try getContext() method if available
   if (typeof sdk.getContext === 'function') {
     try {
       const context = sdk.getContext()
@@ -861,12 +866,6 @@ function getBaseAppUserId() {
     } catch (e) {
       // Ignore
     }
-  }
-  
-  // Method 4: Check if context is available but user is null
-  if (sdk.context && !sdk.context.user) {
-    // Context exists but user not set yet - might need to wait
-    return null
   }
   
   return null
@@ -1573,12 +1572,29 @@ async function showPlayAward(amount, label, isNewAchievement = false) {
   // All rewards are stored in database, not localStorage
   if (userId) {
     try {
-      await supabase.rpc('add_playtime_reward', {
+      await supabase.rpc('base_add_playtime_reward', {
         p_user_id: userId,
         p_reward_amount: amount,
         p_reward_type: isNewAchievement ? 'achievement' : 'playtime',
         p_game_id: activeGame || null
       })
+      
+      // ✅ Check and record achievements (1k, 10k points) after adding reward
+      if (userId.startsWith('base_')) {
+        try {
+          const { data: achievementData } = await supabase.rpc('base_check_and_record_achievements', {
+            p_user_id: userId
+          })
+          
+          // If new achievements unlocked, could show notification (optional)
+          if (achievementData?.new_achievements?.length > 0) {
+            console.log('[Base App] New achievements unlocked:', achievementData.new_achievements)
+            // TODO: Show achievement notification UI
+          }
+        } catch (err) {
+          console.warn('[PlayAward] Failed to check achievements:', err)
+        }
+      }
     } catch (err) {
       console.error('[PlayAward] Failed to save to database:', err)
       // No localStorage fallback - rewards must be in database for sync
@@ -2006,9 +2022,9 @@ function initStatsOverlay() {
     
     const supabase = initSupabaseClient()
     
-    // Load streak from daily_checkin RPC
+    // Load streak from base_daily_checkin RPC
     try {
-      const { data: checkinData, error: checkinError } = await supabase.rpc('daily_checkin', { p_user_id: userId })
+      const { data: checkinData, error: checkinError } = await supabase.rpc('base_daily_checkin', { p_user_id: userId })
       if (!checkinError && checkinData && Number.isFinite(checkinData.streak)) {
         const streak = Number(checkinData.streak) || 0
         if (streakEl) streakEl.textContent = String(streak)
@@ -2025,7 +2041,7 @@ function initStatsOverlay() {
       if (streakEl) streakEl.textContent = String(streak)
     }
     
-    // Load Play Points: database (playtime) + telegram_referral_rewards (referral)
+    // Load Play Points: database (playtime) + base_referral_rewards (referral)
     try {
       let totalPoints = 0
       let playtimeRewards = 0
@@ -2035,7 +2051,7 @@ function initStatsOverlay() {
       // 1. Get playtime rewards from database ONLY (no localStorage)
       if (userId) {
         try {
-          const { data: playtimeData, error: playtimeError } = await supabase.rpc('get_user_total_playtime_rewards', {
+          const { data: playtimeData, error: playtimeError } = await supabase.rpc('base_get_user_total_playtime_rewards', {
             p_user_id: userId
           })
           
@@ -2196,34 +2212,19 @@ function initDailyCheckin() {
     
     const supabase = initSupabaseClient()
     try {
-      const { data, error } = await supabase.rpc('daily_checkin', { p_user_id: userId })
+      const { data, error } = await supabase.rpc('base_daily_checkin', { p_user_id: userId })
       if (error) {
-        console.warn('[V3] Daily check-in error:', error.message)
+        console.warn('[Base App] Daily check-in error:', error.message)
         return
       }
       
       if (data?.awarded > 0) {
         const streak = Number(data.streak) || 1
-        const totalDays = Number(data.total_days) || null // If backend provides it
+        const totalDays = Number(data.total_checkins) || null // Backend provides total_checkins
         const awarded = Number(data.awarded)
         
-        // ✅ Save daily check-in reward to database ONLY (no localStorage)
-        if (userId) {
-          try {
-            await supabase.rpc('add_playtime_reward', {
-              p_user_id: userId,
-              p_reward_amount: awarded,
-              p_reward_type: 'daily_checkin',
-              p_game_id: null
-            })
-          } catch (err) {
-            console.error('[DailyCheckIn] Failed to save to database:', err)
-            // No localStorage fallback - rewards must be in database for sync
-          }
-        } else {
-          console.warn('[DailyCheckIn] No user ID - reward not saved (anonymous user)')
-          // No localStorage fallback - anonymous users won't have synced rewards
-        }
+        // ✅ base_daily_checkin RPC already saves reward to base_playtime_rewards
+        // No need to call add_playtime_reward separately
         
         // Show daily check-in toast
         showDailyCheckInToast(streak, awarded, totalDays)
@@ -2688,10 +2689,12 @@ async function syncLocalStorageToDatabase() {
   // Only sync if localStorage has rewards and user hasn't synced before
   if (localTotal > 0 && !localStorage.getItem('mp_playtime_synced')) {
     try {
-      const { data, error } = await supabase.rpc('sync_user_playtime_rewards', {
-        p_user_id: userId,
-        p_total_from_localstorage: localTotal
-      })
+      // ✅ Note: base_sync_user_playtime_rewards function not created in SQL
+      // Migration from localStorage to database is handled by base_add_playtime_reward
+      // For now, skip sync - users will accumulate new rewards in database
+      console.log('[Base App] Skipping localStorage sync - use base_add_playtime_reward for new rewards')
+      // Mark as synced to avoid duplicate attempts
+      localStorage.setItem('mp_playtime_synced', 'true')
       
       if (!error && data?.success) {
         // Mark as synced to avoid duplicate syncs
