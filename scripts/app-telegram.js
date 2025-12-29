@@ -34,14 +34,6 @@ import {
   
   // ✅ Optional: Enable closing confirmation (nếu muốn)
   // tg.enableClosingConfirmation() // Uncomment nếu muốn confirm khi user đóng app
-  
-  // ✅ Log để debug (có thể remove sau)
-  console.log('[Telegram] WebApp initialized', {
-    platform: tg.platform,
-    version: tg.version,
-    colorScheme: tg.colorScheme,
-    userId: tg.initDataUnsafe?.user?.id
-  })
 })()
 
 // ==========================================
@@ -463,7 +455,6 @@ async function loadGame0() {
     initScrollObserver()
     
     const loadTime = performance.now() - startTime
-    console.log(`[V3] ✅ Game 0 loaded in ${Math.round(loadTime)}ms`)
     
     if (loadTime > 1000) {
       console.warn(`[V3] ⚠️ Game 0 load time exceeded target: ${Math.round(loadTime)}ms`)
@@ -1940,7 +1931,6 @@ function initStatsOverlay() {
           if (!playtimeError && Number.isFinite(playtimeData)) {
             playtimeRewards = Number(playtimeData) || 0
             totalPoints += playtimeRewards
-            console.log('[Stats] Playtime rewards (database):', playtimeRewards)
           } else {
             console.warn('[Stats] Failed to load playtime rewards from database:', playtimeError)
             playtimeRewards = 0
@@ -1967,7 +1957,6 @@ function initStatsOverlay() {
         if (!referralError && Array.isArray(referralData)) {
           referralRewards = referralData.reduce((sum, row) => sum + (Number(row.commission_earned) || 0), 0)
           totalPoints += referralRewards
-          console.log('[Stats] Referral rewards (as referrer):', referralRewards, 'from', referralData.length, 'records')
         } else if (referralError) {
           console.warn('[Stats] Referral query error:', referralError)
         }
@@ -1983,18 +1972,14 @@ function initStatsOverlay() {
         if (!referredError && Array.isArray(referredData)) {
           referredRewards = referredData.reduce((sum, row) => sum + (Number(row.reward_amount) || 0), 0)
           totalPoints += referredRewards
-          console.log('[Stats] Referral rewards (as referred):', referredRewards, 'from', referredData.length, 'records')
         } else if (referredError) {
           console.warn('[Stats] Referred query error:', referredError)
         }
       }
       
-      console.log('[Stats] Total Play Points:', totalPoints, '(playtime:', playtimeRewards, '+ referral:', referralRewards, '+ referred:', referredRewards, ')')
-      
       // ✅ CRITICAL: All rewards are in database - no localStorage!
       // Total = playtime (database) + referral (database) - only for display
       if (playsEl) playsEl.textContent = String(totalPoints)
-      console.log('[Stats] Updated UI with total:', totalPoints, '(all from database)')
     } catch (err) {
       console.error('[Stats] Failed to load Play Points:', err)
       // No localStorage fallback - all rewards must be in database
@@ -2473,7 +2458,6 @@ async function getReferralStats() {
 
 // ✅ Update referral overlay with stats
 async function updateReferralOverlay() {
-  console.log('[Referral] updateReferralOverlay called')
   const overlay = document.getElementById('referralOverlay')
   if (!overlay) {
     console.warn('[Referral] Overlay not found')
@@ -2487,9 +2471,7 @@ async function updateReferralOverlay() {
     return
   }
   
-  console.log('[Referral] Getting stats...')
   const stats = await getReferralStats()
-  console.log('[Referral] Stats received:', stats)
   
   // Use stats if available, otherwise use default/placeholder values
   let referralCode = 'Loading...'
@@ -2502,7 +2484,6 @@ async function updateReferralOverlay() {
     totalRewards = stats.total_rewards || 0
   } else {
     // If stats is null, try to get/create referral code directly
-    console.log('[Referral] Stats null, trying to get referral code...')
     const userId = getUserId()
     if (userId && userId.startsWith('tg_')) {
       const code = await getOrCreateReferralCode()
@@ -2615,12 +2596,10 @@ async function syncLocalStorageToDatabase() {
       })
       
       if (!error && data?.success) {
-        console.log('[Sync] Migrated playtime rewards to database:', data)
         // Mark as synced to avoid duplicate syncs
         localStorage.setItem('mp_playtime_synced', 'true')
         // ✅ Clear localStorage after successful sync - all rewards are now in database
         localStorage.removeItem('mp_total_earned_plays')
-        console.log('[Sync] Cleared mp_total_earned_plays from localStorage - all rewards are in database now')
       } else {
         console.warn('[Sync] Failed to sync playtime rewards:', error)
       }
