@@ -95,12 +95,84 @@ import {
     window.__baseAppSDKContext = sdk.context;
     
     // ✅ Log context for debugging
-    if (sdk.context?.user?.fid) {
-      console.log('[Base App] ✅ FID available:', sdk.context.user.fid);
-      console.log('[Base App] ✅ User ID will be: base_' + sdk.context.user.fid);
+    // ✅ FIX: Handle FID as Proxy/Function - try multiple extraction methods
+    let fidValue = null;
+    const fidRaw = sdk.context?.user?.fid;
+    
+    if (fidRaw) {
+      console.log('[Base App] FID raw type:', typeof fidRaw, fidRaw);
+      
+      // Method 1: If it's a function, try calling it
+      if (typeof fidRaw === 'function') {
+        try {
+          fidValue = fidRaw();
+          console.log('[Base App] FID from function call:', fidValue);
+        } catch (e) {
+          console.warn('[Base App] FID function call failed:', e);
+        }
+      }
+      
+      // Method 2: If it's a Proxy, try accessing .value or direct value
+      if (!fidValue && typeof fidRaw === 'object') {
+        try {
+          // Try .value property
+          if ('value' in fidRaw) {
+            fidValue = fidRaw.value;
+            console.log('[Base App] FID from .value:', fidValue);
+          }
+          // Try direct conversion
+          else if (typeof fidRaw === 'number') {
+            fidValue = fidRaw;
+            console.log('[Base App] FID is number:', fidValue);
+          }
+          // Try toString or valueOf
+          else {
+            const str = String(fidRaw);
+            const num = Number(fidRaw);
+            if (!isNaN(num) && num > 0) {
+              fidValue = num;
+              console.log('[Base App] FID from conversion:', fidValue);
+            }
+          }
+        } catch (e) {
+          console.warn('[Base App] FID extraction failed:', e);
+        }
+      }
+      
+      // Method 3: Direct use if it's already a number/string
+      if (!fidValue && (typeof fidRaw === 'number' || typeof fidRaw === 'string')) {
+        fidValue = fidRaw;
+        console.log('[Base App] FID direct value:', fidValue);
+      }
+      
+      // Method 4: Try JSON.stringify to extract value
+      if (!fidValue) {
+        try {
+          const jsonStr = JSON.stringify(sdk.context.user);
+          const userObj = JSON.parse(jsonStr);
+          if (userObj.fid) {
+            fidValue = userObj.fid;
+            console.log('[Base App] FID from JSON:', fidValue);
+          }
+        } catch (e) {
+          console.warn('[Base App] FID JSON extraction failed:', e);
+        }
+      }
+      
+      if (fidValue) {
+        console.log('[Base App] ✅ FID extracted:', fidValue);
+        console.log('[Base App] ✅ User ID will be: base_' + fidValue);
+        // ✅ Store extracted FID in context for faster access
+        if (window.__baseAppSDKContext && window.__baseAppSDKContext.user) {
+          window.__baseAppSDKContext.user.fid = fidValue;
+        }
+      } else {
+        console.warn('[Base App] ⚠️ Could not extract FID value from:', fidRaw);
+        if (!window.__debugErrors) window.__debugErrors = [];
+        window.__debugErrors.push('[Base App] FID is Proxy/Function but extraction failed');
+      }
     } else {
       console.warn('[Base App] ⚠️ FID not available in context');
-      // Store error for debug panel
       if (!window.__debugErrors) window.__debugErrors = [];
       window.__debugErrors.push('[Base App] FID not available in context');
     }
@@ -926,14 +998,58 @@ function getWalletAddress() {
   return localStorage.getItem('mp_user_wallet') || ''
 }
 
+// ✅ Helper: Extract FID value from Proxy/Function/Object
+function extractFidValue(fidRaw) {
+  if (!fidRaw) return null;
+  
+  // If already a number or string, return directly
+  if (typeof fidRaw === 'number' || typeof fidRaw === 'string') {
+    const num = Number(fidRaw);
+    return isNaN(num) ? null : num;
+  }
+  
+  // If it's a function, try calling it
+  if (typeof fidRaw === 'function') {
+    try {
+      const result = fidRaw();
+      return extractFidValue(result); // Recursive for nested cases
+    } catch (e) {
+      console.warn('[Base App] FID function call failed:', e);
+    }
+  }
+  
+  // If it's an object, try .value property
+  if (typeof fidRaw === 'object') {
+    if ('value' in fidRaw) {
+      return extractFidValue(fidRaw.value);
+    }
+    // Try valueOf
+    try {
+      const valueOf = fidRaw.valueOf();
+      if (typeof valueOf === 'number') return valueOf;
+    } catch (e) {}
+    // Try toString then parse
+    try {
+      const str = String(fidRaw);
+      const num = Number(str);
+      if (!isNaN(num) && num > 0) return num;
+    } catch (e) {}
+  }
+  
+  return null;
+}
+
 // ✅ BASE APP: Get Base App User ID (FID)
 // Base App SDK provides user.fid in sdk.context.user.fid
 function getBaseAppUserId() {
   // Method 1: Try global context storage (set after SDK ready) - MOST RELIABLE
   if (window.__baseAppSDKContext?.user?.fid) {
-    const fid = window.__baseAppSDKContext.user.fid
-    console.log('[Base App] Got FID from __baseAppSDKContext:', fid)
-    return `base_${fid}`
+    const fidRaw = window.__baseAppSDKContext.user.fid;
+    const fid = extractFidValue(fidRaw);
+    if (fid) {
+      console.log('[Base App] Got FID from __baseAppSDKContext:', fid);
+      return `base_${fid}`;
+    }
   }
   
   // Method 2: Check if running inside Base App
@@ -955,46 +1071,64 @@ function getBaseAppUserId() {
   
   // Method 3: Direct access to context (may not be ready yet)
   if (sdk.context?.user?.fid) {
-    const fid = sdk.context.user.fid
-    console.log('[Base App] Got FID from sdk.context:', fid)
-    // ✅ Store in global context for faster access next time
-    if (!window.__baseAppSDKContext) {
-      window.__baseAppSDKContext = sdk.context
+    const fidRaw = sdk.context.user.fid;
+    const fid = extractFidValue(fidRaw);
+    if (fid) {
+      console.log('[Base App] Got FID from sdk.context:', fid);
+      // ✅ Store extracted FID in global context for faster access next time
+      if (!window.__baseAppSDKContext) {
+        window.__baseAppSDKContext = sdk.context;
+      }
+      if (window.__baseAppSDKContext.user) {
+        window.__baseAppSDKContext.user.fid = fid; // Store extracted value
+      }
+      return `base_${fid}`;
     }
-    return `base_${fid}`
   }
   
   // Method 4: Try accessing context property directly
   try {
-    const context = sdk.context
+    const context = sdk.context;
     if (context && context.user && context.user.fid) {
-      const fid = context.user.fid
-      console.log('[Base App] Got FID from sdk.context (method 4):', fid)
-      // ✅ Store in global context
-      if (!window.__baseAppSDKContext) {
-        window.__baseAppSDKContext = context
+      const fidRaw = context.user.fid;
+      const fid = extractFidValue(fidRaw);
+      if (fid) {
+        console.log('[Base App] Got FID from sdk.context (method 4):', fid);
+        // ✅ Store extracted FID in global context
+        if (!window.__baseAppSDKContext) {
+          window.__baseAppSDKContext = context;
+        }
+        if (window.__baseAppSDKContext.user) {
+          window.__baseAppSDKContext.user.fid = fid;
+        }
+        return `base_${fid}`;
       }
-      return `base_${fid}`
     }
   } catch (e) {
-    // Ignore
+    console.warn('[Base App] Method 4 failed:', e);
   }
   
   // Method 5: Try getContext() method if available
   if (typeof sdk.getContext === 'function') {
     try {
-      const context = sdk.getContext()
+      const context = sdk.getContext();
       if (context?.user?.fid) {
-        const fid = context.user.fid
-        console.log('[Base App] Got FID from sdk.getContext():', fid)
-        // ✅ Store in global context
-        if (!window.__baseAppSDKContext) {
-          window.__baseAppSDKContext = context
+        const fidRaw = context.user.fid;
+        const fid = extractFidValue(fidRaw);
+        if (fid) {
+          console.log('[Base App] Got FID from sdk.getContext():', fid);
+          // ✅ Store extracted FID in global context
+          if (!window.__baseAppSDKContext) {
+            window.__baseAppSDKContext = context;
+          }
+          if (window.__baseAppSDKContext.user) {
+            window.__baseAppSDKContext.user.fid = fid;
+          }
+          return `base_${fid}`;
         }
-        return `base_${fid}`
       }
     } catch (e) {
-      // Ignore
+      console.warn('[Base App] Method 5 failed:', e);
     }
   }
   
