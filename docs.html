@@ -18,6 +18,70 @@
       line-height: 1.7;
     }
 
+    /* Header - chỉ hiển thị trên mobile */
+    .docs-header {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      background: rgba(17, 17, 17, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid rgba(255, 182, 66, 0.2);
+      z-index: 10000;
+      align-items: center;
+      padding: 0 20px;
+      box-sizing: border-box;
+    }
+
+    .hamburger-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 182, 66, 0.08);
+      border: 1px solid rgba(255, 182, 66, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .hamburger-btn:hover {
+      background: rgba(255, 182, 66, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .hamburger-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .hamburger-icon span {
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: #ffb642;
+      border-radius: 2px;
+      transition: all 0.3s ease;
+    }
+
+    .hamburger-btn.active .hamburger-icon span:nth-child(1) {
+      transform: rotate(45deg) translate(8px, 8px);
+    }
+
+    .hamburger-btn.active .hamburger-icon span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .hamburger-btn.active .hamburger-icon span:nth-child(3) {
+      transform: rotate(-45deg) translate(8px, -8px);
+    }
+
     .docs-container {
       display: flex;
       max-width: 1400px;
@@ -35,6 +99,7 @@
       top: 0;
       height: 100vh;
       overflow-y: auto;
+      transition: transform 0.3s ease;
     }
 
     .sidebar-logo {
@@ -77,6 +142,24 @@
       flex: 1;
       padding: 48px 64px;
       max-width: 900px;
+    }
+
+    /* Sidebar Overlay - chỉ trên mobile */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      z-index: 9998;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.active {
+      opacity: 1;
     }
 
     h1 {
@@ -214,20 +297,43 @@
 
     /* Mobile Responsive */
     @media (max-width: 900px) {
-      .docs-container {
-        flex-direction: column;
+      /* Header hiển thị trên mobile */
+      .docs-header {
+        display: flex;
       }
 
-      .sidebar {
-        width: 100%;
-        height: auto;
-        position: relative;
-        border-right: none;
-        border-bottom: 1px solid rgba(255, 182, 66, 0.2);
-      }
-
+      /* Content có padding-top để tránh header */
       .content {
         padding: 32px 24px;
+        padding-top: 80px; /* 60px header + 20px spacing */
+      }
+
+      /* Sidebar overlay hiển thị trên mobile */
+      .sidebar-overlay {
+        display: block;
+      }
+
+      /* Sidebar trên mobile: fixed, slide-in từ trái */
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        height: 100vh;
+        z-index: 9999;
+        transform: translateX(-100%);
+        border-right: 1px solid rgba(255, 182, 66, 0.2);
+        box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
+      }
+
+      /* Sidebar mở */
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      /* Container không flex trên mobile */
+      .docs-container {
+        flex-direction: column;
       }
 
       h1 {
@@ -241,9 +347,23 @@
   </style>
 </head>
 <body>
+  <!-- Header - chỉ hiển thị trên mobile -->
+  <header class="docs-header">
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle menu">
+      <div class="hamburger-icon">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </button>
+  </header>
+
+  <!-- Sidebar Overlay - chỉ trên mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
   <div class="docs-container">
     <!-- Sidebar Navigation -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
       <div class="sidebar-logo">MEMEPLAY</div>
       <nav>
         <a href="#intro">What is MemePlay?</a>
@@ -663,6 +783,55 @@
   </div>
 
   <script>
+    // Mobile Sidebar Toggle
+    (function initMobileSidebar() {
+      const hamburgerBtn = document.getElementById('hamburgerBtn')
+      const sidebar = document.getElementById('sidebar')
+      const sidebarOverlay = document.getElementById('sidebarOverlay')
+      const navLinks = document.querySelectorAll('.sidebar nav a[href^="#"]')
+
+      function openSidebar() {
+        sidebar.classList.add('open')
+        sidebarOverlay.classList.add('active')
+        hamburgerBtn.classList.add('active')
+        document.body.style.overflow = 'hidden' // Prevent scroll khi sidebar mở
+      }
+
+      function closeSidebar() {
+        sidebar.classList.remove('open')
+        sidebarOverlay.classList.remove('active')
+        hamburgerBtn.classList.remove('active')
+        document.body.style.overflow = '' // Restore scroll
+      }
+
+      function toggleSidebar() {
+        if (sidebar.classList.contains('open')) {
+          closeSidebar()
+        } else {
+          openSidebar()
+        }
+      }
+
+      // Toggle khi click hamburger
+      if (hamburgerBtn) {
+        hamburgerBtn.addEventListener('click', toggleSidebar)
+      }
+
+      // Đóng khi click overlay
+      if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', closeSidebar)
+      }
+
+      // Đóng sidebar khi click menu item (chỉ trên mobile)
+      navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          if (window.innerWidth <= 900) {
+            closeSidebar()
+          }
+        })
+      })
+    })()
+
     // Scroll Spy - Auto highlight sidebar menu khi scroll
     (function initScrollSpy() {
       const sections = document.querySelectorAll('section[id]')
@@ -672,7 +841,9 @@
 
       function updateActiveLink() {
         let currentSection = ''
-        const scrollY = window.scrollY + 100 // Offset 100px để trigger sớm hơn
+        const scrollY = window.innerWidth <= 900 
+          ? window.scrollY + 100 + 60 // Mobile: +60px cho header
+          : window.scrollY + 100 // Desktop: +100px như cũ
 
         sections.forEach(section => {
           const sectionTop = section.offsetTop
@@ -705,7 +876,12 @@
           const targetId = link.getAttribute('href').slice(1)
           const targetSection = document.getElementById(targetId)
           if (targetSection) {
-            targetSection.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            const offset = window.innerWidth <= 900 ? 80 : 0 // Mobile: offset cho header
+            const targetPosition = targetSection.offsetTop - offset
+            window.scrollTo({
+              top: targetPosition,
+              behavior: 'smooth'
+            })
           }
         })
       })
