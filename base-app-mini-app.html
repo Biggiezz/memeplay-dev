@@ -1587,9 +1587,18 @@
         const errorsEl = document.getElementById('debugErrors');
         const timestampEl = document.getElementById('debugTimestamp');
         
+        // Check script loading status
+        const scriptsLoaded = {
+          sdk: typeof window.BaseAppSDK !== 'undefined',
+          app: typeof getUserId === 'function'
+        };
+        
         // SDK Status
         if (sdkStatusEl) {
-          if (window.__baseAppSDKReady) {
+          if (!scriptsLoaded.sdk) {
+            sdkStatusEl.textContent = '❌ Script Not Loaded';
+            sdkStatusEl.style.color = '#f88';
+          } else if (window.__baseAppSDKReady) {
             sdkStatusEl.textContent = '✅ Ready';
             sdkStatusEl.style.color = '#0ff';
           } else if (window.BaseAppSDK) {
@@ -1603,39 +1612,64 @@
         
         // FID
         if (fidEl) {
-          const fid = window.__baseAppSDKContext?.user?.fid || 
-                     window.BaseAppSDK?.context?.user?.fid || 
-                     'Not available';
-          fidEl.textContent = fid;
-          fidEl.style.color = fid !== 'Not available' ? '#0ff' : '#f88';
+          if (!scriptsLoaded.sdk) {
+            fidEl.textContent = 'SDK script not loaded';
+            fidEl.style.color = '#f88';
+          } else {
+            const fid = window.__baseAppSDKContext?.user?.fid || 
+                       window.BaseAppSDK?.context?.user?.fid || 
+                       'Not available';
+            fidEl.textContent = fid;
+            fidEl.style.color = fid !== 'Not available' ? '#0ff' : '#f88';
+          }
         }
         
         // User ID
         if (userIdEl) {
-          const userId = typeof getUserId === 'function' ? getUserId() : 'getUserId() not available';
-          userIdEl.textContent = userId || 'null';
-          userIdEl.style.color = userId && userId.startsWith('base_') ? '#0ff' : '#f88';
+          if (!scriptsLoaded.app) {
+            userIdEl.textContent = 'app-base.js not loaded';
+            userIdEl.style.color = '#f88';
+          } else {
+            try {
+              const userId = getUserId();
+              userIdEl.textContent = userId || 'null';
+              userIdEl.style.color = userId && userId.startsWith('base_') ? '#0ff' : '#f88';
+            } catch (e) {
+              userIdEl.textContent = 'Error: ' + e.message;
+              userIdEl.style.color = '#f88';
+            }
+          }
         }
         
         // SDK Context
         if (contextEl) {
-          const context = window.__baseAppSDKContext || window.BaseAppSDK?.context || null;
-          if (context) {
-            try {
-              contextEl.textContent = JSON.stringify(context, null, 2);
-            } catch (e) {
-              contextEl.textContent = 'Error serializing context';
-            }
+          if (!scriptsLoaded.sdk) {
+            contextEl.textContent = 'SDK script not loaded';
           } else {
-            contextEl.textContent = 'No context available';
+            const context = window.__baseAppSDKContext || window.BaseAppSDK?.context || null;
+            if (context) {
+              try {
+                contextEl.textContent = JSON.stringify(context, null, 2);
+              } catch (e) {
+                contextEl.textContent = 'Error serializing: ' + e.message;
+              }
+            } else {
+              contextEl.textContent = 'No context available (SDK may not be ready)';
+            }
           }
         }
         
         // Errors (collect from window.__debugErrors if exists)
         if (errorsEl) {
           const errors = window.__debugErrors || [];
-          if (errors.length > 0) {
-            errorsEl.textContent = errors.slice(-5).join('\n'); // Last 5 errors
+          const scriptErrors = [];
+          if (!scriptsLoaded.sdk) scriptErrors.push('SDK script not loaded');
+          if (!scriptsLoaded.app) scriptErrors.push('app-base.js not loaded');
+          
+          const allErrors = [...scriptErrors, ...errors];
+          if (allErrors.length > 0) {
+            errorsEl.textContent = allErrors.slice(-5).join('\n'); // Last 5 errors
+            errorsEl.style.color = '#f88';
           } else {
             errorsEl.textContent = 'No errors';
             errorsEl.style.color = '#0ff';
