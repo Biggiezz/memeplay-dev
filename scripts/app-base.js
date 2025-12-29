@@ -1869,14 +1869,55 @@ function initStatsOverlay() {
   const playsEl = document.getElementById('statsPlays')
   
   async function updateStatsOverlay() {
-    const userId = getUserId()
+    // ✅ DEBUG: Check Base App SDK status
+    let userId = getUserId()
+    let debugInfo = ''
     
-    // ✅ DEBUG: Update User ID display
+    // Check SDK availability
+    if (window.BaseAppSDK) {
+      if (window.BaseAppSDK.context) {
+        if (window.BaseAppSDK.context.user) {
+          if (window.BaseAppSDK.context.user.fid) {
+            debugInfo = 'SDK OK'
+          } else {
+            debugInfo = 'SDK: no FID'
+          }
+        } else {
+          debugInfo = 'SDK: no user'
+        }
+      } else {
+        debugInfo = 'SDK: no context'
+      }
+    } else {
+      debugInfo = 'SDK: not loaded'
+    }
+    
+    // ✅ DEBUG: Update User ID display with retry
     if (userIdEl) {
-      const isBaseFormat = userId && userId.startsWith('base_')
-      const formatStatus = isBaseFormat ? '✅' : '❌'
-      userIdEl.textContent = `${formatStatus} ${userId || 'Not available'}`
-      userIdEl.style.color = isBaseFormat ? '#0ff' : '#f88'
+      if (userId) {
+        const isBaseFormat = userId.startsWith('base_')
+        const formatStatus = isBaseFormat ? '✅' : '❌'
+        userIdEl.textContent = `${formatStatus} ${userId} (${debugInfo})`
+        userIdEl.style.color = isBaseFormat ? '#0ff' : '#f88'
+      } else {
+        // Retry after 500ms if no userId yet
+        setTimeout(() => {
+          const retryUserId = getUserId()
+          if (retryUserId && userIdEl) {
+            const isBaseFormat = retryUserId.startsWith('base_')
+            const formatStatus = isBaseFormat ? '✅' : '❌'
+            userIdEl.textContent = `${formatStatus} ${retryUserId} (${debugInfo})`
+            userIdEl.style.color = isBaseFormat ? '#0ff' : '#f88'
+          } else if (userIdEl) {
+            userIdEl.textContent = `❌ Not available (${debugInfo})`
+            userIdEl.style.color = '#f88'
+          }
+        }, 500)
+        
+        // Show loading state
+        userIdEl.textContent = `⏳ Loading... (${debugInfo})`
+        userIdEl.style.color = '#ffb642'
+      }
     }
     
     if (!userId) {
