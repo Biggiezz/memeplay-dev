@@ -831,6 +831,21 @@
         link.addEventListener('click', () => {
           if (window.innerWidth <= 900) {
             closeSidebar()
+            // Đợi sidebar đóng xong (300ms animation) trước khi scroll
+            setTimeout(() => {
+              const targetId = link.getAttribute('href').slice(1)
+              const targetSection = document.getElementById(targetId)
+              if (targetSection) {
+                const headerHeight = 60
+                const spacing = 20
+                const offset = headerHeight + spacing // 80px
+                const targetPosition = targetSection.offsetTop - offset
+                window.scrollTo({
+                  top: targetPosition,
+                  behavior: 'smooth'
+                })
+              }
+            }, 350) // Đợi 350ms để sidebar animation hoàn tất
           }
         })
       })
@@ -873,19 +888,21 @@
       // Initial check
       updateActiveLink()
       
-      // Smooth scroll khi click link
+      // Smooth scroll khi click link (chỉ cho desktop, mobile xử lý trong sidebar toggle)
       navLinks.forEach(link => {
         link.addEventListener('click', (e) => {
-          e.preventDefault()
-          const targetId = link.getAttribute('href').slice(1)
-          const targetSection = document.getElementById(targetId)
-          if (targetSection) {
-            const offset = window.innerWidth <= 900 ? 80 : 0 // Mobile: offset cho header
-            const targetPosition = targetSection.offsetTop - offset
-            window.scrollTo({
-              top: targetPosition,
-              behavior: 'smooth'
-            })
+          // Trên mobile, scroll được xử lý trong sidebar toggle function
+          if (window.innerWidth > 900) {
+            e.preventDefault()
+            const targetId = link.getAttribute('href').slice(1)
+            const targetSection = document.getElementById(targetId)
+            if (targetSection) {
+              const targetPosition = targetSection.offsetTop
+              window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+              })
+            }
           }
         })
       })
