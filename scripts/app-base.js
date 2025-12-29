@@ -2505,25 +2505,29 @@ async function getOrCreateReferralCode() {
   const userId = getUserId()
   const supabase = initSupabaseClient()
   
-  // Validate: only Telegram users
-  if (!userId || !userId.startsWith('tg_')) {
-    console.warn('[Referral] Only Telegram users can use referral system')
+  // Validate: only Base App users
+  if (!userId || !userId.startsWith('base_')) {
+    console.warn('[Referral] Only Base App users can use referral system')
     return null
   }
   
   try {
+    console.log('[Referral] Calling base_get_or_create_referral_code for user:', userId)
     const { data, error } = await supabase.rpc('base_get_or_create_referral_code', {
       p_user_id: userId
     })
     
     if (error) {
       console.error('[Referral] Get code error:', error)
+      console.error('[Referral] Error details:', JSON.stringify(error, null, 2))
       return null
     }
     
+    console.log('[Referral] Referral code result:', data)
     return data
   } catch (err) {
     console.error('[Referral] Get code exception:', err)
+    console.error('[Referral] Exception stack:', err.stack)
     return null
   }
 }
@@ -2533,24 +2537,28 @@ async function getReferralStats() {
   const userId = getUserId()
   const supabase = initSupabaseClient()
   
-  // Validate: only Telegram users
-  if (!userId || !userId.startsWith('tg_')) {
+  // Validate: only Base App users
+  if (!userId || !userId.startsWith('base_')) {
     return null
   }
   
   try {
+    console.log('[Referral] Calling base_get_referral_stats for user:', userId)
     const { data, error } = await supabase.rpc('base_get_referral_stats', {
       p_user_id: userId
     })
     
     if (error) {
       console.error('[Referral] Get stats error:', error)
+      console.error('[Referral] Error details:', JSON.stringify(error, null, 2))
       return null
     }
     
+    console.log('[Referral] Stats result:', data)
     return data
   } catch (err) {
     console.error('[Referral] Get stats exception:', err)
+    console.error('[Referral] Exception stack:', err.stack)
     return null
   }
 }
@@ -2570,6 +2578,21 @@ async function updateReferralOverlay() {
     return
   }
   
+  const userId = getUserId()
+  if (!userId || !userId.startsWith('base_')) {
+    console.warn('[Referral] Invalid user ID for Base App:', userId)
+    content.innerHTML = `
+      <div class="referral-stats-section">
+        <div class="referral-stat-card">
+          <div class="referral-stat-label">Your Referral Link</div>
+          <div class="referral-stat-value" style="color: #f88;">Invalid User ID</div>
+        </div>
+      </div>
+    `
+    return
+  }
+  
+  // Try to get stats
   const stats = await getReferralStats()
   
   // Use stats if available, otherwise use default/placeholder values
@@ -2581,14 +2604,17 @@ async function updateReferralOverlay() {
     referralCode = stats.referral_code || 'Loading...'
     friendsReferred = stats.friends_referred || 0
     totalRewards = stats.total_rewards || 0
+    console.log('[Referral] Stats loaded:', { referralCode, friendsReferred, totalRewards })
   } else {
     // If stats is null, try to get/create referral code directly
-    const userId = getUserId()
-    if (userId && userId.startsWith('base_')) {
-      const code = await getOrCreateReferralCode()
-      if (code) {
-        referralCode = code
-      }
+    console.warn('[Referral] Stats is null, trying to get/create referral code directly')
+    const code = await getOrCreateReferralCode()
+    if (code) {
+      referralCode = code
+      console.log('[Referral] Referral code created:', code)
+    } else {
+      console.error('[Referral] Failed to get/create referral code')
+      referralCode = 'Error'
     }
   }
   
