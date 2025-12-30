@@ -11,7 +11,7 @@
   <!-- ✅ Telegram WebApp SDK - Phải load trước app script để window.Telegram có sẵn -->
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
-  <script type="module" src="scripts/app-telegram.js?v=4"></script>
+  <script type="module" src="scripts/app-telegram.js?v=5"></script>
   <style>
     :root { --header-h: 60px; }
     
@@ -1459,7 +1459,7 @@
     .fab-button {
       position: fixed;
       bottom: 30px;
-      right: 10px;
+      right: 30px;
       width: 56px;
       height: 56px;
       border-radius: 50%;
@@ -1500,10 +1500,10 @@
         width: 52px;
         height: 52px;
         bottom: 26px;
-        right: 6px;
+        right: 26px;
         /* Account for safe area on mobile */
         bottom: calc(26px + env(safe-area-inset-bottom));
-        right: calc(6px + env(safe-area-inset-right));
+        right: calc(26px + env(safe-area-inset-right));
       }
       
       .fab-button svg {
