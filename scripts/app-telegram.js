@@ -91,7 +91,7 @@ function initSupabaseClient() {
 // ==========================================
 
 const GAME_LIST_CACHE_KEY = 'mp_v3_game_list_cache'
-const GAME_LIST_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
+const GAME_LIST_CACHE_TTL = 10 * 60 * 1000 // 10 minutes (increased from 5 to reduce DB queries)
 
 async function loadGameListFromSupabase() {
   // ✅ OPTIMIZATION 1: Check cache first (only use if games exist)
@@ -410,7 +410,7 @@ async function loadGame0() {
   const startTime = performance.now()
   
   try {
-    // Load game list
+    // ✅ OPTIMIZATION: Load game list (with cache to avoid blocking)
     const gameList = await loadGameListFromSupabase()
     if (!gameList || gameList.length === 0) {
       console.error('[V3] No games found')
@@ -1851,15 +1851,23 @@ if (document.readyState === 'loading') {
     initDailyCheckin()
     initReferralOverlay()
     
-    // ✅ Sync localStorage to database (one-time migration)
-    setTimeout(() => {
-      syncLocalStorageToDatabase()
-    }, 1000) // Wait a bit for initialization
-    
-    // ✅ Detect referral code when app loads
+    // ✅ OPTIMIZATION: Defer non-critical operations to avoid blocking initial load
+    // Detect referral code (lightweight - only checks localStorage/URL, no DB query)
     setTimeout(() => {
       detectReferralCode()
     }, 500) // Wait a bit for Telegram WebApp SDK to initialize
+    
+    // ✅ OPTIMIZATION: Sync localStorage to database only when idle (non-blocking)
+    // Use requestIdleCallback if available, otherwise use longer timeout
+    if ('requestIdleCallback' in window) {
+      requestIdleCallback(() => {
+        syncLocalStorageToDatabase()
+      }, { timeout: 3000 })
+    } else {
+      setTimeout(() => {
+        syncLocalStorageToDatabase()
+      }, 3000) // Defer to 3s to avoid blocking initial render
+    }
   })
 } else {
   loadGame0()
@@ -1868,10 +1876,22 @@ if (document.readyState === 'loading') {
   initDailyCheckin()
   initReferralOverlay()
   
-  // ✅ Detect referral code when app loads
+  // ✅ OPTIMIZATION: Defer non-critical operations to avoid blocking initial load
+  // Detect referral code (lightweight - only checks localStorage/URL, no DB query)
   setTimeout(() => {
     detectReferralCode()
   }, 500) // Wait a bit for Telegram WebApp SDK to initialize
+  
+  // ✅ OPTIMIZATION: Sync localStorage to database only when idle (non-blocking)
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(() => {
+      syncLocalStorageToDatabase()
+    }, { timeout: 3000 })
+  } else {
+    setTimeout(() => {
+      syncLocalStorageToDatabase()
+    }, 3000) // Defer to 3s to avoid blocking initial render
+  }
 }
 
 // ==========================================
