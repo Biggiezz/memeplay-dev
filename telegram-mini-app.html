@@ -575,12 +575,6 @@
           </div>
         </div>
       </div>
-      <button id="creatorButton" class="icon-button" title="Create Game">
-        <svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-      </button>
       <button id="walletConnectBtn" class="icon-button wallet-connect" aria-label="Connect MetaMask">
         <img src="assets/icons/metamask.svg" alt="MetaMask" />
       </button>
@@ -1440,6 +1434,63 @@
       z-index: 999998;
       opacity: 0;
       transition: opacity 0.3s ease;
+    }
+    
+    /* Floating Action Button (FAB) - Create Game */
+    .fab-button {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #ffb642;
+      color: #000;
+      border: none;
+      box-shadow: 0 4px 12px rgba(255, 182, 66, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      transition: all 0.2s ease;
+      padding: 0;
+    }
+    
+    .fab-button:hover {
+      background: #ffce7a;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 182, 66, 0.5), 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+    
+    .fab-button:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(255, 182, 66, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+    
+    .fab-button svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+    }
+    
+    @media (max-width: 480px) {
+      .fab-button {
+        width: 52px;
+        height: 52px;
+        bottom: 16px;
+        right: 16px;
+        /* Account for safe area on mobile */
+        bottom: calc(16px + env(safe-area-inset-bottom));
+        right: calc(16px + env(safe-area-inset-right));
+      }
+      
+      .fab-button svg {
+        width: 22px;
+        height: 22px;
+      }
     }
   </style>
 </body>
