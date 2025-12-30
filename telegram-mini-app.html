@@ -750,11 +750,22 @@
       });
     }
     
-    const creatorBtn = elements.creatorBtn;
-    if (creatorBtn) {
-      creatorBtn.addEventListener('click', () => {
-        window.location.href = '/games/templates-v2/';
-      });
+    // ✅ FAB Button - Create Game (moved to bottom right corner)
+    function initCreatorButton() {
+      const creatorBtn = document.getElementById('creatorButton');
+      if (creatorBtn) {
+        creatorBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          window.location.href = '/games/templates-v2/';
+        });
+      }
+    }
+    
+    // Initialize creator button when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initCreatorButton);
+    } else {
+      initCreatorButton();
     }
     
     // ==========================================
@@ -1447,8 +1458,8 @@
     /* Floating Action Button (FAB) - Create Game */
     .fab-button {
       position: fixed;
-      bottom: 20px;
-      right: 20px;
+      bottom: 30px;
+      right: 10px;
       width: 56px;
       height: 56px;
       border-radius: 50%;
@@ -1488,11 +1499,11 @@
       .fab-button {
         width: 52px;
         height: 52px;
-        bottom: 16px;
-        right: 16px;
+        bottom: 26px;
+        right: 6px;
         /* Account for safe area on mobile */
-        bottom: calc(16px + env(safe-area-inset-bottom));
-        right: calc(16px + env(safe-area-inset-right));
+        bottom: calc(26px + env(safe-area-inset-bottom));
+        right: calc(6px + env(safe-area-inset-right));
       }
       
       .fab-button svg {
