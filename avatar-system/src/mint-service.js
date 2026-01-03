@@ -409,16 +409,16 @@ export class MintService {
   }
 
   /**
-   * Get error message in Vietnamese/English
+   * Get error message in English
    */
   getErrorMessage(error) {
     const errorMap = {
-      'WALLET_NOT_FOUND': 'Ví không tìm thấy. Vui lòng cài đặt MetaMask hoặc Base Wallet.',
-      'WALLET_REJECTED': 'Bạn đã từ chối kết nối ví.',
-      'WALLET_NOT_CONNECTED': 'Ví chưa được kết nối. Vui lòng kết nối ví trước.',
-      'INSUFFICIENT_GAS': 'Gas fee không đủ. Vui lòng nạp thêm ETH vào ví.',
+      'WALLET_NOT_FOUND': 'Wallet not found. Please install MetaMask or Base Wallet.',
+      'WALLET_REJECTED': 'Wallet connection rejected.',
+      'WALLET_NOT_CONNECTED': 'Wallet not connected. Please connect your wallet first.',
+      'INSUFFICIENT_GAS': 'Insufficient gas fee. Please add more ETH to your wallet.',
       'ALREADY_MINTED': 'You already have an avatar.',
-      'NETWORK_ERROR': 'Network error. Vui lòng kiểm tra kết nối mạng và thử lại.',
+      'NETWORK_ERROR': 'Network error. Please check your connection and try again.',
       'MINT_FAILED': 'Mint failed. Please try again.'
     };
 

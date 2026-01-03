@@ -315,8 +315,8 @@ function initMintButton() {
             View Transaction
           </a><br>
           <div style="margin-top: 10px; padding: 8px; background: rgba(255,182,66,0.1); border-radius: 4px; font-size: 0.85em;">
-            <strong>💡 Import NFT vào MetaMask:</strong><br>
-            1. Mở MetaMask → Tab "NFT"<br>
+            <strong>💡 Import NFT to MetaMask:</strong><br>
+            1. Open MetaMask → "NFTs" tab<br>
             2. Click "Import NFT"<br>
             3. Contract: <code style="font-size: 0.9em;">${contractAddress}</code><br>
             4. Token ID: <code style="font-size: 0.9em;">${tokenId}</code>
@@ -492,8 +492,8 @@ async function checkExistingMint() {
           <div style="margin-top: 10px; font-size: 0.9em;">
             <strong>Token ID:</strong> ${tokenId || 'N/A'}<br>
             <div style="margin-top: 10px; padding: 8px; background: rgba(255,182,66,0.1); border-radius: 4px; font-size: 0.85em;">
-              <strong>💡 Import NFT vào MetaMask:</strong><br>
-              1. Mở MetaMask → Tab "NFT"<br>
+              <strong>💡 Import NFT to MetaMask:</strong><br>
+              1. Open MetaMask → "NFTs" tab<br>
               2. Click "Import NFT"<br>
               3. Contract: <code style="font-size: 0.9em;">${CONTRACT_ADDRESS}</code><br>
               4. Token ID: <code style="font-size: 0.9em;">${tokenId || '0'}</code>
