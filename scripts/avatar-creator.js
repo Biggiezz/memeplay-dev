@@ -381,6 +381,46 @@ function initHashDisplayDebug() {
   }
 }
 
+// Check if user already has minted and show tokenId
+async function checkExistingMint() {
+  try {
+    const isConnected = await mintService.isConnected();
+    if (!isConnected) {
+      return;
+    }
+
+    const address = await mintService.getAddress();
+    const hasMinted = await mintService.hasMinted(address);
+    
+    if (hasMinted) {
+      const tokenId = await mintService.getMyTokenId();
+      const mintMessage = document.getElementById('mintMessage');
+      const mintBtn = document.getElementById('mintBtn');
+      
+      if (mintMessage && mintBtn) {
+        mintBtn.disabled = true;
+        mintBtn.textContent = 'Already Minted';
+        mintMessage.className = 'mint-message success';
+        mintMessage.innerHTML = `
+          ✅ You already have an avatar!<br>
+          <div style="margin-top: 10px; font-size: 0.9em;">
+            <strong>Token ID:</strong> ${tokenId || 'N/A'}<br>
+            <div style="margin-top: 10px; padding: 8px; background: rgba(255,182,66,0.1); border-radius: 4px; font-size: 0.85em;">
+              <strong>💡 Import NFT vào MetaMask:</strong><br>
+              1. Mở MetaMask → Tab "NFT"<br>
+              2. Click "Import NFT"<br>
+              3. Contract: <code style="font-size: 0.9em;">0x401E466C5676EdeEAa88506513e2B169947b66B5</code><br>
+              4. Token ID: <code style="font-size: 0.9em;">${tokenId || '0'}</code>
+            </div>
+          </div>
+        `;
+      }
+    }
+  } catch (error) {
+    console.error('Check existing mint error:', error);
+  }
+}
+
 // Initialize on load with error handling
 document.addEventListener('DOMContentLoaded', async () => {
   try {
@@ -393,6 +433,10 @@ document.addEventListener('DOMContentLoaded', async () => {
     await new Promise(resolve => setTimeout(resolve, 100));
     
     await updatePreview();
+    
+    // Check if user already minted
+    await checkExistingMint();
+    
     console.log('✅ Avatar Creator: Initialization complete');
   } catch (error) {
     console.error('❌ Avatar Creator: Initialization error:', error);

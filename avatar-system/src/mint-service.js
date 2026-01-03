@@ -288,6 +288,68 @@ export class MintService {
   }
 
   /**
+   * Get tokenId for current user
+   */
+  async getMyTokenId() {
+    try {
+      const address = await this.getAddress();
+      if (!address) {
+        return null;
+      }
+
+      if (!this.contract) {
+        await this.loadEthers();
+        if (!window.ethereum) {
+          return null;
+        }
+        this.provider = new window.ethers.providers.Web3Provider(window.ethereum);
+        this.contract = new window.ethers.Contract(
+          this.contractAddress,
+          this.contractABI,
+          this.provider
+        );
+      }
+
+      const tokenId = await this.contract.getAvatarByOwner(address);
+      return tokenId.toString();
+    } catch (error) {
+      console.error('Get tokenId error:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Verify ownership of token
+   */
+  async verifyOwnership(tokenId, address = null) {
+    try {
+      if (!this.contract) {
+        await this.loadEthers();
+        if (!window.ethereum) {
+          return false;
+        }
+        this.provider = new window.ethers.providers.Web3Provider(window.ethereum);
+        this.contract = new window.ethers.Contract(
+          this.contractAddress,
+          this.contractABI,
+          this.provider
+        );
+      }
+
+      const userAddress = address || await this.getAddress();
+      if (!userAddress) {
+        return false;
+      }
+
+      const owner = await this.contract.ownerOf(tokenId);
+      return owner.toLowerCase() === userAddress.toLowerCase();
+    } catch (error) {
+      console.error('Verify ownership error:', error);
+      return false;
+    }
+  }
+
+  /**
    * Get error message in Vietnamese/English
    */
   getErrorMessage(error) {
