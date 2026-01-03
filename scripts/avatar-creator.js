@@ -3,8 +3,8 @@
 import { AnimationRenderer } from '../avatar-system/src/animation-renderer.js';
 import { ANIMATION_CONFIG } from '../avatar-system/src/animation-config.js';
 import { MintService } from '../avatar-system/src/mint-service.js';
-import { storeConfigForToken } from '../avatar-system/src/config-storage.js';
 import { CONTRACT_ADDRESS } from '../avatar-system/src/contract-address.js';
+import { trackMint } from '../avatar-system/src/tracking.js';
 
 // Avatar Config
 const AVATAR_CONFIG = {
@@ -333,8 +333,16 @@ function initMintButton() {
       localStorage.setItem('mp_avatar_tx', result.transactionHash);
       localStorage.setItem('mp_avatar_tokenId', tokenId);
       
-      // Store config for metadata API
-      storeConfigForToken(tokenId, configHash, currentConfig);
+      // Track mint to Supabase (non-blocking)
+      trackMint({
+        tokenId: tokenId,
+        userAddress: address,
+        configHash: configHash,
+        config: currentConfig,
+        transactionHash: result.transactionHash
+      }).catch(error => {
+        console.warn('[Tracking] Failed to track mint (non-critical):', error);
+      });
       
       // Auto-hide message after 10 seconds
       setTimeout(() => {
