@@ -71,9 +71,19 @@ export class AnimationRenderer {
     const now = performance.now();
     const elapsed = now - this.lastFrameTime;
 
+    // Update frame based on elapsed time
     if (elapsed >= this.config.frameDuration) {
-      // Update frame
+      // Advance to next frame
+      const oldFrame = this.currentFrame;
       this.currentFrame = (this.currentFrame + 1) % this.frames.length;
+      
+      // Debug: Log frame change timing (only first few frames to avoid spam)
+      if (this.currentFrame < 2 || this.currentFrame === 0) {
+        console.log(`🎬 Frame ${oldFrame} → ${this.currentFrame}, elapsed: ${elapsed.toFixed(1)}ms (target: ${this.config.frameDuration}ms)`);
+      }
+      
+      // Update lastFrameTime to current time
+      // This ensures each frame displays for exactly frameDuration
       this.lastFrameTime = now;
     }
 
