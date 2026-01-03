@@ -204,13 +204,37 @@ export class MintService {
    */
   async mintAvatar(configHash) {
     try {
-      // Ensure wallet is connected
-      if (!this.contract || !this.signer) {
+      // Ensure wallet is connected and contract has signer
+      const isConnected = await this.isConnected();
+      if (!isConnected) {
         await this.connectWallet();
       }
 
+      // Re-initialize contract with signer (important for write operations)
+      await this.loadEthers();
+      if (!window.ethereum) {
+        throw new Error('WALLET_NOT_FOUND');
+      }
+
+      // Setup provider and signer for write operations
+      this.provider = new window.ethers.providers.Web3Provider(window.ethereum);
+      this.signer = this.provider.getSigner();
+      
+      // Re-create contract with signer (not provider)
+      this.contract = new window.ethers.Contract(
+        this.contractAddress,
+        this.contractABI,
+        this.signer
+      );
+
+      // Verify signer is available
+      const signerAddress = await this.signer.getAddress();
+      if (!signerAddress) {
+        throw new Error('WALLET_NOT_CONNECTED');
+      }
+
       // Check if already minted
-      const address = await this.getAddress();
+      const address = signerAddress;
       const alreadyMinted = await this.hasMinted(address);
       if (alreadyMinted) {
         throw new Error('ALREADY_MINTED');
@@ -224,17 +248,32 @@ export class MintService {
 
       // Extract tokenId from events
       let tokenId = null;
+      
+      // Try to parse events (ethers v5 format)
       if (receipt.events && receipt.events.length > 0) {
-        const mintEvent = receipt.events.find(e => e.event === 'AvatarMinted');
-        if (mintEvent && mintEvent.args) {
-          tokenId = mintEvent.args.tokenId.toString();
+        const mintEvent = receipt.events.find(e => 
+          e.event === 'AvatarMinted' || 
+          (e.topics && e.topics.length > 0)
+        );
+        if (mintEvent) {
+          // Try different event formats
+          if (mintEvent.args && mintEvent.args.tokenId) {
+            tokenId = mintEvent.args.tokenId.toString();
+          } else if (mintEvent.args && mintEvent.args.length >= 2) {
+            tokenId = mintEvent.args[1].toString(); // tokenId is second argument
+          }
         }
       }
 
       // If tokenId not found in events, query from contract
-      if (tokenId === null) {
-        tokenId = await this.contract.getAvatarByOwner(address);
-        tokenId = tokenId.toString();
+      if (tokenId === null || tokenId === '0') {
+        try {
+          tokenId = await this.contract.getAvatarByOwner(address);
+          tokenId = tokenId.toString();
+        } catch (error) {
+          console.warn('Could not get tokenId from contract:', error);
+          tokenId = '0'; // Fallback
+        }
       }
 
       return {
