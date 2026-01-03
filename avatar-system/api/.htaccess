@@ -1,0 +1,7 @@
+# Apache configuration for metadata API
+# Set content-type to application/json for metadata.html
+
+<Files "avatar-metadata.html">
+  Header set Content-Type "application/json"
+</Files>
+

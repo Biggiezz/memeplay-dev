@@ -1,0 +1,6 @@
+# Netlify/Vercel headers configuration
+# Set content-type to application/json for metadata API
+
+/avatar-system/api/avatar-metadata.html
+  Content-Type: application/json
+

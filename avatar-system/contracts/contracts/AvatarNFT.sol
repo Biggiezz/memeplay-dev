@@ -125,6 +125,68 @@ contract AvatarNFT is ERC721, Ownable, Pausable {
         return tokenConfigHash[tokenId];
     }
     
+    // Base URI for metadata (can be updated by owner)
+    string private _baseTokenURI = "https://memeplay.dev/avatar-system/api/avatar-metadata.html?tokenId=";
+    
+    /**
+     * @dev Get token URI for metadata (ERC721 standard)
+     * @param tokenId Token ID
+     * @return tokenURI Metadata URI string
+     * 
+     * Requirements:
+     * - Token must exist
+     */
+    function tokenURI(uint256 tokenId) 
+        public 
+        view 
+        override 
+        returns (string memory) 
+    {
+        require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        
+        // Return metadata API endpoint URL
+        string memory tokenIdStr = _toString(tokenId);
+        return string(abi.encodePacked(_baseTokenURI, tokenIdStr));
+    }
+    
+    /**
+     * @dev Set base token URI (admin only)
+     * @param newBaseURI New base URI for metadata
+     */
+    function setBaseURI(string memory newBaseURI) public onlyOwner {
+        _baseTokenURI = newBaseURI;
+    }
+    
+    /**
+     * @dev Get base token URI
+     * @return Base URI string
+     */
+    function baseURI() public view returns (string memory) {
+        return _baseTokenURI;
+    }
+    
+    /**
+     * @dev Convert uint256 to string
+     */
+    function _toString(uint256 value) internal pure returns (string memory) {
+        if (value == 0) {
+            return "0";
+        }
+        uint256 temp = value;
+        uint256 digits;
+        while (temp != 0) {
+            digits++;
+            temp /= 10;
+        }
+        bytes memory buffer = new bytes(digits);
+        while (value != 0) {
+            digits -= 1;
+            buffer[digits] = bytes1(uint8(48 + uint256(value % 10)));
+            value /= 10;
+        }
+        return string(buffer);
+    }
+    
     /**
      * @dev Get total supply
      * @return Total number of minted tokens

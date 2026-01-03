@@ -3,6 +3,7 @@
 import { AnimationRenderer } from '../avatar-system/src/animation-renderer.js';
 import { ANIMATION_CONFIG } from '../avatar-system/src/animation-config.js';
 import { MintService } from '../avatar-system/src/mint-service.js';
+import { storeConfigForToken } from '../avatar-system/src/config-storage.js';
 
 // Avatar Config
 const AVATAR_CONFIG = {
@@ -329,6 +330,9 @@ function initMintButton() {
       localStorage.setItem('mp_avatar_hash', configHash);
       localStorage.setItem('mp_avatar_tx', result.transactionHash);
       localStorage.setItem('mp_avatar_tokenId', tokenId);
+      
+      // Store config for metadata API
+      storeConfigForToken(tokenId, configHash, currentConfig);
       
       // Auto-hide message after 10 seconds
       setTimeout(() => {
