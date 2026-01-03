@@ -41,6 +41,73 @@
       font-size: 0.7em; /* Giảm 30% (1em → 0.7em) */
     }
 
+    .wallet-section {
+      text-align: center;
+      padding: 10px 20px;
+      background: #1a1a2e;
+      border-bottom: 1px solid rgba(255, 182, 66, 0.2);
+    }
+
+    .wallet-status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 16px;
+      background: rgba(255, 182, 66, 0.1);
+      border: 1px solid rgba(255, 182, 66, 0.3);
+      border-radius: 6px;
+      font-size: 0.85em;
+      color: #ffb642;
+    }
+
+    .wallet-status.connected {
+      background: rgba(74, 222, 128, 0.1);
+      border-color: rgba(74, 222, 128, 0.3);
+      color: #4ade80;
+    }
+
+    .wallet-status .wallet-icon {
+      width: 16px;
+      height: 16px;
+      display: inline-block;
+    }
+
+    .wallet-connect-btn {
+      padding: 8px 16px;
+      background: #ffb642;
+      border: none;
+      border-radius: 6px;
+      color: #1a1a2e;
+      font-size: 0.85em;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .wallet-connect-btn:hover {
+      background: #ffc966;
+    }
+
+    .wallet-address {
+      font-family: 'Courier New', monospace;
+      font-size: 0.9em;
+    }
+
+    .wallet-copy-btn {
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 4px;
+      color: #fff;
+      font-size: 0.75em;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .wallet-copy-btn:hover {
+      background: rgba(255, 255, 255, 0.2);
+    }
+
     .preview-section {
       display: flex;
       justify-content: center;
@@ -308,6 +375,19 @@
 <body>
   <div class="container">
     <h1>🎮 Avatar Creator</h1>
+
+    <!-- Wallet Status -->
+    <div class="wallet-section" id="walletSection">
+      <div class="wallet-status" id="walletStatus" style="display: none;">
+        <span class="wallet-icon">🔗</span>
+        <span>Connected:</span>
+        <span class="wallet-address" id="walletAddress">0x0000...</span>
+        <button class="wallet-copy-btn" id="walletCopyBtn" title="Copy address">📋</button>
+      </div>
+      <button class="wallet-connect-btn" id="walletConnectBtn" style="display: none;">
+        Connect Wallet
+      </button>
+    </div>
 
     <!-- Preview -->
     <div class="preview-section">

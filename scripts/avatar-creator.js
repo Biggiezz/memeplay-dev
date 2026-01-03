@@ -381,6 +381,86 @@ function initHashDisplayDebug() {
   }
 }
 
+// Initialize wallet display
+function initWalletDisplay() {
+  const walletStatus = document.getElementById('walletStatus');
+  const walletAddress = document.getElementById('walletAddress');
+  const walletCopyBtn = document.getElementById('walletCopyBtn');
+  const walletConnectBtn = document.getElementById('walletConnectBtn');
+
+  // Function to update wallet display
+  async function updateWalletDisplay() {
+    try {
+      const address = await mintService.getAddress();
+      const isConnected = await mintService.isConnected();
+
+      if (isConnected && address) {
+        // Show connected state
+        walletStatus.style.display = 'inline-flex';
+        walletConnectBtn.style.display = 'none';
+        walletStatus.classList.add('connected');
+        walletAddress.textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
+      } else {
+        // Show connect button
+        walletStatus.style.display = 'none';
+        walletConnectBtn.style.display = 'inline-block';
+        walletStatus.classList.remove('connected');
+      }
+    } catch (error) {
+      console.error('Update wallet display error:', error);
+      walletStatus.style.display = 'none';
+      walletConnectBtn.style.display = 'inline-block';
+    }
+  }
+
+  // Copy address button
+  walletCopyBtn?.addEventListener('click', async () => {
+    try {
+      const address = await mintService.getAddress();
+      if (address) {
+        await navigator.clipboard.writeText(address);
+        walletCopyBtn.textContent = '✓';
+        setTimeout(() => {
+          walletCopyBtn.textContent = '📋';
+        }, 1500);
+      }
+    } catch (error) {
+      console.error('Copy address error:', error);
+    }
+  });
+
+  // Connect wallet button
+  walletConnectBtn?.addEventListener('click', async () => {
+    try {
+      walletConnectBtn.disabled = true;
+      walletConnectBtn.textContent = 'Connecting...';
+      await mintService.connectWallet();
+      await updateWalletDisplay();
+      walletConnectBtn.textContent = 'Connect Wallet';
+    } catch (error) {
+      console.error('Connect wallet error:', error);
+      walletConnectBtn.textContent = 'Connect Wallet';
+      alert(mintService.getErrorMessage(error));
+    } finally {
+      walletConnectBtn.disabled = false;
+    }
+  });
+
+  // Listen for account changes
+  if (window.ethereum) {
+    window.ethereum.on('accountsChanged', async () => {
+      await updateWalletDisplay();
+      await checkExistingMint();
+    });
+  }
+
+  // Initial update
+  updateWalletDisplay();
+
+  // Update periodically (every 5 seconds) to catch external wallet changes
+  setInterval(updateWalletDisplay, 5000);
+}
+
 // Check if user already has minted and show tokenId
 async function checkExistingMint() {
   try {
@@ -428,6 +508,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSelectors();
     initMintButton();
     initHashDisplayDebug(); // Add hash debug handler
+    initWalletDisplay(); // Initialize wallet display
     
     // Small delay to ensure DOM is fully ready (especially on mobile)
     await new Promise(resolve => setTimeout(resolve, 100));
