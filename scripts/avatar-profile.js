@@ -247,17 +247,7 @@ async function loadAvatar() {
     // Step 2: Check contract (recovery flow)
     console.log('⚠️ Avatar not found in localStorage, checking contract...');
     
-    const isConnected = await mintService.isConnected();
-    if (!isConnected) {
-      // Not connected, show no avatar
-      if (profileContent) profileContent.style.display = 'none';
-      if (noAvatarSection) noAvatarSection.style.display = 'block';
-      hideLoading();
-      return;
-    }
-    
-    const address = await mintService.getAddress();
-    const hasMinted = await mintService.hasMinted(address);
+    const hasMinted = await mintService.hasMinted(currentAddress);
     
     if (!hasMinted) {
       // No avatar minted
@@ -297,10 +287,11 @@ async function loadAvatar() {
     if (profileContent) profileContent.style.display = 'flex';
     if (noAvatarSection) noAvatarSection.style.display = 'none';
     
-    // Save to localStorage for next time
+    // Save to localStorage for next time (with wallet address)
     localStorage.setItem('mp_avatar_minted', 'true');
     localStorage.setItem('mp_avatar_config', JSON.stringify(config));
     localStorage.setItem('mp_avatar_tokenId', contractTokenId);
+    localStorage.setItem('mp_avatar_address', currentAddress.toLowerCase());
     
     hideLoading();
     

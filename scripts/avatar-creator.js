@@ -326,12 +326,13 @@ function initMintButton() {
       
       console.log('Mint successful!', result);
       
-      // Save to localStorage
+      // Save to localStorage (with wallet address for cache validation)
       localStorage.setItem('mp_avatar_minted', 'true');
       localStorage.setItem('mp_avatar_config', JSON.stringify(currentConfig));
       localStorage.setItem('mp_avatar_hash', configHash);
       localStorage.setItem('mp_avatar_tx', result.transactionHash);
       localStorage.setItem('mp_avatar_tokenId', tokenId);
+      localStorage.setItem('mp_avatar_address', address.toLowerCase());
       
       // Track mint to Supabase (non-blocking)
       trackMint({
