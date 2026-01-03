@@ -4,6 +4,7 @@ import { AnimationRenderer } from '../avatar-system/src/animation-renderer.js';
 import { ANIMATION_CONFIG } from '../avatar-system/src/animation-config.js';
 import { MintService } from '../avatar-system/src/mint-service.js';
 import { storeConfigForToken } from '../avatar-system/src/config-storage.js';
+import { CONTRACT_ADDRESS } from '../avatar-system/src/contract-address.js';
 
 // Avatar Config
 const AVATAR_CONFIG = {
@@ -287,7 +288,7 @@ function initMintButton() {
       mintBtn.textContent = 'Minting...';
       mintMessage.textContent = 'Minting...';
       
-      const result = await mintService.mintAvatar(configHash);
+      const result = await mintService.mintAvatar(configHash, currentConfig);
       
       // Step 5: Confirming
       mintBtn.textContent = 'Confirming...';
@@ -300,7 +301,8 @@ function initMintButton() {
       mintBtn.textContent = 'Mint Avatar';
       mintMessage.className = 'mint-message success';
       
-      const contractAddress = '0x401E466C5676EdeEAa88506513e2B169947b66B5';
+      // Get contract address
+      const contractAddress = CONTRACT_ADDRESS;
       const tokenId = result.tokenId || '0';
       
       mintMessage.innerHTML = `
@@ -493,7 +495,7 @@ async function checkExistingMint() {
               <strong>💡 Import NFT vào MetaMask:</strong><br>
               1. Mở MetaMask → Tab "NFT"<br>
               2. Click "Import NFT"<br>
-              3. Contract: <code style="font-size: 0.9em;">0x401E466C5676EdeEAa88506513e2B169947b66B5</code><br>
+              3. Contract: <code style="font-size: 0.9em;">${CONTRACT_ADDRESS}</code><br>
               4. Token ID: <code style="font-size: 0.9em;">${tokenId || '0'}</code>
             </div>
           </div>

@@ -201,8 +201,10 @@ export class MintService {
 
   /**
    * Mint avatar
+   * @param {string} configHash - Config hash string
+   * @param {Object} config - Avatar config object {actor, skin, clothes, equipment, hat}
    */
-  async mintAvatar(configHash) {
+  async mintAvatar(configHash, config) {
     try {
       // Ensure wallet is connected and contract has signer
       const isConnected = await this.isConnected();
@@ -240,8 +242,26 @@ export class MintService {
         throw new Error('ALREADY_MINTED');
       }
 
-      // Call mint function
-      const tx = await this.contract.mintAvatar(address, configHash);
+      // Validate and encode config
+      if (!config) {
+        throw new Error('Config is required');
+      }
+
+      // Map actor string to number: boy=0, fish=1, supergirl=2
+      const actorMap = { boy: 0, fish: 1, supergirl: 2 };
+      const actorNum = actorMap[config.actor] !== undefined ? actorMap[config.actor] : 0;
+
+      // Create config struct
+      const configStruct = {
+        actor: actorNum,
+        skin: config.skin || 1,
+        clothes: config.clothes || 0,
+        equipment: config.equipment || 0,
+        hat: config.hat || 0
+      };
+
+      // Call mint function with config
+      const tx = await this.contract.mintAvatar(address, configHash, configStruct);
       
       // Wait for transaction
       const receipt = await tx.wait();

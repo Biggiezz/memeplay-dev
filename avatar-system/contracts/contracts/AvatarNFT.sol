@@ -19,6 +19,15 @@ import "@openzeppelin/contracts/utils/Pausable.sol";
  * @author MemePlay Team
  */
 contract AvatarNFT is ERC721, Ownable, Pausable {
+    // Avatar configuration structure
+    struct AvatarConfig {
+        uint8 actor;      // 0=boy, 1=fish, 2=supergirl
+        uint8 skin;       // Skin variant
+        uint8 clothes;    // Clothes index (0-4)
+        uint8 equipment;  // Equipment index (0-5)
+        uint8 hat;        // Hat index (0-4)
+    }
+    
     // Token ID counter (starts at 0)
     uint256 private _tokenIdCounter;
     
@@ -31,11 +40,15 @@ contract AvatarNFT is ERC721, Ownable, Pausable {
     // Store config hash for each token
     mapping(uint256 => string) public tokenConfigHash;
     
+    // Store full config for each token
+    mapping(uint256 => AvatarConfig) public tokenConfig;
+    
     // Events
     event AvatarMinted(
         address indexed to,
         uint256 indexed tokenId,
-        string configHash
+        string configHash,
+        AvatarConfig config
     );
     
     /**
@@ -50,19 +63,28 @@ contract AvatarNFT is ERC721, Ownable, Pausable {
      * @dev Mint avatar for user
      * @param to Address to mint to
      * @param configHash Config hash string (e.g., "0x12345678")
+     * @param config Avatar configuration struct
      * 
      * Requirements:
      * - Contract must not be paused
      * - User must not have minted before (1 user = 1 avatar)
      * - Total supply must be less than MAX_MINT (2000)
      */
-    function mintAvatar(address to, string memory configHash) 
+    function mintAvatar(
+        address to, 
+        string memory configHash,
+        AvatarConfig memory config
+    ) 
         public 
         whenNotPaused 
     {
         require(!hasMinted[to], "User already minted");
         require(_tokenIdCounter < MAX_MINT, "Max mint reached");
         require(bytes(configHash).length > 0, "Config hash cannot be empty");
+        require(config.actor <= 2, "Invalid actor"); // 0-2 only
+        require(config.clothes <= 4, "Invalid clothes"); // 0-4 only
+        require(config.equipment <= 5, "Invalid equipment"); // 0-5 only
+        require(config.hat <= 4, "Invalid hat"); // 0-4 only
         
         // Mark user as minted
         hasMinted[to] = true;
@@ -77,8 +99,11 @@ contract AvatarNFT is ERC721, Ownable, Pausable {
         // Store config hash
         tokenConfigHash[tokenId] = configHash;
         
+        // Store full config
+        tokenConfig[tokenId] = config;
+        
         // Emit event
-        emit AvatarMinted(to, tokenId, configHash);
+        emit AvatarMinted(to, tokenId, configHash, config);
     }
     
     /**
@@ -123,6 +148,23 @@ contract AvatarNFT is ERC721, Ownable, Pausable {
     {
         require(_ownerOf(tokenId) != address(0), "Token does not exist");
         return tokenConfigHash[tokenId];
+    }
+    
+    /**
+     * @dev Get full config for token
+     * @param tokenId Token ID
+     * @return config AvatarConfig struct
+     * 
+     * Requirements:
+     * - Token must exist
+     */
+    function getConfig(uint256 tokenId) 
+        public 
+        view 
+        returns (AvatarConfig memory) 
+    {
+        require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        return tokenConfig[tokenId];
     }
     
     // Base URI for metadata (can be updated by owner)

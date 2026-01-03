@@ -125,31 +125,38 @@
       }
     }
 
-    // Get config from localStorage (stored when minting)
-    function getConfigFromStorage(tokenId, configHash) {
+    // Get config from contract (on-chain)
+    async function getConfigFromContract(tokenId) {
       try {
-        // Try to get from token configs
-        const tokenConfigs = localStorage.getItem('mp_avatar_token_configs');
-        if (tokenConfigs) {
-          const configs = JSON.parse(tokenConfigs);
-          const tokenConfig = configs[tokenId];
-          if (tokenConfig && tokenConfig.config) {
-            return tokenConfig.config;
-          }
-        }
+        await loadEthers();
         
-        // Try to get from configHash
-        const configs = localStorage.getItem('mp_avatar_configs');
-        if (configs) {
-          const configMap = JSON.parse(configs);
-          if (configMap[configHash]) {
-            return configMap[configHash];
-          }
-        }
+        // Use public RPC
+        const rpcUrl = 'https://sepolia.base.org';
+        const provider = new window.ethers.providers.JsonRpcProvider(rpcUrl);
         
-        return null;
+        const contract = new window.ethers.Contract(
+          CONTRACT_ADDRESS,
+          CONTRACT_ABI,
+          provider
+        );
+        
+        // Call getConfig function
+        const configStruct = await contract.getConfig(tokenId);
+        
+        // Convert struct to object
+        // configStruct = {actor, skin, clothes, equipment, hat}
+        const actorMap = { 0: 'boy', 1: 'fish', 2: 'supergirl' };
+        const config = {
+          actor: actorMap[configStruct.actor] || 'boy',
+          skin: configStruct.skin || 1,
+          clothes: configStruct.clothes || 0,
+          equipment: configStruct.equipment || 0,
+          hat: configStruct.hat || 0
+        };
+        
+        return config;
       } catch (error) {
-        console.warn('Get config from storage error:', error);
+        console.warn('Could not fetch config from contract:', error);
         return null;
       }
     }
@@ -171,10 +178,17 @@
         console.warn('Contract query failed, using default:', error);
       }
 
-      // Try to get config from storage
+      // Try to get config from contract (on-chain)
       let config = null;
-      if (configHash) {
-        config = getConfigFromStorage(tokenIdNum, configHash);
+      try {
+        config = await getConfigFromContract(tokenIdNum);
+      } catch (error) {
+        console.warn('Could not fetch config from contract:', error);
+      }
+
+      // If config not found from contract, use default
+      if (!config) {
+        config = parseConfigFromHash(configHash || '0x00000000');
       }
 
       // Generate metadata
