@@ -222,10 +222,25 @@ export class MintService {
       // Wait for transaction
       const receipt = await tx.wait();
 
+      // Extract tokenId from events
+      let tokenId = null;
+      if (receipt.events && receipt.events.length > 0) {
+        const mintEvent = receipt.events.find(e => e.event === 'AvatarMinted');
+        if (mintEvent && mintEvent.args) {
+          tokenId = mintEvent.args.tokenId.toString();
+        }
+      }
+
+      // If tokenId not found in events, query from contract
+      if (tokenId === null) {
+        tokenId = await this.contract.getAvatarByOwner(address);
+        tokenId = tokenId.toString();
+      }
+
       return {
         success: true,
         transactionHash: receipt.transactionHash,
-        tokenId: null, // Can be extracted from events if needed
+        tokenId: tokenId,
         address: address
       };
     } catch (error) {

@@ -298,13 +298,27 @@ function initMintButton() {
       // Success
       mintBtn.textContent = 'Mint Avatar';
       mintMessage.className = 'mint-message success';
+      
+      const contractAddress = '0x401E466C5676EdeEAa88506513e2B169947b66B5';
+      const tokenId = result.tokenId || '0';
+      
       mintMessage.innerHTML = `
         ✅ Mint successful!<br>
-        <a href="https://sepolia.basescan.org/tx/${result.transactionHash}" 
-           target="_blank" 
-           style="color: #4ade80; text-decoration: underline; margin-top: 5px; display: inline-block;">
-          View Transaction
-        </a>
+        <div style="margin-top: 10px; font-size: 0.9em;">
+          <strong>Token ID:</strong> ${tokenId}<br>
+          <a href="https://sepolia.basescan.org/tx/${result.transactionHash}" 
+             target="_blank" 
+             style="color: #4ade80; text-decoration: underline; margin-top: 5px; display: inline-block;">
+            View Transaction
+          </a><br>
+          <div style="margin-top: 10px; padding: 8px; background: rgba(255,182,66,0.1); border-radius: 4px; font-size: 0.85em;">
+            <strong>💡 Import NFT vào MetaMask:</strong><br>
+            1. Mở MetaMask → Tab "NFT"<br>
+            2. Click "Import NFT"<br>
+            3. Contract: <code style="font-size: 0.9em;">${contractAddress}</code><br>
+            4. Token ID: <code style="font-size: 0.9em;">${tokenId}</code>
+          </div>
+        </div>
       `;
       
       console.log('Mint successful!', result);
@@ -314,6 +328,7 @@ function initMintButton() {
       localStorage.setItem('mp_avatar_config', JSON.stringify(currentConfig));
       localStorage.setItem('mp_avatar_hash', configHash);
       localStorage.setItem('mp_avatar_tx', result.transactionHash);
+      localStorage.setItem('mp_avatar_tokenId', tokenId);
       
       // Auto-hide message after 10 seconds
       setTimeout(() => {
