@@ -2,6 +2,7 @@
 // Import animation renderer and config
 import { AnimationRenderer } from '../avatar-system/src/animation-renderer.js';
 import { ANIMATION_CONFIG } from '../avatar-system/src/animation-config.js';
+import { MintService } from '../avatar-system/src/mint-service.js';
 
 // Avatar Config
 const AVATAR_CONFIG = {
@@ -27,6 +28,9 @@ let animationRenderer = null;
 // Image cache
 const imageCache = new Map();
 
+// Mint service
+const mintService = new MintService();
+
 // Loading indicator
 const loadingIndicator = document.getElementById('loadingIndicator');
 
@@ -51,7 +55,14 @@ function generateHash(config) {
   }
   // Convert to hex and take first 8 chars
   const hexHash = Math.abs(hash).toString(16).padStart(8, '0').substring(0, 8);
-  return `0x${hexHash}`;
+  const hashValue = `0x${hexHash}`;
+  
+  // Debug: Log config string and hash to console (for verification)
+  if (console && console.debug) {
+    console.debug(`[Hash] Config: "${configString}" → Hash: ${hashValue}`);
+  }
+  
+  return hashValue;
 }
 
 // Get avatar file path
@@ -244,47 +255,115 @@ function initMintButton() {
     mintMessage.className = 'mint-message';
     mintMessage.textContent = '';
     mintBtn.disabled = true;
-    mintBtn.textContent = 'Minting...';
     
     try {
-      // TODO: Implement actual mint logic with wallet connection
-      // Simulate mint process
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      // Step 1: Preparing
+      mintBtn.textContent = 'Preparing...';
+      mintMessage.textContent = 'Preparing...';
+      mintMessage.className = 'mint-message';
       
-      // Simulate gas check (random for demo)
-      const hasEnoughGas = Math.random() > 0.3; // 70% success rate for demo
+      // Generate config hash
+      const configHash = generateHash(currentConfig);
+      console.log('Config hash:', configHash);
       
-      if (!hasEnoughGas) {
-        throw new Error('INSUFFICIENT_GAS');
+      // Step 2: Check wallet connection
+      mintBtn.textContent = 'Waiting for wallet...';
+      mintMessage.textContent = 'Waiting for wallet...';
+      
+      const isConnected = await mintService.isConnected();
+      if (!isConnected) {
+        await mintService.connectWallet();
       }
       
+      // Step 3: Check if already minted
+      const address = await mintService.getAddress();
+      const alreadyMinted = await mintService.hasMinted(address);
+      if (alreadyMinted) {
+        throw new Error('ALREADY_MINTED');
+      }
+      
+      // Step 4: Minting
+      mintBtn.textContent = 'Minting...';
+      mintMessage.textContent = 'Minting...';
+      
+      const result = await mintService.mintAvatar(configHash);
+      
+      // Step 5: Confirming
+      mintBtn.textContent = 'Confirming...';
+      mintMessage.textContent = 'Confirming transaction...';
+      
+      // Wait a bit for confirmation
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
       // Success
+      mintBtn.textContent = 'Mint Avatar';
       mintMessage.className = 'mint-message success';
-      mintMessage.textContent = 'Mint successful';
-      console.log('Mint successful!', currentConfig);
+      mintMessage.innerHTML = `
+        ✅ Mint successful!<br>
+        <a href="https://sepolia.basescan.org/tx/${result.transactionHash}" 
+           target="_blank" 
+           style="color: #4ade80; text-decoration: underline; margin-top: 5px; display: inline-block;">
+          View Transaction
+        </a>
+      `;
+      
+      console.log('Mint successful!', result);
+      
+      // Save to localStorage
+      localStorage.setItem('mp_avatar_minted', 'true');
+      localStorage.setItem('mp_avatar_config', JSON.stringify(currentConfig));
+      localStorage.setItem('mp_avatar_hash', configHash);
+      localStorage.setItem('mp_avatar_tx', result.transactionHash);
+      
+      // Auto-hide message after 10 seconds
+      setTimeout(() => {
+        mintMessage.className = 'mint-message';
+        mintMessage.textContent = '';
+      }, 10000);
       
     } catch (error) {
       // Error handling
+      mintBtn.textContent = 'Mint Avatar';
+      mintBtn.disabled = false;
       mintMessage.className = 'mint-message error';
       
-      if (error.message === 'INSUFFICIENT_GAS') {
-        mintMessage.textContent = 'Insufficient gas';
-      } else {
-        mintMessage.textContent = 'Mint failed. Please try again.';
-      }
+      const errorMsg = mintService.getErrorMessage(error);
+      mintMessage.textContent = errorMsg;
       
       console.error('Mint error:', error);
-    } finally {
-      mintBtn.disabled = false;
-      mintBtn.textContent = 'Mint Avatar';
       
       // Auto-hide message after 5 seconds
       setTimeout(() => {
         mintMessage.className = 'mint-message';
         mintMessage.textContent = '';
       }, 5000);
+    } finally {
+      // Ensure button is enabled (in case of unexpected errors)
+      mintBtn.disabled = false;
+      if (mintBtn.textContent !== 'Mint Avatar' && !mintBtn.textContent.includes('...')) {
+        mintBtn.textContent = 'Mint Avatar';
+      }
     }
   });
+}
+
+// Add hash display click handler for debugging
+function initHashDisplayDebug() {
+  const hashDisplay = document.getElementById('hashDisplay');
+  if (hashDisplay) {
+    hashDisplay.style.cursor = 'pointer';
+    hashDisplay.title = 'Click to see config details in console';
+    hashDisplay.addEventListener('click', () => {
+      const configString = `${currentConfig.actor}-${currentConfig.skin}-${currentConfig.clothes}-${currentConfig.equipment}-${currentConfig.hat}`;
+      const hash = generateHash(currentConfig);
+      console.log('📋 Hash Debug Info:');
+      console.log('  Config:', currentConfig);
+      console.log('  Config String:', configString);
+      console.log('  Hash:', hash);
+      console.log('  File Path:', getAvatarFilePath(currentConfig));
+      alert(`Config: ${configString}\nHash: ${hash}\n\nCheck console (F12) for more details.`);
+    });
+  }
 }
 
 // Initialize on load with error handling
@@ -293,6 +372,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('✅ Avatar Creator: DOMContentLoaded');
     initSelectors();
     initMintButton();
+    initHashDisplayDebug(); // Add hash debug handler
     
     // Small delay to ensure DOM is fully ready (especially on mobile)
     await new Promise(resolve => setTimeout(resolve, 100));

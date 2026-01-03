@@ -12,13 +12,19 @@ npm install
 
 2. Copy `.env.example` to `.env` and fill in your values:
 ```bash
+# On Windows (PowerShell)
+Copy-Item .env.example .env
+
+# On Linux/Mac
 cp .env.example .env
 ```
 
-3. Add your private key and API keys to `.env`:
-- `PRIVATE_KEY`: Your wallet private key (for deployment)
-- `BASE_SEPOLIA_RPC_URL`: Base Sepolia RPC endpoint
-- `BASESCAN_API_KEY`: BaseScan API key (for verification)
+3. Edit `.env` file and add your actual values:
+- `PRIVATE_KEY`: Your wallet private key (for deployment) - **KEEP THIS SECRET!**
+- `BASE_SEPOLIA_RPC_URL`: Base Sepolia RPC endpoint (default: https://sepolia.base.org)
+- `BASESCAN_API_KEY`: BaseScan API key (for verification) - Optional, get from https://basescan.org/myapikey
+
+**⚠️ IMPORTANT:** Never commit `.env` file to git! It contains sensitive information.
 
 ## Commands
 

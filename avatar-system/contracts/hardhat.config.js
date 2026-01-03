@@ -23,9 +23,9 @@ module.exports = {
     },
   },
   etherscan: {
-    apiKey: {
-      baseSepolia: process.env.BASESCAN_API_KEY || "",
-    },
+    // Use Etherscan V2 API (Multichain API)
+    // Single API key works for all chains including Base Sepolia
+    apiKey: process.env.BASESCAN_API_KEY || process.env.ETHERSCAN_API_KEY || "",
     customChains: [
       {
         network: "baseSepolia",
