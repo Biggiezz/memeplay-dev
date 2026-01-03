@@ -61,14 +61,13 @@ export async function trackMint(mintData) {
       return false;
     }
 
-    // Prepare data for insert
+    // Prepare data for insert (minted_at is set by Supabase DEFAULT NOW())
     const insertData = {
       token_id: parseInt(tokenId, 10),
       user_address: userAddress.toLowerCase(),
       config_hash: configHash || null,
       config_json: config || null,
-      transaction_hash: transactionHash || null,
-      minted_at: new Date().toISOString()
+      transaction_hash: transactionHash || null
     };
 
     // Insert into Supabase
@@ -127,24 +126,20 @@ export async function getMintStats() {
     }
 
     // Get unique users
-    const { data: uniqueUsers, error: uniqueError } = await supabase
+    const { data: userAddresses, error: uniqueError } = await supabase
       .from('avatar_mints')
-      .select('user_address')
-      .then(result => {
-        if (result.error) throw result.error;
-        const unique = new Set(result.data.map(r => r.user_address));
-        return { data: Array.from(unique), error: null };
-      })
-      .catch(error => ({ data: null, error }));
+      .select('user_address');
 
     if (uniqueError) {
       console.error('[Tracking] Failed to get unique users:', uniqueError);
     }
 
+    const uniqueUsers = userAddresses ? new Set(userAddresses.map(r => r.user_address)).size : 0;
+
     return {
       totalMints: totalMints || 0,
       todayMints: todayMints || 0,
-      uniqueUsers: uniqueUsers ? uniqueUsers.length : 0
+      uniqueUsers: uniqueUsers
     };
   } catch (error) {
     console.error('[Tracking] Error getting stats:', error);
@@ -174,40 +169,19 @@ export async function getConfigStats() {
       return null;
     }
 
-    // Count configs
-    const actorCount = {};
-    const clothesCount = {};
-    const equipmentCount = {};
-    const hatCount = {};
+    // Count configs using reduce
+    const counts = data
+      .filter(mint => mint.config_json)
+      .reduce((acc, mint) => {
+        const c = mint.config_json;
+        acc.actors[c.actor || 'unknown'] = (acc.actors[c.actor || 'unknown'] || 0) + 1;
+        acc.clothes[c.clothes || 0] = (acc.clothes[c.clothes || 0] || 0) + 1;
+        acc.equipment[c.equipment || 0] = (acc.equipment[c.equipment || 0] || 0) + 1;
+        acc.hat[c.hat || 0] = (acc.hat[c.hat || 0] || 0) + 1;
+        return acc;
+      }, { actors: {}, clothes: {}, equipment: {}, hat: {} });
 
-    data.forEach(mint => {
-      if (mint.config_json) {
-        const config = mint.config_json;
-        
-        // Count actors
-        const actor = config.actor || 'unknown';
-        actorCount[actor] = (actorCount[actor] || 0) + 1;
-        
-        // Count clothes
-        const clothes = config.clothes || 0;
-        clothesCount[clothes] = (clothesCount[clothes] || 0) + 1;
-        
-        // Count equipment
-        const equipment = config.equipment || 0;
-        equipmentCount[equipment] = (equipmentCount[equipment] || 0) + 1;
-        
-        // Count hat
-        const hat = config.hat || 0;
-        hatCount[hat] = (hatCount[hat] || 0) + 1;
-      }
-    });
-
-    return {
-      actors: actorCount,
-      clothes: clothesCount,
-      equipment: equipmentCount,
-      hat: hatCount
-    };
+    return counts;
   } catch (error) {
     console.error('[Tracking] Error getting config stats:', error);
     return null;
