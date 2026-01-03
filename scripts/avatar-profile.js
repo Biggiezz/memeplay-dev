@@ -73,6 +73,7 @@ async function renderAvatar(config) {
   
   // Step 1: Start animation immediately (as loading indicator)
   let animationStarted = false;
+  let animationStartTime = null; // Track when animation started
   try {
     // Stop old animation if playing
     if (animationRenderer && animationRenderer.isPlaying) {
@@ -87,6 +88,7 @@ async function renderAvatar(config) {
       // Start animation
       if (!animationRenderer.isPlaying) {
         animationRenderer.start();
+        animationStartTime = performance.now(); // Record start time
       }
       animationStarted = true;
       console.log(`🎬 Animation started: ${animationPath}`);
@@ -132,15 +134,42 @@ async function renderAvatar(config) {
     hideLoading();
     
     // Stop animation if playing (pre-rendered image loaded successfully)
+    // BUT: Ensure animation runs at least 1 full cycle (0.8s for 4 frames)
     if (animationRenderer && animationRenderer.isPlaying) {
-      animationRenderer.stop();
-      console.log('✅ Pre-rendered image loaded, animation stopped');
+      const minAnimationDuration = 800; // 0.8s = 4 frames × 200ms
+      const animationElapsed = animationStartTime ? performance.now() - animationStartTime : 0;
+      const remainingTime = Math.max(0, minAnimationDuration - animationElapsed);
+      
+      if (remainingTime > 0) {
+        // Wait for animation to complete at least 1 cycle
+        console.log(`⏳ Pre-rendered image loaded, waiting ${remainingTime.toFixed(0)}ms for animation cycle to complete...`);
+        setTimeout(() => {
+          if (animationRenderer && animationRenderer.isPlaying) {
+            animationRenderer.stop();
+            console.log('✅ Animation cycle completed, stopped');
+          }
+          
+          // Draw static image after animation stops
+          const ctx = canvas.getContext('2d');
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        }, remainingTime);
+      } else {
+        // Animation already ran for at least 1 cycle, stop immediately
+        animationRenderer.stop();
+        console.log('✅ Pre-rendered image loaded, animation stopped');
+        
+        // Draw static image
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      }
+    } else {
+      // No animation playing, just draw the image
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
     }
-    
-    // Draw static image
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
   };
   
   img.src = filePath;
