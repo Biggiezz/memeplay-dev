@@ -216,7 +216,20 @@ async function loadAvatar() {
   try {
     showLoading();
     
-    // Step 1: Check localStorage first (fastest)
+    // Get current wallet address first
+    const currentAddress = await mintService.getAddress();
+    const isConnected = await mintService.isConnected();
+    
+    if (!isConnected || !currentAddress) {
+      // Not connected, show no avatar
+      if (profileContent) profileContent.style.display = 'none';
+      if (noAvatarSection) noAvatarSection.style.display = 'block';
+      hideLoading();
+      return;
+    }
+    
+    // Step 1: Check localStorage first (fastest) - but verify wallet address matches
+    const storedAddress = localStorage.getItem('mp_avatar_address');
     const minted = localStorage.getItem('mp_avatar_minted');
     const configStr = localStorage.getItem('mp_avatar_config');
     const tokenId = localStorage.getItem('mp_avatar_tokenId');
@@ -225,9 +238,22 @@ async function loadAvatar() {
     // Note: mintedAt is not stored in localStorage, would need to query from Supabase or contract
     const mintedAt = null;
     
-    if (minted === 'true' && configStr && tokenId) {
-      // Found in localStorage
-      console.log('✅ Avatar found in localStorage');
+    // If wallet address changed, clear localStorage cache
+    if (storedAddress && storedAddress.toLowerCase() !== currentAddress.toLowerCase()) {
+      console.log('⚠️ Wallet address changed, clearing localStorage cache');
+      localStorage.removeItem('mp_avatar_minted');
+      localStorage.removeItem('mp_avatar_config');
+      localStorage.removeItem('mp_avatar_tokenId');
+      localStorage.removeItem('mp_avatar_hash');
+      localStorage.removeItem('mp_avatar_tx');
+      localStorage.removeItem('mp_avatar_address');
+      localStorage.removeItem('mp_avatar_mintedAt');
+    }
+    
+    // Check if cached data is for current wallet
+    if (minted === 'true' && configStr && tokenId && storedAddress && storedAddress.toLowerCase() === currentAddress.toLowerCase()) {
+      // Found in localStorage and wallet matches
+      console.log('✅ Avatar found in localStorage for current wallet');
       const config = JSON.parse(configStr);
       
       // Render avatar
