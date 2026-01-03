@@ -86,7 +86,41 @@ async function updatePreview() {
   // Show loading
   showLoading();
   
-  // Try to load pre-rendered avatar first
+  // Get animation path
+  const animationPath = ANIMATION_CONFIG.getAnimationPath(
+    currentConfig.actor,
+    currentConfig.clothes,
+    currentConfig.equipment,
+    currentConfig.hat
+  );
+  
+  // Step 1: Start animation immediately (as loading indicator)
+  let animationStarted = false;
+  try {
+    // Stop old animation if playing
+    if (animationRenderer && animationRenderer.isPlaying) {
+      animationRenderer.stop();
+    }
+    
+    // Create new animation renderer
+    animationRenderer = new AnimationRenderer(canvas);
+    const initialized = await animationRenderer.init(animationPath);
+    
+    if (initialized) {
+      // Start animation
+      if (!animationRenderer.isPlaying) {
+        animationRenderer.start();
+      }
+      animationStarted = true;
+      console.log(`🎬 Animation started: ${animationPath}`);
+    } else {
+      console.log(`⚠️ Animation not found: ${animationPath}`);
+    }
+  } catch (error) {
+    console.log(`⚠️ Animation load error: ${error.message}`);
+  }
+  
+  // Step 2: Try to load pre-rendered avatar (parallel with animation)
   const filePath = getAvatarFilePath(currentConfig);
   
   // Check cache first
@@ -112,56 +146,15 @@ async function updatePreview() {
   
   // Load new image
   const img = new Image();
-  
-  // Set timeout for loading (10 seconds)
   let timeout = null;
   
-  img.onerror = async () => {
+  img.onerror = () => {
     if (timeout) clearTimeout(timeout);
-    // If pre-rendered image not found, try animation
-    console.log(`⚠️ Pre-rendered image not found: ${filePath}, trying animation...`);
-    
-    // Get animation path based on current config
-    const animationPath = ANIMATION_CONFIG.getAnimationPath(
-      currentConfig.actor,
-      currentConfig.clothes,
-      currentConfig.equipment,
-      currentConfig.hat
-    );
-    
-    console.log(`🎬 Loading animation: ${animationPath}`);
-    
-    // Stop old animation if playing
-    if (animationRenderer && animationRenderer.isPlaying) {
-      animationRenderer.stop();
-    }
-    
-    // Create new animation renderer with move config
-    animationRenderer = new AnimationRenderer(canvas);
-    const initialized = await animationRenderer.init(animationPath);
-    
+    // Pre-rendered image not found, keep animation running
+    console.log(`⚠️ Pre-rendered image not found: ${filePath}, keeping animation...`);
     hideLoading();
     
-    if (!initialized) {
-      // No fallback - show error
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#333';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#ffb642';
-      ctx.font = '14px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Asset not found', canvas.width / 2, canvas.height / 2 - 10);
-      ctx.fillStyle = '#666';
-      ctx.font = '11px Arial';
-      ctx.fillText(animationPath.split('/').pop(), canvas.width / 2, canvas.height / 2 + 10);
-      return;
-    }
-    
-    // Start animation
-    if (!animationRenderer.isPlaying) {
-      animationRenderer.start();
-    }
-    
+    // Animation continues running (already started above)
     // Update hash display
     const hash = generateHash(currentConfig);
     hashDisplay.textContent = hash;
@@ -174,9 +167,10 @@ async function updatePreview() {
     imageCache.set(filePath, img);
     hideLoading();
     
-    // Stop animation if playing
+    // Stop animation if playing (pre-rendered image loaded successfully)
     if (animationRenderer && animationRenderer.isPlaying) {
       animationRenderer.stop();
+      console.log('✅ Pre-rendered image loaded, animation stopped');
     }
     
     // Draw static image
@@ -194,6 +188,7 @@ async function updatePreview() {
     if (!img.complete) {
       hideLoading();
       console.error('⏱️ Image load timeout:', filePath);
+      // Animation continues if image timeout
     }
   }, 10000);
   

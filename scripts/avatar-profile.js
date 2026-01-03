@@ -63,40 +63,17 @@ async function renderAvatar(config) {
   const canvas = avatarPreview;
   const filePath = getAvatarFilePath(config);
   
-  // Check cache first
-  if (imageCache.has(filePath)) {
-    const cachedImg = imageCache.get(filePath);
-    hideLoading();
-    
-    // Stop animation if playing
-    if (animationRenderer && animationRenderer.isPlaying) {
-      animationRenderer.stop();
-    }
-    
-    // Draw cached image
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(cachedImg, 0, 0, canvas.width, canvas.height);
-    return;
-  }
+  // Get animation path
+  const animationPath = ANIMATION_CONFIG.getAnimationPath(
+    config.actor,
+    config.clothes,
+    config.equipment,
+    config.hat
+  );
   
-  // Load new image
-  const img = new Image();
-  
-  img.onerror = async () => {
-    // If pre-rendered image not found, try animation
-    console.log(`⚠️ Pre-rendered image not found: ${filePath}, trying animation...`);
-    
-    // Get animation path
-    const animationPath = ANIMATION_CONFIG.getAnimationPath(
-      config.actor,
-      config.clothes,
-      config.equipment,
-      config.hat
-    );
-    
-    console.log(`🎬 Loading animation: ${animationPath}`);
-    
+  // Step 1: Start animation immediately (as loading indicator)
+  let animationStarted = false;
+  try {
     // Stop old animation if playing
     if (animationRenderer && animationRenderer.isPlaying) {
       animationRenderer.stop();
@@ -106,27 +83,47 @@ async function renderAvatar(config) {
     animationRenderer = new AnimationRenderer(canvas);
     const initialized = await animationRenderer.init(animationPath);
     
+    if (initialized) {
+      // Start animation
+      if (!animationRenderer.isPlaying) {
+        animationRenderer.start();
+      }
+      animationStarted = true;
+      console.log(`🎬 Animation started: ${animationPath}`);
+    } else {
+      console.log(`⚠️ Animation not found: ${animationPath}`);
+    }
+  } catch (error) {
+    console.log(`⚠️ Animation load error: ${error.message}`);
+  }
+  
+  // Step 2: Check cache first
+  if (imageCache.has(filePath)) {
+    const cachedImg = imageCache.get(filePath);
     hideLoading();
     
-    if (!initialized) {
-      // Show error
-      const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#333';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      ctx.fillStyle = '#ffb642';
-      ctx.font = '14px Arial';
-      ctx.textAlign = 'center';
-      ctx.fillText('Asset not found', canvas.width / 2, canvas.height / 2 - 10);
-      ctx.fillStyle = '#666';
-      ctx.font = '11px Arial';
-      ctx.fillText(animationPath.split('/').pop(), canvas.width / 2, canvas.height / 2 + 10);
-      return;
+    // Stop animation if playing
+    if (animationRenderer && animationRenderer.isPlaying) {
+      animationRenderer.stop();
+      console.log('✅ Pre-rendered image from cache, animation stopped');
     }
     
-    // Start animation
-    if (!animationRenderer.isPlaying) {
-      animationRenderer.start();
-    }
+    // Draw cached image
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(cachedImg, 0, 0, canvas.width, canvas.height);
+    return;
+  }
+  
+  // Step 3: Load new image (parallel with animation)
+  const img = new Image();
+  
+  img.onerror = () => {
+    // Pre-rendered image not found, keep animation running
+    console.log(`⚠️ Pre-rendered image not found: ${filePath}, keeping animation...`);
+    hideLoading();
+    
+    // Animation continues running (already started above)
   };
   
   img.onload = () => {
@@ -134,9 +131,10 @@ async function renderAvatar(config) {
     imageCache.set(filePath, img);
     hideLoading();
     
-    // Stop animation if playing
+    // Stop animation if playing (pre-rendered image loaded successfully)
     if (animationRenderer && animationRenderer.isPlaying) {
       animationRenderer.stop();
+      console.log('✅ Pre-rendered image loaded, animation stopped');
     }
     
     // Draw static image
