@@ -1,48 +1,85 @@
 # 🧪 Task 3.4: Base App Testing - Test Checklist
 
-> **Mục tiêu:** Đảm bảo Avatar System hoạt động đúng trên Base App và Web trước khi release
+> **Mục tiêu:** Đảm bảo Avatar System hoạt động đúng trên Web (Base Sepolia) trước khi release
+> **Lưu ý:** Base App testing sẽ làm sau khi deploy lên Base Mainnet (Base App không hỗ trợ Base Sepolia testnet)
 
 ---
 
 ## 📋 TỔNG QUAN
 
-**Platform cần test:**
-- ✅ Base App (mobile) - Platform chính
-- ✅ Web (Chrome/Firefox) - Fallback
-- ✅ Telegram Mini App (nếu có)
+**Platform ưu tiên test (Phase 1):**
+- ✅ **Web (Chrome/Firefox) với MetaMask** - Test chính (Base Sepolia)
+- ⏸️ Base App (mobile) - Test sau khi có mainnet
+- ✅ Telegram Mini App - Test nếu có
 
 **Test Environment:**
-- Network: Base Sepolia (testnet)
+- Network: **Base Sepolia (testnet)**
 - Contract: `0xC6fd96c853feD4e8EBA330955efc235c5D02a7Ba`
+- Wallet: MetaMask (Base Sepolia network)
+
+**Lưu ý:**
+- Base App của Coinbase chỉ hỗ trợ Base Mainnet, không hỗ trợ Base Sepolia testnet
+- Test trên Web với MetaMask (Base Sepolia) trước để verify logic
+- Base App testing sẽ làm sau khi deploy contract lên Base Mainnet
 
 ---
 
-## 🧪 TEST SUITE 1: Mint Flow
+## 🧪 TEST SUITE 1: Mint Flow (Web - Base Sepolia)
 
-### Test 1.1: Mint với Base Wallet (Base App)
-- [ ] Mở Base App trên mobile
+### Test 1.1: Mint với MetaMask (Web - Base Sepolia) ⭐ PRIORITY
+- [ ] Mở Web (Chrome/Firefox)
+- [ ] Đảm bảo MetaMask đã add Base Sepolia network
 - [ ] Navigate đến `/avatar-creator`
-- [ ] Wallet tự động connect (auto-connect)
+- [ ] Click "Connect Wallet"
+- [ ] MetaMask popup xuất hiện
+- [ ] Approve connection
+- [ ] Wallet address hiển thị
 - [ ] Chọn Actor/Clothes/Equipment/Hat
 - [ ] Preview avatar hiển thị đúng
 - [ ] Click "Mint Avatar"
-- [ ] Transaction popup xuất hiện
+- [ ] MetaMask transaction popup xuất hiện
 - [ ] Approve transaction
 - [ ] Mint thành công
 - [ ] Success message hiển thị: "✅ Mint successful!"
 - [ ] Token ID hiển thị
-- [ ] Transaction link hoạt động (BaseScan)
+- [ ] Transaction link hoạt động (BaseScan Sepolia)
 - [ ] Avatar hiển thị trong profile menu (hamburger menu)
 
 **Expected Results:**
-- ✅ Wallet auto-connect không cần click button
-- ✅ Transaction thành công
+- ✅ MetaMask connection hoạt động
+- ✅ Transaction thành công trên Base Sepolia
 - ✅ Success message rõ ràng
 - ✅ Token ID chính xác
+- ✅ Transaction link đúng (sepolia.basescan.org)
 
 ---
 
-### Test 1.2: Mint với MetaMask (Web Fallback)
+### Test 1.2: Mint với Base Wallet (Base App) ⏸️ DEFERRED
+**Lưu ý:** Test này sẽ làm sau khi deploy contract lên Base Mainnet (Base App không hỗ trợ Base Sepolia)
+
+- [ ] ⏸️ Mở Base App trên mobile (sau khi có mainnet)
+- [ ] ⏸️ Navigate đến `/avatar-creator`
+- [ ] ⏸️ Wallet tự động connect (auto-connect)
+- [ ] ⏸️ Chọn Actor/Clothes/Equipment/Hat
+- [ ] ⏸️ Preview avatar hiển thị đúng
+- [ ] ⏸️ Click "Mint Avatar"
+- [ ] ⏸️ Transaction popup xuất hiện
+- [ ] ⏸️ Approve transaction
+- [ ] ⏸️ Mint thành công
+- [ ] ⏸️ Success message hiển thị
+- [ ] ⏸️ Token ID hiển thị
+- [ ] ⏸️ Transaction link hoạt động (BaseScan Mainnet)
+- [ ] ⏸️ Avatar hiển thị trong profile menu
+
+**Expected Results:**
+- ✅ Wallet auto-connect không cần click button
+- ✅ Transaction thành công trên Base Mainnet
+- ✅ Success message rõ ràng
+- ✅ Token ID chính xác
+
+**Status:** ⏸️ Deferred - Chờ deploy mainnet
+
+---
 - [ ] Mở Web (Chrome/Firefox)
 - [ ] Navigate đến `/avatar-creator`
 - [ ] Click "Connect Wallet"
@@ -160,17 +197,20 @@
 
 ---
 
-### Test 3.2: Animation trên Mobile (Base App)
-- [ ] Mở Base App trên mobile
+### Test 3.2: Animation trên Mobile (Web - Responsive)
+- [ ] Mở Web trên mobile (Chrome/Firefox mobile)
 - [ ] Navigate đến `/avatar-profile.html`
 - [ ] Avatar animation chạy
 - [ ] Animation mượt trên mobile
 - [ ] Không có lag hoặc stutter
-- [ ] Battery usage hợp lý
+- [ ] Responsive design hoạt động đúng
 
 **Expected Results:**
-- ✅ Animation mượt trên mobile
+- ✅ Animation mượt trên mobile browser
 - ✅ Performance tốt
+- ✅ UI responsive
+
+**Lưu ý:** Base App mobile testing sẽ làm sau khi có mainnet
 
 ---
 
@@ -216,30 +256,37 @@
 
 ## 🧪 TEST SUITE 5: Wallet Integration
 
-### Test 5.1: Base App Auto-Connect
-- [ ] Mở Base App
-- [ ] Navigate đến `/avatar-creator`
-- [ ] Wallet tự động connect (không cần click button)
-- [ ] Wallet address hiển thị
-- [ ] Avatar hiển thị trong profile menu (nếu đã mint)
-
-**Expected Results:**
-- ✅ Auto-connect hoạt động
-- ✅ Không cần user action
-
----
-
-### Test 5.2: MetaMask Fallback
-- [ ] Mở Web (không có Base App)
+### Test 5.1: MetaMask Connection (Web - Base Sepolia) ⭐ PRIORITY
+- [ ] Mở Web (Chrome/Firefox)
+- [ ] Đảm bảo MetaMask đã add Base Sepolia network
 - [ ] Navigate đến `/avatar-creator`
 - [ ] Click "Connect Wallet"
 - [ ] MetaMask popup xuất hiện
 - [ ] Approve connection
 - [ ] Wallet address hiển thị
+- [ ] Avatar hiển thị trong profile menu (nếu đã mint)
 
 **Expected Results:**
-- ✅ Fallback hoạt động
-- ✅ MetaMask connection thành công
+- ✅ MetaMask connection hoạt động
+- ✅ Wallet address hiển thị đúng
+- ✅ Avatar hiển thị đúng
+
+---
+
+### Test 5.2: Base App Auto-Connect ⏸️ DEFERRED
+**Lưu ý:** Test này sẽ làm sau khi deploy contract lên Base Mainnet
+
+- [ ] ⏸️ Mở Base App
+- [ ] ⏸️ Navigate đến `/avatar-creator`
+- [ ] ⏸️ Wallet tự động connect (không cần click button)
+- [ ] ⏸️ Wallet address hiển thị
+- [ ] ⏸️ Avatar hiển thị trong profile menu (nếu đã mint)
+
+**Expected Results:**
+- ✅ Auto-connect hoạt động
+- ✅ Không cần user action
+
+**Status:** ⏸️ Deferred - Chờ deploy mainnet
 
 ---
 
@@ -303,17 +350,19 @@
 ### Test 7.2: Web (Firefox)
 - [ ] Tất cả test cases trên đều pass trên Firefox
 
-### Test 7.3: Base App (Mobile)
-- [ ] Tất cả test cases trên đều pass trên Base App mobile
+### Test 7.3: Base App (Mobile) ⏸️ DEFERRED
+- [ ] ⏸️ Tất cả test cases trên đều pass trên Base App mobile
+- **Status:** ⏸️ Deferred - Chờ deploy mainnet
 
 ### Test 7.4: Telegram Mini App (nếu có)
 - [ ] Tất cả test cases trên đều pass trên Telegram Mini App
+- **Lưu ý:** Telegram Mini App cũng cần Base Sepolia network trong MetaMask
 
 ---
 
 ## 📊 TEST RESULTS SUMMARY
 
-### Pass Rate
+### Pass Rate (Web - Base Sepolia)
 - Total Tests: ___
 - Passed: ___
 - Failed: ___
@@ -328,6 +377,10 @@
 - Animation FPS: ___ (Target: ≥ 30)
 - Profile Load Time: ___ (Target: < 1s)
 - Mint Transaction Time: ___ (Target: < 30s)
+
+### Base App Testing Status
+- [ ] ⏸️ Deferred - Chờ deploy contract lên Base Mainnet
+- [ ] ⏸️ Base App chỉ hỗ trợ Base Mainnet, không hỗ trợ Base Sepolia testnet
 
 ---
 
