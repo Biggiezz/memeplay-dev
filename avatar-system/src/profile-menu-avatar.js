@@ -221,9 +221,8 @@ export function setupProfileMenuAvatar() {
 }
 
 /**
- * Setup click handler for profile preview to navigate to avatar creator
- * Note: onclick attribute is already set in HTML for immediate execution
- * This function only ensures cursor style is set
+ * Setup click handler for profile preview
+ * Navigates to profile page if user has minted, otherwise to creator
  */
 function setupProfilePreviewClick() {
   const profilePreview = document.getElementById('profileAvatarPreview');
@@ -232,19 +231,74 @@ function setupProfilePreviewClick() {
     return;
   }
   
-  // Add cursor pointer style (onclick is already in HTML)
+  // Add cursor pointer style
   profilePreview.style.cursor = 'pointer';
   profilePreview.style.pointerEvents = 'auto';
   
-  // Also ensure child elements (img, svg) can trigger navigation
-  // The onclick on parent should handle this, but add explicit handler for children
-  profilePreview.addEventListener('click', function handlePreviewClick(e) {
-    // Only handle if click is on child element (img or svg)
-    if (e.target !== profilePreview && (e.target.tagName === 'IMG' || e.target.tagName === 'SVG' || e.target.closest('svg'))) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      console.log('[Profile Menu] Profile preview child clicked, navigating to /avatar-creator');
+  // Handle click - check mint status and navigate accordingly
+  profilePreview.addEventListener('click', async function handlePreviewClick(e) {
+    e.preventDefault();
+    e.stopPropagation();
+    e.stopImmediatePropagation();
+    
+    try {
+      // Check mint status from localStorage first (fastest)
+      const configStr = localStorage.getItem('mp_avatar_config');
+      const minted = localStorage.getItem('mp_avatar_minted');
+      const storedAddress = localStorage.getItem('mp_avatar_address');
+      
+      // Check if wallet address matches
+      let currentAddress = null;
+      if (window.ethereum) {
+        try {
+          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+          if (accounts && accounts.length > 0) {
+            currentAddress = accounts[0].toLowerCase();
+          }
+        } catch (e) {
+          // Ignore error
+        }
+      }
+      
+      const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
+      const hasMintedFromLocalStorage = minted === 'true' && configStr && addressMatches;
+      
+      if (hasMintedFromLocalStorage) {
+        // User has minted - go to profile page
+        console.log('[Profile Menu] User has minted, navigating to /avatar-profile.html');
+        window.location.href = '/avatar-profile.html';
+        return false;
+      }
+      
+      // If localStorage doesn't have valid data, check contract (if wallet connected)
+      if (currentAddress) {
+        try {
+          const mintService = new MintService();
+          const isConnected = await mintService.isConnected();
+          
+          if (isConnected) {
+            const hasMinted = await mintService.hasMinted(currentAddress);
+            
+            if (hasMinted) {
+              // User has minted - go to profile page
+              console.log('[Profile Menu] User has minted (from contract), navigating to /avatar-profile.html');
+              window.location.href = '/avatar-profile.html';
+              return false;
+            }
+          }
+        } catch (e) {
+          console.warn('[Profile Menu] Error checking contract:', e);
+          // Fall through to creator
+        }
+      }
+      
+      // User hasn't minted - go to creator
+      console.log('[Profile Menu] User has not minted, navigating to /avatar-creator');
+      window.location.href = '/avatar-creator';
+      return false;
+    } catch (error) {
+      console.error('[Profile Menu] Error handling click:', error);
+      // Default to creator on error
       window.location.href = '/avatar-creator';
       return false;
     }
