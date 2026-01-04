@@ -744,8 +744,14 @@
           }
           
           // Skip if clicking on profile preview (handled separately)
-          if (action === 'profile' && e.target.closest('#profileAvatarPreview')) {
-            return;
+          if (action === 'profile') {
+            const profilePreview = document.getElementById('profileAvatarPreview');
+            if (profilePreview && (e.target === profilePreview || profilePreview.contains(e.target))) {
+              e.preventDefault();
+              e.stopPropagation();
+              e.stopImmediatePropagation();
+              return false;
+            }
           }
           
           if (action === 'docs') {
