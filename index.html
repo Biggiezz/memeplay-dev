@@ -734,6 +734,12 @@
         hamburgerDropdown.setAttribute('aria-hidden', !willOpen);
       });
       
+      // Import profile navigation function once
+      let profileNavHandler = null;
+      import('./avatar-system/src/profile-menu-avatar.js').then(module => {
+        profileNavHandler = module.handleProfileMenuNavigation;
+      });
+      
       hamburgerDropdown.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', async (e) => {
           const action = item.getAttribute('data-action');
@@ -761,9 +767,13 @@
             }
           } else if (action === 'profile') {
             // Use shared function for navigation
-            import('./avatar-system/src/profile-menu-avatar.js').then(module => {
-              module.handleProfileMenuNavigation();
-            });
+            if (profileNavHandler) {
+              await profileNavHandler();
+            } else {
+              // Fallback if module not loaded yet
+              const module = await import('./avatar-system/src/profile-menu-avatar.js');
+              await module.handleProfileMenuNavigation();
+            }
           }
           hamburgerDropdown.classList.remove('open');
         });
