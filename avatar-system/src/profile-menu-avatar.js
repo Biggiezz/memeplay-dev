@@ -79,9 +79,13 @@ export function showPlusIcon(container) {
 export function setupProfileMenuAvatar() {
   // Initialize when DOM is ready
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initProfileMenuAvatar);
+    document.addEventListener('DOMContentLoaded', () => {
+      initProfileMenuAvatar();
+      setupProfilePreviewClick();
+    });
   } else {
     initProfileMenuAvatar();
+    setupProfilePreviewClick();
   }
   
   // Update when wallet changes
@@ -90,5 +94,22 @@ export function setupProfileMenuAvatar() {
       setTimeout(initProfileMenuAvatar, 500);
     });
   }
+}
+
+/**
+ * Setup click handler for profile preview to navigate to avatar creator
+ */
+function setupProfilePreviewClick() {
+  const profilePreview = document.getElementById('profileAvatarPreview');
+  if (!profilePreview) return;
+  
+  // Add click handler to navigate to avatar creator
+  profilePreview.addEventListener('click', (e) => {
+    e.stopPropagation(); // Prevent triggering profile menu item click
+    window.location.href = '/avatar-creator';
+  });
+  
+  // Add cursor pointer style
+  profilePreview.style.cursor = 'pointer';
 }
 
