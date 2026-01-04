@@ -233,11 +233,16 @@
     .create-avatar-btn::before {
       content: '+';
       position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
       color: #ffb642;
       font-size: 160px;
       line-height: 1;
       font-weight: 300;
       text-shadow: 0 0 15px rgba(255, 182, 66, 0.6), 0 0 25px rgba(255, 182, 66, 0.4);
+      margin: 0;
+      padding: 0;
     }
 
     @keyframes pulse-glow {
