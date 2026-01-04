@@ -734,12 +734,17 @@
       });
       
       hamburgerDropdown.querySelectorAll('.dropdown-item').forEach(item => {
-        item.addEventListener('click', (e) => {
+        item.addEventListener('click', async (e) => {
           const action = item.getAttribute('data-action');
           
           // Skip handling for social links (they have href and will navigate naturally)
           if (action === 'social-x' || action === 'social-telegram') {
             hamburgerDropdown.classList.remove('open');
+            return;
+          }
+          
+          // Skip if clicking on profile preview (handled separately)
+          if (action === 'profile' && e.target.closest('#profileAvatarPreview')) {
             return;
           }
           
@@ -754,7 +759,35 @@
               window.__openReferralOverlay();
             }
           } else if (action === 'profile') {
-            window.location.href = '/avatar-profile.html';
+            // Check if user has minted avatar
+            const minted = localStorage.getItem('mp_avatar_minted');
+            const configStr = localStorage.getItem('mp_avatar_config');
+            const storedAddress = localStorage.getItem('mp_avatar_address');
+            
+            // Check if wallet address matches
+            let currentAddress = null;
+            if (window.ethereum) {
+              try {
+                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+                if (accounts && accounts.length > 0) {
+                  currentAddress = accounts[0].toLowerCase();
+                }
+              } catch (e) {
+                // Ignore error
+              }
+            }
+            
+            const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
+            const hasMinted = minted === 'true' && configStr && addressMatches;
+            
+            // Navigate based on mint status
+            if (hasMinted) {
+              // User has minted - go to profile page
+              window.location.href = '/avatar-profile.html';
+            } else {
+              // User hasn't minted - go directly to creator (skip intermediate page)
+              window.location.href = '/avatar-creator';
+            }
           }
           hamburgerDropdown.classList.remove('open');
         });
