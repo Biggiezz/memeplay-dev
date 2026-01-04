@@ -106,45 +106,30 @@ function setupProfilePreviewClick() {
     return;
   }
   
-  // Remove any existing handlers by cloning
-  const newPreview = profilePreview.cloneNode(true);
-  profilePreview.parentNode.replaceChild(newPreview, profilePreview);
+  // Check if handler already attached
+  if (profilePreview.__previewClickHandlerAttached) {
+    console.log('[Profile Menu] Profile preview click handler already attached');
+    return;
+  }
+  
+  // Mark as attached
+  profilePreview.__previewClickHandlerAttached = true;
   
   // Add cursor pointer style
-  newPreview.style.cursor = 'pointer';
-  newPreview.style.pointerEvents = 'auto';
+  profilePreview.style.cursor = 'pointer';
+  profilePreview.style.pointerEvents = 'auto';
   
-  // Add click handler with capture phase (runs first)
-  newPreview.addEventListener('click', function handlePreviewClick(e) {
+  // Add click handler with capture phase (runs first, before bubble phase)
+  profilePreview.addEventListener('click', function handlePreviewClick(e) {
     e.preventDefault();
     e.stopPropagation();
     e.stopImmediatePropagation();
     console.log('[Profile Menu] Profile preview clicked, navigating to /avatar-creator');
     
-    // Small delay to ensure event propagation is stopped
-    setTimeout(() => {
-      window.location.href = '/avatar-creator';
-    }, 10);
-    
+    // Navigate immediately
+    window.location.href = '/avatar-creator';
     return false;
-  }, true); // Capture phase - runs before bubble phase
-  
-  // Also handle clicks on child elements (img, svg) - use capture phase
-  newPreview.addEventListener('click', function handleChildClick(e) {
-    // Only handle if click is on child, not on preview itself
-    if (e.target !== newPreview) {
-      e.preventDefault();
-      e.stopPropagation();
-      e.stopImmediatePropagation();
-      console.log('[Profile Menu] Profile preview child clicked, navigating to /avatar-creator');
-      
-      setTimeout(() => {
-        window.location.href = '/avatar-creator';
-      }, 10);
-      
-      return false;
-    }
-  }, true);
+  }, true); // Capture phase - runs before bubble phase handlers
   
   console.log('[Profile Menu] Profile preview click handler setup complete');
 }
