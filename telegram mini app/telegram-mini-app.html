@@ -733,6 +733,12 @@
         hamburgerDropdown.setAttribute('aria-hidden', !willOpen);
       });
       
+      // Import profile navigation function once
+      let profileNavHandler = null;
+      import('../avatar-system/src/profile-menu-avatar.js').then(module => {
+        profileNavHandler = module.handleProfileMenuNavigation;
+      });
+      
       hamburgerDropdown.querySelectorAll('.dropdown-item').forEach(item => {
         item.addEventListener('click', async (e) => {
           const action = item.getAttribute('data-action');
@@ -765,34 +771,13 @@
               window.__openReferralOverlay();
             }
           } else if (action === 'profile') {
-            // Check if user has minted avatar
-            const minted = localStorage.getItem('mp_avatar_minted');
-            const configStr = localStorage.getItem('mp_avatar_config');
-            const storedAddress = localStorage.getItem('mp_avatar_address');
-            
-            // Check if wallet address matches
-            let currentAddress = null;
-            if (window.ethereum) {
-              try {
-                const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-                if (accounts && accounts.length > 0) {
-                  currentAddress = accounts[0].toLowerCase();
-                }
-              } catch (e) {
-                // Ignore error
-              }
-            }
-            
-            const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
-            const hasMinted = minted === 'true' && configStr && addressMatches;
-            
-            // Navigate based on mint status
-            if (hasMinted) {
-              // User has minted - go to profile page
-              window.location.href = '/avatar-profile.html';
+            // Use shared function for navigation
+            if (profileNavHandler) {
+              await profileNavHandler();
             } else {
-              // User hasn't minted - go directly to creator (skip intermediate page)
-              window.location.href = '/avatar-creator';
+              // Fallback if module not loaded yet
+              const module = await import('../avatar-system/src/profile-menu-avatar.js');
+              await module.handleProfileMenuNavigation();
             }
           }
           hamburgerDropdown.classList.remove('open');
