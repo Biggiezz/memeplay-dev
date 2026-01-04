@@ -166,6 +166,45 @@
       padding: 12px;
       justify-content: center;
     }
+    /* Profile item - double height */
+    .dropdown-item.profile-item {
+      padding: 24px 22px;
+      min-height: 96px;
+      height: auto;
+    }
+    .profile-item-content {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      width: 100%;
+    }
+    .profile-icon-wrapper {
+      flex-shrink: 0;
+    }
+    .profile-avatar-preview {
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      background: rgba(255, 182, 66, 0.1);
+      border: 2px solid rgba(255, 182, 66, 0.3);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+    .profile-avatar-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+    .profile-avatar-preview .plus-icon {
+      width: 32px;
+      height: 32px;
+      stroke: #ffb642;
+      fill: none;
+      stroke-width: 2.5;
+    }
     .dropdown-divider {
       height: 1px;
       background: rgba(255, 182, 66, 0.15);
@@ -517,6 +556,19 @@
         </button>
         <div class="nav-dropdown" id="hamburgerDropdown" role="menu" aria-hidden="true">
           <div class="dropdown-list" id="hamburgerList">
+            <div class="dropdown-item profile-item" data-action="profile" id="profileMenuItem">
+              <div class="profile-item-content">
+                <div class="profile-icon-wrapper">
+                  <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2;">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="12" cy="7" r="4"></circle>
+                  </svg>
+                </div>
+                <div class="profile-avatar-preview" id="profileAvatarPreview">
+                  <!-- Avatar image or plus icon will be rendered here -->
+                </div>
+              </div>
+            </div>
             <div class="dropdown-item" data-action="docs">
               <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2; margin-right: 8px;">
                 <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
@@ -544,13 +596,6 @@
                 <line x1="23" y1="11" x2="17" y2="11"></line>
               </svg>
               Referral
-            </div>
-            <div class="dropdown-item" data-action="profile">
-              <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2; margin-right: 8px;">
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                <circle cx="12" cy="7" r="4"></circle>
-              </svg>
-              Profile
             </div>
             <div class="dropdown-divider"></div>
             <a href="https://twitter.com/memeplaydev" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-action="social-x" title="Follow us on X" aria-label="X (Twitter)">
@@ -1524,5 +1569,87 @@
       }
     }
   </style>
+  
+  <!-- Profile Menu Avatar Preview -->
+  <script type="module">
+    import { getAvatarFilePath } from '../avatar-system/src/avatar-utils.js';
+    
+    async function initProfileMenuAvatar() {
+      const profilePreview = document.getElementById('profileAvatarPreview');
+      if (!profilePreview) return;
+      
+      try {
+        // Check if user has minted
+        const minted = localStorage.getItem('mp_avatar_minted');
+        const configStr = localStorage.getItem('mp_avatar_config');
+        const storedAddress = localStorage.getItem('mp_avatar_address');
+        
+        // Check if wallet address matches (prevent showing wrong avatar)
+        let currentAddress = null;
+        if (window.ethereum) {
+          try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts && accounts.length > 0) {
+              currentAddress = accounts[0].toLowerCase();
+            }
+          } catch (e) {
+            console.warn('[Profile Menu] Could not get wallet address:', e);
+          }
+        }
+        
+        const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
+        
+        if (minted === 'true' && configStr && addressMatches) {
+          // User has minted - show avatar
+          try {
+            const config = JSON.parse(configStr);
+            const avatarPath = getAvatarFilePath(config);
+            
+            const img = document.createElement('img');
+            img.src = avatarPath;
+            img.alt = 'Avatar';
+            img.onerror = () => {
+              // Fallback to plus icon if image not found
+              showPlusIcon(profilePreview);
+            };
+            profilePreview.innerHTML = '';
+            profilePreview.appendChild(img);
+          } catch (e) {
+            console.error('[Profile Menu] Error loading avatar:', e);
+            showPlusIcon(profilePreview);
+          }
+        } else {
+          // User hasn't minted - show plus icon
+          showPlusIcon(profilePreview);
+        }
+      } catch (e) {
+        console.error('[Profile Menu] Error:', e);
+        showPlusIcon(profilePreview);
+      }
+    }
+    
+    function showPlusIcon(container) {
+      container.innerHTML = `
+        <svg class="plus-icon" viewBox="0 0 24 24">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+      `;
+    }
+    
+    // Initialize when DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initProfileMenuAvatar);
+    } else {
+      initProfileMenuAvatar();
+    }
+    
+    // Update when wallet changes
+    if (window.ethereum) {
+      window.ethereum.on('accountsChanged', () => {
+        setTimeout(initProfileMenuAvatar, 500);
+      });
+    }
+  </script>
 </body>
 </html>
