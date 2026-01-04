@@ -20,10 +20,43 @@ export class MintService {
 
   /**
    * Connect wallet (Base Wallet or MetaMask)
+   * Uses memeplayWallet API if available, falls back to direct ethereum
    */
   async connectWallet() {
     try {
-      // Check if wallet is available
+      // Try using memeplayWallet API first (if available)
+      if (globalThis.memeplayWallet && globalThis.memeplayWallet.connect) {
+        try {
+          await globalThis.memeplayWallet.connect();
+          // After connecting via memeplayWallet, get address
+          const address = await this.getAddress();
+          if (!address) {
+            throw new Error('WALLET_REJECTED');
+          }
+          
+          // Check network
+          await this.checkNetwork();
+          
+          // Load ethers.js if not already loaded
+          await this.loadEthers();
+          
+          // Setup provider and signer
+          this.provider = new window.ethers.providers.Web3Provider(window.ethereum);
+          this.signer = this.provider.getSigner();
+          this.contract = new window.ethers.Contract(
+            this.contractAddress,
+            this.contractABI,
+            this.signer
+          );
+          
+          return address;
+        } catch (error) {
+          // If memeplayWallet.connect fails, fall through to direct ethereum
+          console.warn('[MintService] memeplayWallet.connect failed, falling back to direct ethereum:', error);
+        }
+      }
+
+      // Fallback to direct ethereum connection
       if (!window.ethereum) {
         throw new Error('WALLET_NOT_FOUND');
       }

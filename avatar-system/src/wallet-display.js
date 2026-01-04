@@ -95,6 +95,44 @@ export function initWalletDisplay(options) {
   // Initial update
   updateWalletDisplay();
 
+  // Auto-connect for Base App (if not already connected)
+  async function tryAutoConnect() {
+    try {
+      // Check if running in Base App
+      const isBaseApp = window.ethereum?.isBase || window.parent !== window;
+      
+      if (isBaseApp) {
+        // Check if already connected
+        const isConnected = await mintService.isConnected();
+        
+        if (!isConnected) {
+          // Try to auto-connect using memeplayWallet API
+          if (globalThis.memeplayWallet && globalThis.memeplayWallet.connect) {
+            try {
+              await globalThis.memeplayWallet.connect();
+              await updateWalletDisplay();
+              
+              // Call onAccountChange callback if provided
+              if (onAccountChange) {
+                await onAccountChange();
+              }
+              
+              console.log('[WalletDisplay] Base App auto-connect successful');
+            } catch (error) {
+              // Auto-connect failed, but that's OK - user can manually connect
+              console.log('[WalletDisplay] Base App auto-connect failed (user may need to connect manually):', error);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.warn('[WalletDisplay] Auto-connect check error:', error);
+    }
+  }
+
+  // Try auto-connect after a short delay (to ensure memeplayWallet API is ready)
+  setTimeout(tryAutoConnect, 500);
+
   // Update periodically (every 5 seconds) to catch external wallet changes
   setInterval(updateWalletDisplay, 5000);
 }
