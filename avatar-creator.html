@@ -42,7 +42,10 @@
     }
 
     .wallet-section {
-      text-align: center;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 12px;
       padding: 10px 20px;
       background: #1a1a2e;
       border-bottom: 1px solid rgba(255, 182, 66, 0.2);
@@ -72,7 +75,8 @@
       display: inline-block;
     }
 
-    .wallet-connect-btn {
+    .wallet-connect-btn,
+    .back-to-home-btn {
       padding: 8px 16px;
       background: #ffb642;
       border: none;
@@ -82,9 +86,12 @@
       font-weight: 600;
       cursor: pointer;
       transition: all 0.2s ease;
+      flex: 0 0 auto;
+      min-width: 120px;
     }
 
-    .wallet-connect-btn:hover {
+    .wallet-connect-btn:hover,
+    .back-to-home-btn:hover {
       background: #ffc966;
     }
 
@@ -387,6 +394,9 @@
       <button class="wallet-connect-btn" id="walletConnectBtn" style="display: none;">
         Connect Wallet
       </button>
+      <button class="back-to-home-btn" id="backToHomeBtn">
+        Back to Homepage
+      </button>
     </div>
 
     <!-- Preview -->
@@ -461,5 +471,17 @@
   <!-- ✅ FIX: Use external script file instead of inline script with ES6 imports -->
   <!-- This fixes mobile browser compatibility issues -->
   <script type="module" src="scripts/avatar-creator.js"></script>
+  
+  <!-- Back to Homepage Button Handler -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const backBtn = document.getElementById('backToHomeBtn');
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          window.location.href = '/';
+        });
+      }
+    });
+  </script>
 </body>
 </html>
