@@ -404,21 +404,12 @@
   <!-- Back to Homepage Button Handler -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
-      // Back button in profile content (when user has avatar)
-      const backBtn = document.getElementById('backToHomeBtn');
-      if (backBtn) {
-        backBtn.addEventListener('click', () => {
+      // Handle all back to homepage buttons
+      document.querySelectorAll('.back-to-home-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
           window.location.href = '/';
         });
-      }
-      
-      // Back button in no avatar section (when user hasn't minted)
-      const backBtnNoAvatar = document.getElementById('backToHomeBtnNoAvatar');
-      if (backBtnNoAvatar) {
-        backBtnNoAvatar.addEventListener('click', () => {
-          window.location.href = '/';
-        });
-      }
+      });
     });
   </script>
 </body>
