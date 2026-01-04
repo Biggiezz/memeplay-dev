@@ -301,6 +301,11 @@
       transform: translateY(0);
       box-shadow: 0 2px 8px rgba(255, 182, 66, 0.4);
     }
+    
+    /* Back button in no avatar section - adjust spacing */
+    #noAvatarSection .back-to-home-btn {
+      margin-top: 40px;
+    }
 
     @media (max-width: 768px) {
       .container {
@@ -387,6 +392,9 @@
         creat FREE avatar
       </div>
       <a href="/avatar-creator" class="create-avatar-btn" title="Create Avatar"></a>
+      
+      <!-- Back to Homepage Button -->
+      <button id="backToHomeBtnNoAvatar" class="back-to-home-btn">BACK to homepage</button>
     </div>
   </div>
 
@@ -396,9 +404,18 @@
   <!-- Back to Homepage Button Handler -->
   <script>
     document.addEventListener('DOMContentLoaded', () => {
+      // Back button in profile content (when user has avatar)
       const backBtn = document.getElementById('backToHomeBtn');
       if (backBtn) {
         backBtn.addEventListener('click', () => {
+          window.location.href = '/';
+        });
+      }
+      
+      // Back button in no avatar section (when user hasn't minted)
+      const backBtnNoAvatar = document.getElementById('backToHomeBtnNoAvatar');
+      if (backBtnNoAvatar) {
+        backBtnNoAvatar.addEventListener('click', () => {
           window.location.href = '/';
         });
       }
