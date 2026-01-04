@@ -98,6 +98,8 @@ export function setupProfileMenuAvatar() {
 
 /**
  * Setup click handler for profile preview to navigate to avatar creator
+ * Note: onclick attribute is already set in HTML for immediate execution
+ * This function only ensures cursor style is set
  */
 function setupProfilePreviewClick() {
   const profilePreview = document.getElementById('profileAvatarPreview');
@@ -106,30 +108,23 @@ function setupProfilePreviewClick() {
     return;
   }
   
-  // Check if handler already attached
-  if (profilePreview.__previewClickHandlerAttached) {
-    console.log('[Profile Menu] Profile preview click handler already attached');
-    return;
-  }
-  
-  // Mark as attached
-  profilePreview.__previewClickHandlerAttached = true;
-  
-  // Add cursor pointer style
+  // Add cursor pointer style (onclick is already in HTML)
   profilePreview.style.cursor = 'pointer';
   profilePreview.style.pointerEvents = 'auto';
   
-  // Add click handler with capture phase (runs first, before bubble phase)
+  // Also ensure child elements (img, svg) can trigger navigation
+  // The onclick on parent should handle this, but add explicit handler for children
   profilePreview.addEventListener('click', function handlePreviewClick(e) {
-    e.preventDefault();
-    e.stopPropagation();
-    e.stopImmediatePropagation();
-    console.log('[Profile Menu] Profile preview clicked, navigating to /avatar-creator');
-    
-    // Navigate immediately
-    window.location.href = '/avatar-creator';
-    return false;
-  }, true); // Capture phase - runs before bubble phase handlers
+    // Only handle if click is on child element (img or svg)
+    if (e.target !== profilePreview && (e.target.tagName === 'IMG' || e.target.tagName === 'SVG' || e.target.closest('svg'))) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.stopImmediatePropagation();
+      console.log('[Profile Menu] Profile preview child clicked, navigating to /avatar-creator');
+      window.location.href = '/avatar-creator';
+      return false;
+    }
+  }, true); // Capture phase
   
   console.log('[Profile Menu] Profile preview click handler setup complete');
 }
