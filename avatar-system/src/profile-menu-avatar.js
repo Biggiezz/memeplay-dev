@@ -5,6 +5,89 @@ import { getAvatarFilePath, checkHasMintedFromLocalStorage } from './avatar-util
 import { MintService } from './mint-service.js';
 
 /**
+ * Get current wallet address (with fallback to memeplayWallet API)
+ * @returns {Promise<string|null>} Wallet address in lowercase or null
+ */
+async function getCurrentWalletAddress() {
+  let currentAddress = null;
+  
+  // Try window.ethereum first
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts && accounts.length > 0) {
+        currentAddress = accounts[0].toLowerCase();
+      }
+    } catch (e) {
+      // Ignore error
+    }
+  }
+  
+  // Fallback to memeplayWallet API
+  if (!currentAddress && globalThis.memeplayWallet && globalThis.memeplayWallet.getAddress) {
+    try {
+      const addr = globalThis.memeplayWallet.getAddress();
+      if (addr) {
+        currentAddress = addr.toLowerCase();
+      }
+    } catch (e) {
+      // Ignore error
+    }
+  }
+  
+  return currentAddress;
+}
+
+/**
+ * Display avatar image in profile preview container
+ * @param {HTMLElement} container - Profile preview container
+ * @param {Object} config - Avatar config
+ */
+function displayAvatarImage(container, config) {
+  const avatarPath = getAvatarFilePath(config);
+  const img = document.createElement('img');
+  img.src = avatarPath;
+  img.alt = 'Avatar';
+  img.onerror = () => {
+    showPlusIcon(container);
+  };
+  container.innerHTML = '';
+  container.appendChild(img);
+}
+
+/**
+ * Check if user has minted (from localStorage or contract)
+ * @param {string} currentAddress - Current wallet address
+ * @returns {Promise<boolean>} True if user has minted
+ */
+async function checkHasMinted(currentAddress) {
+  // Check localStorage first
+  const configStr = localStorage.getItem('mp_avatar_config');
+  const minted = localStorage.getItem('mp_avatar_minted');
+  const storedAddress = localStorage.getItem('mp_avatar_address');
+  const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
+  
+  if (minted === 'true' && configStr && addressMatches) {
+    return true;
+  }
+  
+  // Check contract if wallet connected
+  if (currentAddress) {
+    try {
+      const mintService = new MintService();
+      const isConnected = await mintService.isConnected();
+      if (isConnected) {
+        return await mintService.hasMinted(currentAddress);
+      }
+    } catch (e) {
+      // Ignore error
+    }
+  }
+  
+  return false;
+}
+
+/**
  * Initialize profile menu avatar preview
  * Checks if user has minted avatar and displays it, or shows plus icon
  * Checks localStorage first, then contract if needed
@@ -20,30 +103,8 @@ export async function initProfileMenuAvatar(retryCount = 0) {
     const minted = localStorage.getItem('mp_avatar_minted');
     const storedAddress = localStorage.getItem('mp_avatar_address');
     
-    // Check if wallet address matches
-    let currentAddress = null;
-    if (window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts && accounts.length > 0) {
-          currentAddress = accounts[0].toLowerCase();
-        }
-      } catch (e) {
-        // Ignore error
-      }
-    }
-    
-    // Also try memeplayWallet API as fallback
-    if (!currentAddress && globalThis.memeplayWallet && globalThis.memeplayWallet.getAddress) {
-      try {
-        const addr = globalThis.memeplayWallet.getAddress();
-        if (addr) {
-          currentAddress = addr.toLowerCase();
-        }
-      } catch (e) {
-        // Ignore error
-      }
-    }
+    // Get current wallet address
+    const currentAddress = await getCurrentWalletAddress();
     
     const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
     
@@ -51,17 +112,7 @@ export async function initProfileMenuAvatar(retryCount = 0) {
     if (minted === 'true' && configStr && addressMatches) {
       try {
         const config = JSON.parse(configStr);
-        const avatarPath = getAvatarFilePath(config);
-        
-        const img = document.createElement('img');
-        img.src = avatarPath;
-        img.alt = 'Avatar';
-        img.onerror = () => {
-          // Fallback to plus icon if image not found
-          showPlusIcon(profilePreview);
-        };
-        profilePreview.innerHTML = '';
-        profilePreview.appendChild(img);
+        displayAvatarImage(profilePreview, config);
         console.log('[Profile Menu] Avatar loaded from localStorage');
         return; // Success - exit early
       } catch (e) {
@@ -93,15 +144,7 @@ export async function initProfileMenuAvatar(retryCount = 0) {
                 localStorage.setItem('mp_avatar_tokenId', tokenId.toString());
                 
                 // Display avatar
-                const avatarPath = getAvatarFilePath(config);
-                const img = document.createElement('img');
-                img.src = avatarPath;
-                img.alt = 'Avatar';
-                img.onerror = () => {
-                  showPlusIcon(profilePreview);
-                };
-                profilePreview.innerHTML = '';
-                profilePreview.appendChild(img);
+                displayAvatarImage(profilePreview, config);
                 console.log('[Profile Menu] Avatar loaded from contract');
                 return; // Success - exit early
               }
@@ -211,29 +254,7 @@ export function setupProfileMenuAvatar() {
   let lastAddress = null;
   setInterval(async () => {
     try {
-      let currentAddress = null;
-      if (window.ethereum) {
-        try {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          if (accounts && accounts.length > 0) {
-            currentAddress = accounts[0].toLowerCase();
-          }
-        } catch (e) {
-          // Ignore
-        }
-      }
-      
-      // Also try memeplayWallet API
-      if (!currentAddress && globalThis.memeplayWallet && globalThis.memeplayWallet.getAddress) {
-        try {
-          const addr = globalThis.memeplayWallet.getAddress();
-          if (addr) {
-            currentAddress = addr.toLowerCase();
-          }
-        } catch (e) {
-          // Ignore
-        }
-      }
+      const currentAddress = await getCurrentWalletAddress();
       
       // If address changed (from null to address, or different address), update avatar
       if (currentAddress !== lastAddress) {
@@ -278,59 +299,16 @@ function setupProfilePreviewClick() {
     e.stopImmediatePropagation();
     
     try {
-      // Check mint status from localStorage first (fastest)
-      const configStr = localStorage.getItem('mp_avatar_config');
-      const minted = localStorage.getItem('mp_avatar_minted');
-      const storedAddress = localStorage.getItem('mp_avatar_address');
+      const currentAddress = await getCurrentWalletAddress();
+      const hasMinted = await checkHasMinted(currentAddress);
       
-      // Check if wallet address matches
-      let currentAddress = null;
-      if (window.ethereum) {
-        try {
-          const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-          if (accounts && accounts.length > 0) {
-            currentAddress = accounts[0].toLowerCase();
-          }
-        } catch (e) {
-          // Ignore error
-        }
-      }
-      
-      const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
-      const hasMintedFromLocalStorage = minted === 'true' && configStr && addressMatches;
-      
-      if (hasMintedFromLocalStorage) {
-        // User has minted - go to profile page
+      if (hasMinted) {
         console.log('[Profile Menu] User has minted, navigating to /avatar-profile.html');
         window.location.href = '/avatar-profile.html';
-        return false;
+      } else {
+        console.log('[Profile Menu] User has not minted, navigating to /avatar-creator');
+        window.location.href = '/avatar-creator';
       }
-      
-      // If localStorage doesn't have valid data, check contract (if wallet connected)
-      if (currentAddress) {
-        try {
-          const mintService = new MintService();
-          const isConnected = await mintService.isConnected();
-          
-          if (isConnected) {
-            const hasMinted = await mintService.hasMinted(currentAddress);
-            
-            if (hasMinted) {
-              // User has minted - go to profile page
-              console.log('[Profile Menu] User has minted (from contract), navigating to /avatar-profile.html');
-              window.location.href = '/avatar-profile.html';
-              return false;
-            }
-          }
-        } catch (e) {
-          console.warn('[Profile Menu] Error checking contract:', e);
-          // Fall through to creator
-        }
-      }
-      
-      // User hasn't minted - go to creator
-      console.log('[Profile Menu] User has not minted, navigating to /avatar-creator');
-      window.location.href = '/avatar-creator';
       return false;
     } catch (error) {
       console.error('[Profile Menu] Error handling click:', error);
