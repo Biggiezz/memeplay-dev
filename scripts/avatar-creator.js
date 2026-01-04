@@ -1,19 +1,12 @@
 // Avatar Creator Script
-// Import animation renderer and config
-import { AnimationRenderer } from '../avatar-system/src/animation-renderer.js';
-import { ANIMATION_CONFIG } from '../avatar-system/src/animation-config.js';
+// Import shared modules
+import { AVATAR_CONFIG, getAvatarFilePath, generateHash } from '../avatar-system/src/avatar-utils.js';
+import { showLoading, hideLoading } from '../avatar-system/src/loading-utils.js';
+import { renderAvatarWithAnimation } from '../avatar-system/src/avatar-renderer.js';
+import { initWalletDisplay } from '../avatar-system/src/wallet-display.js';
 import { MintService } from '../avatar-system/src/mint-service.js';
 import { CONTRACT_ADDRESS } from '../avatar-system/src/contract-address.js';
 import { trackMint } from '../avatar-system/src/tracking.js';
-
-// Avatar Config
-const AVATAR_CONFIG = {
-  actors: {
-    boy: { skin: 1, letter: 'a' },
-    fish: { skin: 2, letter: 'b' },
-    supergirl: { skin: 3, letter: 'c' }
-  }
-};
 
 // Current config
 let currentConfig = {
@@ -33,195 +26,27 @@ const imageCache = new Map();
 // Mint service
 const mintService = new MintService();
 
-// Loading indicator
+// Loading indicator (for passing to shared functions)
 const loadingIndicator = document.getElementById('loadingIndicator');
-
-// Show/hide loading
-function showLoading() {
-  if (loadingIndicator) loadingIndicator.classList.add('active');
-}
-
-function hideLoading() {
-  if (loadingIndicator) loadingIndicator.classList.remove('active');
-}
-
-// Generate hash from config
-function generateHash(config) {
-  const configString = `${config.actor}-${config.skin}-${config.clothes}-${config.equipment}-${config.hat}`;
-  // Simple hash function (for demo, will use proper hash in production)
-  let hash = 0;
-  for (let i = 0; i < configString.length; i++) {
-    const char = configString.charCodeAt(i);
-    hash = ((hash << 5) - hash) + char;
-    hash = hash & hash; // Convert to 32bit integer
-  }
-  // Convert to hex and take first 8 chars
-  const hexHash = Math.abs(hash).toString(16).padStart(8, '0').substring(0, 8);
-  const hashValue = `0x${hexHash}`;
-  
-  // Debug: Log config string and hash to console (for verification)
-  if (console && console.debug) {
-    console.debug(`[Hash] Config: "${configString}" → Hash: ${hashValue}`);
-  }
-  
-  return hashValue;
-}
-
-// Get avatar file path
-function getAvatarFilePath(config) {
-  const actorData = AVATAR_CONFIG.actors[config.actor];
-  const skinLetter = actorData.letter;
-  const clothes = config.clothes || 0;
-  const equipment = config.equipment || 0;
-  const hat = config.hat || 0;
-  
-  return `avatar-system/assets/avatars/${skinLetter}${clothes}${equipment}${hat}.png`;
-}
 
 // Update preview with animation
 async function updatePreview() {
   const canvas = document.getElementById('avatarPreview');
   const hashDisplay = document.getElementById('hashDisplay');
   
-  // Show loading
-  showLoading();
-  
-  // Get animation path
-  const animationPath = ANIMATION_CONFIG.getAnimationPath(
-    currentConfig.actor,
-    currentConfig.clothes,
-    currentConfig.equipment,
-    currentConfig.hat
-  );
-  
-  // Step 1: Start animation immediately (as loading indicator)
-  let animationStarted = false;
-  let animationStartTime = null; // Track when animation started
-  try {
-    // Stop old animation if playing
-    if (animationRenderer && animationRenderer.isPlaying) {
-      animationRenderer.stop();
-    }
-    
-    // Create new animation renderer
-    animationRenderer = new AnimationRenderer(canvas);
-    const initialized = await animationRenderer.init(animationPath);
-    
-    if (initialized) {
-      // Start animation
-      if (!animationRenderer.isPlaying) {
-        animationRenderer.start();
-        animationStartTime = performance.now(); // Record start time
-      }
-      animationStarted = true;
-      console.log(`🎬 Animation started: ${animationPath}`);
-    } else {
-      console.log(`⚠️ Animation not found: ${animationPath}`);
-    }
-  } catch (error) {
-    console.log(`⚠️ Animation load error: ${error.message}`);
-  }
-  
-  // Step 2: Try to load pre-rendered avatar (parallel with animation)
-  const filePath = getAvatarFilePath(currentConfig);
-  
-  // Check cache first
-  if (imageCache.has(filePath)) {
-    const cachedImg = imageCache.get(filePath);
-    hideLoading();
-    
-    // Stop animation if playing
-    if (animationRenderer && animationRenderer.isPlaying) {
-      animationRenderer.stop();
-    }
-    
-    // Draw cached image
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(cachedImg, 0, 0, canvas.width, canvas.height);
-    
-    // Update hash display
-    const hash = generateHash(currentConfig);
-    hashDisplay.textContent = hash;
-    return;
-  }
-  
-  // Load new image
-  const img = new Image();
-  let timeout = null;
-  
-  img.onerror = () => {
-    if (timeout) clearTimeout(timeout);
-    // Pre-rendered image not found, keep animation running
-    console.log(`⚠️ Pre-rendered image not found: ${filePath}, keeping animation...`);
-    hideLoading();
-    
-    // Animation continues running (already started above)
-    // Update hash display
-    const hash = generateHash(currentConfig);
-    hashDisplay.textContent = hash;
-  };
-  
-  img.onload = () => {
-    if (timeout) clearTimeout(timeout);
-    
-    // Cache the image
-    imageCache.set(filePath, img);
-    hideLoading();
-    
-    // Stop animation if playing (pre-rendered image loaded successfully)
-    // BUT: Ensure animation runs at least 1 full cycle (0.8s for 4 frames)
-    if (animationRenderer && animationRenderer.isPlaying) {
-      const minAnimationDuration = 800; // 0.8s = 4 frames × 200ms
-      const animationElapsed = animationStartTime ? performance.now() - animationStartTime : 0;
-      const remainingTime = Math.max(0, minAnimationDuration - animationElapsed);
-      
-      if (remainingTime > 0) {
-        // Wait for animation to complete at least 1 cycle
-        console.log(`⏳ Pre-rendered image loaded, waiting ${remainingTime.toFixed(0)}ms for animation cycle to complete...`);
-        setTimeout(() => {
-          if (animationRenderer && animationRenderer.isPlaying) {
-            animationRenderer.stop();
-            console.log('✅ Animation cycle completed, stopped');
-          }
-          
-          // Draw static image after animation stops
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        }, remainingTime);
-      } else {
-        // Animation already ran for at least 1 cycle, stop immediately
-        animationRenderer.stop();
-        console.log('✅ Pre-rendered image loaded, animation stopped');
-        
-        // Draw static image
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      }
-    } else {
-      // No animation playing, just draw the image
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    }
-    
-    // Update hash display
-    const hash = generateHash(currentConfig);
-    hashDisplay.textContent = hash;
-  };
-  
-  // Set timeout for loading (10 seconds)
-  timeout = setTimeout(() => {
-    if (!img.complete) {
-      hideLoading();
-      console.error('⏱️ Image load timeout:', filePath);
-      // Animation continues if image timeout
-    }
-  }, 10000);
-  
-  img.src = filePath;
+  // Use shared render function
+  animationRenderer = await renderAvatarWithAnimation({
+    canvas: canvas,
+    config: currentConfig,
+    imageCache: imageCache,
+    animationRenderer: animationRenderer,
+    onHashUpdate: (config) => {
+      // Update hash display (unique to creator page)
+      const hash = generateHash(config);
+      if (hashDisplay) hashDisplay.textContent = hash;
+    },
+    imageLoadTimeout: 10000 // 10 seconds timeout (unique to creator page)
+  });
 }
 
 // Initialize selectors
@@ -420,84 +245,15 @@ function initHashDisplayDebug() {
   }
 }
 
-// Initialize wallet display
-function initWalletDisplay() {
-  const walletStatus = document.getElementById('walletStatus');
-  const walletAddress = document.getElementById('walletAddress');
-  const walletCopyBtn = document.getElementById('walletCopyBtn');
-  const walletConnectBtn = document.getElementById('walletConnectBtn');
-
-  // Function to update wallet display
-  async function updateWalletDisplay() {
-    try {
-      const address = await mintService.getAddress();
-      const isConnected = await mintService.isConnected();
-
-      if (isConnected && address) {
-        // Show connected state
-        walletStatus.style.display = 'inline-flex';
-        walletConnectBtn.style.display = 'none';
-        walletStatus.classList.add('connected');
-        walletAddress.textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
-      } else {
-        // Show connect button
-        walletStatus.style.display = 'none';
-        walletConnectBtn.style.display = 'inline-block';
-        walletStatus.classList.remove('connected');
-      }
-    } catch (error) {
-      console.error('Update wallet display error:', error);
-      walletStatus.style.display = 'none';
-      walletConnectBtn.style.display = 'inline-block';
-    }
-  }
-
-  // Copy address button
-  walletCopyBtn?.addEventListener('click', async () => {
-    try {
-      const address = await mintService.getAddress();
-      if (address) {
-        await navigator.clipboard.writeText(address);
-        walletCopyBtn.textContent = '✓';
-        setTimeout(() => {
-          walletCopyBtn.textContent = '📋';
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Copy address error:', error);
-    }
-  });
-
-  // Connect wallet button
-  walletConnectBtn?.addEventListener('click', async () => {
-    try {
-      walletConnectBtn.disabled = true;
-      walletConnectBtn.textContent = 'Connecting...';
-      await mintService.connectWallet();
-      await updateWalletDisplay();
-      walletConnectBtn.textContent = 'Connect Wallet';
-    } catch (error) {
-      console.error('Connect wallet error:', error);
-      walletConnectBtn.textContent = 'Connect Wallet';
-      alert(mintService.getErrorMessage(error));
-    } finally {
-      walletConnectBtn.disabled = false;
-    }
-  });
-
-  // Listen for account changes
-  if (window.ethereum) {
-    window.ethereum.on('accountsChanged', async () => {
-      await updateWalletDisplay();
+// Initialize wallet display (using shared module)
+function initWalletDisplayLocal() {
+  initWalletDisplay({
+    mintService: mintService,
+    onAccountChange: async () => {
+      // Reload mint status when account changes (unique to creator page)
       await checkExistingMint();
-    });
-  }
-
-  // Initial update
-  updateWalletDisplay();
-
-  // Update periodically (every 5 seconds) to catch external wallet changes
-  setInterval(updateWalletDisplay, 5000);
+    }
+  });
 }
 
 // Check if user already has minted and show tokenId
@@ -547,7 +303,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     initSelectors();
     initMintButton();
     initHashDisplayDebug(); // Add hash debug handler
-    initWalletDisplay(); // Initialize wallet display
+    initWalletDisplayLocal(); // Initialize wallet display
     
     // Small delay to ensure DOM is fully ready (especially on mobile)
     await new Promise(resolve => setTimeout(resolve, 100));

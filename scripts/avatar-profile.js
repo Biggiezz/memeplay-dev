@@ -1,19 +1,11 @@
 // Avatar Profile Page Logic
 // Load avatar from localStorage or contract and display profile info
 
-import { AnimationRenderer } from '../avatar-system/src/animation-renderer.js';
-import { ANIMATION_CONFIG } from '../avatar-system/src/animation-config.js';
+import { renderAvatarWithAnimation } from '../avatar-system/src/avatar-renderer.js';
+import { showLoading, hideLoading } from '../avatar-system/src/loading-utils.js';
+import { initWalletDisplay } from '../avatar-system/src/wallet-display.js';
 import { MintService } from '../avatar-system/src/mint-service.js';
 import { CONTRACT_ADDRESS } from '../avatar-system/src/contract-address.js';
-
-// Avatar Config
-const AVATAR_CONFIG = {
-  actors: {
-    boy: { skin: 1, letter: 'a' },
-    fish: { skin: 2, letter: 'b' },
-    supergirl: { skin: 3, letter: 'c' }
-  }
-};
 
 // Animation renderer
 let animationRenderer = null;
@@ -34,145 +26,20 @@ const configHashDisplay = document.getElementById('configHashDisplay');
 const transactionDisplay = document.getElementById('transactionDisplay');
 const mintedAtDisplay = document.getElementById('mintedAtDisplay');
 
-// Show/hide loading
-function showLoading() {
-  if (loadingIndicator) loadingIndicator.classList.add('active');
-}
 
-function hideLoading() {
-  if (loadingIndicator) loadingIndicator.classList.remove('active');
-}
-
-// Get avatar file path
-function getAvatarFilePath(config) {
-  const actorData = AVATAR_CONFIG.actors[config.actor];
-  const skinLetter = actorData.letter;
-  const clothes = config.clothes || 0;
-  const equipment = config.equipment || 0;
-  const hat = config.hat || 0;
-  
-  return `avatar-system/assets/avatars/${skinLetter}${clothes}${equipment}${hat}.png`;
-}
-
-// Render avatar (pre-rendered image or animation)
+// Render avatar (pre-rendered image or animation) - using shared module
 async function renderAvatar(config) {
   if (!avatarPreview) return;
   
-  showLoading();
-  
-  const canvas = avatarPreview;
-  const filePath = getAvatarFilePath(config);
-  
-  // Get animation path
-  const animationPath = ANIMATION_CONFIG.getAnimationPath(
-    config.actor,
-    config.clothes,
-    config.equipment,
-    config.hat
-  );
-  
-  // Step 1: Start animation immediately (as loading indicator)
-  let animationStarted = false;
-  let animationStartTime = null; // Track when animation started
-  try {
-    // Stop old animation if playing
-    if (animationRenderer && animationRenderer.isPlaying) {
-      animationRenderer.stop();
-    }
-    
-    // Create new animation renderer
-    animationRenderer = new AnimationRenderer(canvas);
-    const initialized = await animationRenderer.init(animationPath);
-    
-    if (initialized) {
-      // Start animation
-      if (!animationRenderer.isPlaying) {
-        animationRenderer.start();
-        animationStartTime = performance.now(); // Record start time
-      }
-      animationStarted = true;
-      console.log(`🎬 Animation started: ${animationPath}`);
-    } else {
-      console.log(`⚠️ Animation not found: ${animationPath}`);
-    }
-  } catch (error) {
-    console.log(`⚠️ Animation load error: ${error.message}`);
-  }
-  
-  // Step 2: Check cache first
-  if (imageCache.has(filePath)) {
-    const cachedImg = imageCache.get(filePath);
-    hideLoading();
-    
-    // Stop animation if playing
-    if (animationRenderer && animationRenderer.isPlaying) {
-      animationRenderer.stop();
-      console.log('✅ Pre-rendered image from cache, animation stopped');
-    }
-    
-    // Draw cached image
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.drawImage(cachedImg, 0, 0, canvas.width, canvas.height);
-    return;
-  }
-  
-  // Step 3: Load new image (parallel with animation)
-  const img = new Image();
-  
-  img.onerror = () => {
-    // Pre-rendered image not found, keep animation running
-    console.log(`⚠️ Pre-rendered image not found: ${filePath}, keeping animation...`);
-    hideLoading();
-    
-    // Animation continues running (already started above)
-  };
-  
-  img.onload = () => {
-    // Cache the image
-    imageCache.set(filePath, img);
-    hideLoading();
-    
-    // Stop animation if playing (pre-rendered image loaded successfully)
-    // BUT: Ensure animation runs at least 1 full cycle (0.8s for 4 frames)
-    if (animationRenderer && animationRenderer.isPlaying) {
-      const minAnimationDuration = 800; // 0.8s = 4 frames × 200ms
-      const animationElapsed = animationStartTime ? performance.now() - animationStartTime : 0;
-      const remainingTime = Math.max(0, minAnimationDuration - animationElapsed);
-      
-      if (remainingTime > 0) {
-        // Wait for animation to complete at least 1 cycle
-        console.log(`⏳ Pre-rendered image loaded, waiting ${remainingTime.toFixed(0)}ms for animation cycle to complete...`);
-        setTimeout(() => {
-          if (animationRenderer && animationRenderer.isPlaying) {
-            animationRenderer.stop();
-            console.log('✅ Animation cycle completed, stopped');
-          }
-          
-          // Draw static image after animation stops
-          const ctx = canvas.getContext('2d');
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        }, remainingTime);
-      } else {
-        // Animation already ran for at least 1 cycle, stop immediately
-        animationRenderer.stop();
-        console.log('✅ Pre-rendered image loaded, animation stopped');
-        
-        // Draw static image
-        const ctx = canvas.getContext('2d');
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      }
-    } else {
-      // No animation playing, just draw the image
-      const ctx = canvas.getContext('2d');
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-    }
-  };
-  
-  img.src = filePath;
+  // Use shared render function
+  animationRenderer = await renderAvatarWithAnimation({
+    canvas: avatarPreview,
+    config: config,
+    imageCache: imageCache,
+    animationRenderer: animationRenderer,
+    onHashUpdate: null, // Profile page doesn't need hash display
+    imageLoadTimeout: 0 // No timeout for profile page
+  });
 }
 
 // Display profile info
@@ -358,85 +225,15 @@ async function loadAvatar() {
   }
 }
 
-// Initialize wallet display
-function initWalletDisplay() {
-  const walletStatus = document.getElementById('walletStatus');
-  const walletAddress = document.getElementById('walletAddress');
-  const walletCopyBtn = document.getElementById('walletCopyBtn');
-  const walletConnectBtn = document.getElementById('walletConnectBtn');
-
-  // Function to update wallet display
-  async function updateWalletDisplay() {
-    try {
-      const address = await mintService.getAddress();
-      const isConnected = await mintService.isConnected();
-
-      if (isConnected && address) {
-        // Show connected state
-        if (walletStatus) walletStatus.style.display = 'inline-flex';
-        if (walletConnectBtn) walletConnectBtn.style.display = 'none';
-        if (walletStatus) walletStatus.classList.add('connected');
-        if (walletAddress) walletAddress.textContent = `${address.slice(0, 6)}...${address.slice(-4)}`;
-      } else {
-        // Show connect button
-        if (walletStatus) walletStatus.style.display = 'none';
-        if (walletConnectBtn) walletConnectBtn.style.display = 'inline-block';
-        if (walletStatus) walletStatus.classList.remove('connected');
-      }
-    } catch (error) {
-      console.error('Update wallet display error:', error);
-      if (walletStatus) walletStatus.style.display = 'none';
-      if (walletConnectBtn) walletConnectBtn.style.display = 'inline-block';
-    }
-  }
-
-  // Copy address button
-  walletCopyBtn?.addEventListener('click', async () => {
-    try {
-      const address = await mintService.getAddress();
-      if (address) {
-        await navigator.clipboard.writeText(address);
-        walletCopyBtn.textContent = '✓';
-        setTimeout(() => {
-          walletCopyBtn.textContent = '📋';
-        }, 1500);
-      }
-    } catch (error) {
-      console.error('Copy address error:', error);
+// Initialize wallet display (using shared module)
+function initWalletDisplayLocal() {
+  initWalletDisplay({
+    mintService: mintService,
+    onAccountChange: async () => {
+      // Reload avatar when account changes (unique to profile page)
+      await loadAvatar();
     }
   });
-
-  // Connect wallet button
-  walletConnectBtn?.addEventListener('click', async () => {
-    try {
-      walletConnectBtn.disabled = true;
-      walletConnectBtn.textContent = 'Connecting...';
-      await mintService.connectWallet();
-      await updateWalletDisplay();
-      await loadAvatar(); // Reload avatar after connecting
-      walletConnectBtn.textContent = 'Connect Wallet';
-    } catch (error) {
-      console.error('Connect wallet error:', error);
-      walletConnectBtn.textContent = 'Connect Wallet';
-      alert(mintService.getErrorMessage(error));
-    } finally {
-      walletConnectBtn.disabled = false;
-    }
-  });
-
-  // Listen for account changes
-  if (window.ethereum) {
-    window.ethereum.on('accountsChanged', async () => {
-      await updateWalletDisplay();
-      await loadAvatar(); // Reload avatar on account change
-    });
-  }
-
-  // Initial update
-  updateWalletDisplay();
-
-  // Update periodically (every 5 seconds)
-  setInterval(updateWalletDisplay, 5000);
 }
 
 // Initialize on load
@@ -445,7 +242,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.log('✅ Avatar Profile: DOMContentLoaded');
     
     // Initialize wallet display
-    initWalletDisplay();
+    initWalletDisplayLocal();
     
     // Small delay to ensure DOM is ready
     await new Promise(resolve => setTimeout(resolve, 100));
