@@ -1,7 +1,7 @@
 // Profile Menu Avatar Preview - Shared module
 // Used by index.html and telegram-mini-app.html
 
-import { getAvatarFilePath } from './avatar-utils.js';
+import { getAvatarFilePath, checkHasMintedFromLocalStorage } from './avatar-utils.js';
 
 /**
  * Initialize profile menu avatar preview
@@ -12,27 +12,10 @@ export async function initProfileMenuAvatar() {
   if (!profilePreview) return;
   
   try {
-    // Check if user has minted
-    const minted = localStorage.getItem('mp_avatar_minted');
-    const configStr = localStorage.getItem('mp_avatar_config');
-    const storedAddress = localStorage.getItem('mp_avatar_address');
+    // Check if user has minted using shared function
+    const hasMinted = await checkHasMintedFromLocalStorage();
     
-    // Check if wallet address matches (prevent showing wrong avatar)
-    let currentAddress = null;
-    if (window.ethereum) {
-      try {
-        const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-        if (accounts && accounts.length > 0) {
-          currentAddress = accounts[0].toLowerCase();
-        }
-      } catch (e) {
-        console.warn('[Profile Menu] Could not get wallet address:', e);
-      }
-    }
-    
-    const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
-    
-    if (minted === 'true' && configStr && addressMatches) {
+    if (hasMinted) {
       // User has minted - show avatar
       try {
         const config = JSON.parse(configStr);
@@ -127,5 +110,21 @@ function setupProfilePreviewClick() {
   }, true); // Capture phase
   
   console.log('[Profile Menu] Profile preview click handler setup complete');
+}
+
+/**
+ * Handle profile menu item navigation based on mint status
+ * Navigates to profile page if user has minted, otherwise to creator
+ */
+export async function handleProfileMenuNavigation() {
+  const hasMinted = await checkHasMintedFromLocalStorage();
+  
+  if (hasMinted) {
+    // User has minted - go to profile page
+    window.location.href = '/avatar-profile.html';
+  } else {
+    // User hasn't minted - go directly to creator (skip intermediate page)
+    window.location.href = '/avatar-creator';
+  }
 }
 

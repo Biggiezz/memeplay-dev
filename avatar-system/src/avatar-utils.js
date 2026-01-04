@@ -51,3 +51,30 @@ export function getAvatarFilePath(config) {
   return `avatar-system/assets/avatars/${skinLetter}${clothes}${equipment}${hat}.png`;
 }
 
+/**
+ * Check if user has minted avatar from localStorage
+ * Also verifies wallet address matches to prevent showing wrong avatar
+ * @returns {Promise<boolean>} true if user has minted and wallet matches
+ */
+export async function checkHasMintedFromLocalStorage() {
+  const minted = localStorage.getItem('mp_avatar_minted');
+  const configStr = localStorage.getItem('mp_avatar_config');
+  const storedAddress = localStorage.getItem('mp_avatar_address');
+  
+  // Check if wallet address matches
+  let currentAddress = null;
+  if (window.ethereum) {
+    try {
+      const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+      if (accounts && accounts.length > 0) {
+        currentAddress = accounts[0].toLowerCase();
+      }
+    } catch (e) {
+      // Ignore error - wallet not available or user rejected
+    }
+  }
+  
+  const addressMatches = !storedAddress || !currentAddress || storedAddress.toLowerCase() === currentAddress;
+  return minted === 'true' && configStr && addressMatches;
+}
+
