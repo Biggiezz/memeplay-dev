@@ -540,6 +540,13 @@
               </svg>
               Referral
             </div>
+            <div class="dropdown-item" data-action="profile">
+              <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2; margin-right: 8px;">
+                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                <circle cx="12" cy="7" r="4"></circle>
+              </svg>
+              Profile
+            </div>
             <div class="dropdown-divider"></div>
             <a href="https://twitter.com/memeplaydev" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-action="social-x" title="Follow us on X" aria-label="X (Twitter)">
               <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: #ffb642;">
@@ -694,6 +701,8 @@
             if (typeof window.__openReferralOverlay === 'function') {
               window.__openReferralOverlay();
             }
+          } else if (action === 'profile') {
+            window.location.href = '/avatar-profile.html';
           }
           hamburgerDropdown.classList.remove('open');
         });
