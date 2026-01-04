@@ -8,8 +8,9 @@ import { MintService } from './mint-service.js';
  * Initialize profile menu avatar preview
  * Checks if user has minted avatar and displays it, or shows plus icon
  * Checks localStorage first, then contract if needed
+ * @param {number} retryCount - Internal retry counter (for recursive retry)
  */
-export async function initProfileMenuAvatar() {
+export async function initProfileMenuAvatar(retryCount = 0) {
   const profilePreview = document.getElementById('profileAvatarPreview');
   if (!profilePreview) return;
   
@@ -26,6 +27,18 @@ export async function initProfileMenuAvatar() {
         const accounts = await window.ethereum.request({ method: 'eth_accounts' });
         if (accounts && accounts.length > 0) {
           currentAddress = accounts[0].toLowerCase();
+        }
+      } catch (e) {
+        // Ignore error
+      }
+    }
+    
+    // Also try memeplayWallet API as fallback
+    if (!currentAddress && globalThis.memeplayWallet && globalThis.memeplayWallet.getAddress) {
+      try {
+        const addr = globalThis.memeplayWallet.getAddress();
+        if (addr) {
+          currentAddress = addr.toLowerCase();
         }
       } catch (e) {
         // Ignore error
@@ -97,11 +110,21 @@ export async function initProfileMenuAvatar() {
         }
       } catch (e) {
         console.warn('[Profile Menu] Error checking contract:', e);
-        // Fall through to show plus icon
+        // Fall through to retry or show plus icon
       }
     }
     
-    // Step 3: No avatar found - show plus icon
+    // Step 3: If wallet might be connecting (retry logic)
+    // If we don't have address yet but ethereum is available, retry after a delay
+    if (!currentAddress && window.ethereum && retryCount < 3) {
+      console.log(`[Profile Menu] Wallet not ready yet, retrying... (${retryCount + 1}/3)`);
+      setTimeout(() => {
+        initProfileMenuAvatar(retryCount + 1);
+      }, 1000 * (retryCount + 1)); // 1s, 2s, 3s delays
+      return; // Don't show plus icon yet, wait for retry
+    }
+    
+    // Step 4: No avatar found - show plus icon
     showPlusIcon(profilePreview);
   } catch (e) {
     console.error('[Profile Menu] Error:', e);
@@ -200,12 +223,25 @@ export function setupProfileMenuAvatar() {
         }
       }
       
+      // Also try memeplayWallet API
+      if (!currentAddress && globalThis.memeplayWallet && globalThis.memeplayWallet.getAddress) {
+        try {
+          const addr = globalThis.memeplayWallet.getAddress();
+          if (addr) {
+            currentAddress = addr.toLowerCase();
+          }
+        } catch (e) {
+          // Ignore
+        }
+      }
+      
       // If address changed (from null to address, or different address), update avatar
       if (currentAddress !== lastAddress) {
         lastAddress = currentAddress;
         if (currentAddress) {
-          // Wallet just connected - update avatar
-          setTimeout(initProfileMenuAvatar, 300);
+          // Wallet just connected - update avatar immediately
+          console.log('[Profile Menu] Wallet address changed, updating avatar...');
+          initProfileMenuAvatar(0); // Reset retry count
         } else {
           // Wallet disconnected - show plus icon
           const profilePreview = document.getElementById('profileAvatarPreview');
@@ -217,7 +253,7 @@ export function setupProfileMenuAvatar() {
     } catch (e) {
       // Ignore errors
     }
-  }, 2000); // Check every 2 seconds
+  }, 1000); // Check every 1 second (faster for better UX)
 }
 
 /**
