@@ -272,6 +272,36 @@
       transform: scale(0.95);
     }
 
+    .back-to-home-btn {
+      width: 100%;
+      max-width: 500px;
+      padding: 18px 24px;
+      background: #ffb642;
+      color: #0a0a0a;
+      border: 3px solid #ffb642;
+      border-radius: 12px;
+      font-size: 1.1em;
+      font-weight: 700;
+      letter-spacing: 1px;
+      text-transform: uppercase;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 12px rgba(255, 182, 66, 0.4), 0 0 20px rgba(255, 182, 66, 0.2);
+      margin-top: 10px;
+    }
+
+    .back-to-home-btn:hover {
+      background: #ffc966;
+      border-color: #ffc966;
+      box-shadow: 0 6px 16px rgba(255, 182, 66, 0.6), 0 0 30px rgba(255, 182, 66, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .back-to-home-btn:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(255, 182, 66, 0.4);
+    }
+
     @media (max-width: 768px) {
       .container {
         padding: 15px;
@@ -346,6 +376,9 @@
           <span class="info-value" id="mintedAtDisplay">-</span>
         </div>
       </div>
+
+      <!-- Back to Homepage Button -->
+      <button id="backToHomeBtn" class="back-to-home-btn">BACK to homepage</button>
     </div>
 
     <!-- No Avatar Section -->
@@ -359,6 +392,18 @@
 
   <!-- Scripts -->
   <script type="module" src="scripts/avatar-profile.js"></script>
+  
+  <!-- Back to Homepage Button Handler -->
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const backBtn = document.getElementById('backToHomeBtn');
+      if (backBtn) {
+        backBtn.addEventListener('click', () => {
+          window.location.href = '/';
+        });
+      }
+    });
+  </script>
 </body>
 </html>
 
