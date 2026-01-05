@@ -67,6 +67,24 @@ const GAME_LIST_CACHE_KEY = 'mp_v3_game_list_cache'
 const GAME_LIST_CACHE_TTL = 5 * 60 * 1000 // 5 phút
 
 async function loadGameListFromSupabase() {
+  // ✅ BUILT-IN: Pet Avatar game (always first)
+  const petAvatarGame = {
+    id: 'pet-avatar',
+    template_id: 'pet-avatar-template',
+    title: 'Pet Avatar',
+    fragment_logo_url: '',
+    story_one: 'Pet Avatar',
+    story_text: 'Pet Avatar',
+    stories: ['Pet Avatar'],
+    likes_count: 0,
+    plays_count: 0,
+    comments_count: 0,
+    creator_id: 'memeplay-studio',
+    creator_name: 'MemePlay Studio',
+    templateUrl: '/games/templates-v2/pet-avatar-template/index.html',
+    source: 'built-in'
+  }
+  
   // ✅ OPTIMIZATION 1: Check cache first (chỉ dùng nếu có games)
   const cached = localStorage.getItem(GAME_LIST_CACHE_KEY)
   if (cached) {
@@ -75,7 +93,8 @@ async function loadGameListFromSupabase() {
       const age = Date.now() - timestamp
       // ✅ FIX: Chỉ dùng cache nếu có games và chưa hết hạn
       if (Array.isArray(games) && games.length > 0 && age < GAME_LIST_CACHE_TTL) {
-        return games
+        // ✅ Inject Pet Avatar vào đầu danh sách
+        return [petAvatarGame, ...games]
       } else {
         // Cache invalid hoặc empty, xóa cache cũ
         localStorage.removeItem(GAME_LIST_CACHE_KEY)
@@ -119,7 +138,7 @@ async function loadGameListFromSupabase() {
   const results = await Promise.all(promises)
   
   // ✅ OPTIMIZATION 3: Filter playmode-* chỉ 1 lần và normalize
-  const allGames = results.flatMap((r) => {
+  let allGames = results.flatMap((r) => {
     const templateId = r.templateId
     const config = r.config || getTemplateConfig(templateId)
     const data = r.data || []
@@ -174,8 +193,24 @@ async function loadGameListFromSupabase() {
       })
   })
   
+  // ✅ Inject Pet Avatar vào đầu danh sách (nếu chưa có)
+  const hasPetAvatar = allGames.some(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
+  if (!hasPetAvatar) {
+    allGames.unshift(petAvatarGame)
+  } else {
+    // Đảm bảo Pet Avatar ở đầu
+    const petAvatarIndex = allGames.findIndex(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
+    if (petAvatarIndex > 0) {
+      const petAvatar = allGames.splice(petAvatarIndex, 1)[0]
+      allGames.unshift(petAvatar)
+    }
+  }
+  
   // Sort by likes_count DESC, then by plays_count DESC
-  allGames.sort((a, b) => {
+  // ✅ Priority: pet-avatar-template luôn đầu tiên (đã ở đầu rồi, không cần sort)
+  // Chỉ sort các game còn lại (từ index 1 trở đi)
+  const restGames = allGames.slice(1)
+  restGames.sort((a, b) => {
     const aLikes = a.likes_count || 0
     const bLikes = b.likes_count || 0
     if (bLikes !== aLikes) {
@@ -184,10 +219,14 @@ async function loadGameListFromSupabase() {
     return (b.plays_count || 0) - (a.plays_count || 0)
   })
   
-  // ✅ OPTIMIZATION 1: Cache game list
+  // Combine: Pet Avatar + sorted rest
+  allGames = [allGames[0], ...restGames]
+  
+  // ✅ OPTIMIZATION 1: Cache game list (không cache Pet Avatar built-in)
   try {
+    const gamesToCache = allGames.filter(g => g.id !== 'pet-avatar')
     localStorage.setItem(GAME_LIST_CACHE_KEY, JSON.stringify({
-      games: allGames,
+      games: gamesToCache,
       timestamp: Date.now()
     }))
   } catch (e) {

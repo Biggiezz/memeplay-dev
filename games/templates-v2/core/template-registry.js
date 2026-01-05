@@ -454,6 +454,37 @@ export const TEMPLATE_REGISTRY = {
     displayName: 'Wall Bounce Bird',
     description: 'Bird bouncing between walls - avoid spikes and collect points',
     enabled: true
+  },
+  
+  // ✅ Pet Avatar Template (Always First)
+  'pet-avatar-template': {
+    adapterPath: '../pet-avatar-template/editor/editor-adapter.js',
+    adapterName: 'PetAvatarEditorAdapter',
+    playtestKey: 'pet_avatar_brand_config_playtest',
+    playtestGameId: 'playtest-pet-avatar',
+    storagePrefix: 'pet_avatar_brand_config_',
+    templateUrl: '/games/templates-v2/pet-avatar-template/index.html',
+    messageTypes: {
+      READY: 'PET_AVATAR_GAME_READY',
+      ERROR: 'PET_AVATAR_GAME_ERROR',
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
+    },
+    uiFields: {
+      story: {
+        enabled: true,
+        inputId: 'storyInput',
+        maxLength: 50
+      },
+      logo: {
+        enabled: true,
+        inputId: 'logoInput',
+        previewId: 'logoPreview'
+      }
+    },
+    displayName: 'Pet Avatar',
+    description: 'Virtual pet avatar game - interact with your pet',
+    enabled: true,
+    priority: true // ✅ Flag để sort game này lên đầu
   }
 };
 

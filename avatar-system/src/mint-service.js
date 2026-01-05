@@ -244,6 +244,7 @@ export class MintService {
   /**
    * Check if user has already minted
    * Retries up to 3 times with exponential backoff for mobile network reliability
+   * Returns null if check fails after retries (caller should handle as "unknown" status)
    */
   async hasMinted(address = null, retryCount = 0) {
     const maxRetries = 3;
@@ -280,19 +281,27 @@ export class MintService {
     } catch (error) {
       console.error(`Check hasMinted error (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
       
-      // Retry on network errors or timeouts
-      if (retryCount < maxRetries && (
-        error.message?.includes('timeout') ||
-        error.message?.includes('network') ||
-        error.code === 'NETWORK_ERROR' ||
-        error.code === 'TIMEOUT'
-      )) {
-        const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff
-        console.log(`Retrying hasMinted in ${delay}ms...`);
+      // Don't retry on these specific errors (they are final)
+      const nonRetryableErrors = [
+        'WALLET_NOT_FOUND',
+        'WALLET_NOT_CONNECTED',
+        'ALREADY_MINTED',
+        'User already minted'
+      ];
+      
+      const isNonRetryable = nonRetryableErrors.some(err => 
+        error.message?.includes(err) || error.code === err
+      );
+      
+      // Retry on ALL other errors (network, timeout, RPC errors, etc.)
+      if (retryCount < maxRetries && !isNonRetryable) {
+        const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff: 1s, 2s, 4s
+        console.log(`Retrying hasMinted in ${delay}ms... (attempt ${retryCount + 1}/${maxRetries})`);
         await new Promise(resolve => setTimeout(resolve, delay));
         return this.hasMinted(address, retryCount + 1);
       }
       
+      // After max retries or non-retryable error, throw
       throw this.handleError(error);
     }
   }

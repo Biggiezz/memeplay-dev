@@ -20,6 +20,10 @@
     {
       "source": "/games/templates-v2/",
       "destination": "/games/templates-v2/index.html"
+    },
+    {
+      "source": "/telegram-mini-app",
+      "destination": "/telegram mini app/telegram-mini-app.html"
     }
   ]
 }

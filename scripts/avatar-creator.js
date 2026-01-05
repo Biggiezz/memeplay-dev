@@ -108,16 +108,28 @@ function initMintButton() {
         await mintService.connectWallet();
       }
       
-      // Step 3: Check if already minted
+      // Step 3: Check if already minted (with fallback if check fails)
       mintBtn.textContent = 'Checking status...';
       mintMessage.textContent = 'Checking status...';
       // Force UI update on mobile before async call
       await new Promise(resolve => requestAnimationFrame(resolve));
       
       const address = await mintService.getAddress();
-      const alreadyMinted = await mintService.hasMinted(address);
-      if (alreadyMinted) {
-        throw new Error('ALREADY_MINTED');
+      try {
+        const alreadyMinted = await mintService.hasMinted(address);
+        if (alreadyMinted) {
+          throw new Error('ALREADY_MINTED');
+        }
+      } catch (error) {
+        // If hasMinted check fails after retries, log warning but continue
+        // Contract will reject if user already minted (user pays gas fee)
+        console.warn('[Mint] hasMinted check failed, proceeding with mint (contract will reject if already minted):', error);
+        // Only throw if it's a non-retryable error (like ALREADY_MINTED)
+        if (error.message === 'ALREADY_MINTED' || error.message?.includes('already minted')) {
+          throw error;
+        }
+        // For other errors (network, timeout, etc.), continue to mint step
+        // This allows mint to proceed even if status check fails on mobile
       }
       
       // Step 4: Minting
