@@ -73,7 +73,6 @@ export async function renderAvatarWithAnimation(options) {
 
   // Step 2: Get file path
   const filePath = getAvatarFilePath(config);
-  console.log(`📁 Loading avatar image: ${filePath} (actor: ${config.actor}, clothes: ${config.clothes}, equipment: ${config.equipment}, hat: ${config.hat})`);
 
   // Step 3: Check cache first
   if (imageCache.has(filePath)) {
@@ -102,15 +101,12 @@ export async function renderAvatarWithAnimation(options) {
   // Step 4: Load new image (parallel with animation)
   const img = new Image();
   let timeout = null;
-  
-  // Add cache busting query string to force reload
-  const cacheBuster = `?v=${Date.now()}`;
-  img.src = filePath + cacheBuster;
 
-  img.onerror = (error) => {
+  img.src = filePath;
+
+  img.onerror = () => {
     if (timeout) clearTimeout(timeout);
     // Pre-rendered image not found, keep animation running
-    console.error(`❌ Failed to load avatar image: ${filePath}`, error);
     console.log(`⚠️ Pre-rendered image not found: ${filePath}, keeping animation...`);
     hideLoading();
 
@@ -126,7 +122,6 @@ export async function renderAvatarWithAnimation(options) {
 
     // Cache the image
     imageCache.set(filePath, img);
-    console.log(`✅ Avatar image loaded successfully: ${filePath}`);
     hideLoading();
 
     // Stop animation if playing (pre-rendered image loaded successfully)
