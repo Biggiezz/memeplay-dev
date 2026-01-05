@@ -184,8 +184,8 @@ function initMintButton() {
         configHash: configHash,
         config: currentConfig,
         transactionHash: result.transactionHash
-      }).catch(error => {
-        console.warn('[Tracking] Failed to track mint (non-critical):', error);
+      }).catch(() => {
+        // Silently fail - tracking is non-critical
       });
       
       // Auto-hide message after 10 seconds
@@ -227,12 +227,7 @@ function initHashDisplayDebug() {
     hashDisplay.addEventListener('click', () => {
       const configString = `${currentConfig.actor}-${currentConfig.skin}-${currentConfig.clothes}-${currentConfig.equipment}-${currentConfig.hat}`;
       const hash = generateHash(currentConfig);
-      console.log('📋 Hash Debug Info:');
-      console.log('  Config:', currentConfig);
-      console.log('  Config String:', configString);
-      console.log('  Hash:', hash);
-      console.log('  File Path:', getAvatarFilePath(currentConfig));
-      alert(`Config: ${configString}\nHash: ${hash}\n\nCheck console (F12) for more details.`);
+      alert(`Config: ${configString}\nHash: ${hash}`);
     });
   }
 }
@@ -284,7 +279,7 @@ async function checkExistingMint() {
       }
     }
   } catch (error) {
-    console.error('Check existing mint error:', error);
+    // Silently fail - check existing mint is non-critical
   }
 }
 
@@ -303,10 +298,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Check if user already minted
     await checkExistingMint();
-    
-    console.log('✅ Avatar Creator: Initialization complete');
   } catch (error) {
-    console.error('❌ Avatar Creator: Initialization error:', error);
     // Show error to user
     const canvas = document.getElementById('avatarPreview');
     if (canvas) {
