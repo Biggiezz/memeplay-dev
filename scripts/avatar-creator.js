@@ -80,7 +80,8 @@ function initMintButton() {
   const mintMessage = document.getElementById('mintMessage');
   
   mintBtn.addEventListener('click', async () => {
-    console.log('Mint Avatar clicked!', currentConfig);
+    console.log('[Mint] ========== MINT STARTED ==========');
+    console.log('[Mint] Config:', currentConfig);
     
     // Reset message
     mintMessage.className = 'mint-message';
@@ -89,41 +90,55 @@ function initMintButton() {
     
     try {
       // Step 1: Preparing
+      console.log('[Mint] Step 1: Preparing...');
       mintBtn.textContent = 'Preparing...';
       mintMessage.textContent = 'Preparing...';
       mintMessage.className = 'mint-message';
       
       // Generate config hash
       const configHash = generateHash(currentConfig);
-      console.log('Config hash:', configHash);
+      console.log('[Mint] Config hash:', configHash);
       
       // Step 2: Check wallet connection
+      console.log('[Mint] Step 2: Checking wallet connection...');
       mintBtn.textContent = 'Waiting for wallet...';
       mintMessage.textContent = 'Waiting for wallet...';
       // Force UI update on mobile before async call
       await new Promise(resolve => requestAnimationFrame(resolve));
       
       const isConnected = await mintService.isConnected();
+      console.log('[Mint] Wallet connected:', isConnected);
       if (!isConnected) {
+        console.log('[Mint] Connecting wallet...');
         await mintService.connectWallet();
+        console.log('[Mint] Wallet connected successfully');
       }
       
       // Step 3: Check if already minted (with fallback if check fails)
+      console.log('[Mint] Step 3: Checking if already minted...');
       mintBtn.textContent = 'Checking status...';
       mintMessage.textContent = 'Checking status...';
       // Force UI update on mobile before async call
       await new Promise(resolve => requestAnimationFrame(resolve));
       
       const address = await mintService.getAddress();
+      console.log('[Mint] Wallet address:', address);
       try {
+        console.log('[Mint] Calling hasMinted()...');
+        const startTime = Date.now();
         const alreadyMinted = await mintService.hasMinted(address);
+        const duration = Date.now() - startTime;
+        console.log(`[Mint] hasMinted() completed in ${duration}ms, result:`, alreadyMinted);
         if (alreadyMinted) {
           throw new Error('ALREADY_MINTED');
         }
       } catch (error) {
+        console.warn('[Mint] hasMinted check failed:', error);
+        console.warn('[Mint] Error message:', error.message);
+        console.warn('[Mint] Error code:', error.code);
         // If hasMinted check fails after retries, log warning but continue
         // Contract will reject if user already minted (user pays gas fee)
-        console.warn('[Mint] hasMinted check failed, proceeding with mint (contract will reject if already minted):', error);
+        console.warn('[Mint] Proceeding with mint (contract will reject if already minted)');
         // Only throw if it's a non-retryable error (like ALREADY_MINTED)
         if (error.message === 'ALREADY_MINTED' || error.message?.includes('already minted')) {
           throw error;
@@ -133,10 +148,16 @@ function initMintButton() {
       }
       
       // Step 4: Minting
+      console.log('[Mint] Step 4: Starting mint...');
       mintBtn.textContent = 'Minting...';
       mintMessage.textContent = 'Minting...';
+      console.log('[Mint] Calling mintAvatar()...');
+      const mintStartTime = Date.now();
       
       const result = await mintService.mintAvatar(configHash, currentConfig);
+      const mintDuration = Date.now() - mintStartTime;
+      console.log(`[Mint] mintAvatar() completed in ${mintDuration}ms`);
+      console.log('[Mint] Result:', result);
       
       // Step 5: Confirming
       mintBtn.textContent = 'Confirming...';
@@ -202,6 +223,19 @@ function initMintButton() {
       
     } catch (error) {
       // Error handling
+      console.error('[Mint] ========== MINT ERROR ==========');
+      console.error('[Mint] Error type:', typeof error);
+      console.error('[Mint] Error:', error);
+      console.error('[Mint] Error message:', error.message);
+      console.error('[Mint] Error code:', error.code);
+      console.error('[Mint] Error stack:', error.stack);
+      if (error.data) {
+        console.error('[Mint] Error data:', error.data);
+      }
+      if (error.reason) {
+        console.error('[Mint] Error reason:', error.reason);
+      }
+      
       mintBtn.textContent = 'Mint Avatar';
       mintBtn.disabled = false;
       mintMessage.className = 'mint-message error';
@@ -209,13 +243,11 @@ function initMintButton() {
       const errorMsg = mintService.getErrorMessage(error);
       mintMessage.textContent = errorMsg;
       
-      console.error('Mint error:', error);
-      
-      // Auto-hide message after 5 seconds
+      // Auto-hide message after 8 seconds (longer for mobile users to read)
       setTimeout(() => {
         mintMessage.className = 'mint-message';
         mintMessage.textContent = '';
-      }, 5000);
+      }, 8000);
     } finally {
       // Ensure button is enabled (in case of unexpected errors)
       mintBtn.disabled = false;
@@ -300,6 +332,10 @@ async function checkExistingMint() {
 document.addEventListener('DOMContentLoaded', async () => {
   try {
     console.log('✅ Avatar Creator: DOMContentLoaded');
+    
+    // Initialize debug console first
+    initDebugConsole();
+    
     initSelectors();
     initMintButton();
     initHashDisplayDebug(); // Add hash debug handler

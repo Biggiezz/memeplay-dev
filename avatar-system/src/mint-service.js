@@ -313,44 +313,69 @@ export class MintService {
    */
   async mintAvatar(configHash, config) {
     try {
+      console.log('[MintService] ========== mintAvatar() STARTED ==========');
+      console.log('[MintService] Config hash:', configHash);
+      console.log('[MintService] Config:', config);
+      
       // Ensure wallet is connected and contract has signer
+      console.log('[MintService] Step 1: Checking wallet connection...');
       const isConnected = await this.isConnected();
+      console.log('[MintService] Wallet connected:', isConnected);
       if (!isConnected) {
+        console.log('[MintService] Connecting wallet...');
         await this.connectWallet();
+        console.log('[MintService] Wallet connected successfully');
       }
 
       // Re-initialize contract with signer (important for write operations)
+      console.log('[MintService] Step 2: Loading ethers.js...');
       await this.loadEthers();
       if (!window.ethereum) {
+        console.error('[MintService] window.ethereum not found');
         throw new Error('WALLET_NOT_FOUND');
       }
+      console.log('[MintService] ethers.js loaded');
 
       // Setup provider and signer for write operations
+      console.log('[MintService] Step 3: Setting up provider and signer...');
       this.provider = new window.ethers.providers.Web3Provider(window.ethereum);
       this.signer = this.provider.getSigner();
+      console.log('[MintService] Provider and signer created');
       
       // Re-create contract with signer (not provider)
+      console.log('[MintService] Step 4: Creating contract with signer...');
       this.contract = new window.ethers.Contract(
         this.contractAddress,
         this.contractABI,
         this.signer
       );
+      console.log('[MintService] Contract created with signer');
 
       // Verify signer is available
+      console.log('[MintService] Step 5: Verifying signer address...');
       const signerAddress = await this.signer.getAddress();
+      console.log('[MintService] Signer address:', signerAddress);
       if (!signerAddress) {
+        console.error('[MintService] Signer address is null');
         throw new Error('WALLET_NOT_CONNECTED');
       }
 
       // Check if already minted
+      console.log('[MintService] Step 6: Checking if already minted...');
       const address = signerAddress;
+      const alreadyMintedStartTime = Date.now();
       const alreadyMinted = await this.hasMinted(address);
+      const alreadyMintedDuration = Date.now() - alreadyMintedStartTime;
+      console.log(`[MintService] hasMinted() completed in ${alreadyMintedDuration}ms, result:`, alreadyMinted);
       if (alreadyMinted) {
+        console.error('[MintService] User already minted');
         throw new Error('ALREADY_MINTED');
       }
 
       // Validate and encode config
+      console.log('[MintService] Step 7: Validating config...');
       if (!config) {
+        console.error('[MintService] Config is null or undefined');
         throw new Error('Config is required');
       }
 
@@ -366,18 +391,57 @@ export class MintService {
         equipment: config.equipment || 0,
         hat: config.hat || 0
       };
+      console.log('[MintService] Config struct:', configStruct);
 
       // Call mint function with config
-      const tx = await this.contract.mintAvatar(address, configHash, configStruct);
+      console.log('[MintService] Step 8: Calling contract.mintAvatar()...');
+      console.log('[MintService] Parameters:', { address, configHash, configStruct });
+      const mintStartTime = Date.now();
+      
+      let tx;
+      try {
+        tx = await this.contract.mintAvatar(address, configHash, configStruct);
+        const mintDuration = Date.now() - mintStartTime;
+        console.log(`[MintService] contract.mintAvatar() call completed in ${mintDuration}ms`);
+        console.log('[MintService] Transaction object:', tx);
+        console.log('[MintService] Transaction hash:', tx.hash);
+      } catch (txError) {
+        const mintDuration = Date.now() - mintStartTime;
+        console.error(`[MintService] contract.mintAvatar() FAILED after ${mintDuration}ms`);
+        console.error('[MintService] Transaction error:', txError);
+        console.error('[MintService] Error message:', txError.message);
+        console.error('[MintService] Error code:', txError.code);
+        console.error('[MintService] Error data:', txError.data);
+        console.error('[MintService] Error reason:', txError.reason);
+        throw txError;
+      }
       
       // Wait for transaction
-      const receipt = await tx.wait();
+      console.log('[MintService] Step 9: Waiting for transaction confirmation...');
+      const receiptStartTime = Date.now();
+      let receipt;
+      try {
+        receipt = await tx.wait();
+        const receiptDuration = Date.now() - receiptStartTime;
+        console.log(`[MintService] Transaction confirmed in ${receiptDuration}ms`);
+        console.log('[MintService] Receipt:', receipt);
+      } catch (receiptError) {
+        const receiptDuration = Date.now() - receiptStartTime;
+        console.error(`[MintService] Transaction confirmation FAILED after ${receiptDuration}ms`);
+        console.error('[MintService] Receipt error:', receiptError);
+        console.error('[MintService] Error message:', receiptError.message);
+        console.error('[MintService] Error code:', receiptError.code);
+        throw receiptError;
+      }
 
       // Extract tokenId from events
+      console.log('[MintService] Step 10: Extracting tokenId from events...');
       let tokenId = null;
       
       // Try to parse events (ethers v5 format)
+      console.log('[MintService] Receipt events:', receipt.events);
       if (receipt.events && receipt.events.length > 0) {
+        console.log(`[MintService] Found ${receipt.events.length} events`);
         const mintEvent = receipt.events.find(e => 
           e.event === 'AvatarMinted' || 
           (e.topics && e.topics.length > 0)
@@ -403,14 +467,28 @@ export class MintService {
         }
       }
 
-      return {
+      const result = {
         success: true,
         transactionHash: receipt.transactionHash,
         tokenId: tokenId,
         address: address
       };
+      console.log('[MintService] ========== mintAvatar() SUCCESS ==========');
+      console.log('[MintService] Result:', result);
+      return result;
     } catch (error) {
-      console.error('Mint error:', error);
+      console.error('[MintService] ========== mintAvatar() ERROR ==========');
+      console.error('[MintService] Error type:', typeof error);
+      console.error('[MintService] Error:', error);
+      console.error('[MintService] Error message:', error.message);
+      console.error('[MintService] Error code:', error.code);
+      console.error('[MintService] Error stack:', error.stack);
+      if (error.data) {
+        console.error('[MintService] Error data:', error.data);
+      }
+      if (error.reason) {
+        console.error('[MintService] Error reason:', error.reason);
+      }
       throw this.handleError(error);
     }
   }
