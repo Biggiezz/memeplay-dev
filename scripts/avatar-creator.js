@@ -120,6 +120,8 @@ function initMintButton() {
       // Step 2: Check wallet connection
       mintBtn.textContent = 'Waiting for wallet...';
       mintMessage.textContent = 'Waiting for wallet...';
+      // Force UI update on mobile before async call
+      await new Promise(resolve => requestAnimationFrame(resolve));
       
       const isConnected = await mintService.isConnected();
       if (!isConnected) {
@@ -127,6 +129,11 @@ function initMintButton() {
       }
       
       // Step 3: Check if already minted
+      mintBtn.textContent = 'Checking status...';
+      mintMessage.textContent = 'Checking status...';
+      // Force UI update on mobile before async call
+      await new Promise(resolve => requestAnimationFrame(resolve));
+      
       const address = await mintService.getAddress();
       const alreadyMinted = await mintService.hasMinted(address);
       if (alreadyMinted) {

@@ -194,16 +194,34 @@ export class MintService {
     return new Promise((resolve, reject) => {
       const script = document.createElement('script');
       script.src = 'https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js';
-      script.onload = () => resolve();
-      script.onerror = () => reject(new Error('Failed to load ethers.js'));
+      
+      // Add timeout (30 seconds for mobile)
+      const timeout = setTimeout(() => {
+        reject(new Error('Timeout loading ethers.js'));
+      }, 30000);
+      
+      script.onload = () => {
+        clearTimeout(timeout);
+        resolve();
+      };
+      
+      script.onerror = () => {
+        clearTimeout(timeout);
+        reject(new Error('Failed to load ethers.js'));
+      };
+      
       document.head.appendChild(script);
     });
   }
 
   /**
    * Check if user has already minted
+   * Retries up to 3 times with exponential backoff for mobile network reliability
    */
-  async hasMinted(address = null) {
+  async hasMinted(address = null, retryCount = 0) {
+    const maxRetries = 3;
+    const baseDelay = 1000; // 1 second
+    
     try {
       if (!this.contract) {
         // Initialize contract for read-only
@@ -224,10 +242,30 @@ export class MintService {
         throw new Error('WALLET_NOT_CONNECTED');
       }
 
-      const hasMinted = await this.contract.hasMinted(userAddress);
+      // Call contract with timeout (30 seconds for mobile)
+      const hasMintedPromise = this.contract.hasMinted(userAddress);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('RPC call timeout')), 30000)
+      );
+      
+      const hasMinted = await Promise.race([hasMintedPromise, timeoutPromise]);
       return hasMinted;
     } catch (error) {
-      console.error('Check hasMinted error:', error);
+      console.error(`Check hasMinted error (attempt ${retryCount + 1}/${maxRetries + 1}):`, error);
+      
+      // Retry on network errors or timeouts
+      if (retryCount < maxRetries && (
+        error.message?.includes('timeout') ||
+        error.message?.includes('network') ||
+        error.code === 'NETWORK_ERROR' ||
+        error.code === 'TIMEOUT'
+      )) {
+        const delay = baseDelay * Math.pow(2, retryCount); // Exponential backoff
+        console.log(`Retrying hasMinted in ${delay}ms...`);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        return this.hasMinted(address, retryCount + 1);
+      }
+      
       throw this.handleError(error);
     }
   }
