@@ -8,105 +8,6 @@ import { MintService } from '../avatar-system/src/mint-service.js';
 import { CONTRACT_ADDRESS } from '../avatar-system/src/contract-address.js';
 import { trackMint } from '../avatar-system/src/tracking.js';
 
-// Debug Console - Intercept console logs for mobile debugging
-let debugConsoleLogs = [];
-const MAX_LOGS = 200;
-
-function addDebugLog(type, ...args) {
-  const timestamp = new Date().toLocaleTimeString();
-  const message = args.map(arg => {
-    if (typeof arg === 'object') {
-      try {
-        return JSON.stringify(arg, null, 2);
-      } catch (e) {
-        return String(arg);
-      }
-    }
-    return String(arg);
-  }).join(' ');
-  
-  debugConsoleLogs.push({ type, timestamp, message });
-  if (debugConsoleLogs.length > MAX_LOGS) {
-    debugConsoleLogs.shift();
-  }
-  
-  updateDebugConsole();
-}
-
-function updateDebugConsole() {
-  const content = document.getElementById('debugConsoleContent');
-  if (!content) return;
-  
-  content.innerHTML = debugConsoleLogs.map(log => {
-    return `<div class="debug-console-log ${log.type}">[${log.timestamp}] ${log.message}</div>`;
-  }).join('');
-  
-  // Auto-scroll to bottom
-  content.scrollTop = content.scrollHeight;
-}
-
-function initDebugConsole() {
-  const toggle = document.getElementById('debugConsoleToggle');
-  const consoleDiv = document.getElementById('debugConsole');
-  const closeBtn = document.getElementById('debugConsoleClose');
-  const clearBtn = document.getElementById('debugConsoleClear');
-  
-  if (!toggle || !consoleDiv) {
-    console.warn('[Debug Console] Elements not found');
-    return;
-  }
-  
-  // Toggle console
-  toggle.addEventListener('click', (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    consoleDiv.classList.toggle('open');
-    console.log('[Debug Console] Toggled');
-  });
-  
-  // Close button
-  if (closeBtn) {
-    closeBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      consoleDiv.classList.remove('open');
-    });
-  }
-  
-  // Clear button
-  if (clearBtn) {
-    clearBtn.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      debugConsoleLogs = [];
-      updateDebugConsole();
-    });
-  }
-  
-  // Intercept console methods
-  const originalLog = console.log;
-  const originalError = console.error;
-  const originalWarn = console.warn;
-  
-  console.log = function(...args) {
-    originalLog.apply(console, args);
-    addDebugLog('info', ...args);
-  };
-  
-  console.error = function(...args) {
-    originalError.apply(console, args);
-    addDebugLog('error', ...args);
-  };
-  
-  console.warn = function(...args) {
-    originalWarn.apply(console, args);
-    addDebugLog('warn', ...args);
-  };
-  
-  addDebugLog('info', 'Debug console initialized');
-  console.log('[Debug Console] Initialized successfully');
-}
-
 // Current config
 let currentConfig = {
   actor: 'boy',
@@ -179,9 +80,6 @@ function initMintButton() {
   const mintMessage = document.getElementById('mintMessage');
   
   mintBtn.addEventListener('click', async () => {
-    console.log('[Mint] ========== MINT STARTED ==========');
-    console.log('[Mint] Config:', currentConfig);
-    
     // Reset message
     mintMessage.className = 'mint-message';
     mintMessage.textContent = '';
@@ -189,55 +87,39 @@ function initMintButton() {
     
     try {
       // Step 1: Preparing
-      console.log('[Mint] Step 1: Preparing...');
       mintBtn.textContent = 'Preparing...';
       mintMessage.textContent = 'Preparing...';
       mintMessage.className = 'mint-message';
       
       // Generate config hash
       const configHash = generateHash(currentConfig);
-      console.log('[Mint] Config hash:', configHash);
       
       // Step 2: Check wallet connection
-      console.log('[Mint] Step 2: Checking wallet connection...');
       mintBtn.textContent = 'Waiting for wallet...';
       mintMessage.textContent = 'Waiting for wallet...';
       // Force UI update on mobile before async call
       await new Promise(resolve => requestAnimationFrame(resolve));
       
       const isConnected = await mintService.isConnected();
-      console.log('[Mint] Wallet connected:', isConnected);
       if (!isConnected) {
-        console.log('[Mint] Connecting wallet...');
         await mintService.connectWallet();
-        console.log('[Mint] Wallet connected successfully');
       }
       
       // Step 3: Check if already minted (with fallback if check fails)
-      console.log('[Mint] Step 3: Checking if already minted...');
       mintBtn.textContent = 'Checking status...';
       mintMessage.textContent = 'Checking status...';
       // Force UI update on mobile before async call
       await new Promise(resolve => requestAnimationFrame(resolve));
       
       const address = await mintService.getAddress();
-      console.log('[Mint] Wallet address:', address);
       try {
-        console.log('[Mint] Calling hasMinted()...');
-        const startTime = Date.now();
         const alreadyMinted = await mintService.hasMinted(address);
-        const duration = Date.now() - startTime;
-        console.log(`[Mint] hasMinted() completed in ${duration}ms, result:`, alreadyMinted);
         if (alreadyMinted) {
           throw new Error('ALREADY_MINTED');
         }
       } catch (error) {
-        console.warn('[Mint] hasMinted check failed:', error);
-        console.warn('[Mint] Error message:', error.message);
-        console.warn('[Mint] Error code:', error.code);
         // If hasMinted check fails after retries, log warning but continue
         // Contract will reject if user already minted (user pays gas fee)
-        console.warn('[Mint] Proceeding with mint (contract will reject if already minted)');
         // Only throw if it's a non-retryable error (like ALREADY_MINTED)
         if (error.message === 'ALREADY_MINTED' || error.message?.includes('already minted')) {
           throw error;
@@ -247,16 +129,10 @@ function initMintButton() {
       }
       
       // Step 4: Minting
-      console.log('[Mint] Step 4: Starting mint...');
       mintBtn.textContent = 'Minting...';
       mintMessage.textContent = 'Minting...';
-      console.log('[Mint] Calling mintAvatar()...');
-      const mintStartTime = Date.now();
       
       const result = await mintService.mintAvatar(configHash, currentConfig);
-      const mintDuration = Date.now() - mintStartTime;
-      console.log(`[Mint] mintAvatar() completed in ${mintDuration}ms`);
-      console.log('[Mint] Result:', result);
       
       // Step 5: Confirming
       mintBtn.textContent = 'Confirming...';
@@ -292,8 +168,6 @@ function initMintButton() {
         </div>
       `;
       
-      console.log('Mint successful!', result);
-      
       // Save to localStorage (with wallet address for cache validation)
       const mintAddress = result.address || address; // Use result.address (preferred) or fallback to address from Step 3
       localStorage.setItem('mp_avatar_minted', 'true');
@@ -322,19 +196,6 @@ function initMintButton() {
       
     } catch (error) {
       // Error handling
-      console.error('[Mint] ========== MINT ERROR ==========');
-      console.error('[Mint] Error type:', typeof error);
-      console.error('[Mint] Error:', error);
-      console.error('[Mint] Error message:', error.message);
-      console.error('[Mint] Error code:', error.code);
-      console.error('[Mint] Error stack:', error.stack);
-      if (error.data) {
-        console.error('[Mint] Error data:', error.data);
-      }
-      if (error.reason) {
-        console.error('[Mint] Error reason:', error.reason);
-      }
-      
       mintBtn.textContent = 'Mint Avatar';
       mintBtn.disabled = false;
       mintMessage.className = 'mint-message error';
@@ -430,11 +291,6 @@ async function checkExistingMint() {
 // Initialize on load with error handling
 document.addEventListener('DOMContentLoaded', async () => {
   try {
-    console.log('✅ Avatar Creator: DOMContentLoaded');
-    
-    // Initialize debug console first
-    initDebugConsole();
-    
     initSelectors();
     initMintButton();
     initHashDisplayDebug(); // Add hash debug handler
