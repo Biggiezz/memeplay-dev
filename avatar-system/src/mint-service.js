@@ -58,7 +58,34 @@ export class MintService {
 
       // Fallback to direct ethereum connection
       if (!window.ethereum) {
-        throw new Error('WALLET_NOT_FOUND');
+        // Check if mobile - redirect to wallet app
+        const ua = navigator.userAgent || '';
+        const isMobile = /iphone|ipad|ipod|android/i.test(ua);
+        
+        if (isMobile) {
+          const rawUrl = window.location.href.split('#')[0];
+          const cleaned = rawUrl.replace(/^https?:\/\//i, '');
+          
+          // MetaMask deep link
+          const metamaskDeepLink = `https://metamask.app.link/dapp/${cleaned}`;
+          
+          // Coinbase Wallet deep link (WalletConnect format)
+          const coinbaseDeepLink = `https://go.cb-w.com/dapp?url=${encodeURIComponent(window.location.href)}`;
+          
+          // Simple approach: Try MetaMask first (most common)
+          // User can manually switch to Coinbase Wallet if needed
+          const proceed = confirm('Please open MetaMask app to connect your wallet.\n\nClick OK to open MetaMask.');
+          
+          if (proceed) {
+            window.location.href = metamaskDeepLink;
+          }
+          
+          // Throw error to prevent further execution (user will be redirected)
+          throw new Error('WALLET_NOT_FOUND');
+        } else {
+          // Desktop - show install message
+          throw new Error('WALLET_NOT_FOUND');
+        }
       }
 
       // Request account access
