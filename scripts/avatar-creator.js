@@ -176,17 +176,18 @@ function initMintButton() {
       console.log('Mint successful!', result);
       
       // Save to localStorage (with wallet address for cache validation)
+      const mintAddress = result.address || address; // Use result.address (preferred) or fallback to address from Step 3
       localStorage.setItem('mp_avatar_minted', 'true');
       localStorage.setItem('mp_avatar_config', JSON.stringify(currentConfig));
       localStorage.setItem('mp_avatar_hash', configHash);
       localStorage.setItem('mp_avatar_tx', result.transactionHash);
       localStorage.setItem('mp_avatar_tokenId', tokenId);
-      localStorage.setItem('mp_avatar_address', address.toLowerCase());
+      localStorage.setItem('mp_avatar_address', mintAddress.toLowerCase());
       
       // Track mint to Supabase (non-blocking)
       trackMint({
         tokenId: tokenId,
-        userAddress: address,
+        userAddress: mintAddress,
         configHash: configHash,
         config: currentConfig,
         transactionHash: result.transactionHash
