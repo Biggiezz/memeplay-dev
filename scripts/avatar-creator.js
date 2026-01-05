@@ -13,8 +13,8 @@ let currentConfig = {
   actor: 'boy',
   skin: 1,
   clothes: 0,
-  equipment: 0,
-  hat: 0
+  equipment: 0, // Always 0, UI removed
+  hat: 0 // Always 0, UI removed
 };
 
 // Animation renderer
@@ -69,26 +69,6 @@ function initSelectors() {
       document.querySelectorAll('[data-clothes]').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
       currentConfig.clothes = parseInt(btn.dataset.clothes);
-      updatePreview();
-    });
-  });
-
-  // Equipment buttons
-  document.querySelectorAll('[data-equipment]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-equipment]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentConfig.equipment = parseInt(btn.dataset.equipment);
-      updatePreview();
-    });
-  });
-
-  // Hat buttons
-  document.querySelectorAll('[data-hat]').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelectorAll('[data-hat]').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      currentConfig.hat = parseInt(btn.dataset.hat);
       updatePreview();
     });
   });
