@@ -8,6 +8,105 @@ import { MintService } from '../avatar-system/src/mint-service.js';
 import { CONTRACT_ADDRESS } from '../avatar-system/src/contract-address.js';
 import { trackMint } from '../avatar-system/src/tracking.js';
 
+// Debug Console - Intercept console logs for mobile debugging
+let debugConsoleLogs = [];
+const MAX_LOGS = 200;
+
+function addDebugLog(type, ...args) {
+  const timestamp = new Date().toLocaleTimeString();
+  const message = args.map(arg => {
+    if (typeof arg === 'object') {
+      try {
+        return JSON.stringify(arg, null, 2);
+      } catch (e) {
+        return String(arg);
+      }
+    }
+    return String(arg);
+  }).join(' ');
+  
+  debugConsoleLogs.push({ type, timestamp, message });
+  if (debugConsoleLogs.length > MAX_LOGS) {
+    debugConsoleLogs.shift();
+  }
+  
+  updateDebugConsole();
+}
+
+function updateDebugConsole() {
+  const content = document.getElementById('debugConsoleContent');
+  if (!content) return;
+  
+  content.innerHTML = debugConsoleLogs.map(log => {
+    return `<div class="debug-console-log ${log.type}">[${log.timestamp}] ${log.message}</div>`;
+  }).join('');
+  
+  // Auto-scroll to bottom
+  content.scrollTop = content.scrollHeight;
+}
+
+function initDebugConsole() {
+  const toggle = document.getElementById('debugConsoleToggle');
+  const consoleDiv = document.getElementById('debugConsole');
+  const closeBtn = document.getElementById('debugConsoleClose');
+  const clearBtn = document.getElementById('debugConsoleClear');
+  
+  if (!toggle || !consoleDiv) {
+    console.warn('[Debug Console] Elements not found');
+    return;
+  }
+  
+  // Toggle console
+  toggle.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    consoleDiv.classList.toggle('open');
+    console.log('[Debug Console] Toggled');
+  });
+  
+  // Close button
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      consoleDiv.classList.remove('open');
+    });
+  }
+  
+  // Clear button
+  if (clearBtn) {
+    clearBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      debugConsoleLogs = [];
+      updateDebugConsole();
+    });
+  }
+  
+  // Intercept console methods
+  const originalLog = console.log;
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  
+  console.log = function(...args) {
+    originalLog.apply(console, args);
+    addDebugLog('info', ...args);
+  };
+  
+  console.error = function(...args) {
+    originalError.apply(console, args);
+    addDebugLog('error', ...args);
+  };
+  
+  console.warn = function(...args) {
+    originalWarn.apply(console, args);
+    addDebugLog('warn', ...args);
+  };
+  
+  addDebugLog('info', 'Debug console initialized');
+  console.log('[Debug Console] Initialized successfully');
+}
+
 // Current config
 let currentConfig = {
   actor: 'boy',
