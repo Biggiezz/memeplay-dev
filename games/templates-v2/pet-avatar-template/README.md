@@ -91,3 +91,5 @@ Có thể điều chỉnh trong `BUTTONS` và `BUTTON_OFFSET_X` trong `game.js`.
 - Actions có thể **interrupt** nhau
 - Game sẽ **luôn hiển thị đầu tiên** trong danh sách games
 
+
+

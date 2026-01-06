@@ -2,6 +2,9 @@
 // PET AVATAR - MemePlay Game Template
 // ============================================
 
+// ==================== DEBUG FLAG ====================
+const DEBUG_MODE = false; // Set to false để tắt debug logs trong production
+
 // ==================== IMPORT CONFIG ====================
 import { 
     BRAND_CONFIG, 
@@ -19,13 +22,11 @@ let canvas, ctx;
 // ==================== GAME CONSTANTS ====================
 const CANVAS_WIDTH = 720;
 const CANVAS_HEIGHT = 1000;
-const TARGET_FPS = 40;
-const FRAME_DURATION = 1000 / TARGET_FPS; // ~25ms per frame
 
 // Avatar position (center)
 const AVATAR_X = 360;
-const AVATAR_Y = 500;
-const AVATAR_SCALE = 1.0;
+const AVATAR_Y = 540; // Đưa lên cao 60px (từ 600 → 540)
+const AVATAR_SCALE = 1.7; // Phóng to 70% (từ 1.0 → 1.7 để nhân vật lớn hơn rõ rệt)
 
 // Button configuration
 const BUTTON_SIZE = 95; // 56px * 1.7 = 95px (phóng to thêm 70%)
@@ -82,33 +83,31 @@ let gameState = {
 let avatarState = {
     x: AVATAR_X,
     y: AVATAR_Y,
-    scale: AVATAR_SCALE,
-    currentFrame: 0,
-    frameCount: 0,
-    frameRate: 10, // 10 FPS for sprite animation (chuyển frame mỗi 100ms)
-    lastFrameTime: 0
-};
-
-// Sprite sheets (will be loaded)
-let spriteSheets = {
-    idle: null,
-    shower: null,
-    sing: null,
-    fly: null,
-    drink: null
-};
-
-// Sprite sheet config (sẽ được set khi load)
-let spriteConfig = {
-    idle: { frames: 8, width: 200, height: 200 },    // Default, sẽ update
-    shower: { frames: 12, width: 200, height: 200 },
-    sing: { frames: 10, width: 200, height: 200 },
-    fly: { frames: 8, width: 200, height: 200 },
-    drink: { frames: 10, width: 200, height: 200 }
+    scale: AVATAR_SCALE
 };
 
 // Background image
 let bgImage = null;
+
+// Avatar static image (fallback)
+let avatarImage = null;
+
+// Auto-action: pickpocket (11 frames)
+const PICKPOCKET_FRAME_COUNT = 11;
+const PICKPOCKET_FRAME_DURATION = 350; // 0.35s / frame
+let pickpocketFrames = [];
+let pickpocketFramesLoaded = false;
+let pickpocketAnim = {
+    time: 0,
+    frameIndex: 0,
+    frameDuration: PICKPOCKET_FRAME_DURATION
+};
+
+// Auto-action timer
+const AUTO_ACTION_INTERVAL = 3000; // 3s chờ giữa các auto-action
+let autoActionTimer = 0;
+let currentMode = 'idle'; // 'idle' | 'auto'
+let currentAutoAction = null; // 'pickpocket' | null
 
 // Button icons
 let buttonIcons = {
@@ -302,88 +301,83 @@ function drawParticles() {
 function loadAssets() {
     return new Promise((resolve) => {
         let loaded = 0;
-        const total = 6; // bg, 4 button icons (sprite sheets sẽ load sau)
+        const total = 7;
+        const checkComplete = () => { loaded++; if (loaded === total) resolve(); };
         
         // Load background
         bgImage = new Image();
-        bgImage.onload = () => {
-            console.log('[Pet Avatar] Background loaded:', bgImage.naturalWidth, 'x', bgImage.naturalHeight);
-            // Render ngay khi background load xong
-            if (ctx && canvas) {
-                render();
-            }
-            loaded++;
-            if (loaded === total) resolve();
-        };
-        bgImage.onerror = () => {
-            console.warn('Failed to load background');
-            loaded++;
-            if (loaded === total) resolve();
-        };
+        bgImage.onload = () => { checkComplete(); if (ctx && canvas) render(); };
+        bgImage.onerror = checkComplete;
         bgImage.src = './assets/background.jpg';
         
+        // Load pickpocket frames
+        let pickLoaded = 0;
+        for (let i = 1; i <= PICKPOCKET_FRAME_COUNT; i++) {
+            const frame = new Image();
+            const frameNum = i.toString().padStart(2, '0');
+            frame.onload = () => {
+                pickpocketFramesLoaded = pickpocketFramesLoaded || ++pickLoaded === PICKPOCKET_FRAME_COUNT;
+                if (pickpocketFramesLoaded) checkComplete();
+                if (ctx && canvas) render();
+            };
+            frame.onerror = () => {
+                pickLoaded++;
+                if (pickLoaded === PICKPOCKET_FRAME_COUNT) checkComplete();
+            };
+            frame.src = `./assets/avatar/auto-actions/idle/idle_${frameNum}.png`;
+            pickpocketFrames.push(frame);
+        }
+        
+        // Load avatar static image
+        avatarImage = new Image();
+        avatarImage.onload = checkComplete;
+        avatarImage.onerror = checkComplete;
+        avatarImage.src = './assets/avatar/avatar.png';
+        
         // Load button icons
-        const buttonNames = ['shower', 'mic', 'fly', 'beer'];
-        buttonNames.forEach(name => {
+        ['shower', 'mic', 'fly', 'beer'].forEach(name => {
             const icon = new Image();
-            icon.onload = () => {
-                loaded++;
-                if (loaded === total) resolve();
-            };
-            icon.onerror = () => {
-                console.warn(`Failed to load ${name} icon`);
-                loaded++;
-                if (loaded === total) resolve();
-            };
+            icon.onload = checkComplete;
+            icon.onerror = checkComplete;
             icon.src = `./assets/buttons/${name}-icon.png`;
             buttonIcons[name] = icon;
         });
     });
 }
 
-// Load sprite sheets (sẽ được gọi sau khi có thông tin về sprite sheets)
-function loadSpriteSheets() {
-    return new Promise((resolve) => {
-        const actions = ['idle', 'shower', 'sing', 'fly', 'drink'];
-        let loaded = 0;
-        const total = actions.length;
-        
-        actions.forEach(action => {
-            const img = new Image();
-            img.onload = () => {
-                loaded++;
-                if (loaded === total) resolve();
-            };
-            img.onerror = () => {
-                console.warn(`Failed to load ${action} sprite sheet`);
-                loaded++;
-                if (loaded === total) resolve();
-            };
-            img.src = `./assets/avatar/${action}/sprite.png`;
-            spriteSheets[action] = img;
-        });
-    });
-}
-
 // ==================== ANIMATION SYSTEM ====================
 function updateAnimation(deltaTime) {
-    const currentTime = Date.now();
-    
-    // Update frame based on frame rate
-    if (currentTime - avatarState.lastFrameTime >= 1000 / avatarState.frameRate) {
-        const config = spriteConfig[gameState.currentAction];
-        if (config && spriteSheets[gameState.currentAction]) {
-            avatarState.currentFrame = (avatarState.currentFrame + 1) % config.frames;
+    // Nếu đang ở chế độ idle (hiển thị ảnh gốc)
+    if (currentMode === 'idle') {
+        // Đếm thời gian chờ auto-action
+        autoActionTimer += deltaTime;
+
+        // Sau 3s nếu có auto-action -> kích hoạt pickpocket
+        if (autoActionTimer >= AUTO_ACTION_INTERVAL && pickpocketFramesLoaded) {
+            currentMode = 'auto';
+            currentAutoAction = 'pickpocket';
+            pickpocketAnim.time = 0;
+            pickpocketAnim.frameIndex = 0;
+            autoActionTimer = 0;
+            if (DEBUG_MODE) console.log('[AutoAction] ▶️ Start pickpocket');
         }
-        avatarState.lastFrameTime = currentTime;
     }
-    
-    // Check if action should end
-    if (gameState.currentAction !== 'idle') {
-        const duration = ACTION_DURATIONS[gameState.currentAction] || 3000;
-        if (Date.now() - gameState.actionStartTime >= duration) {
-            gameState.currentAction = 'idle';
-            avatarState.currentFrame = 0;
+    // Đang chạy auto-action
+    else if (currentMode === 'auto' && currentAutoAction === 'pickpocket' && pickpocketFramesLoaded) {
+        pickpocketAnim.time += deltaTime;
+        if (pickpocketAnim.time >= pickpocketAnim.frameDuration) {
+            pickpocketAnim.time -= pickpocketAnim.frameDuration;
+            pickpocketAnim.frameIndex += 1;
+
+            if (pickpocketAnim.frameIndex >= PICKPOCKET_FRAME_COUNT) {
+                // Kết thúc auto-action -> quay về idle (ảnh gốc)
+                currentMode = 'idle';
+                currentAutoAction = null;
+                pickpocketAnim.frameIndex = 0;
+                pickpocketAnim.time = 0;
+                autoActionTimer = 0;
+                if (DEBUG_MODE) console.log('[AutoAction] ⏹ End pickpocket -> back to idle');
+            }
         }
     }
     
@@ -405,88 +399,61 @@ function updateAnimation(deltaTime) {
 // ==================== RENDERING ====================
 function drawBackground() {
     if (bgImage && bgImage.complete && bgImage.naturalWidth > 0) {
-        // Scale background để fill toàn bộ canvas (720x1000)
         ctx.drawImage(bgImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        console.log('[Pet Avatar] Background drawn:', bgImage.width, 'x', bgImage.height, '→', CANVAS_WIDTH, 'x', CANVAS_HEIGHT);
     } else {
-        // Fallback: solid color
         ctx.fillStyle = '#2a2a3a';
         ctx.fillRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-        if (bgImage) {
-            console.warn('[Pet Avatar] Background not ready:', {
-                complete: bgImage.complete,
-                naturalWidth: bgImage.naturalWidth,
-                naturalHeight: bgImage.naturalHeight
-            });
-        }
     }
 }
 
 function drawAvatar() {
-    const action = gameState.currentAction;
-    const sprite = spriteSheets[action];
-    const config = spriteConfig[action];
+    ctx.save();
     
-    if (!sprite || !config || !sprite.complete) {
-        // Fallback: draw placeholder với style đẹp hơn
-        ctx.save();
-        
-        // Shadow
-        ctx.fillStyle = 'rgba(0, 0, 0, 0.3)';
-        ctx.beginPath();
-        ctx.ellipse(avatarState.x, avatarState.y + 60, 60, 20, 0, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Avatar placeholder circle
-        const gradient = ctx.createRadialGradient(
-            avatarState.x, avatarState.y - 20, 0,
-            avatarState.x, avatarState.y, 80
-        );
-        gradient.addColorStop(0, '#FFD700');
-        gradient.addColorStop(0.7, '#FFA500');
-        gradient.addColorStop(1, '#FF8C00');
-        ctx.fillStyle = gradient;
-        ctx.beginPath();
-        ctx.arc(avatarState.x, avatarState.y, 80, 0, Math.PI * 2);
-        ctx.fill();
-        
-        // Face
-        ctx.fillStyle = '#000';
-        // Eyes
-        ctx.beginPath();
-        ctx.arc(avatarState.x - 20, avatarState.y - 10, 8, 0, Math.PI * 2);
-        ctx.arc(avatarState.x + 20, avatarState.y - 10, 8, 0, Math.PI * 2);
-        ctx.fill();
-        // Mouth
-        ctx.beginPath();
-        ctx.arc(avatarState.x, avatarState.y + 15, 15, 0, Math.PI);
-        ctx.strokeStyle = '#000';
-        ctx.lineWidth = 3;
-        ctx.stroke();
-        
+    let imageToDraw = null;
+
+    // Ưu tiên: auto-action (pickpocket)
+    if (currentMode === 'auto' && currentAutoAction === 'pickpocket' && pickpocketFramesLoaded) {
+        const frame = pickpocketFrames[pickpocketAnim.frameIndex];
+        if (frame && frame.complete && frame.naturalWidth > 0) {
+            imageToDraw = frame;
+        }
+    }
+    // Fallback: avatar.png
+    if (!imageToDraw && avatarImage && avatarImage.complete && avatarImage.naturalWidth > 0) {
+        imageToDraw = avatarImage;
+    }
+
+    if (!imageToDraw) {
         ctx.restore();
         return;
     }
+
+    const drawWidth = imageToDraw.naturalWidth * AVATAR_SCALE;
+    const drawHeight = imageToDraw.naturalHeight * AVATAR_SCALE;
     
-    // Calculate frame position in sprite sheet
-    const frameWidth = config.width;
-    const frameHeight = config.height;
-    const framesPerRow = Math.floor(sprite.width / frameWidth);
-    const row = Math.floor(avatarState.currentFrame / framesPerRow);
-    const col = avatarState.currentFrame % framesPerRow;
+    // Giới hạn tối đa để không vượt quá canvas (giữ tỷ lệ)
+    const maxWidth = CANVAS_WIDTH - 100;
+    const maxHeight = CANVAS_HEIGHT - 200;
     
-    const sx = col * frameWidth;
-    const sy = row * frameHeight;
+    let finalWidth = drawWidth;
+    let finalHeight = drawHeight;
     
-    // Draw frame
-    ctx.save();
-    ctx.translate(avatarState.x, avatarState.y);
-    ctx.scale(avatarState.scale, avatarState.scale);
+    if (finalWidth > maxWidth || finalHeight > maxHeight) {
+        const scaleX = maxWidth / finalWidth;
+        const scaleY = maxHeight / finalHeight;
+        const finalScale = Math.min(scaleX, scaleY);
+        finalWidth *= finalScale;
+        finalHeight *= finalScale;
+    }
+    
     ctx.drawImage(
-        sprite,
-        sx, sy, frameWidth, frameHeight,
-        -frameWidth / 2, -frameHeight / 2, frameWidth, frameHeight
+        imageToDraw,
+        avatarState.x - finalWidth / 2,
+        avatarState.y - finalHeight / 2,
+        finalWidth,
+        finalHeight
     );
+    
     ctx.restore();
 }
 
@@ -629,10 +596,6 @@ function render() {
     // Draw buttons (luôn vẽ cuối cùng để ở trên cùng)
     drawButtons();
     
-    // Debug: Log button positions
-    if (Math.random() < 0.01) { // Chỉ log 1% thời gian để không spam
-        console.log('[Pet Avatar] Buttons:', Object.values(BUTTONS).map(b => `${b.icon}: (${b.x}, ${b.y})`));
-    }
 }
 
 // ==================== INPUT HANDLING ====================
@@ -654,29 +617,17 @@ function isPointInButton(x, y, button) {
 }
 
 function handleClick(x, y) {
-    // Check cooldown
-    const now = Date.now();
-    if (now - gameState.lastActionTime < ACTION_COOLDOWN) {
-        return;
-    }
+    const currentTime = animationTime || performance.now();
+    if (currentTime - gameState.lastActionTime < ACTION_COOLDOWN) return;
     
-    // Check which button was clicked
-    for (const [key, button] of Object.entries(BUTTONS)) {
+    for (const button of Object.values(BUTTONS)) {
         if (isPointInButton(x, y, button)) {
-            // Start action (can interrupt current action)
             gameState.currentAction = button.action;
-            gameState.actionStartTime = now;
-            gameState.lastActionTime = now;
-            avatarState.currentFrame = 0;
-            
-            // Play sound
+            gameState.actionStartTime = gameState.lastActionTime = currentTime;
             playOnionSound(button.action);
-            
-            // Create initial particles
             if (button.action === 'shower' || button.action === 'sing') {
                 createParticles(button.action, avatarState.x, avatarState.y - 50);
             }
-            
             break;
         }
     }
@@ -684,18 +635,41 @@ function handleClick(x, y) {
 
 // ==================== GAME LOOP ====================
 let lastTime = performance.now();
+let animationTime = 0;
+let frameCount = 0;
+let gameLoopStarted = false;
 
 function gameLoop(currentTime) {
+    if (!gameLoopStarted) {
+        gameLoopStarted = true;
+        lastTime = animationTime = currentTime;
+    }
+    
     const deltaTime = currentTime - lastTime;
     lastTime = currentTime;
+    animationTime += deltaTime;
+    frameCount++;
     
-    // Update
+    if (isNaN(deltaTime) || deltaTime < 0 || deltaTime > 1000) {
+        lastTime = currentTime;
+        requestAnimationFrame(gameLoop);
+        return;
+    }
+    
+    if (DEBUG_MODE && frameCount % 300 === 0) {
+        console.log(`[Pet Avatar] 🎮 Game loop: frame=${frameCount}, FPS=${(1000/deltaTime).toFixed(1)}, mode=${currentMode}, autoAction=${currentAutoAction || 'none'}`);
+    }
+    
+    // Check action timeout
+    if (gameState.currentAction !== 'idle') {
+        const duration = ACTION_DURATIONS[gameState.currentAction] || 0;
+        if (duration > 0 && (animationTime - gameState.actionStartTime >= duration)) {
+            gameState.currentAction = 'idle';
+        }
+    }
+    
     updateAnimation(deltaTime);
-    
-    // Render
     render();
-    
-    // Continue loop
     requestAnimationFrame(gameLoop);
 }
 
@@ -723,11 +697,8 @@ async function init() {
     await initGameConfig();
     
     // Load assets
-    console.log('[Pet Avatar] Loading assets...');
     await loadAssets();
     
-    // Load sprite sheets (sẽ load sau khi có thông tin)
-    // await loadSpriteSheets();
     
     // Setup input
     canvas.addEventListener('click', (e) => {
@@ -744,8 +715,6 @@ async function init() {
     
     // Start game loop
     console.log('[Pet Avatar] Game initialized');
-    console.log('[Pet Avatar] Canvas:', canvas.width, 'x', canvas.height);
-    console.log('[Pet Avatar] Background image:', bgImage ? `${bgImage.naturalWidth}x${bgImage.naturalHeight}` : 'not loaded');
     
     // Render ngay lập tức để hiển thị background
     render();
@@ -761,26 +730,30 @@ async function init() {
 
 // ==================== CONFIG LOADING ====================
 async function initGameConfig() {
-    let gameId = getGameId();
-    
-    // Load config từ playtest nếu không có gameId trong URL
-    if (!gameId) {
-        const playtestKey = 'pet_avatar_brand_config_playtest';
-        const playtestConfig = localStorage.getItem(playtestKey);
-        if (playtestConfig) {
-            try {
-                const parsed = JSON.parse(playtestConfig);
-                Object.assign(BRAND_CONFIG, parsed);
-            } catch (e) {
-                console.warn('[Pet Avatar] Failed to parse playtest config:', e);
+    try {
+        let gameId = getGameId();
+        
+        // Load config từ playtest nếu không có gameId trong URL
+        if (!gameId) {
+            const playtestKey = 'pet_avatar_brand_config_playtest';
+            const playtestConfig = localStorage.getItem(playtestKey);
+            if (playtestConfig) {
+                try {
+                    const parsed = JSON.parse(playtestConfig);
+                    Object.assign(BRAND_CONFIG, parsed);
+                } catch (e) {
+                    console.warn('[Pet Avatar] Failed to parse playtest config:', e);
+                }
+            }
+        } else {
+            const hasLocalConfig = loadBrandConfig(gameId);
+            
+            if (!hasLocalConfig && gameId) {
+                await loadBrandConfigFromSupabase(gameId);
             }
         }
-    } else {
-        const hasLocalConfig = loadBrandConfig(gameId);
-        
-        if (!hasLocalConfig && gameId) {
-            await loadBrandConfigFromSupabase(gameId);
-        }
+    } catch (e) {
+        console.warn('[Pet Avatar] initGameConfig error (non-critical):', e);
     }
 }
 

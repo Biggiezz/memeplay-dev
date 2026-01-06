@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Sprite Sheet - Pet Avatar</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .container {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        #preview {
+            margin: 20px 0;
+            border: 2px solid #ddd;
+            background: white;
+        }
+        .info {
+            background: #e3f2fd;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Create Sprite Sheet - Móc Túi Action</h1>
+        <div class="info">
+            <p><strong>Hướng dẫn:</strong></p>
+            <ol>
+                <li>Script sẽ tự động load 11 ảnh từ <code>assets/avatar/idle/</code></li>
+                <li>Gộp thành 1 sprite sheet (11 frames nằm ngang)</li>
+                <li>Download sprite sheet và đặt vào <code>assets/avatar/auto-actions/pickpocket.png</code></li>
+            </ol>
+        </div>
+        <button onclick="createSpriteSheet()">Tạo Sprite Sheet</button>
+        <button onclick="downloadSpriteSheet()" id="downloadBtn" disabled>Download Sprite Sheet</button>
+        <canvas id="preview" width="720" height="200"></canvas>
+        <div id="status"></div>
+    </div>
+
+    <script>
+        const FRAME_COUNT = 11;
+        let spriteSheetCanvas = null;
+        let images = [];
+        let loadedCount = 0;
+
+        function createSpriteSheet() {
+            const statusDiv = document.getElementById('status');
+            const previewCanvas = document.getElementById('preview');
+            const ctx = previewCanvas.getContext('2d');
+            
+            statusDiv.innerHTML = 'Đang load 11 frames...';
+            images = [];
+            loadedCount = 0;
+
+            // Load tất cả frames
+            for (let i = 1; i <= FRAME_COUNT; i++) {
+                const frameNum = i.toString().padStart(2, '0');
+                const img = new Image();
+                img.onload = () => {
+                    loadedCount++;
+                    if (loadedCount === FRAME_COUNT) {
+                        combineFrames();
+                    }
+                };
+                img.onerror = () => {
+                    statusDiv.innerHTML = `❌ Lỗi: Không load được frame ${frameNum}`;
+                };
+                img.src = `./assets/avatar/idle/idle_${frameNum}.png`;
+                images.push(img);
+            }
+        }
+
+        function combineFrames() {
+            const statusDiv = document.getElementById('status');
+            const previewCanvas = document.getElementById('preview');
+            const ctx = previewCanvas.getContext('2d');
+            
+            // Tìm kích thước lớn nhất của các frames
+            let maxWidth = 0;
+            let maxHeight = 0;
+            
+            images.forEach(img => {
+                if (img.naturalWidth > maxWidth) maxWidth = img.naturalWidth;
+                if (img.naturalHeight > maxHeight) maxHeight = img.naturalHeight;
+            });
+
+            // Tạo sprite sheet canvas (11 frames nằm ngang)
+            spriteSheetCanvas = document.createElement('canvas');
+            spriteSheetCanvas.width = maxWidth * FRAME_COUNT;
+            spriteSheetCanvas.height = maxHeight;
+            const spriteCtx = spriteSheetCanvas.getContext('2d');
+
+            // Vẽ từng frame vào sprite sheet
+            let x = 0;
+            images.forEach((img, index) => {
+                spriteCtx.drawImage(img, x, 0, maxWidth, maxHeight);
+                x += maxWidth;
+            });
+
+            // Preview trên canvas nhỏ
+            const scale = Math.min(previewCanvas.width / spriteSheetCanvas.width, previewCanvas.height / spriteSheetCanvas.height);
+            const previewWidth = spriteSheetCanvas.width * scale;
+            const previewHeight = spriteSheetCanvas.height * scale;
+            
+            ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+            ctx.drawImage(spriteSheetCanvas, 0, 0, previewWidth, previewHeight);
+
+            statusDiv.innerHTML = `✅ Đã tạo sprite sheet! Kích thước: ${spriteSheetCanvas.width} x ${spriteSheetCanvas.height}px<br>Frames: ${FRAME_COUNT} (${maxWidth} x ${maxHeight}px mỗi frame)`;
+            document.getElementById('downloadBtn').disabled = false;
+        }
+
+        function downloadSpriteSheet() {
+            if (!spriteSheetCanvas) {
+                alert('Chưa tạo sprite sheet!');
+                return;
+            }
+
+            spriteSheetCanvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'pickpocket.png';
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png');
+        }
+    </script>
+</body>
+</html>
+
+

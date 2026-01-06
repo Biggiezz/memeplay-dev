@@ -17,3 +17,5 @@ timeout /t 3 /nobreak >nul
 start http://localhost:8000/games/templates-v2/pet-avatar-template/test-local.html
 python -m http.server 8000
 
+
+

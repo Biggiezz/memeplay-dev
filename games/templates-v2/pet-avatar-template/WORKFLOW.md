@@ -462,3 +462,5 @@ function updateFPS() {
 - Có thể thêm **idle animations** (nháy mắt, cử động nhẹ) khi không có action
 - Có thể thêm **particle effects** (nước khi tắm, nhạc notes khi hát, etc.)
 
+
+
