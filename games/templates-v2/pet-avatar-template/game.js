@@ -369,7 +369,7 @@ class IdleAnimationRenderer {
     return await this.smokeRenderer.loadImage(smokePath);
   }
   selectRandomAnimation(excludeType = null) {
-    const available = Object.keys(this.animations);
+    const available = Object.keys(this.animations).filter(type => this.animations[type]?.isReady());
     if (available.length === 0) return null;
     const types = excludeType ? available.filter(t => t !== excludeType) : available;
     if (types.length === 0) return available[0];
@@ -481,6 +481,9 @@ const CANVAS_HEIGHT = 1000;
 // Background image
 let bgImage = null;
 
+// Static avatar fallback
+let staticAvatarImage = null;
+
 // Idle Animation Renderer (replaces old animation logic)
 let idleAnimationRenderer = null;
 
@@ -488,58 +491,136 @@ let idleAnimationRenderer = null;
 let drinkAnimationRenderer = null;
 let isDrinking = false;
 
+// Loading state
+let loadingProgress = { current: 0, total: 0 };
+let loadingOverlay = null;
+
 // ==================== LOAD ASSETS ====================
 async function loadAssets() {
+    // Phase 1: Load background immediately
     bgImage = new Image();
     bgImage.src = './assets/background.jpg';
     await new Promise(resolve => { bgImage.onload = resolve; bgImage.onerror = resolve; });
+    drawBackground();
     
+    // Phase 2: Load static avatar fallback immediately
+    await loadStaticAvatar();
+    if (staticAvatarImage) {
+        ctx.drawImage(staticAvatarImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
+    }
+    
+    // Phase 3: Show loading spinner and load smoke-blink (REQUIRED)
+    showLoadingOverlay();
+    updateProgress(0, 100);
+    
+    const smokeLoaded = await loadSmokeBlinkAnimation();
+    if (!smokeLoaded) {
+        console.error('[Pet Avatar] Failed to load smoke-blink animation');
+        hideLoadingOverlay();
+        return false;
+    }
+    
+    // Phase 4: Load drink frames
+    updateProgress(50, 100);
+    await loadDrinkFrames();
+    updateProgress(90, 100);
+    
+    // Phase 5: Hide loading and start idle animation
+    updateProgress(100, 100);
+    setTimeout(() => hideLoadingOverlay(), 300);
+    
+    // Phase 6: Lazy load other animations in background
+    loadOtherAnimationsAsync();
+    
+    return true;
+}
+
+async function loadStaticAvatar() {
+    const baseUrl = window.location.origin;
+    const smokeBase = `${baseUrl}/avatar-system/assets/animations/smoke-blink`;
+    staticAvatarImage = new Image();
+    staticAvatarImage.src = `${smokeBase}/nosmokehavehand.png`;
+    await new Promise(resolve => {
+        staticAvatarImage.onload = resolve;
+        staticAvatarImage.onerror = resolve;
+    });
+}
+
+async function loadSmokeBlinkAnimation() {
+    const baseUrl = window.location.origin;
+    const smokeBase = `${baseUrl}/avatar-system/assets/animations/smoke-blink`;
+    const bellyBase = `${baseUrl}/avatar-system/assets/animations/belly-scratch-blink`;
+    
+    idleAnimationRenderer = new IdleAnimationRenderer(canvas);
+    idleAnimationRenderer.animations = {};
+    
+    // Load smoke-blink animation with progress tracking
+    updateProgress(10, 100);
+    const smokeBlinkAnim = new SmokeBlinkAnimation();
+    const smokePaths = ['nosmokehavehand', 'smoke1', 'smoke2', 'smoke3'].map(f => `${smokeBase}/${f}.png`);
+    const smokeLoaded = await smokeBlinkAnim.loadImages(
+        smokePaths[0],
+        `${smokeBase}/close%20eye.png`,
+        smokePaths
+    );
+    
+    updateProgress(40, 100);
+    if (!smokeLoaded) return false;
+    
+    idleAnimationRenderer.animations['smoke-blink'] = smokeBlinkAnim;
+    
+    // Load smoke effect
+    updateProgress(45, 100);
+    const smokeEffectLoaded = await idleAnimationRenderer.loadSmoke(`${bellyBase}/smoke.png`);
+    
+    return smokeLoaded && smokeEffectLoaded;
+}
+
+async function loadOtherAnimationsAsync() {
+    // Load in background (non-blocking)
     const baseUrl = window.location.origin;
     const bellyBase = `${baseUrl}/avatar-system/assets/animations/belly-scratch-blink`;
-    const smokeBase = `${baseUrl}/avatar-system/assets/animations/smoke-blink`;
     const pocketBase = `${baseUrl}/avatar-system/assets/animations/pocket-pick-blink`;
     
     const bellyScratchPaths = ['hand-overlay', 'belly-1', 'belly-2', 'belly-3', 'belly-2', 'belly-3', 'belly-1', 'hand-overlay'].map(f => `${bellyBase}/${f}.png`);
-    const smokePaths = ['nosmokehavehand', 'smoke1', 'smoke2', 'smoke3'].map(f => `${smokeBase}/${f}.png`);
     const pocketPickPaths = Array.from({length: 12}, (_, i) => `${pocketBase}/${i + 1}.png`);
     
-    idleAnimationRenderer = new IdleAnimationRenderer(canvas);
-    const [animationsLoaded, smokeLoaded] = await Promise.all([
-        idleAnimationRenderer.loadAnimations({
-            'belly-scratch-blink': { basePath: `${bellyBase}/base-new.png`, blinkPath: `${bellyBase}/close%20eye.png`, bellyScratchPaths },
-            'smoke-blink': { basePath: smokePaths[0], blinkPath: `${smokeBase}/close%20eye.png`, smokePaths },
-            'pocket-pick-blink': { basePath: pocketPickPaths[0], blinkPath: `${pocketBase}/close%20eye.png`, pocketPickPaths }
-        }),
-        idleAnimationRenderer.loadSmoke(`${bellyBase}/smoke.png`)
-    ]);
+    // Load belly-scratch
+    const bellyAnim = new BellyScratchBlinkAnimation();
+    const bellyLoaded = await bellyAnim.loadImages(
+        `${bellyBase}/base-new.png`,
+        `${bellyBase}/close%20eye.png`,
+        bellyScratchPaths
+    );
+    if (bellyLoaded) {
+        idleAnimationRenderer.animations['belly-scratch-blink'] = bellyAnim;
+        console.log('[Pet Avatar] ✓ Belly-scratch animation loaded');
+    }
     
-    if (!animationsLoaded || !smokeLoaded) return false;
-    
-    await loadDrinkFrames();
-    return true;
+    // Load pocket-pick
+    const pocketAnim = new PocketPickBlinkAnimation();
+    const pocketLoaded = await pocketAnim.loadImages(
+        pocketPickPaths[0],
+        `${pocketBase}/close%20eye.png`,
+        pocketPickPaths
+    );
+    if (pocketLoaded) {
+        idleAnimationRenderer.animations['pocket-pick-blink'] = pocketAnim;
+        console.log('[Pet Avatar] ✓ Pocket-pick animation loaded');
+    }
 }
 
 // ==================== DRINK ANIMATION ====================
 async function loadDrinkFrames() {
     const basePaths = ['./assets/avatar/drink/drunk', `${window.location.origin}/games/templates-v2/pet-avatar-template/assets/avatar/drink/drunk`];
     const drinkFrames = [];
-    const failedFrames = [];
     
+    // Load all frames in parallel (faster)
+    const loadPromises = [];
     for (let i = 1; i <= 10; i++) {
-        let loaded = false;
-        for (const base of basePaths) {
-            const img = new Image();
-            const path = `${base}${i}.png`;
-            loaded = await new Promise((resolve) => {
-                const timeout = setTimeout(() => resolve(false), 5000);
-                img.onload = () => { clearTimeout(timeout); drinkFrames[i - 1] = img; resolve(true); };
-                img.onerror = () => { clearTimeout(timeout); resolve(false); };
-                img.src = path;
-            });
-            if (loaded) break;
-        }
-        if (!loaded) failedFrames.push(i);
+        loadPromises.push(loadSingleDrinkFrame(i, basePaths).then(img => { drinkFrames[i - 1] = img; }));
     }
+    await Promise.all(loadPromises);
     
     if (drinkFrames.some(f => f)) {
         const placeholder = drinkFrames.find(f => f) || null;
@@ -554,14 +635,43 @@ async function loadDrinkFrames() {
             isPlaying: false,
             animationId: null
         };
-        const loaded = drinkFrames.filter(f => f && f !== placeholder).length;
-        console.log(`[Pet Avatar] ✓ Drink animation: ${loaded}/10 frames`);
-        if (failedFrames.length) console.warn(`[Pet Avatar] ⚠ Missing: ${failedFrames.join(', ')}`);
         return true;
     }
-    
-    console.error('[Pet Avatar] ❌ No drink frames loaded');
     return false;
+}
+
+async function loadSingleDrinkFrame(index, basePaths) {
+    for (const base of basePaths) {
+        const img = new Image();
+        const path = `${base}${index}.png`;
+        const loaded = await new Promise((resolve) => {
+            const timeout = setTimeout(() => resolve(null), 3000); // Reduced timeout
+            img.onload = () => { clearTimeout(timeout); resolve(img); };
+            img.onerror = () => { clearTimeout(timeout); resolve(null); };
+            img.src = path;
+        });
+        if (loaded) return loaded;
+    }
+    return null;
+}
+
+// ==================== LOADING OVERLAY ====================
+function showLoadingOverlay() {
+    loadingOverlay = document.getElementById('loading-overlay');
+    if (loadingOverlay) loadingOverlay.classList.remove('hidden');
+}
+
+function hideLoadingOverlay() {
+    if (loadingOverlay) loadingOverlay.classList.add('hidden');
+}
+
+function updateProgress(current, total) {
+    loadingProgress = { current, total };
+    const percent = Math.round((current / total) * 100);
+    const fill = document.getElementById('progress-fill');
+    const text = document.getElementById('progress-text');
+    if (fill) fill.style.width = percent + '%';
+    if (text) text.textContent = percent + '%';
 }
 
 function startDrinkAnimation() {
@@ -632,19 +742,29 @@ async function init() {
     canvas.height = CANVAS_HEIGHT;
     
     await initGameConfig();
-    if (!(await loadAssets())) return;
+    if (!(await loadAssets())) {
+        hideLoadingOverlay();
+        drawBackground();
+        return;
+    }
     
-    if (idleAnimationRenderer?.isReady()) {
+    // Start smoke-blink animation (only one loaded at this point)
+    if (idleAnimationRenderer?.animations['smoke-blink']) {
+        idleAnimationRenderer.currentAnimationType = 'smoke-blink';
         const originalRender = idleAnimationRenderer.render.bind(idleAnimationRenderer);
         idleAnimationRenderer.render = (t) => isDrinking ? null : originalRender(t, drawBackground);
         idleAnimationRenderer.start();
     } else {
         drawBackground();
+        if (staticAvatarImage) ctx.drawImage(staticAvatarImage, 0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
     }
     
     setupHelpButton();
     setupActionButtons();
-    if (window.parent !== window) window.parent.postMessage({ type: 'PET_AVATAR_GAME_READY' }, '*');
+    if (window.parent !== window) {
+      window.parent.postMessage({ type: 'GAME_READY', gameId: gameId || 'pet-avatar' }, '*');
+      window.parent.postMessage({ type: 'PET_AVATAR_GAME_READY' }, '*');
+    }
 }
 
 // ==================== HELP BUTTON & MODAL ====================

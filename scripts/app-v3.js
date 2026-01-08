@@ -411,19 +411,25 @@ function renderGameCard(game, config, options = {}) {
   iframe.style.width = '100%'
   iframe.style.height = '100%'
   
-  // ✅ Loading bar overlay
-  const loadingOverlay = document.createElement('div')
-  loadingOverlay.className = 'game-loading-overlay show'
-  loadingOverlay.innerHTML = `
-    <div class="game-loading-spinner"></div>
-    <div class="game-loading-text">Loading game...</div>
-  `
+  // ✅ Loading bar overlay (skip for Pet Avatar - it has its own loading)
+  let loadingOverlay = null
+  const isPetAvatar = game.template_id === 'pet-avatar-template' || game.id === 'pet-avatar'
+  if (!isPetAvatar) {
+    loadingOverlay = document.createElement('div')
+    loadingOverlay.className = 'game-loading-overlay show'
+    loadingOverlay.innerHTML = `
+      <div class="game-loading-spinner"></div>
+      <div class="game-loading-text">Loading game...</div>
+    `
+  }
   
   stage.appendChild(iframe)
-  stage.appendChild(loadingOverlay)
+  if (loadingOverlay) stage.appendChild(loadingOverlay)
   
   // ✅ Game ready detection
-  setupGameReadyDetection(card, iframe, loadingOverlay)
+  if (loadingOverlay) {
+    setupGameReadyDetection(card, iframe, loadingOverlay)
+  }
   
   // Game footer
   const footer = createGameFooter(game, config)
@@ -707,19 +713,25 @@ function reloadGameIframe(card, game, config) {
   iframe.style.width = '100%'
   iframe.style.height = '100%'
   
-  // ✅ Loading bar overlay
-  const loadingOverlay = document.createElement('div')
-  loadingOverlay.className = 'game-loading-overlay show'
-  loadingOverlay.innerHTML = `
-    <div class="game-loading-spinner"></div>
-    <div class="game-loading-text">Loading game...</div>
-  `
+  // ✅ Loading bar overlay (skip for Pet Avatar - it has its own loading)
+  let loadingOverlay = null
+  const isPetAvatar = game.template_id === 'pet-avatar-template' || game.id === 'pet-avatar'
+  if (!isPetAvatar) {
+    loadingOverlay = document.createElement('div')
+    loadingOverlay.className = 'game-loading-overlay show'
+    loadingOverlay.innerHTML = `
+      <div class="game-loading-spinner"></div>
+      <div class="game-loading-text">Loading game...</div>
+    `
+  }
   
   stage.appendChild(iframe)
-  stage.appendChild(loadingOverlay)
+  if (loadingOverlay) stage.appendChild(loadingOverlay)
   
   // ✅ Game ready detection
-  setupGameReadyDetection(card, iframe, loadingOverlay)
+  if (loadingOverlay) {
+    setupGameReadyDetection(card, iframe, loadingOverlay)
+  }
   
   // Reset game ready state
   card.setAttribute('data-game-ready', 'false')
@@ -839,7 +851,7 @@ function setupGameReadyDetection(card, iframe, loadingOverlay) {
 }
 
 function hideLoadingBar(card, loadingOverlay) {
-  if (loadingOverlay && loadingOverlay.classList.contains('show')) {
+  if (loadingOverlay && loadingOverlay.classList && loadingOverlay.classList.contains('show')) {
     loadingOverlay.classList.remove('show')
   }
 }

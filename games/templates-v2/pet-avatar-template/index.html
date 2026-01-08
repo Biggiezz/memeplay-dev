@@ -10,6 +10,18 @@
     <div id="game-container">
         <canvas id="game-canvas" width="720" height="1000"></canvas>
         
+        <!-- Loading Spinner -->
+        <div id="loading-overlay" class="loading-overlay">
+            <div class="loading-spinner"></div>
+            <div class="loading-text">Loading...</div>
+            <div class="loading-progress">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <div id="progress-text" class="progress-text">0%</div>
+            </div>
+        </div>
+        
         <!-- Level and Help Button -->
         <div id="level-info">
             <span id="level-text">Lv.0</span>
