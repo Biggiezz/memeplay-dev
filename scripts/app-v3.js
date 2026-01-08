@@ -67,8 +67,9 @@ const GAME_LIST_CACHE_KEY = 'mp_v3_game_list_cache'
 const GAME_LIST_CACHE_TTL = 5 * 60 * 1000 // 5 phút
 
 async function loadGameListFromSupabase() {
-  // ✅ BUILT-IN: Pet Avatar game (always first)
-  const petAvatarGame = {
+  // ✅ FIX: Pet Avatar sẽ được load từ Supabase, không cần built-in object
+  // Fallback object chỉ dùng khi Supabase fails
+  const petAvatarFallback = {
     id: 'pet-avatar',
     template_id: 'pet-avatar-template',
     title: 'Pet Avatar',
@@ -82,7 +83,7 @@ async function loadGameListFromSupabase() {
     creator_id: 'memeplay-studio',
     creator_name: 'MemePlay Studio',
     templateUrl: '/games/templates-v2/pet-avatar-template/index.html',
-    source: 'built-in'
+    source: 'fallback'
   }
   
   // ✅ OPTIMIZATION 1: Check cache first (chỉ dùng nếu có games)
@@ -93,8 +94,18 @@ async function loadGameListFromSupabase() {
       const age = Date.now() - timestamp
       // ✅ FIX: Chỉ dùng cache nếu có games và chưa hết hạn
       if (Array.isArray(games) && games.length > 0 && age < GAME_LIST_CACHE_TTL) {
-        // ✅ Inject Pet Avatar vào đầu danh sách
-        return [petAvatarGame, ...games]
+        // ✅ Check nếu Pet Avatar đã có trong cache, nếu chưa thì inject
+        const hasPetAvatar = games.some(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
+        if (!hasPetAvatar) {
+          return [petAvatarFallback, ...games]
+        }
+        // ✅ Ensure Pet Avatar ở đầu
+        const petAvatarIndex = games.findIndex(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
+        if (petAvatarIndex > 0) {
+          const petAvatar = games.splice(petAvatarIndex, 1)[0]
+          return [petAvatar, ...games]
+        }
+        return games
       } else {
         // Cache invalid hoặc empty, xóa cache cũ
         localStorage.removeItem(GAME_LIST_CACHE_KEY)
@@ -109,7 +120,7 @@ async function loadGameListFromSupabase() {
   const enabledTemplates = Object.keys(TEMPLATE_REGISTRY)
     .filter(id => TEMPLATE_REGISTRY[id].enabled !== false)
   
-  // Fetch games for each template (parallel)
+  // ✅ FIX: Fetch games for each template (parallel) với error handling tốt hơn
   const promises = enabledTemplates.map(async (templateId) => {
     const config = getTemplateConfig(templateId)
     const supabaseTemplateId = templateId.includes('-template')
@@ -122,22 +133,38 @@ async function loadGameListFromSupabase() {
       })
       
       if (error) {
+        console.warn(`[V3] RPC error for ${templateId}:`, error.message)
         return { templateId, data: [] }
       }
       
-      if (!Array.isArray(data) || data.length === 0) {
+      // ✅ FIX: Handle case khi data là JSON string hoặc đã parsed
+      let games = []
+      if (Array.isArray(data)) {
+        games = data
+      } else if (typeof data === 'string') {
+        try {
+          games = JSON.parse(data)
+        } catch (e) {
+          console.warn(`[V3] Failed to parse JSON for ${templateId}:`, e)
+          games = []
+        }
+      }
+      
+      if (!Array.isArray(games) || games.length === 0) {
         return { templateId, data: [] }
       }
       
-      return { templateId, data, config }
+      return { templateId, data: games, config }
     } catch (err) {
+      console.warn(`[V3] Exception fetching ${templateId}:`, err.message)
       return { templateId, data: [] }
     }
   })
 
   const results = await Promise.all(promises)
   
-  // ✅ OPTIMIZATION 3: Filter playmode-* chỉ 1 lần và normalize
+  // ✅ OPTIMIZATION 3: Filter và normalize games
+  // ✅ FIX: Cho phép cả 'pet-avatar' (built-in) và 'playmode-*' (user-created)
   let allGames = results.flatMap((r) => {
     const templateId = r.templateId
     const config = r.config || getTemplateConfig(templateId)
@@ -146,7 +173,8 @@ async function loadGameListFromSupabase() {
     return data
       .filter(item => {
         const gameId = item?.game_id || item?.id
-        return gameId?.startsWith('playmode-')
+        // ✅ FIX: Cho phép pet-avatar (built-in) và playmode-* (user-created)
+        return gameId === 'pet-avatar' || gameId?.startsWith('playmode-')
       })
       .map(item => {
         const gameId = item.game_id || item.id
@@ -193,10 +221,12 @@ async function loadGameListFromSupabase() {
       })
   })
   
-  // ✅ Inject Pet Avatar vào đầu danh sách (nếu chưa có)
+  // ✅ FIX: Pet Avatar đã được load từ Supabase, chỉ cần đảm bảo ở đầu
+  // Nếu chưa có (Supabase fail), dùng fallback
   const hasPetAvatar = allGames.some(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
   if (!hasPetAvatar) {
-    allGames.unshift(petAvatarGame)
+    console.warn('[V3] Pet Avatar not found in Supabase, using fallback')
+    allGames.unshift(petAvatarFallback)
   } else {
     // Đảm bảo Pet Avatar ở đầu
     const petAvatarIndex = allGames.findIndex(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
@@ -222,9 +252,8 @@ async function loadGameListFromSupabase() {
   // Combine: Pet Avatar + sorted rest
   allGames = [allGames[0], ...restGames]
   
-  // ✅ OPTIMIZATION 1: Cache game list (không cache Pet Avatar built-in)
+  // ✅ OPTIMIZATION 1: Cache game list (cache cả Pet Avatar từ Supabase)
   try {
-    const gamesToCache = allGames.filter(g => g.id !== 'pet-avatar')
     localStorage.setItem(GAME_LIST_CACHE_KEY, JSON.stringify({
       games: gamesToCache,
       timestamp: Date.now()

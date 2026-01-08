@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Idle Animation Test</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: #0a0a0a; color: #fff;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-height: 100vh; padding: 20px;
+    }
+    h1 { color: #ffb642; margin-bottom: 30px; text-align: center; }
+    .test-container { display: flex; flex-direction: column; align-items: center; gap: 20px; }
+    .canvas-container {
+      position: relative; background: #1a1a2e; padding: 20px;
+      border-radius: 12px; border: 2px solid rgba(255, 182, 66, 0.3);
+    }
+    #testCanvas {
+      image-rendering: pixelated; image-rendering: crisp-edges;
+      border: 1px solid rgba(255, 182, 66, 0.5); display: block;
+      width: 100%; height: auto; max-width: 360px;
+    }
+    .controls { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+    button {
+      padding: 10px 20px; background: #ffb642; border: none; border-radius: 6px;
+      color: #1a1a2e; font-weight: 600; cursor: pointer; transition: all 0.2s;
+    }
+    button:hover { background: #ffc966; }
+    button:disabled { background: #666; color: #999; cursor: not-allowed; }
+    .status {
+      padding: 10px 20px; background: rgba(255, 182, 66, 0.1);
+      border: 1px solid rgba(255, 182, 66, 0.3); border-radius: 6px;
+      font-size: 0.9em; text-align: center; min-width: 300px;
+    }
+    .status.loading { color: #ffb642; }
+    .status.success { color: #4ade80; background: rgba(74, 222, 128, 0.1); border-color: rgba(74, 222, 128, 0.3); }
+    .status.error { color: #f87171; background: rgba(248, 113, 113, 0.1); border-color: rgba(248, 113, 113, 0.3); }
+  </style>
+</head>
+<body>
+  <h1>🎬 Idle Animation Test</h1>
+  <div class="test-container">
+    <div class="canvas-container">
+      <canvas id="testCanvas" width="1024" height="1536"></canvas>
+    </div>
+    <div class="status loading" id="status">Loading images...</div>
+    <div class="controls">
+      <button id="startBtn" disabled>Start Animation</button>
+      <button id="stopBtn" disabled>Stop Animation</button>
+    </div>
+  </div>
+
+  <script>
+    class BlinkRenderer {
+      constructor() {
+        this.baseImage = null; this.blinkImage = null; this.isBlinking = false;
+        this.blinkStartTime = 0; this.nextBlinkTime = 0;
+        this.closeDuration = 100; this.holdDuration = 500; this.openDuration = 100;
+        this.blinkDuration = 700; this.minInterval = 2000; this.maxInterval = 5000;
+      }
+      async loadImages(basePath, blinkPath) {
+        return new Promise((resolve) => {
+          let loaded = 0, hasError = false;
+          const check = () => { if (++loaded === 2 && !hasError) { this.scheduleNextBlink(); resolve(true); } };
+          const error = (p, t) => { if (!hasError) { hasError = true; console.error(`❌ Failed to load ${t}:`, p); resolve(false); } };
+          this.baseImage = new Image(); this.baseImage.onload = check; this.baseImage.onerror = () => error(basePath, 'base'); this.baseImage.src = basePath;
+          this.blinkImage = new Image(); this.blinkImage.onload = check; this.blinkImage.onerror = () => error(blinkPath, 'blink'); this.blinkImage.src = blinkPath;
+        });
+      }
+      scheduleNextBlink() { this.nextBlinkTime = performance.now() + this.minInterval + Math.random() * (this.maxInterval - this.minInterval); }
+      update(t) {
+        if (t < this.nextBlinkTime) return;
+        if (this.isBlinking) {
+          if (t - this.blinkStartTime >= this.blinkDuration) { this.isBlinking = false; this.scheduleNextBlink(); }
+        } else { this.isBlinking = true; this.blinkStartTime = t; }
+      }
+      render(ctx, w, h, t) {
+        this.update(t);
+        let opacity = 0;
+        if (this.isBlinking) {
+          const elapsed = t - this.blinkStartTime;
+          const closeEnd = this.closeDuration;
+          const holdEnd = closeEnd + this.holdDuration;
+          if (elapsed < closeEnd) {
+            opacity = elapsed / closeEnd;
+          } else if (elapsed < holdEnd) {
+            opacity = 1;
+          } else {
+            opacity = 1 - (elapsed - holdEnd) / this.openDuration;
+          }
+        }
+        return { baseImage: this.baseImage, blinkImage: this.blinkImage, blinkOpacity: Math.max(0, Math.min(1, opacity)) };
+      }
+      isReady() { return this.baseImage?.complete && this.blinkImage?.complete; }
+    }
+
+    class SmokeRenderer {
+      constructor() {
+        this.smokeImage = null; this.frameCount = 20; this.frameDuration = 200;
+        this.currentFrame = 0; this.lastFrameTime = 0; this.opacities = []; this.isPlaying = false;
+      }
+      initOpacities() { this.opacities = []; for (let i = 0; i < this.frameCount; i++) this.opacities.push(i / (this.frameCount - 1)); }
+      async loadImage(path) {
+        return new Promise((resolve) => {
+          this.smokeImage = new Image();
+          this.smokeImage.onload = () => { this.initOpacities(); resolve(true); };
+          this.smokeImage.onerror = () => { console.error('❌ Failed to load smoke:', path); resolve(false); };
+          this.smokeImage.src = path;
+        });
+      }
+      start() { if (this.smokeImage?.complete) { this.isPlaying = true; this.currentFrame = 0; this.lastFrameTime = performance.now(); } }
+      stop() { this.isPlaying = false; }
+      update(t) {
+        if (!this.isPlaying) return;
+        if (t - this.lastFrameTime >= this.frameDuration) { this.currentFrame = (this.currentFrame + 1) % this.frameCount; this.lastFrameTime = t; }
+      }
+      render(ctx, w, h, t) {
+        this.update(t);
+        if (!this.isPlaying || !this.smokeImage) return { smokeImage: null, smokeOpacity: 0 };
+        return { smokeImage: this.smokeImage, smokeOpacity: Math.max(0, Math.min(1, this.opacities[this.currentFrame] || 0)) };
+      }
+      isReady() { return this.smokeImage?.complete; }
+    }
+
+    class BellyScratchRenderer {
+      constructor() {
+        this.frames = []; this.frameCount = 8; this.frameDuration = 300;
+        this.currentFrame = 0; this.lastFrameTime = 0; this.isPlaying = false;
+      }
+      async loadFrames(framePaths) {
+        return new Promise((resolve) => {
+          let loaded = 0; let hasError = false;
+          const check = () => { if (++loaded === this.frameCount && !hasError) { this.isPlaying = true; this.currentFrame = 0; this.lastFrameTime = performance.now(); resolve(true); } };
+          const error = (path) => { if (!hasError) { hasError = true; console.error('❌ Failed to load belly scratch frame:', path); resolve(false); } };
+          this.frames = [];
+          framePaths.forEach((path, index) => {
+            const img = new Image();
+            img.onload = check; img.onerror = () => error(path); img.src = path;
+            this.frames[index] = img;
+          });
+        });
+      }
+      start() { if (this.frames.length === this.frameCount && this.frames.every(f => f.complete)) { this.isPlaying = true; this.currentFrame = 0; this.lastFrameTime = performance.now(); } }
+      stop() { this.isPlaying = false; }
+      update(t) { if (!this.isPlaying || this.frames.length === 0) return; if (t - this.lastFrameTime >= this.frameDuration) { this.currentFrame = (this.currentFrame + 1) % this.frameCount; this.lastFrameTime = t; } }
+      render(ctx, w, h, t) { this.update(t); if (!this.isPlaying || this.frames.length === 0) return null; return this.frames[this.currentFrame] || null; }
+      isReady() { return this.frames.length === this.frameCount && this.frames.every(f => f?.complete); }
+    }
+
+    class SmokeAnimationRenderer {
+      constructor() {
+        this.nosmokeFrame = null; this.smokeFrames = []; this.frameDuration = 300;
+        this.sequence = [0, 1, 2, 1, 2, 2, 1, 2, 0];
+        this.smokingDuration = this.sequence.length * this.frameDuration;
+        this.currentFrame = null; this.currentSequenceIndex = 0; this.isPlaying = false;
+        this.frameStartTime = 0; this.smokingStartTime = 0; this.isShowingSmoke = false;
+      }
+      async loadFrames(framePaths) {
+        return new Promise((resolve) => {
+          let loaded = 0; let hasError = false; const totalFrames = framePaths.length;
+          const check = () => { if (++loaded === totalFrames && !hasError) resolve(true); };
+          const error = (path) => { if (!hasError) { hasError = true; console.error('❌ Failed to load smoke frame:', path); resolve(false); } };
+          this.nosmokeFrame = new Image(); this.nosmokeFrame.onload = check; this.nosmokeFrame.onerror = () => error(framePaths[0]); this.nosmokeFrame.src = framePaths[0];
+          this.smokeFrames = [];
+          for (let i = 1; i < framePaths.length; i++) {
+            const img = new Image(); img.onload = check; img.onerror = () => error(framePaths[i]); img.src = framePaths[i];
+            this.smokeFrames.push(img);
+          }
+        });
+      }
+      start() {
+        if (this.nosmokeFrame?.complete && this.smokeFrames.every(f => f.complete)) {
+          this.isPlaying = true; this.isShowingSmoke = false; this.currentFrame = null;
+          this.currentSequenceIndex = 0; this.frameStartTime = performance.now(); this.smokingStartTime = 0;
+        }
+      }
+      stop() { this.isPlaying = false; }
+      update(t) {
+        if (!this.isPlaying) return;
+        if (this.isShowingSmoke) {
+          if (t - this.smokingStartTime >= this.smokingDuration) {
+            this.isShowingSmoke = false; this.currentFrame = null; this.currentSequenceIndex = 0; this.frameStartTime = t;
+          } else if (t - this.frameStartTime >= this.frameDuration) {
+            this.currentSequenceIndex = (this.currentSequenceIndex + 1) % this.sequence.length;
+            this.currentFrame = this.sequence[this.currentSequenceIndex];
+            this.frameStartTime = t;
+          }
+        } else if (t - this.frameStartTime >= this.frameDuration) {
+          this.isShowingSmoke = true; this.smokingStartTime = t;
+          this.currentSequenceIndex = 0; this.currentFrame = this.sequence[0];
+          this.frameStartTime = t;
+        }
+      }
+      render(ctx, w, h, t) {
+        this.update(t); if (!this.isPlaying) return { image: null, opacity: 0, isShowingSmoke: false };
+        let currentImg = null;
+        if (this.isShowingSmoke && this.currentFrame !== null) { currentImg = this.smokeFrames[this.currentFrame]; }
+        else { currentImg = this.nosmokeFrame; }
+        if (!currentImg) return { image: null, opacity: 0, isShowingSmoke: false };
+        return { image: currentImg, opacity: 1, isShowingSmoke: this.isShowingSmoke };
+      }
+      isReady() { return this.nosmokeFrame?.complete && this.smokeFrames.length > 0 && this.smokeFrames.every(f => f?.complete); }
+    }
+
+    class BellyScratchBlinkAnimation {
+      constructor() {
+        this.blinkRenderer = new BlinkRenderer();
+        this.bellyScratchRenderer = new BellyScratchRenderer();
+      }
+      async loadImages(basePath, blinkPath, bellyScratchPaths) {
+        const [blink, belly] = await Promise.all([
+          this.blinkRenderer.loadImages(basePath, blinkPath),
+          bellyScratchPaths ? this.bellyScratchRenderer.loadFrames(bellyScratchPaths) : Promise.resolve(true)
+        ]);
+        return blink && belly;
+      }
+      start() { this.bellyScratchRenderer.start(); }
+      stop() { this.bellyScratchRenderer.stop(); }
+      render(ctx, w, h, t) {
+        const b = this.blinkRenderer.render(ctx, w, h, t);
+        const bellyFrame = this.bellyScratchRenderer.render(ctx, w, h, t);
+        return { baseImage: b.baseImage, blinkImage: b.blinkImage, blinkOpacity: b.blinkOpacity, bellyFrame: bellyFrame };
+      }
+      isReady() { return this.blinkRenderer.isReady() && this.bellyScratchRenderer.isReady(); }
+    }
+
+    class SmokeBlinkAnimation {
+      constructor() {
+        this.blinkRenderer = new BlinkRenderer();
+        this.smokeAnimationRenderer = new SmokeAnimationRenderer();
+      }
+      async loadImages(basePath, blinkPath, smokePaths) {
+        const [blink, smoke] = await Promise.all([
+          this.blinkRenderer.loadImages(basePath, blinkPath),
+          smokePaths ? this.smokeAnimationRenderer.loadFrames(smokePaths) : Promise.resolve(true)
+        ]);
+        return blink && smoke;
+      }
+      start() { this.smokeAnimationRenderer.start(); }
+      forceStartSmoking() {
+        if (this.smokeAnimationRenderer) {
+          this.smokeAnimationRenderer.isShowingSmoke = true;
+          this.smokeAnimationRenderer.smokingStartTime = performance.now();
+          this.smokeAnimationRenderer.frameStartTime = performance.now();
+          this.smokeAnimationRenderer.currentSequenceIndex = 0;
+          this.smokeAnimationRenderer.currentFrame = this.smokeAnimationRenderer.sequence[0];
+        }
+      }
+      stop() { this.smokeAnimationRenderer.stop(); }
+      render(ctx, w, h, t) {
+        const b = this.blinkRenderer.render(ctx, w, h, t);
+        const s = this.smokeAnimationRenderer.render(ctx, w, h, t);
+        return { baseImage: b.baseImage, blinkImage: b.blinkImage, blinkOpacity: b.blinkOpacity, smokeImage: s.image, smokeOpacity: s.opacity, isShowingSmoke: s.isShowingSmoke };
+      }
+      isReady() { return this.blinkRenderer.isReady() && this.smokeAnimationRenderer.isReady(); }
+    }
+
+    class PocketPickRenderer {
+      constructor() {
+        this.frames = [];
+        this.baseFrame = null;
+        this.sequence = [0, 1, 2, 3, 4, 3, 4, 5, 6, 7, 8, 9, 10, 3, 2, 11];
+        this.frameCount = this.sequence.length;
+        this.frameDuration = 300;
+        this.baseDisplayDuration = 500;
+        this.currentFrame = -1;
+        this.lastFrameTime = 0;
+        this.isPlaying = false;
+      }
+      async loadFrames(framePaths) {
+        return new Promise((resolve) => {
+          let loaded = 0, hasError = false;
+          const totalFrames = framePaths.length;
+          const check = () => { if (++loaded === totalFrames && !hasError) resolve(true); };
+          const error = (p) => { if (!hasError) { hasError = true; console.error('❌ Failed to load pocket pick frame:', p); resolve(false); } };
+          this.baseFrame = new Image();
+          this.baseFrame.onload = check;
+          this.baseFrame.onerror = () => error(framePaths[0]);
+          this.baseFrame.src = framePaths[0];
+          this.frames = [];
+          for (let i = 1; i < framePaths.length; i++) {
+            const img = new Image();
+            img.onload = check;
+            img.onerror = () => error(framePaths[i]);
+            img.src = framePaths[i];
+            this.frames[i - 1] = img;
+          }
+        });
+      }
+      start() {
+        if (this.baseFrame?.complete && this.frames.length >= 11 && this.frames.every(f => f?.complete)) {
+          this.isPlaying = true;
+          this.currentFrame = -1;
+          this.lastFrameTime = performance.now();
+        }
+      }
+      stop() { this.isPlaying = false; }
+      update(t) {
+        if (!this.isPlaying) return;
+        const elapsed = t - this.lastFrameTime;
+        if (this.currentFrame === -1) {
+          if (elapsed >= this.baseDisplayDuration) {
+            this.currentFrame = 0;
+            this.lastFrameTime = t;
+          }
+        } else {
+          if (elapsed >= this.frameDuration) {
+            this.currentFrame = (this.currentFrame + 1) % this.frameCount;
+            this.lastFrameTime = t;
+          }
+        }
+      }
+      render(ctx, w, h, t) {
+        this.update(t);
+        if (!this.isPlaying) return { frame: null, frameIndex: -1 };
+        if (this.currentFrame === -1) {
+          return { frame: this.baseFrame, frameIndex: -1 };
+        }
+        const imageNumber = this.sequence[this.currentFrame];
+        let frameToUse = null;
+        if (imageNumber === 0) {
+          frameToUse = this.baseFrame;
+        } else {
+          frameToUse = this.frames[imageNumber - 1];
+        }
+        return { frame: frameToUse, frameIndex: this.currentFrame };
+      }
+      isReady() { return this.baseFrame?.complete && this.frames.length >= 11 && this.frames.every(f => f?.complete); }
+    }
+
+    class PocketPickBlinkAnimation {
+      constructor() {
+        this.blinkRenderer = new BlinkRenderer();
+        this.pocketPickRenderer = new PocketPickRenderer();
+        this.blinkFrames = [0, 3, 7, 11];
+      }
+      async loadImages(basePath, blinkPath, pocketPickPaths) {
+        const [blink, pocket] = await Promise.all([
+          this.blinkRenderer.loadImages(basePath, blinkPath),
+          pocketPickPaths ? this.pocketPickRenderer.loadFrames(pocketPickPaths) : Promise.resolve(true)
+        ]);
+        return blink && pocket;
+      }
+      start() { this.pocketPickRenderer.start(); }
+      stop() { this.pocketPickRenderer.stop(); }
+      render(ctx, w, h, t) {
+        const p = this.pocketPickRenderer.render(ctx, w, h, t);
+        const isShowingBase = p.frameIndex === -1;
+        const shouldShowBlink = this.blinkFrames.includes(p.frameIndex);
+        let blinkOpacity = 0;
+        let blinkImage = null;
+        if (shouldShowBlink) {
+          blinkImage = this.blinkRenderer.blinkImage;
+          blinkOpacity = 1;
+        } else {
+          const b = this.blinkRenderer.render(ctx, w, h, t);
+          blinkImage = b.blinkImage;
+          blinkOpacity = b.blinkOpacity;
+        }
+        return {
+          baseImage: isShowingBase ? this.blinkRenderer.baseImage : null,
+          blinkImage: blinkImage,
+          blinkOpacity: blinkOpacity,
+          pocketFrame: p.frame,
+          isShowingBase: isShowingBase
+        };
+      }
+      isReady() { return this.blinkRenderer.isReady() && this.pocketPickRenderer.isReady(); }
+    }
+
+    class IdleAnimationRenderer {
+      constructor(canvas) {
+        this.canvas = canvas; this.ctx = canvas.getContext('2d');
+        this.smokeRenderer = new SmokeRenderer();
+        this.animations = {}; this.currentAnimationType = null; this.isPlaying = false; this.animationId = null; this.randomMode = true;
+        this.animationStartTime = 0; this.animationDuration = 10000; this.smokeCycleCount = 0; this.lastSmokeState = false;
+      }
+      async loadAnimations(animationsConfig) {
+        const results = await Promise.all(Object.entries(animationsConfig).map(async ([type, config]) => {
+          const anim = await this.createAnimation(type, config);
+          if (anim) { this.animations[type] = anim; return true; } return false;
+        }));
+        return results.every(r => r);
+      }
+      async createAnimation(animationType, config) {
+        let animation = null;
+        switch (animationType) {
+          case 'belly-scratch-blink':
+            animation = new BellyScratchBlinkAnimation();
+            await animation.loadImages(config.basePath, config.blinkPath, config.bellyScratchPaths);
+            break;
+          case 'smoke-blink':
+            animation = new SmokeBlinkAnimation();
+            await animation.loadImages(config.basePath, config.blinkPath, config.smokePaths);
+            break;
+          case 'pocket-pick-blink':
+            animation = new PocketPickBlinkAnimation();
+            await animation.loadImages(config.basePath, config.blinkPath, config.pocketPickPaths);
+            break;
+          default:
+            console.error('Unknown animation type:', animationType);
+            return null;
+        }
+        return animation;
+      }
+      async loadSmoke(smokePath) {
+        return await this.smokeRenderer.loadImage(smokePath);
+      }
+      selectRandomAnimation(excludeType = null) {
+        const availableTypes = Object.keys(this.animations);
+        if (availableTypes.length === 0) return null;
+        if (availableTypes.length === 1) return availableTypes[0];
+        const typesToChooseFrom = excludeType 
+          ? availableTypes.filter(t => t !== excludeType)
+          : availableTypes;
+        if (typesToChooseFrom.length === 0) return availableTypes[0];
+        if (typesToChooseFrom.length === 1) return typesToChooseFrom[0];
+        if (typesToChooseFrom.length === 2) return Math.random() < 0.5 ? typesToChooseFrom[0] : typesToChooseFrom[1];
+        const rand = Math.random();
+        if (rand < 1/3) return typesToChooseFrom[0];
+        if (rand < 2/3) return typesToChooseFrom[1];
+        return typesToChooseFrom[2];
+      }
+      start() {
+        if (this.isPlaying) return;
+        if (!this.currentAnimationType || this.randomMode) {
+          this.currentAnimationType = this.selectRandomAnimation();
+        }
+        const currentAnim = this.animations[this.currentAnimationType];
+        if (!currentAnim) {
+          console.error('❌ Animation not found:', this.currentAnimationType);
+          return;
+        }
+        if (!currentAnim.isReady()) {
+          console.error('❌ Animation not ready:', this.currentAnimationType);
+          return;
+        }
+        if (!this.smokeRenderer.isReady()) {
+          console.error('❌ Smoke renderer not ready');
+          return;
+        }
+        this.isPlaying = true; this.animationStartTime = performance.now(); this.smokeCycleCount = 0; this.lastSmokeState = false;
+        this.smokeRenderer.start(); currentAnim.start(); this.animate();
+      }
+      stop() {
+        this.isPlaying = false; this.smokeRenderer.stop();
+        Object.values(this.animations).forEach(anim => anim.stop());
+        if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; }
+      }
+      animate() {
+        if (!this.isPlaying) return;
+        this.render(performance.now());
+        this.animationId = requestAnimationFrame(() => this.animate());
+      }
+      render(t) {
+        this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        const currentAnim = this.animations[this.currentAnimationType];
+        let animResult = null;
+        if (currentAnim) {
+          animResult = currentAnim.render(this.ctx, this.canvas.width, this.canvas.height, t);
+        }
+        if (this.currentAnimationType === 'smoke-blink' && animResult) {
+          const isShowingSmoke = animResult.isShowingSmoke || false;
+          if (isShowingSmoke && !this.lastSmokeState) {
+            this.lastSmokeState = true;
+          } else if (!isShowingSmoke && this.lastSmokeState) {
+            this.lastSmokeState = false;
+            this.smokeCycleCount++;
+            if (this.smokeCycleCount >= 1) {
+              this.switchToRandomAnimation();
+            }
+          }
+        }
+        if ((this.currentAnimationType === 'belly-scratch-blink' || this.currentAnimationType === 'pocket-pick-blink')) {
+          const elapsed = t - this.animationStartTime;
+          if (elapsed >= this.animationDuration) {
+            this.switchToRandomAnimation();
+          }
+        }
+        const s = this.smokeRenderer.render(this.ctx, this.canvas.width, this.canvas.height, t);
+        if (animResult?.baseImage && !(this.currentAnimationType === 'pocket-pick-blink' && !animResult.isShowingBase)) {
+          this.ctx.drawImage(animResult.baseImage, 0, 0, this.canvas.width, this.canvas.height);
+        }
+        if (animResult?.bellyFrame) this.ctx.drawImage(animResult.bellyFrame, 0, 0, this.canvas.width, this.canvas.height);
+        if (animResult?.pocketFrame) this.ctx.drawImage(animResult.pocketFrame, 0, 0, this.canvas.width, this.canvas.height);
+        if (animResult?.smokeImage && animResult.isShowingSmoke) {
+          this.ctx.drawImage(animResult.smokeImage, 0, 0, this.canvas.width, this.canvas.height);
+        }
+        if (animResult?.blinkImage && animResult.blinkOpacity > 0) {
+          this.ctx.save(); this.ctx.globalAlpha = animResult.blinkOpacity;
+          this.ctx.drawImage(animResult.blinkImage, 0, 0, this.canvas.width, this.canvas.height); this.ctx.restore();
+        }
+        if (s.smokeImage && s.smokeOpacity > 0 && this.currentAnimationType !== 'pocket-pick-blink') {
+          this.ctx.save(); this.ctx.globalAlpha = s.smokeOpacity;
+          this.ctx.drawImage(s.smokeImage, 0, 0, this.canvas.width, this.canvas.height); this.ctx.restore();
+        }
+      }
+      switchToRandomAnimation() {
+        const oldType = this.currentAnimationType;
+        const newType = this.selectRandomAnimation();
+        if (!newType) return;
+        if (this.animations[oldType]) { this.animations[oldType].stop(); }
+        this.currentAnimationType = newType; this.animationStartTime = performance.now(); this.smokeCycleCount = 0;
+        if (this.animations[newType]) {
+          this.animations[newType].start();
+          if (newType === 'smoke-blink' && this.animations[newType].forceStartSmoking) {
+            this.animations[newType].forceStartSmoking();
+            this.lastSmokeState = true;
+          } else {
+            this.lastSmokeState = false;
+          }
+        }
+      }
+      isReady() {
+        const allAnimationsReady = Object.values(this.animations).every(anim => anim?.isReady() ?? false);
+        return this.smokeRenderer.isReady() && allAnimationsReady;
+      }
+    }
+
+    const canvas = document.getElementById('testCanvas'), status = document.getElementById('status');
+    const startBtn = document.getElementById('startBtn'), stopBtn = document.getElementById('stopBtn');
+    let renderer = null;
+    const baseUrl = window.location.origin;
+    
+    const bellyAnimBase = baseUrl + '/avatar-system/assets/animations/belly-scratch-blink';
+    const bellyBasePath = bellyAnimBase + '/base-new.png';
+    const bellyBlinkPath = bellyAnimBase + '/close%20eye.png';
+    const bellyScratchPaths = [
+      bellyAnimBase + '/hand-overlay.png', bellyAnimBase + '/belly-1.png', bellyAnimBase + '/belly-2.png',
+      bellyAnimBase + '/belly-3.png', bellyAnimBase + '/belly-2.png', bellyAnimBase + '/belly-3.png',
+      bellyAnimBase + '/belly-1.png', bellyAnimBase + '/hand-overlay.png'
+    ];
+    
+    const smokeAnimBase = baseUrl + '/avatar-system/assets/animations/smoke-blink';
+    const smokeBasePath = smokeAnimBase + '/nosmokehavehand.png';
+    const smokeBlinkPath = smokeAnimBase + '/close%20eye.png';
+    const smokePaths = [
+      smokeAnimBase + '/nosmokehavehand.png',
+      smokeAnimBase + '/smoke1.png',
+      smokeAnimBase + '/smoke2.png',
+      smokeAnimBase + '/smoke3.png'
+    ];
+    
+    const pocketAnimBase = baseUrl + '/avatar-system/assets/animations/pocket-pick-blink';
+    const pocketBasePath = pocketAnimBase + '/1.png'; // Base image (first frame)
+    const pocketBlinkPath = pocketAnimBase + '/close%20eye.png';
+    const pocketPickPaths = [];
+    for (let i = 1; i <= 12; i++) {
+      pocketPickPaths.push(pocketAnimBase + '/' + i + '.png');
+    }
+    
+    const smokePath = bellyAnimBase + '/smoke.png';
+
+    async function init() {
+      status.textContent = 'Loading images...'; status.className = 'status loading';
+      renderer = new IdleAnimationRenderer(canvas);
+      const [animationsLoaded, smokeLoaded] = await Promise.all([
+        renderer.loadAnimations({
+          'belly-scratch-blink': {
+            basePath: bellyBasePath,
+            blinkPath: bellyBlinkPath,
+            bellyScratchPaths: bellyScratchPaths
+          },
+          'smoke-blink': {
+            basePath: smokeBasePath,
+            blinkPath: smokeBlinkPath,
+            smokePaths: smokePaths
+          },
+          'pocket-pick-blink': {
+            basePath: pocketBasePath,
+            blinkPath: pocketBlinkPath,
+            pocketPickPaths: pocketPickPaths
+          }
+        }),
+        renderer.loadSmoke(smokePath)
+      ]);
+      if (animationsLoaded && smokeLoaded) {
+        status.textContent = '✅ Images loaded! Auto starting...'; status.className = 'status success';
+        // Tự động chạy animation khi load xong
+        if (renderer?.isReady()) {
+          renderer.start();
+          startBtn.disabled = true;
+          stopBtn.disabled = false;
+          status.textContent = '🎬 Animation running (Auto Random 1/3)...'; status.className = 'status success';
+        }
+      } else {
+        status.textContent = '❌ Failed to load images.'; status.className = 'status error';
+      }
+    }
+
+    startBtn.addEventListener('click', () => {
+      if (renderer?.isReady()) {
+        renderer.start(); startBtn.disabled = true; stopBtn.disabled = false;
+        status.textContent = '🎬 Animation running...'; status.className = 'status success';
+      }
+    });
+
+    stopBtn.addEventListener('click', () => {
+      if (renderer) { renderer.stop(); startBtn.disabled = false; stopBtn.disabled = true; status.textContent = '⏹️ Stopped.'; status.className = 'status'; }
+    });
+
+    init();
+  </script>
+</body>
+</html>
+

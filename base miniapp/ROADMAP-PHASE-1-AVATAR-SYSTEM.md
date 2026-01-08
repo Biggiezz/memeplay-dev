@@ -18,7 +18,8 @@
 
 1. ✅ User tạo avatar (5 layers: skin, face, hair, clothes, equipment)
 2. ✅ FREE Mint onchain (Base Sepolia, user tự trả gas)
-3. ✅ Avatar có idle animation (nhún nhảy nhẹ, 4-6 frames) + **blink animation** (mắt nhắm khi nhún)
+3. ✅ Avatar có 
+idle animation (nhún nhảy nhẹ, 4-6 frames) + **blink animation** (mắt nhắm khi nhún)
 4. ✅ Profile page hiển thị avatar với animation
 5. ✅ Base App integration (auto-connect wallet)
 6. ✅ Simple tracking (Supabase)

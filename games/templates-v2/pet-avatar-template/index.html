@@ -9,6 +9,51 @@
 <body>
     <div id="game-container">
         <canvas id="game-canvas" width="720" height="1000"></canvas>
+        
+        <!-- Level and Help Button -->
+        <div id="level-info">
+            <span id="level-text">Lv.0</span>
+            <button id="help-button" aria-label="Game Rules">?</button>
+        </div>
+        
+        <!-- Action Buttons (4 corners) -->
+        <button id="button-shower" class="action-button disabled" data-action="shower" aria-label="Shower (Coming Soon)">
+            <span class="button-icon">🚿</span>
+        </button>
+        <button id="button-mic" class="action-button disabled" data-action="sing" aria-label="Sing (Coming Soon)">
+            <span class="button-icon">🎤</span>
+        </button>
+        <button id="button-fly" class="action-button disabled" data-action="fly" aria-label="Fly (Coming Soon)">
+            <span class="button-icon">🪰</span>
+        </button>
+        <button id="button-beer" class="action-button" data-action="drink" aria-label="Drink">
+            <span class="button-icon">🍺</span>
+        </button>
+        
+        <!-- Rules Modal -->
+        <div id="rules-modal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>Game Rules</h2>
+                    <button class="close-button" aria-label="Close">&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p>Avatar is a small game within the memeplay ecosystem.</p>
+                    
+                    <div class="rule-section">
+                        <p><strong>+ You need NFTs to participate in the reward system.</strong> You can earn referrals by designing DeeDee NFTs and selling them to friends, receiving a 35% commission.</p>
+                    </div>
+                    
+                    <div class="rule-section">
+                        <p><strong>+ The game has levels.</strong> The higher your level, the more rewards you receive. The formula is: your level / total level of all in-game Avatar characters x 3% of the day's tax token revenue.</p>
+                    </div>
+                    
+                    <div class="rule-section">
+                        <p><strong>+ Users will receive a 5/5% share of the tax</strong> from the transaction fees of the $Avatar token plus 50% from in-game Avatar banner advertising fees.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
     <script type="module" src="config.js?v=2"></script>
     <script type="module" src="game.js?v=2"></script>

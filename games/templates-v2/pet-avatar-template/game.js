@@ -2,9 +2,6 @@
 // PET AVATAR - MemePlay Game Template
 // ============================================
 
-// ==================== DEBUG FLAG ====================
-const DEBUG_MODE = false; // Set to false để tắt debug logs trong production
-
 // ==================== IMPORT CONFIG ====================
 import { 
     BRAND_CONFIG, 
@@ -16,6 +13,464 @@ import {
 } from './config.js';
 import { getSupabaseClient } from '../core/supabase-client.js';
 
+// ==================== IDLE ANIMATION CLASSES ====================
+
+class BlinkRenderer {
+  constructor() {
+    this.baseImage = null; this.blinkImage = null; this.isBlinking = false;
+    this.blinkStartTime = 0; this.nextBlinkTime = 0;
+    this.closeDuration = 100; this.holdDuration = 500; this.openDuration = 100;
+    this.blinkDuration = 700; this.minInterval = 2000; this.maxInterval = 5000;
+  }
+  async loadImages(basePath, blinkPath) {
+    return new Promise((resolve) => {
+      let loaded = 0, hasError = false;
+      const check = () => { if (++loaded === 2 && !hasError) { this.scheduleNextBlink(); resolve(true); } };
+      const error = (p, t) => { if (!hasError) { hasError = true; console.error(`❌ Failed to load ${t}:`, p); resolve(false); } };
+      const loadImg = (path, type) => {
+        const img = new Image();
+        img.onload = check;
+        img.onerror = () => error(path, type);
+        img.src = path;
+        return img;
+      };
+      this.baseImage = loadImg(basePath, 'base');
+      this.blinkImage = loadImg(blinkPath, 'blink');
+    });
+  }
+  scheduleNextBlink() { this.nextBlinkTime = performance.now() + this.minInterval + Math.random() * (this.maxInterval - this.minInterval); }
+  update(t) {
+    if (t < this.nextBlinkTime) return;
+    if (this.isBlinking) {
+      if (t - this.blinkStartTime >= this.blinkDuration) { this.isBlinking = false; this.scheduleNextBlink(); }
+    } else { this.isBlinking = true; this.blinkStartTime = t; }
+  }
+  render(ctx, w, h, t) {
+    this.update(t);
+    let opacity = 0;
+    if (this.isBlinking) {
+      const elapsed = t - this.blinkStartTime;
+      const closeEnd = this.closeDuration;
+      const holdEnd = closeEnd + this.holdDuration;
+      if (elapsed < closeEnd) {
+        opacity = elapsed / closeEnd;
+      } else if (elapsed < holdEnd) {
+        opacity = 1;
+      } else {
+        opacity = 1 - (elapsed - holdEnd) / this.openDuration;
+      }
+    }
+    return { baseImage: this.baseImage, blinkImage: this.blinkImage, blinkOpacity: Math.max(0, Math.min(1, opacity)) };
+  }
+  isReady() { return this.baseImage?.complete && this.blinkImage?.complete; }
+}
+
+class SmokeRenderer {
+  constructor() {
+    this.smokeImage = null; this.frameCount = 20; this.frameDuration = 200;
+    this.currentFrame = 0; this.lastFrameTime = 0; this.opacities = []; this.isPlaying = false;
+  }
+  initOpacities() { this.opacities = []; for (let i = 0; i < this.frameCount; i++) this.opacities.push(i / (this.frameCount - 1)); }
+  async loadImage(path) {
+    return new Promise((resolve) => {
+      this.smokeImage = new Image();
+      this.smokeImage.onload = () => { this.initOpacities(); resolve(true); };
+      this.smokeImage.onerror = () => { console.error('❌ Failed to load smoke:', path); resolve(false); };
+      this.smokeImage.src = path;
+    });
+  }
+  start() { if (this.smokeImage?.complete) { this.isPlaying = true; this.currentFrame = 0; this.lastFrameTime = performance.now(); } }
+  stop() { this.isPlaying = false; }
+  update(t) {
+    if (!this.isPlaying) return;
+    if (t - this.lastFrameTime >= this.frameDuration) { this.currentFrame = (this.currentFrame + 1) % this.frameCount; this.lastFrameTime = t; }
+  }
+  render(ctx, w, h, t) {
+    this.update(t);
+    if (!this.isPlaying || !this.smokeImage) return { smokeImage: null, smokeOpacity: 0 };
+    return { smokeImage: this.smokeImage, smokeOpacity: Math.max(0, Math.min(1, this.opacities[this.currentFrame] || 0)) };
+  }
+  isReady() { return this.smokeImage?.complete; }
+}
+
+class BellyScratchRenderer {
+  constructor() {
+    this.frames = []; this.frameCount = 8; this.frameDuration = 300;
+    this.currentFrame = 0; this.lastFrameTime = 0; this.isPlaying = false;
+  }
+  async loadFrames(framePaths) {
+    return new Promise((resolve) => {
+      let loaded = 0, hasError = false;
+      const check = () => { if (++loaded === this.frameCount && !hasError) { this.isPlaying = true; this.currentFrame = 0; this.lastFrameTime = performance.now(); resolve(true); } };
+      const error = (path) => { if (!hasError) { hasError = true; console.error('❌ Failed to load frame:', path); resolve(false); } };
+      this.frames = framePaths.map(path => {
+        const img = new Image();
+        img.onload = check;
+        img.onerror = () => error(path);
+        img.src = path;
+        return img;
+      });
+    });
+  }
+  start() { if (this.frames.length === this.frameCount && this.frames.every(f => f.complete)) { this.isPlaying = true; this.currentFrame = 0; this.lastFrameTime = performance.now(); } }
+  stop() { this.isPlaying = false; }
+  update(t) { if (!this.isPlaying || this.frames.length === 0) return; if (t - this.lastFrameTime >= this.frameDuration) { this.currentFrame = (this.currentFrame + 1) % this.frameCount; this.lastFrameTime = t; } }
+  render(ctx, w, h, t) { this.update(t); if (!this.isPlaying || this.frames.length === 0) return null; return this.frames[this.currentFrame] || null; }
+  isReady() { return this.frames.length === this.frameCount && this.frames.every(f => f?.complete); }
+}
+
+class SmokeAnimationRenderer {
+  constructor() {
+    this.nosmokeFrame = null; this.smokeFrames = []; this.frameDuration = 300;
+    this.sequence = [0, 1, 2, 1, 2, 2, 1, 2, 0];
+    this.smokingDuration = this.sequence.length * this.frameDuration;
+    this.currentFrame = null; this.currentSequenceIndex = 0; this.isPlaying = false;
+    this.frameStartTime = 0; this.smokingStartTime = 0; this.isShowingSmoke = false;
+  }
+  async loadFrames(framePaths) {
+    return new Promise((resolve) => {
+      let loaded = 0, hasError = false, total = framePaths.length;
+      const check = () => { if (++loaded === total && !hasError) resolve(true); };
+      const error = (path) => { if (!hasError) { hasError = true; console.error('❌ Failed to load frame:', path); resolve(false); } };
+      const loadImg = (path) => {
+        const img = new Image();
+        img.onload = check;
+        img.onerror = () => error(path);
+        img.src = path;
+        return img;
+      };
+      this.nosmokeFrame = loadImg(framePaths[0]);
+      this.smokeFrames = framePaths.slice(1).map(loadImg);
+    });
+  }
+  start() {
+    if (this.nosmokeFrame?.complete && this.smokeFrames.every(f => f.complete)) {
+      this.isPlaying = true; this.isShowingSmoke = false; this.currentFrame = null;
+      this.currentSequenceIndex = 0; this.frameStartTime = performance.now(); this.smokingStartTime = 0;
+    }
+  }
+  stop() { this.isPlaying = false; }
+  update(t) {
+    if (!this.isPlaying) return;
+    if (this.isShowingSmoke) {
+      if (t - this.smokingStartTime >= this.smokingDuration) {
+        this.isShowingSmoke = false; this.currentFrame = null; this.currentSequenceIndex = 0; this.frameStartTime = t;
+      } else if (t - this.frameStartTime >= this.frameDuration) {
+        this.currentSequenceIndex = (this.currentSequenceIndex + 1) % this.sequence.length;
+        this.currentFrame = this.sequence[this.currentSequenceIndex];
+        this.frameStartTime = t;
+      }
+    } else if (t - this.frameStartTime >= this.frameDuration) {
+      this.isShowingSmoke = true; this.smokingStartTime = t;
+      this.currentSequenceIndex = 0; this.currentFrame = this.sequence[0];
+      this.frameStartTime = t;
+    }
+  }
+  render(ctx, w, h, t) {
+    this.update(t); if (!this.isPlaying) return { image: null, opacity: 0, isShowingSmoke: false };
+    let currentImg = null;
+    if (this.isShowingSmoke && this.currentFrame !== null) { currentImg = this.smokeFrames[this.currentFrame]; }
+    else { currentImg = this.nosmokeFrame; }
+    if (!currentImg) return { image: null, opacity: 0, isShowingSmoke: false };
+    return { image: currentImg, opacity: 1, isShowingSmoke: this.isShowingSmoke };
+  }
+  isReady() { return this.nosmokeFrame?.complete && this.smokeFrames.length > 0 && this.smokeFrames.every(f => f?.complete); }
+}
+
+class BellyScratchBlinkAnimation {
+  constructor() {
+    this.blinkRenderer = new BlinkRenderer();
+    this.bellyScratchRenderer = new BellyScratchRenderer();
+  }
+  async loadImages(basePath, blinkPath, bellyScratchPaths) {
+    const [blink, belly] = await Promise.all([
+      this.blinkRenderer.loadImages(basePath, blinkPath),
+      bellyScratchPaths ? this.bellyScratchRenderer.loadFrames(bellyScratchPaths) : Promise.resolve(true)
+    ]);
+    return blink && belly;
+  }
+  start() { this.bellyScratchRenderer.start(); }
+  stop() { this.bellyScratchRenderer.stop(); }
+  render(ctx, w, h, t) {
+    const b = this.blinkRenderer.render(ctx, w, h, t);
+    const bellyFrame = this.bellyScratchRenderer.render(ctx, w, h, t);
+    return { baseImage: b.baseImage, blinkImage: b.blinkImage, blinkOpacity: b.blinkOpacity, bellyFrame: bellyFrame };
+  }
+  isReady() { return this.blinkRenderer.isReady() && this.bellyScratchRenderer.isReady(); }
+}
+
+class SmokeBlinkAnimation {
+  constructor() {
+    this.blinkRenderer = new BlinkRenderer();
+    this.smokeAnimationRenderer = new SmokeAnimationRenderer();
+  }
+  async loadImages(basePath, blinkPath, smokePaths) {
+    const [blink, smoke] = await Promise.all([
+      this.blinkRenderer.loadImages(basePath, blinkPath),
+      smokePaths ? this.smokeAnimationRenderer.loadFrames(smokePaths) : Promise.resolve(true)
+    ]);
+    return blink && smoke;
+  }
+  start() { this.smokeAnimationRenderer.start(); }
+  forceStartSmoking() {
+    if (this.smokeAnimationRenderer) {
+      this.smokeAnimationRenderer.isShowingSmoke = true;
+      this.smokeAnimationRenderer.smokingStartTime = performance.now();
+      this.smokeAnimationRenderer.frameStartTime = performance.now();
+      this.smokeAnimationRenderer.currentSequenceIndex = 0;
+      this.smokeAnimationRenderer.currentFrame = this.smokeAnimationRenderer.sequence[0];
+    }
+  }
+  stop() { this.smokeAnimationRenderer.stop(); }
+  render(ctx, w, h, t) {
+    const b = this.blinkRenderer.render(ctx, w, h, t);
+    const s = this.smokeAnimationRenderer.render(ctx, w, h, t);
+    return { baseImage: b.baseImage, blinkImage: b.blinkImage, blinkOpacity: b.blinkOpacity, smokeImage: s.image, smokeOpacity: s.opacity, isShowingSmoke: s.isShowingSmoke };
+  }
+  isReady() { return this.blinkRenderer.isReady() && this.smokeAnimationRenderer.isReady(); }
+}
+
+class PocketPickRenderer {
+  constructor() {
+    this.frames = [];
+    this.baseFrame = null;
+    this.sequence = [0, 1, 2, 3, 4, 3, 4, 5, 6, 7, 8, 9, 10, 3, 2, 11];
+    this.frameCount = this.sequence.length;
+    this.frameDuration = 300;
+    this.baseDisplayDuration = 500;
+    this.currentFrame = -1;
+    this.lastFrameTime = 0;
+    this.isPlaying = false;
+  }
+  async loadFrames(framePaths) {
+    return new Promise((resolve) => {
+      let loaded = 0, hasError = false, total = framePaths.length;
+      const check = () => { if (++loaded === total && !hasError) resolve(true); };
+      const error = (path) => { if (!hasError) { hasError = true; console.error('❌ Failed to load frame:', path); resolve(false); } };
+      const loadImg = (path) => {
+        const img = new Image();
+        img.onload = check;
+        img.onerror = () => error(path);
+        img.src = path;
+        return img;
+      };
+      this.baseFrame = loadImg(framePaths[0]);
+      this.frames = framePaths.slice(1).map(loadImg);
+    });
+  }
+  start() {
+    if (this.baseFrame?.complete && this.frames.length >= 11 && this.frames.every(f => f?.complete)) {
+      this.isPlaying = true;
+      this.currentFrame = -1;
+      this.lastFrameTime = performance.now();
+    }
+  }
+  stop() { this.isPlaying = false; }
+  update(t) {
+    if (!this.isPlaying) return;
+    const elapsed = t - this.lastFrameTime;
+    if (this.currentFrame === -1) {
+      if (elapsed >= this.baseDisplayDuration) {
+        this.currentFrame = 0;
+        this.lastFrameTime = t;
+      }
+    } else {
+      if (elapsed >= this.frameDuration) {
+        this.currentFrame = (this.currentFrame + 1) % this.frameCount;
+        this.lastFrameTime = t;
+      }
+    }
+  }
+  render(ctx, w, h, t) {
+    this.update(t);
+    if (!this.isPlaying) return { frame: null, frameIndex: -1 };
+    if (this.currentFrame === -1) {
+      return { frame: this.baseFrame, frameIndex: -1 };
+    }
+    const imageNumber = this.sequence[this.currentFrame];
+    let frameToUse = null;
+    if (imageNumber === 0) {
+      frameToUse = this.baseFrame;
+    } else {
+      frameToUse = this.frames[imageNumber - 1];
+    }
+    return { frame: frameToUse, frameIndex: this.currentFrame };
+  }
+  isReady() { return this.baseFrame?.complete && this.frames.length >= 11 && this.frames.every(f => f?.complete); }
+}
+
+class PocketPickBlinkAnimation {
+  constructor() {
+    this.blinkRenderer = new BlinkRenderer();
+    this.pocketPickRenderer = new PocketPickRenderer();
+    this.blinkFrames = [0, 3, 7, 11];
+  }
+  async loadImages(basePath, blinkPath, pocketPickPaths) {
+    const [blink, pocket] = await Promise.all([
+      this.blinkRenderer.loadImages(basePath, blinkPath),
+      pocketPickPaths ? this.pocketPickRenderer.loadFrames(pocketPickPaths) : Promise.resolve(true)
+    ]);
+    return blink && pocket;
+  }
+  start() { this.pocketPickRenderer.start(); }
+  stop() { this.pocketPickRenderer.stop(); }
+  render(ctx, w, h, t) {
+    const p = this.pocketPickRenderer.render(ctx, w, h, t);
+    const isShowingBase = p.frameIndex === -1;
+    const shouldShowBlink = this.blinkFrames.includes(p.frameIndex);
+    const b = this.blinkRenderer.render(ctx, w, h, t);
+    return {
+      baseImage: isShowingBase ? this.blinkRenderer.baseImage : null,
+      blinkImage: shouldShowBlink ? this.blinkRenderer.blinkImage : b.blinkImage,
+      blinkOpacity: shouldShowBlink ? 1 : b.blinkOpacity,
+      pocketFrame: p.frame,
+      isShowingBase
+    };
+  }
+  isReady() { return this.blinkRenderer.isReady() && this.pocketPickRenderer.isReady(); }
+}
+
+class IdleAnimationRenderer {
+  constructor(canvas) {
+    this.canvas = canvas; this.ctx = canvas.getContext('2d');
+    this.smokeRenderer = new SmokeRenderer();
+    this.animations = {}; this.currentAnimationType = null; this.isPlaying = false; this.animationId = null; this.randomMode = true;
+    this.animationStartTime = 0; this.animationDuration = 10000; this.smokeCycleCount = 0; this.lastSmokeState = false;
+  }
+  async loadAnimations(animationsConfig) {
+    const results = await Promise.all(Object.entries(animationsConfig).map(async ([type, config]) => {
+      const anim = await this.createAnimation(type, config);
+      if (anim) { this.animations[type] = anim; return true; } return false;
+    }));
+    return results.every(r => r);
+  }
+  async createAnimation(animationType, config) {
+    let animation = null;
+    switch (animationType) {
+      case 'belly-scratch-blink':
+        animation = new BellyScratchBlinkAnimation();
+        await animation.loadImages(config.basePath, config.blinkPath, config.bellyScratchPaths);
+            break;
+      case 'smoke-blink':
+        animation = new SmokeBlinkAnimation();
+        await animation.loadImages(config.basePath, config.blinkPath, config.smokePaths);
+            break;
+      case 'pocket-pick-blink':
+        animation = new PocketPickBlinkAnimation();
+        await animation.loadImages(config.basePath, config.blinkPath, config.pocketPickPaths);
+            break;
+      default:
+        console.error('Unknown animation type:', animationType);
+        return null;
+    }
+    return animation;
+  }
+  async loadSmoke(smokePath) {
+    return await this.smokeRenderer.loadImage(smokePath);
+  }
+  selectRandomAnimation(excludeType = null) {
+    const available = Object.keys(this.animations);
+    if (available.length === 0) return null;
+    const types = excludeType ? available.filter(t => t !== excludeType) : available;
+    if (types.length === 0) return available[0];
+    return types[Math.floor(Math.random() * types.length)];
+  }
+  start() {
+    if (this.isPlaying) return;
+    if (!this.currentAnimationType || this.randomMode) {
+      this.currentAnimationType = this.selectRandomAnimation();
+    }
+    const currentAnim = this.animations[this.currentAnimationType];
+    if (!currentAnim) {
+      console.error('❌ Animation not found:', this.currentAnimationType);
+        return;
+    }
+    if (!currentAnim.isReady()) {
+      console.error('❌ Animation not ready:', this.currentAnimationType);
+      return;
+    }
+    if (!this.smokeRenderer.isReady()) {
+      console.error('❌ Smoke renderer not ready');
+      return;
+    }
+    this.isPlaying = true; this.animationStartTime = performance.now(); this.smokeCycleCount = 0; this.lastSmokeState = false;
+    this.smokeRenderer.start(); currentAnim.start(); this.animate();
+  }
+  stop() {
+    this.isPlaying = false; this.smokeRenderer.stop();
+    Object.values(this.animations).forEach(anim => anim.stop());
+    if (this.animationId) { cancelAnimationFrame(this.animationId); this.animationId = null; }
+  }
+  animate() {
+    if (!this.isPlaying) return;
+    this.render(performance.now(), () => {
+      drawBackground();
+    });
+    this.animationId = requestAnimationFrame(() => this.animate());
+  }
+  render(t, drawBackgroundCallback = null) {
+    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+    if (drawBackgroundCallback) drawBackgroundCallback();
+    
+    const anim = this.animations[this.currentAnimationType];
+    const result = anim?.render(this.ctx, this.canvas.width, this.canvas.height, t);
+    const smoke = this.smokeRenderer.render(this.ctx, this.canvas.width, this.canvas.height, t);
+    const w = this.canvas.width, h = this.canvas.height;
+    
+    if (this.currentAnimationType === 'smoke-blink' && result?.isShowingSmoke !== this.lastSmokeState) {
+      if (!this.lastSmokeState && result.isShowingSmoke) this.lastSmokeState = true;
+      else if (this.lastSmokeState && !result.isShowingSmoke) {
+        this.lastSmokeState = false;
+        if (++this.smokeCycleCount >= 1) this.switchToRandomAnimation();
+      }
+    }
+    
+    if ((this.currentAnimationType === 'belly-scratch-blink' || this.currentAnimationType === 'pocket-pick-blink') && 
+        t - this.animationStartTime >= this.animationDuration) {
+      this.switchToRandomAnimation();
+    }
+    
+    if (result?.baseImage && !(this.currentAnimationType === 'pocket-pick-blink' && !result.isShowingBase)) {
+      this.ctx.drawImage(result.baseImage, 0, 0, w, h);
+    }
+    if (result?.bellyFrame) this.ctx.drawImage(result.bellyFrame, 0, 0, w, h);
+    if (result?.pocketFrame) this.ctx.drawImage(result.pocketFrame, 0, 0, w, h);
+    if (result?.smokeImage && result.isShowingSmoke) this.ctx.drawImage(result.smokeImage, 0, 0, w, h);
+    if (result?.blinkImage && result.blinkOpacity > 0) {
+      this.ctx.save();
+      this.ctx.globalAlpha = result.blinkOpacity;
+      this.ctx.drawImage(result.blinkImage, 0, 0, w, h);
+      this.ctx.restore();
+    }
+    if (smoke.smokeImage && smoke.smokeOpacity > 0 && this.currentAnimationType !== 'pocket-pick-blink') {
+      this.ctx.save();
+      this.ctx.globalAlpha = smoke.smokeOpacity;
+      this.ctx.drawImage(smoke.smokeImage, 0, 0, w, h);
+      this.ctx.restore();
+    }
+  }
+  switchToRandomAnimation() {
+    const oldType = this.currentAnimationType;
+    const newType = this.selectRandomAnimation(oldType);
+    if (!newType) return;
+    this.animations[oldType]?.stop();
+    this.currentAnimationType = newType;
+    this.animationStartTime = performance.now();
+    this.smokeCycleCount = 0;
+    this.animations[newType]?.start();
+    if (newType === 'smoke-blink') {
+      this.animations[newType].forceStartSmoking?.();
+      this.lastSmokeState = true;
+    } else {
+      this.lastSmokeState = false;
+    }
+  }
+  isReady() {
+    const allAnimationsReady = Object.values(this.animations).every(anim => anim?.isReady() ?? false);
+    return this.smokeRenderer.isReady() && allAnimationsReady;
+  }
+}
+
 // ==================== DOM ELEMENTS ====================
 let canvas, ctx;
 
@@ -23,377 +478,138 @@ let canvas, ctx;
 const CANVAS_WIDTH = 720;
 const CANVAS_HEIGHT = 1000;
 
-// Avatar position (center)
-const AVATAR_X = 360;
-const AVATAR_Y = 540; // Đưa lên cao 60px (từ 600 → 540)
-const AVATAR_SCALE = 1.7; // Phóng to 70% (từ 1.0 → 1.7 để nhân vật lớn hơn rõ rệt)
-
-// Button configuration
-const BUTTON_SIZE = 95; // 56px * 1.7 = 95px (phóng to thêm 70%)
-
-// Button positions: Fixed positions
-const BUTTONS = {
-    shower: { 
-        x: 60,   // Trái trên
-        y: 400, 
-        icon: 'shower',
-        action: 'shower'
-    },
-    mic: { 
-        x: 60,   // Trái dưới
-        y: 600, 
-        icon: 'mic',
-        action: 'sing'
-    },
-    fly: { 
-        x: 660,  // Phải trên
-        y: 400, 
-        icon: 'fly',
-        action: 'fly'
-    },
-    beer: { 
-        x: 660,  // Phải dưới
-        y: 600, 
-        icon: 'beer',
-        action: 'drink'
-    }
-};
-
-// Action durations (default, sẽ adjust sau)
-const ACTION_DURATIONS = {
-    idle: 0,        // Loop forever
-    shower: 3000,  // 3 seconds
-    sing: 4000,    // 4 seconds
-    fly: 2500,     // 2.5 seconds
-    drink: 3000    // 3 seconds
-};
-
-// Cooldown between actions
-const ACTION_COOLDOWN = 500; // 0.5 seconds
-
-// ==================== GAME STATE ====================
-let gameState = {
-    currentAction: 'idle',
-    actionStartTime: 0,
-    lastActionTime: 0,
-    canInteract: true
-};
-
-// Avatar state
-let avatarState = {
-    x: AVATAR_X,
-    y: AVATAR_Y,
-    scale: AVATAR_SCALE
-};
-
 // Background image
 let bgImage = null;
 
-// Avatar static image (fallback)
-let avatarImage = null;
+// Idle Animation Renderer (replaces old animation logic)
+let idleAnimationRenderer = null;
 
-// Auto-action: pickpocket (11 frames)
-const PICKPOCKET_FRAME_COUNT = 11;
-const PICKPOCKET_FRAME_DURATION = 350; // 0.35s / frame
-let pickpocketFrames = [];
-let pickpocketFramesLoaded = false;
-let pickpocketAnim = {
-    time: 0,
-    frameIndex: 0,
-    frameDuration: PICKPOCKET_FRAME_DURATION
-};
-
-// Auto-action timer
-const AUTO_ACTION_INTERVAL = 3000; // 3s chờ giữa các auto-action
-let autoActionTimer = 0;
-let currentMode = 'idle'; // 'idle' | 'auto'
-let currentAutoAction = null; // 'pickpocket' | null
-
-// Button icons
-let buttonIcons = {
-    shower: null,
-    mic: null,
-    fly: null,
-    beer: null
-};
-
-// Particles
-let particles = [];
-const MAX_PARTICLES = 50;
-
-// Audio context for procedural sounds
-let audioContext = null;
-let audioUnlocked = false;
-
-// ==================== INITIALIZE AUDIO ====================
-function initAudio() {
-    if (!audioContext) {
-        try {
-            audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            audioUnlocked = true;
-        } catch (e) {
-            console.warn('Web Audio API not supported:', e);
-        }
-    }
-}
-
-// Unlock audio on first user interaction
-function unlockAudio() {
-    if (!audioUnlocked && audioContext) {
-        audioContext.resume().then(() => {
-            audioUnlocked = true;
-            console.log('[Pet Avatar] Audio unlocked');
-        });
-    }
-}
-
-// ==================== PROCEDURAL SOUND GENERATION ====================
-// Tạo âm thanh giống nhân vật hoạt hình onion (ngắn, độc đáo, vui nhộn)
-function playOnionSound(action) {
-    if (!audioContext || !audioUnlocked) return;
-    
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
-    
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
-    
-    // Tùy theo action, tạo âm thanh khác nhau
-    let frequency = 200;
-    let duration = 0.15; // 150ms
-    
-    switch(action) {
-        case 'shower':
-            // Âm thanh vui vẻ, cao độ
-            frequency = 300 + Math.random() * 100;
-            break;
-        case 'sing':
-            // Âm thanh hát, có melody nhẹ
-            frequency = 250 + Math.random() * 150;
-            duration = 0.2;
-            break;
-        case 'fly':
-            // Âm thanh nhanh, sắc
-            frequency = 400 + Math.random() * 100;
-            duration = 0.1;
-            break;
-        case 'drink':
-            // Âm thanh thấp, vui
-            frequency = 150 + Math.random() * 100;
-            break;
-    }
-    
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(frequency, audioContext.currentTime);
-    
-    // Envelope: attack, sustain, release
-    const now = audioContext.currentTime;
-    gainNode.gain.setValueAtTime(0, now);
-    gainNode.gain.linearRampToValueAtTime(0.3, now + 0.01); // Quick attack
-    gainNode.gain.linearRampToValueAtTime(0.2, now + duration * 0.5); // Sustain
-    gainNode.gain.linearRampToValueAtTime(0, now + duration); // Release
-    
-    // Add vibrato for character
-    const vibrato = audioContext.createOscillator();
-    const vibratoGain = audioContext.createGain();
-    vibrato.type = 'sine';
-    vibrato.frequency.value = 5; // 5Hz vibrato
-    vibratoGain.gain.value = 10; // 10Hz modulation
-    vibrato.connect(vibratoGain);
-    vibratoGain.connect(oscillator.frequency);
-    
-    vibrato.start(now);
-    vibrato.stop(now + duration);
-    oscillator.start(now);
-    oscillator.stop(now + duration);
-}
-
-// ==================== PARTICLE SYSTEM ====================
-function createParticles(type, x, y) {
-    const count = type === 'shower' ? 15 : type === 'sing' ? 8 : 5;
-    
-    for (let i = 0; i < count; i++) {
-        if (particles.length >= MAX_PARTICLES) break;
-        
-        let particle = {
-            x: x + (Math.random() - 0.5) * 40,
-            y: y + (Math.random() - 0.5) * 40,
-            vx: (Math.random() - 0.5) * 2,
-            vy: type === 'shower' ? -2 - Math.random() * 2 : (Math.random() - 0.5) * 3,
-            life: 1.0,
-            decay: 0.02 + Math.random() * 0.02,
-            size: type === 'shower' ? 3 + Math.random() * 4 : 4 + Math.random() * 3,
-            type: type,
-            rotation: Math.random() * Math.PI * 2,
-            rotationSpeed: (Math.random() - 0.5) * 0.2
-        };
-        
-        // Color based on type
-        if (type === 'shower') {
-            // Nước trong suốt với khói nhẹ
-            particle.color = `rgba(200, 220, 255, 0.6)`;
-        } else if (type === 'sing') {
-            // Nhạc notes - màu vàng/trắng
-            particle.color = Math.random() > 0.5 ? '#FFD700' : '#FFFFFF';
-        } else {
-            particle.color = '#FFFFFF';
-        }
-        
-        particles.push(particle);
-    }
-}
-
-function updateParticles(deltaTime) {
-    for (let i = particles.length - 1; i >= 0; i--) {
-        const p = particles[i];
-        
-        // Update position
-        p.x += p.vx * deltaTime * 0.1;
-        p.y += p.vy * deltaTime * 0.1;
-        
-        // Gravity for shower particles
-        if (p.type === 'shower') {
-            p.vy += 0.05 * deltaTime * 0.1;
-        }
-        
-        // Rotation
-        p.rotation += p.rotationSpeed * deltaTime * 0.1;
-        
-        // Decay
-        p.life -= p.decay * deltaTime * 0.1;
-        
-        if (p.life <= 0) {
-            particles.splice(i, 1);
-        }
-    }
-}
-
-function drawParticles() {
-    particles.forEach(p => {
-        ctx.save();
-        ctx.globalAlpha = p.life;
-        ctx.translate(p.x, p.y);
-        ctx.rotate(p.rotation);
-        
-        if (p.type === 'sing') {
-            // Draw music note shape
-            ctx.fillStyle = p.color;
-            ctx.font = `${p.size * 3}px Arial`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText('♪', 0, 0);
-        } else {
-            // Draw circle for water/smoke
-            const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, p.size);
-            gradient.addColorStop(0, p.color);
-            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(0, 0, p.size, 0, Math.PI * 2);
-            ctx.fill();
-        }
-        
-        ctx.restore();
-    });
-}
+// Drink Animation (manual trigger)
+let drinkAnimationRenderer = null;
+let isDrinking = false;
 
 // ==================== LOAD ASSETS ====================
-function loadAssets() {
-    return new Promise((resolve) => {
-        let loaded = 0;
-        const total = 7;
-        const checkComplete = () => { loaded++; if (loaded === total) resolve(); };
-        
-        // Load background
-        bgImage = new Image();
-        bgImage.onload = () => { checkComplete(); if (ctx && canvas) render(); };
-        bgImage.onerror = checkComplete;
-        bgImage.src = './assets/background.jpg';
-        
-        // Load pickpocket frames
-        let pickLoaded = 0;
-        for (let i = 1; i <= PICKPOCKET_FRAME_COUNT; i++) {
-            const frame = new Image();
-            const frameNum = i.toString().padStart(2, '0');
-            frame.onload = () => {
-                pickpocketFramesLoaded = pickpocketFramesLoaded || ++pickLoaded === PICKPOCKET_FRAME_COUNT;
-                if (pickpocketFramesLoaded) checkComplete();
-                if (ctx && canvas) render();
-            };
-            frame.onerror = () => {
-                pickLoaded++;
-                if (pickLoaded === PICKPOCKET_FRAME_COUNT) checkComplete();
-            };
-            frame.src = `./assets/avatar/auto-actions/idle/idle_${frameNum}.png`;
-            pickpocketFrames.push(frame);
-        }
-        
-        // Load avatar static image
-        avatarImage = new Image();
-        avatarImage.onload = checkComplete;
-        avatarImage.onerror = checkComplete;
-        avatarImage.src = './assets/avatar/avatar.png';
-        
-        // Load button icons
-        ['shower', 'mic', 'fly', 'beer'].forEach(name => {
-            const icon = new Image();
-            icon.onload = checkComplete;
-            icon.onerror = checkComplete;
-            icon.src = `./assets/buttons/${name}-icon.png`;
-            buttonIcons[name] = icon;
-        });
-    });
+async function loadAssets() {
+    bgImage = new Image();
+    bgImage.src = './assets/background.jpg';
+    await new Promise(resolve => { bgImage.onload = resolve; bgImage.onerror = resolve; });
+    
+    const baseUrl = window.location.origin;
+    const bellyBase = `${baseUrl}/avatar-system/assets/animations/belly-scratch-blink`;
+    const smokeBase = `${baseUrl}/avatar-system/assets/animations/smoke-blink`;
+    const pocketBase = `${baseUrl}/avatar-system/assets/animations/pocket-pick-blink`;
+    
+    const bellyScratchPaths = ['hand-overlay', 'belly-1', 'belly-2', 'belly-3', 'belly-2', 'belly-3', 'belly-1', 'hand-overlay'].map(f => `${bellyBase}/${f}.png`);
+    const smokePaths = ['nosmokehavehand', 'smoke1', 'smoke2', 'smoke3'].map(f => `${smokeBase}/${f}.png`);
+    const pocketPickPaths = Array.from({length: 12}, (_, i) => `${pocketBase}/${i + 1}.png`);
+    
+    idleAnimationRenderer = new IdleAnimationRenderer(canvas);
+    const [animationsLoaded, smokeLoaded] = await Promise.all([
+        idleAnimationRenderer.loadAnimations({
+            'belly-scratch-blink': { basePath: `${bellyBase}/base-new.png`, blinkPath: `${bellyBase}/close%20eye.png`, bellyScratchPaths },
+            'smoke-blink': { basePath: smokePaths[0], blinkPath: `${smokeBase}/close%20eye.png`, smokePaths },
+            'pocket-pick-blink': { basePath: pocketPickPaths[0], blinkPath: `${pocketBase}/close%20eye.png`, pocketPickPaths }
+        }),
+        idleAnimationRenderer.loadSmoke(`${bellyBase}/smoke.png`)
+    ]);
+    
+    if (!animationsLoaded || !smokeLoaded) return false;
+    
+    await loadDrinkFrames();
+    return true;
 }
 
-// ==================== ANIMATION SYSTEM ====================
-function updateAnimation(deltaTime) {
-    // Nếu đang ở chế độ idle (hiển thị ảnh gốc)
-    if (currentMode === 'idle') {
-        // Đếm thời gian chờ auto-action
-        autoActionTimer += deltaTime;
-
-        // Sau 3s nếu có auto-action -> kích hoạt pickpocket
-        if (autoActionTimer >= AUTO_ACTION_INTERVAL && pickpocketFramesLoaded) {
-            currentMode = 'auto';
-            currentAutoAction = 'pickpocket';
-            pickpocketAnim.time = 0;
-            pickpocketAnim.frameIndex = 0;
-            autoActionTimer = 0;
-            if (DEBUG_MODE) console.log('[AutoAction] ▶️ Start pickpocket');
+// ==================== DRINK ANIMATION ====================
+async function loadDrinkFrames() {
+    const basePaths = ['./assets/avatar/drink/drunk', `${window.location.origin}/games/templates-v2/pet-avatar-template/assets/avatar/drink/drunk`];
+    const drinkFrames = [];
+    const failedFrames = [];
+    
+    for (let i = 1; i <= 10; i++) {
+        let loaded = false;
+        for (const base of basePaths) {
+            const img = new Image();
+            const path = `${base}${i}.png`;
+            loaded = await new Promise((resolve) => {
+                const timeout = setTimeout(() => resolve(false), 5000);
+                img.onload = () => { clearTimeout(timeout); drinkFrames[i - 1] = img; resolve(true); };
+                img.onerror = () => { clearTimeout(timeout); resolve(false); };
+                img.src = path;
+            });
+            if (loaded) break;
         }
-    }
-    // Đang chạy auto-action
-    else if (currentMode === 'auto' && currentAutoAction === 'pickpocket' && pickpocketFramesLoaded) {
-        pickpocketAnim.time += deltaTime;
-        if (pickpocketAnim.time >= pickpocketAnim.frameDuration) {
-            pickpocketAnim.time -= pickpocketAnim.frameDuration;
-            pickpocketAnim.frameIndex += 1;
-
-            if (pickpocketAnim.frameIndex >= PICKPOCKET_FRAME_COUNT) {
-                // Kết thúc auto-action -> quay về idle (ảnh gốc)
-                currentMode = 'idle';
-                currentAutoAction = null;
-                pickpocketAnim.frameIndex = 0;
-                pickpocketAnim.time = 0;
-                autoActionTimer = 0;
-                if (DEBUG_MODE) console.log('[AutoAction] ⏹ End pickpocket -> back to idle');
-            }
-        }
+        if (!loaded) failedFrames.push(i);
     }
     
-    // Update particles
-    updateParticles(deltaTime);
-    
-    // Create particles during actions
-    if (gameState.currentAction === 'shower' || gameState.currentAction === 'sing') {
-        if (Math.random() < 0.3) { // 30% chance per frame
-            createParticles(
-                gameState.currentAction,
-                avatarState.x,
-                avatarState.y - 50
-            );
-        }
+    if (drinkFrames.some(f => f)) {
+        const placeholder = drinkFrames.find(f => f) || null;
+        for (let i = 0; i < 10; i++) drinkFrames[i] = drinkFrames[i] || placeholder;
+        
+        drinkAnimationRenderer = {
+            frames: drinkFrames,
+            sequence: [1, 2, 3, 4, 5, 6, 5, 4, 5, 6, 5, 4, 7, 8, 9, 10],
+            frameDuration: 300,
+            currentFrameIndex: 0,
+            startTime: 0,
+            isPlaying: false,
+            animationId: null
+        };
+        const loaded = drinkFrames.filter(f => f && f !== placeholder).length;
+        console.log(`[Pet Avatar] ✓ Drink animation: ${loaded}/10 frames`);
+        if (failedFrames.length) console.warn(`[Pet Avatar] ⚠ Missing: ${failedFrames.join(', ')}`);
+        return true;
     }
+    
+    console.error('[Pet Avatar] ❌ No drink frames loaded');
+    return false;
+}
+
+function startDrinkAnimation() {
+    if (!drinkAnimationRenderer || isDrinking) return;
+    if (idleAnimationRenderer?.isPlaying) idleAnimationRenderer.stop();
+    isDrinking = true;
+    Object.assign(drinkAnimationRenderer, { isPlaying: true, currentFrameIndex: 0, startTime: performance.now() });
+    drinkAnimationRenderer.animationId = requestAnimationFrame(drinkAnimationLoop);
+}
+
+function stopDrinkAnimation() {
+    if (!drinkAnimationRenderer || !isDrinking) return;
+    isDrinking = false;
+    drinkAnimationRenderer.isPlaying = false;
+    if (drinkAnimationRenderer.animationId) {
+        cancelAnimationFrame(drinkAnimationRenderer.animationId);
+        drinkAnimationRenderer.animationId = null;
+    }
+    if (idleAnimationRenderer?.isReady()) idleAnimationRenderer.start();
+}
+
+function drinkAnimationLoop(currentTime) {
+    if (!drinkAnimationRenderer?.isPlaying) return;
+    const r = drinkAnimationRenderer;
+    const elapsed = currentTime - r.startTime;
+    const totalDuration = r.sequence.length * r.frameDuration;
+    
+    if (elapsed >= totalDuration) {
+        stopDrinkAnimation();
+        return;
+    }
+    
+    const newFrame = Math.floor(elapsed / r.frameDuration);
+    if (newFrame !== r.currentFrameIndex && newFrame < r.sequence.length) {
+        r.currentFrameIndex = newFrame;
+    }
+    
+    renderDrinkFrame();
+    if (r.isPlaying) r.animationId = requestAnimationFrame(drinkAnimationLoop);
+}
+
+function renderDrinkFrame() {
+    if (!drinkAnimationRenderer || !isDrinking || !canvas || !ctx) return;
+    const frame = drinkAnimationRenderer.frames[drinkAnimationRenderer.sequence[drinkAnimationRenderer.currentFrameIndex] - 1];
+    if (!frame) return;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground();
+    ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
 }
 
 // ==================== RENDERING ====================
@@ -406,354 +622,77 @@ function drawBackground() {
     }
 }
 
-function drawAvatar() {
-    ctx.save();
-    
-    let imageToDraw = null;
-
-    // Ưu tiên: auto-action (pickpocket)
-    if (currentMode === 'auto' && currentAutoAction === 'pickpocket' && pickpocketFramesLoaded) {
-        const frame = pickpocketFrames[pickpocketAnim.frameIndex];
-        if (frame && frame.complete && frame.naturalWidth > 0) {
-            imageToDraw = frame;
-        }
-    }
-    // Fallback: avatar.png
-    if (!imageToDraw && avatarImage && avatarImage.complete && avatarImage.naturalWidth > 0) {
-        imageToDraw = avatarImage;
-    }
-
-    if (!imageToDraw) {
-        ctx.restore();
-        return;
-    }
-
-    const drawWidth = imageToDraw.naturalWidth * AVATAR_SCALE;
-    const drawHeight = imageToDraw.naturalHeight * AVATAR_SCALE;
-    
-    // Giới hạn tối đa để không vượt quá canvas (giữ tỷ lệ)
-    const maxWidth = CANVAS_WIDTH - 100;
-    const maxHeight = CANVAS_HEIGHT - 200;
-    
-    let finalWidth = drawWidth;
-    let finalHeight = drawHeight;
-    
-    if (finalWidth > maxWidth || finalHeight > maxHeight) {
-        const scaleX = maxWidth / finalWidth;
-        const scaleY = maxHeight / finalHeight;
-        const finalScale = Math.min(scaleX, scaleY);
-        finalWidth *= finalScale;
-        finalHeight *= finalScale;
-    }
-    
-    ctx.drawImage(
-        imageToDraw,
-        avatarState.x - finalWidth / 2,
-        avatarState.y - finalHeight / 2,
-        finalWidth,
-        finalHeight
-    );
-    
-    ctx.restore();
-}
-
-function drawButtons() {
-    if (!ctx) {
-        console.warn('[Pet Avatar] Canvas context not ready for buttons');
-        return;
-    }
-    
-    Object.values(BUTTONS).forEach(button => {
-        try {
-            const icon = buttonIcons[button.icon];
-            
-            // Draw button circle với style đẹp hơn
-            ctx.save();
-            
-            // Outer glow
-            const gradient = ctx.createRadialGradient(
-                button.x, button.y, 0,
-                button.x, button.y, BUTTON_SIZE / 2 + 5
-            );
-            gradient.addColorStop(0, 'rgba(255, 255, 255, 0.4)');
-            gradient.addColorStop(0.7, 'rgba(255, 255, 255, 0.2)');
-            gradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
-            ctx.fillStyle = gradient;
-            ctx.beginPath();
-            ctx.arc(button.x, button.y, BUTTON_SIZE / 2 + 5, 0, Math.PI * 2);
-            ctx.fill();
-            
-            // Button circle
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.25)';
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = 3;
-            ctx.beginPath();
-            ctx.arc(button.x, button.y, BUTTON_SIZE / 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            
-            // Inner highlight
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.15)';
-            ctx.beginPath();
-            ctx.arc(button.x, button.y, BUTTON_SIZE / 2 - 3, 0, Math.PI * 2);
-            ctx.fill();
-            
-            ctx.restore();
-            
-            // Draw icon - Luôn vẽ icon (không phụ thuộc vào file icon)
-            ctx.save();
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            
-            // Vẽ icon cho từng button
-            if (button.icon === 'fly') {
-                // Vẽ icon con ruồi meme bằng canvas
-                // Body (màu đen, hình bầu dục)
-                ctx.fillStyle = '#1a1a1a';
-                ctx.save();
-                ctx.translate(button.x, button.y);
-                ctx.scale(1.5, 1.0);
-                ctx.beginPath();
-                ctx.arc(0, 0, 12, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-                
-                // Wings (màu xám nhạt, 2 cánh)
-                ctx.fillStyle = 'rgba(200, 200, 200, 0.8)';
-                // Wing trái
-                ctx.save();
-                ctx.translate(button.x - 10, button.y - 6);
-                ctx.rotate(-0.3);
-                ctx.scale(0.7, 1.2);
-                ctx.beginPath();
-                ctx.arc(0, 0, 10, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-                
-                // Wing phải
-                ctx.save();
-                ctx.translate(button.x + 10, button.y - 6);
-                ctx.rotate(0.3);
-                ctx.scale(0.7, 1.2);
-                ctx.beginPath();
-                ctx.arc(0, 0, 10, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.restore();
-                
-                // Eyes (màu đỏ, 2 mắt meme)
-                ctx.fillStyle = '#ff0000';
-                ctx.beginPath();
-                ctx.arc(button.x - 6, button.y - 4, 4, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.beginPath();
-                ctx.arc(button.x + 6, button.y - 4, 4, 0, Math.PI * 2);
-                ctx.fill();
-                
-                // Mouth (màu đỏ, cười meme)
-                ctx.strokeStyle = '#ff0000';
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.arc(button.x, button.y + 6, 8, 0, Math.PI);
-                ctx.stroke();
-            } else {
-                // Emoji cho các button khác (phóng to để rõ hơn)
-                ctx.fillStyle = '#FFFFFF';
-                ctx.font = `bold ${BUTTON_SIZE * 0.6}px Arial`; // Tăng font size lên 60%
-                let emoji = '?';
-                switch(button.icon) {
-                    case 'shower': emoji = '🚿'; break;
-                    case 'mic': emoji = '🎤'; break;
-                    case 'beer': emoji = '🍺'; break;
-                }
-                ctx.fillText(emoji, button.x, button.y);
-            }
-            ctx.restore();
-        } catch (error) {
-            console.error(`[Pet Avatar] Error drawing button ${button.icon}:`, error);
-            // Vẽ button đơn giản nếu có lỗi
-            ctx.save();
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
-            ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
-            ctx.lineWidth = 2;
-            ctx.beginPath();
-            ctx.arc(button.x, button.y, BUTTON_SIZE / 2, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.stroke();
-            ctx.restore();
-        }
-    });
-}
-
-function render() {
-    // Clear canvas
-    ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
-    
-    // Draw layers (background phải vẽ đầu tiên)
-    drawBackground();
-    drawParticles();
-    drawAvatar();
-    
-    // Draw buttons (luôn vẽ cuối cùng để ở trên cùng)
-    drawButtons();
-    
-}
-
-// ==================== INPUT HANDLING ====================
-function getMousePos(e) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = CANVAS_WIDTH / rect.width;
-    const scaleY = CANVAS_HEIGHT / rect.height;
-    return {
-        x: (e.clientX - rect.left) * scaleX,
-        y: (e.clientY - rect.top) * scaleY
-    };
-}
-
-function isPointInButton(x, y, button) {
-    const dx = x - button.x;
-    const dy = y - button.y;
-    const distance = Math.sqrt(dx * dx + dy * dy);
-    return distance <= BUTTON_SIZE / 2;
-}
-
-function handleClick(x, y) {
-    const currentTime = animationTime || performance.now();
-    if (currentTime - gameState.lastActionTime < ACTION_COOLDOWN) return;
-    
-    for (const button of Object.values(BUTTONS)) {
-        if (isPointInButton(x, y, button)) {
-            gameState.currentAction = button.action;
-            gameState.actionStartTime = gameState.lastActionTime = currentTime;
-            playOnionSound(button.action);
-            if (button.action === 'shower' || button.action === 'sing') {
-                createParticles(button.action, avatarState.x, avatarState.y - 50);
-            }
-            break;
-        }
-    }
-}
-
-// ==================== GAME LOOP ====================
-let lastTime = performance.now();
-let animationTime = 0;
-let frameCount = 0;
-let gameLoopStarted = false;
-
-function gameLoop(currentTime) {
-    if (!gameLoopStarted) {
-        gameLoopStarted = true;
-        lastTime = animationTime = currentTime;
-    }
-    
-    const deltaTime = currentTime - lastTime;
-    lastTime = currentTime;
-    animationTime += deltaTime;
-    frameCount++;
-    
-    if (isNaN(deltaTime) || deltaTime < 0 || deltaTime > 1000) {
-        lastTime = currentTime;
-        requestAnimationFrame(gameLoop);
-        return;
-    }
-    
-    if (DEBUG_MODE && frameCount % 300 === 0) {
-        console.log(`[Pet Avatar] 🎮 Game loop: frame=${frameCount}, FPS=${(1000/deltaTime).toFixed(1)}, mode=${currentMode}, autoAction=${currentAutoAction || 'none'}`);
-    }
-    
-    // Check action timeout
-    if (gameState.currentAction !== 'idle') {
-        const duration = ACTION_DURATIONS[gameState.currentAction] || 0;
-        if (duration > 0 && (animationTime - gameState.actionStartTime >= duration)) {
-            gameState.currentAction = 'idle';
-        }
-    }
-    
-    updateAnimation(deltaTime);
-    render();
-    requestAnimationFrame(gameLoop);
-}
-
 // ==================== INITIALIZATION ====================
 async function init() {
-    // Get canvas
     canvas = document.getElementById('game-canvas');
-    if (!canvas) {
-        console.error('Canvas not found');
-        return;
-    }
+    if (!canvas) return;
     
     ctx = canvas.getContext('2d', { alpha: false, desynchronized: true });
     canvas.width = CANVAS_WIDTH;
     canvas.height = CANVAS_HEIGHT;
     
-    // Initialize audio
-    initAudio();
-    
-    // Unlock audio on first interaction
-    canvas.addEventListener('click', unlockAudio, { once: true });
-    canvas.addEventListener('touchstart', unlockAudio, { once: true });
-    
-    // Load config
     await initGameConfig();
+    if (!(await loadAssets())) return;
     
-    // Load assets
-    await loadAssets();
-    
-    
-    // Setup input
-    canvas.addEventListener('click', (e) => {
-        const pos = getMousePos(e);
-        handleClick(pos.x, pos.y);
-    });
-    
-    canvas.addEventListener('touchstart', (e) => {
-        e.preventDefault();
-        const touch = e.touches[0];
-        const pos = getMousePos(touch);
-        handleClick(pos.x, pos.y);
-    });
-    
-    // Start game loop
-    console.log('[Pet Avatar] Game initialized');
-    
-    // Render ngay lập tức để hiển thị background
-    render();
-    
-    // Start game loop
-    gameLoop(performance.now());
-    
-    // Send ready message to parent (if in iframe)
-    if (window.parent !== window) {
-        window.parent.postMessage({ type: 'PET_AVATAR_GAME_READY' }, '*');
+    if (idleAnimationRenderer?.isReady()) {
+        const originalRender = idleAnimationRenderer.render.bind(idleAnimationRenderer);
+        idleAnimationRenderer.render = (t) => isDrinking ? null : originalRender(t, drawBackground);
+        idleAnimationRenderer.start();
+    } else {
+        drawBackground();
     }
+    
+    setupHelpButton();
+    setupActionButtons();
+    if (window.parent !== window) window.parent.postMessage({ type: 'PET_AVATAR_GAME_READY' }, '*');
+}
+
+// ==================== HELP BUTTON & MODAL ====================
+function setupHelpButton() {
+    const helpButton = document.getElementById('help-button');
+    const modal = document.getElementById('rules-modal');
+    const closeButton = document.querySelector('.close-button');
+    if (!helpButton || !modal) return;
+    
+    const close = () => modal.classList.remove('show');
+    helpButton.addEventListener('click', (e) => { e.stopPropagation(); modal.classList.add('show'); });
+    closeButton?.addEventListener('click', close);
+    modal.addEventListener('click', (e) => { if (e.target === modal) close(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && modal.classList.contains('show')) close(); });
+}
+
+// ==================== ACTION BUTTONS ====================
+function setupActionButtons() {
+    document.querySelectorAll('.action-button').forEach(button => {
+        const handler = (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            const action = button.getAttribute('data-action');
+            if (action) handleAction(action, button);
+        };
+        button.addEventListener('click', handler);
+        button.addEventListener('touchstart', handler);
+    });
+}
+
+function handleAction(action, btn) {
+    btn.style.transform = 'scale(0.9)';
+    setTimeout(() => btn.style.transform = '', 150);
+    if (action === 'drink') startDrinkAnimation();
 }
 
 // ==================== CONFIG LOADING ====================
 async function initGameConfig() {
     try {
-        let gameId = getGameId();
-        
-        // Load config từ playtest nếu không có gameId trong URL
+        const gameId = getGameId();
         if (!gameId) {
-            const playtestKey = 'pet_avatar_brand_config_playtest';
-            const playtestConfig = localStorage.getItem(playtestKey);
-            if (playtestConfig) {
-                try {
-                    const parsed = JSON.parse(playtestConfig);
-                    Object.assign(BRAND_CONFIG, parsed);
-                } catch (e) {
-                    console.warn('[Pet Avatar] Failed to parse playtest config:', e);
-                }
-            }
+            const playtest = localStorage.getItem('pet_avatar_brand_config_playtest');
+            if (playtest) Object.assign(BRAND_CONFIG, JSON.parse(playtest));
         } else {
-            const hasLocalConfig = loadBrandConfig(gameId);
-            
-            if (!hasLocalConfig && gameId) {
-                await loadBrandConfigFromSupabase(gameId);
-            }
+            if (!loadBrandConfig(gameId)) await loadBrandConfigFromSupabase(gameId);
         }
     } catch (e) {
-        console.warn('[Pet Avatar] initGameConfig error (non-critical):', e);
+        console.warn('[Pet Avatar] Config error:', e);
     }
 }
 
@@ -761,34 +700,26 @@ async function loadBrandConfigFromSupabase(gameId) {
     try {
         const supabase = await getSupabaseClient();
         if (!supabase) return false;
+        const { data, error } = await supabase.rpc('list_user_created_games', { p_template_id: 'pet-avatar-template' });
+        if (error) return false;
         
-        const { data, error } = await supabase
-            .from('user_created_games')
-            .select('*')
-            .eq('game_id', gameId)
-            .single();
+        const games = Array.isArray(data) ? data : (typeof data === 'string' ? JSON.parse(data) : []);
+        const game = games.find(item => {
+            const id = item?.game_id || item?.id;
+            return id === gameId || id === 'pet-avatar';
+        });
         
-        if (error || !data) return false;
-        
-        // Map Supabase fields to BRAND_CONFIG
-        if (data.fragment_logo_url || data.logo_url) {
-            BRAND_CONFIG.logoUrl = data.fragment_logo_url || data.logo_url || '';
+        if (game) {
+            if (game.fragment_logo_url || game.logo_url) BRAND_CONFIG.logoUrl = game.fragment_logo_url || game.logo_url || '';
+            if (game.story_one || game.story_text || game.storyText) BRAND_CONFIG.storyText = game.story_one || game.story_text || game.storyText || 'MEMEPLAY';
+            return true;
         }
-        if (data.story_one || data.story_text || data.storyText) {
-            BRAND_CONFIG.storyText = data.story_one || data.story_text || data.storyText || 'MEMEPLAY';
-        }
-        
-        return true;
+        return false;
     } catch (err) {
-        console.warn('[Pet Avatar] Failed to load from Supabase:', err);
         return false;
     }
 }
 
-// Start game when DOM is ready
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-} else {
-    init();
-}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+else init();
 
