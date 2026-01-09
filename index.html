@@ -845,8 +845,12 @@
       btn.setAttribute('tabindex', '0');
       
       // Update FAB position to align with MC (desktop only)
+      // Mobile: Vị trí cố định bằng CSS, không cần JavaScript
       function updateFabPosition() {
-        if (window.innerWidth < 1024) return;
+        // Chỉ chạy trên desktop, mobile dùng CSS cố định
+        if (window.innerWidth < 1024) {
+          return; // Không làm gì trên mobile
+        }
         
         const activeCard = document.querySelector('.game-card.active');
         const mcElement = activeCard?.querySelector('[data-role="marketcap"]');
@@ -860,15 +864,25 @@
         btn.style.right = `${window.innerWidth - mcRect.right - gap - fabSize}px`;
       }
       
-      updateFabPosition();
-      window.addEventListener('scroll', updateFabPosition, { passive: true });
-      window.addEventListener('resize', updateFabPosition);
-      
-      // Update when game cards change
-      const gameContainer = document.querySelector('.game-container');
-      if (gameContainer) {
-        new MutationObserver(() => setTimeout(updateFabPosition, 100))
-          .observe(gameContainer, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+      // Chỉ chạy updateFabPosition trên desktop
+      if (window.innerWidth >= 1024) {
+        updateFabPosition();
+        window.addEventListener('scroll', updateFabPosition, { passive: true });
+        window.addEventListener('resize', () => {
+          if (window.innerWidth >= 1024) {
+            updateFabPosition();
+          }
+        });
+        
+        // Update when game cards change (desktop only)
+        const gameContainer = document.querySelector('.game-container');
+        if (gameContainer) {
+          new MutationObserver(() => {
+            if (window.innerWidth >= 1024) {
+              setTimeout(updateFabPosition, 100);
+            }
+          }).observe(gameContainer, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+        }
       }
     }
     
@@ -1494,9 +1508,9 @@
       .fab-button {
         width: 52px;
         height: 52px;
-        /* Vị trí: 150px + safe area và lệch sang trái 40px */
-        bottom: calc(150px + env(safe-area-inset-bottom)) !important;
-        right: calc(26px + 40px + env(safe-area-inset-right));
+        /* Vị trí cố định: dưới màn hình gaming cách 20px */
+        bottom: calc(20px + env(safe-area-inset-bottom)) !important;
+        right: calc(20px + env(safe-area-inset-right)) !important;
       }
       
       .fab-button svg {
