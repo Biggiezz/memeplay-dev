@@ -24,6 +24,10 @@
     {
       "source": "/telegram-mini-app",
       "destination": "/telegram mini app/telegram-mini-app.html"
+    },
+    {
+      "source": "/docs.html",
+      "destination": "/02-html-pages/docs.html"
     }
   ]
 }

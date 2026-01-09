@@ -1,0 +1,912 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MemePlay Documentation (2025) - UGC Meme Game Creator Platform</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0f0f23 0%, #1a1a3e 100%);
+      color: #e4e4e7;
+      line-height: 1.7;
+    }
+
+    /* Header - chỉ hiển thị trên mobile */
+    .docs-header {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 60px;
+      background: rgba(17, 17, 17, 0.95);
+      backdrop-filter: blur(10px);
+      border-bottom: 2px solid rgba(255, 182, 66, 0.2);
+      z-index: 10000;
+      align-items: center;
+      padding: 0 20px;
+      box-sizing: border-box;
+    }
+
+    .hamburger-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 12px;
+      background: rgba(255, 182, 66, 0.08);
+      border: 1px solid rgba(255, 182, 66, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .hamburger-btn:hover {
+      background: rgba(255, 182, 66, 0.15);
+      transform: translateY(-1px);
+    }
+
+    .hamburger-icon {
+      width: 24px;
+      height: 24px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .hamburger-icon span {
+      display: block;
+      width: 100%;
+      height: 2px;
+      background: #ffb642;
+      border-radius: 2px;
+      transition: all 0.3s ease;
+    }
+
+    .hamburger-btn.active .hamburger-icon span:nth-child(1) {
+      transform: rotate(45deg) translate(8px, 8px);
+    }
+
+    .hamburger-btn.active .hamburger-icon span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .hamburger-btn.active .hamburger-icon span:nth-child(3) {
+      transform: rotate(-45deg) translate(8px, -8px);
+    }
+
+    .docs-container {
+      display: flex;
+      max-width: 1400px;
+      margin: 0 auto;
+      min-height: 100vh;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 280px;
+      background: rgba(26, 26, 62, 0.6);
+      border-right: 1px solid rgba(255, 182, 66, 0.2);
+      padding: 32px 24px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      transition: transform 0.3s ease;
+    }
+
+    .sidebar-logo {
+      font-size: 24px;
+      font-weight: 800;
+      color: #ffb642;
+      margin-bottom: 32px;
+      letter-spacing: 1.5px;
+      text-align: center;
+      text-shadow: 0 0 20px rgba(255, 182, 66, 0.4);
+    }
+
+    .sidebar nav a {
+      display: block;
+      padding: 12px 16px;
+      color: #a1a1aa;
+      text-decoration: none;
+      border-radius: 8px;
+      margin-bottom: 6px;
+      transition: all 0.2s;
+      font-size: 14px;
+      font-weight: 500;
+    }
+
+    .sidebar nav a:hover {
+      background: rgba(255, 182, 66, 0.1);
+      color: #ffb642;
+      transform: translateX(4px);
+    }
+
+    .sidebar nav a.active {
+      background: rgba(255, 182, 66, 0.15);
+      color: #ffb642;
+      border-left: 3px solid #ffb642;
+      padding-left: 13px;
+    }
+
+    /* Main Content */
+    .content {
+      flex: 1;
+      padding: 48px 64px;
+      max-width: 900px;
+    }
+
+    /* Sidebar Overlay - chỉ trên mobile */
+    .sidebar-overlay {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(15, 15, 35, 0.95);
+      backdrop-filter: blur(4px);
+      z-index: 9998;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+
+    .sidebar-overlay.active {
+      opacity: 1;
+    }
+
+    h1 {
+      font-size: 48px;
+      font-weight: 800;
+      color: #ffb642;
+      margin-bottom: 16px;
+      text-shadow: 0 0 30px rgba(255, 182, 66, 0.3);
+    }
+
+    h2 {
+      font-size: 32px;
+      font-weight: 700;
+      color: #ffce7a;
+      margin-top: 64px;
+      margin-bottom: 24px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid rgba(255, 182, 66, 0.3);
+    }
+
+    h3 {
+      font-size: 24px;
+      font-weight: 600;
+      color: #ffd98e;
+      margin-top: 32px;
+      margin-bottom: 16px;
+    }
+
+    h4 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffe4a3;
+      margin-bottom: 12px;
+    }
+
+    p {
+      margin-bottom: 16px;
+      color: #d4d4d8;
+      font-size: 16px;
+    }
+
+    ul, ol {
+      margin-left: 24px;
+      margin-bottom: 16px;
+      color: #d4d4d8;
+    }
+
+    li {
+      margin-bottom: 10px;
+      line-height: 1.6;
+    }
+
+    strong {
+      color: #ffce7a;
+      font-weight: 600;
+    }
+
+    em {
+      color: #a1a1aa;
+      font-style: italic;
+    }
+
+    .tagline {
+      font-size: 20px;
+      color: #a1a1aa;
+      margin-bottom: 32px;
+      font-style: italic;
+    }
+
+    .intro-box {
+      background: rgba(255, 182, 66, 0.08);
+      border-left: 4px solid #ffb642;
+      padding: 20px 24px;
+      margin: 24px 0;
+      border-radius: 8px;
+    }
+
+    .callout {
+      background: rgba(255, 182, 66, 0.08);
+      border-left: 4px solid #ffb642;
+      padding: 20px 24px;
+      margin: 24px 0;
+      border-radius: 8px;
+    }
+
+    .step {
+      background: rgba(26, 26, 62, 0.4);
+      border: 1px solid rgba(255, 182, 66, 0.2);
+      padding: 24px;
+      margin-bottom: 20px;
+      border-radius: 12px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 20px 0;
+      background: rgba(26, 26, 62, 0.3);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th {
+      background: rgba(255, 182, 66, 0.15);
+      color: #ffce7a;
+      padding: 14px;
+      text-align: left;
+      font-weight: 600;
+      border-bottom: 2px solid rgba(255, 182, 66, 0.3);
+    }
+
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid rgba(255, 182, 66, 0.1);
+      color: #d4d4d8;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .highlight-box {
+      background: linear-gradient(135deg, rgba(255, 182, 66, 0.15), rgba(255, 206, 122, 0.1));
+      border: 2px solid #ffb642;
+      padding: 24px;
+      border-radius: 12px;
+      margin: 24px 0;
+    }
+
+    hr {
+      border: none;
+      border-top: 1px solid rgba(255, 182, 66, 0.2);
+      margin: 32px 0;
+    }
+
+    /* Mobile Responsive */
+    @media (max-width: 900px) {
+      /* Header hiển thị trên mobile */
+      .docs-header {
+        display: flex;
+      }
+
+      /* Content có padding-top để tránh header */
+      .content {
+        padding: 32px 24px;
+        padding-top: 80px; /* 60px header + 20px spacing */
+      }
+
+      /* Sidebar overlay hiển thị trên mobile */
+      .sidebar-overlay {
+        display: block;
+      }
+
+      /* Sidebar trên mobile: fixed, slide-in từ trái */
+      .sidebar {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 280px;
+        height: 100vh;
+        z-index: 9999;
+        transform: translateX(-100%);
+        border-right: 1px solid rgba(255, 182, 66, 0.2);
+        box-shadow: 2px 0 20px rgba(0, 0, 0, 0.5);
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+      }
+
+      /* Sidebar mở */
+      .sidebar.open {
+        transform: translateX(0);
+      }
+
+      /* Container không flex trên mobile */
+      .docs-container {
+        flex-direction: column;
+      }
+
+      h1 {
+        font-size: 36px;
+      }
+
+      h2 {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header - chỉ hiển thị trên mobile -->
+  <header class="docs-header">
+    <button class="hamburger-btn" id="hamburgerBtn" aria-label="Toggle menu">
+      <div class="hamburger-icon">
+        <span></span>
+        <span></span>
+        <span></span>
+      </div>
+    </button>
+  </header>
+
+  <!-- Sidebar Overlay - chỉ trên mobile -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
+  <div class="docs-container">
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">MEMEPLAY</div>
+      <nav>
+        <a href="#intro">What is MemePlay?</a>
+        <a href="#mission">Our Mission</a>
+        <a href="#vision">Long-Term Product Vision</a>
+        <a href="#how-to-earn">How to Earn on MemePlay</a>
+        <a href="#create-game">Create Your Game</a>
+        <a href="#monetize">Monetize Your Game</a>
+        <a href="#revenue">Platform Revenue Model</a>
+        <a href="#token-launch">Token & On-Chain Features</a>
+        <a href="#donations">How Donations Work</a>
+        <a href="#roadmap">Roadmap</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+    </aside>
+
+    <!-- Main Content -->
+    <main class="content">
+      <h1>🎮 MemePlay Documentation (2025)</h1>
+      <p class="tagline">The official documentation for MemePlay — a UGC meme-game creator platform where anyone can build, customize, and share fun mini-games in under one minute.</p>
+
+      <div class="intro-box">
+        <p><strong>MemePlay is not a GameFi speculation project.</strong></p>
+        <p>MemePlay is <strong>UGC + Meme + Game</strong> for creators, communities, and brands.</p>
+      </div>
+
+      <hr>
+
+      <!-- What is MemePlay -->
+      <section id="intro">
+        <h2>What is MemePlay?</h2>
+        <p>
+          MemePlay is a Web3 UGC (User Generated Content) gaming platform that lets anyone create and share hyper-casual meme-themed mini-games — no coding skills required.
+        </p>
+        <p>In MemePlay's new model:</p>
+        <ul>
+          <li>👉 <strong>Players</strong> enjoy instant, free, no-wallet games</li>
+          <li>👉 <strong>Creators</strong> generate games in minutes through templates</li>
+          <li>👉 <strong>Meme/token projects</strong> add <strong>their own logo/brand</strong> inside the game</li>
+          <li>👉 <strong>Games</strong> act as free, viral <strong>marketing tools</strong> for any project</li>
+        </ul>
+        <p><strong>Important:</strong></p>
+        <p>MVP1 does <strong>NOT</strong> launch a new token for each game.</p>
+        <p>Creators simply attach their <strong>existing project logo or token</strong> into the game UI.</p>
+        <p>MemePlay focuses on:</p>
+        <ul>
+          <li>Fun first</li>
+          <li>No-code creation</li>
+          <li>Fast iteration</li>
+          <li>Easy virality</li>
+          <li>Community-driven value</li>
+          <li>Zero speculation, zero financial risk</li>
+        </ul>
+      </section>
+
+      <!-- Our Mission -->
+      <section id="mission">
+        <h2>Our Mission</h2>
+        <p>
+          To democratize game creation and empower communities with interactive tools — without complexity, without gambling mechanics, and without forced token speculation.
+        </p>
+        <p>We believe:</p>
+        <ol>
+          <li><strong>Games should be fun first</strong> — no wallet gate, no DeFi required.</li>
+          <li><strong>Creators deserve fair tools</strong> — not dependent on predatory ad networks.</li>
+          <li><strong>Communities grow through creativity</strong>, not token manipulation.</li>
+          <li><strong>Attention is the new currency</strong> — MemePlay turns attention into value.</li>
+        </ol>
+        <p>MemePlay is where memes become playable experiences — fast, simple, and viral.</p>
+      </section>
+
+      <!-- Long-Term Product Vision -->
+      <section id="vision">
+        <h2>⭐ Long-Term Product Vision</h2>
+        <p>
+          After MVP1, MemePlay will continue expanding toward a fully creator-driven ecosystem powered by AI, 2D → 3D UGC gaming, and transparent Web3 economics designed for mass adoption — not speculation.
+        </p>
+
+        <h3>MVP2 – AI-Enhanced 2D Game Customization</h3>
+        <p>
+          In the second phase, we aim to introduce a more advanced AI creation layer, allowing creators to deeply customize their 2D mini-games.
+        </p>
+        <p>
+          Creators will be able to modify gameplay rules, animations, art styles, background themes, difficulty curves, in-game assets, and story endings — all through natural-language prompts or simple UI controls.
+        </p>
+        <p>
+          This will empower every user, regardless of skill level, to build unique games that reflect their own brand, community, or imagination.
+        </p>
+
+        <h3>MVP3 – Expand Into 3D Game Worlds</h3>
+        <p>
+          The third phase will introduce a 3D UGC platform where users can freely create, explore, and interact with one another inside playful virtual environments.
+        </p>
+        <p>
+          Game experiences will be more immersive, and brand elements (logo, lore, messages) can appear naturally at moments such as game-over, respawn, or key interactions — shown for 5–10 seconds without disrupting gameplay.
+        </p>
+        <p>
+          Users will be able to move, socialize, and interact with other players in real time, creating a dynamic creator-consumer community similar to Roblox but lighter, faster, and Web3-native.
+        </p>
+
+        <h3>Creator Economy & Revenue Sharing</h3>
+        <p>
+          Creators will earn revenue by selling digital items and upgrades within their 3D worlds.
+        </p>
+        <p>
+          The revenue model is split <strong>65% for creators / 35% for the platform</strong>, establishing a sustainable creator economy while funding long-term development.
+        </p>
+
+        <h3>Platform Monetization & Business Model</h3>
+        <p>The platform will feature multiple revenue streams:</p>
+        <ul>
+          <li><strong>Non-intrusive in-game advertising</strong>, integrated directly into the game interface without breaking the immersion.</li>
+          <li>Advertisers from both Web2 and Web3 can run campaigns inside 2D/3D experiences.</li>
+          <li>A <strong>token + game creation fee</strong> for projects launching fully branded experiences.</li>
+        </ul>
+        <p>Each 3D game may launch its own token using a bonding-curve model similar to 4meme, with a 5/5 tax structure:</p>
+        <ul>
+          <li>3% → shared to token holders</li>
+          <li>1% → paid to the game creator</li>
+          <li>1% → platform revenue</li>
+        </ul>
+        <p>This aligns incentives across creators, players, and the ecosystem.</p>
+
+        <h3>A Modern Web3 Alternative to Roblox</h3>
+        <p>
+          The long-term ambition is to build a Web3-native version of Roblox — designed for the younger demographic (ages 15–30), who enjoy fast, fun, lightweight games and are familiar with meme culture.
+        </p>
+        <p>The platform combines:</p>
+        <ul>
+          <li>Simple, enjoyable gameplay</li>
+          <li>UGC creation tools</li>
+          <li>Integrated advertising</li>
+          <li>Transparent on-chain finance</li>
+          <li>Zero pay-wall, zero forced deposits</li>
+        </ul>
+        <p>
+          Players can enjoy everything for free, while also being gently introduced to Web3 concepts, economics, and community engagement — without pressure, barriers, or aggressive monetization.
+        </p>
+      </section>
+
+      <!-- How to Earn -->
+      <section id="how-to-earn">
+        <h2>How to Earn on MemePlay</h2>
+        <p>MemePlay enables creators and players to grow together, sustainably.</p>
+
+        <h3>For Players</h3>
+        <ul>
+          <li>Play meme games instantly — no wallet required</li>
+          <li>Discover new token/meme communities through gameplay</li>
+          <li>Share games to help creators reach new audiences</li>
+          <li>Earn PLAY points in future phases (non-financial rewards)</li>
+        </ul>
+        <p>No trading, no bonding curve, no token speculation.</p>
+
+        <h3>For Creators</h3>
+        <p>Creators earn value through <strong>visibility, engagement, donations, and community growth</strong>.</p>
+        <p>You can:</p>
+        <ul>
+          <li><strong>Add your project's token/logo</strong> to any game</li>
+          <li>Use the game as a <strong>free marketing tool</strong></li>
+          <li>Add a custom ending story to promote your project</li>
+          <li>Link your Telegram / X / website</li>
+          <li>Receive donations from players (future feature)</li>
+          <li>Unlock rewards as your game hits play-count milestones</li>
+          <li>Build audience through shareable game URLs</li>
+        </ul>
+        <p>Creators do <strong>NOT</strong> need:</p>
+        <ul>
+          <li>To create tokens</li>
+          <li>To deploy smart contracts</li>
+          <li>To understand DeFi</li>
+          <li>To maintain liquidity</li>
+        </ul>
+        <p><strong>Zero risk. Maximum creativity.</strong></p>
+      </section>
+
+      <!-- Create Your Game -->
+      <section id="create-game">
+        <h2>Create Your Game (No-Code Editor)</h2>
+        <p>MVP1 focuses on fast, template-based creation with optional AI assistance later.</p>
+
+        <div class="step">
+          <h4>Step 1 — Choose a Game Template</h4>
+          <p>Available templates (MVP1):</p>
+          <ul style="margin-top:12px;margin-bottom:0;">
+            <li>Flappy-style flying game</li>
+            <li>Pacman-style maze collector</li>
+            <li>Endless jumper</li>
+            <li>Tap-and-dodge arcade</li>
+          </ul>
+          <p style="margin-top:12px;">All templates are optimized for mobile portrait.</p>
+        </div>
+
+        <div class="step">
+          <h4>Step 2 — Add Your Branding</h4>
+          <p>Customize:</p>
+          <ul style="margin-top:12px;margin-bottom:0;">
+            <li>Logo / token icon</li>
+            <li>Brand color palette</li>
+            <li>Background style</li>
+            <li>Character appearance</li>
+            <li>End-of-game story</li>
+            <li>Social links</li>
+          </ul>
+          <p style="margin-top:12px;">This transforms your game into a <strong>viral marketing asset</strong>.</p>
+        </div>
+
+        <div class="step">
+          <h4>Step 3 — Adjust Gameplay</h4>
+          <p>Tweak:</p>
+          <ul style="margin-top:12px;margin-bottom:0;">
+            <li>Speed</li>
+            <li>Difficulty</li>
+            <li>Map choice</li>
+            <li>Spawn frequency</li>
+            <li>Ghost/enemy behavior (for certain templates)</li>
+            <li>Sound on/off</li>
+          </ul>
+          <p style="margin-top:12px;">All changes are slider-based — no coding needed.</p>
+        </div>
+
+        <div class="step">
+          <h4>Step 4 — Publish & Share</h4>
+          <p>After preview:</p>
+          <ul style="margin-top:12px;margin-bottom:0;">
+            <li>Click <strong>Publish</strong></li>
+            <li>Receive unique URL (web + mobile-friendly)</li>
+            <li>Share on X / Telegram / Discord / websites</li>
+            <li>Players can start instantly</li>
+          </ul>
+          <p style="margin-top:12px;">MemePlay games are frictionless: no install, no wallet, no login.</p>
+        </div>
+      </section>
+
+      <!-- Monetize Your Game -->
+      <section id="monetize">
+        <h2>Monetize Your Game</h2>
+        <p>MemePlay supports creators through real community-driven value, not token speculation.</p>
+
+        <h3>1. Play-Count Rewards (Future)</h3>
+        <p>Creators unlock milestones as players enjoy their game.</p>
+        <p>Example model:</p>
+        <ul>
+          <li>1,000 plays → Bronze reward + badge</li>
+          <li>5,000 plays → Silver + platform boost</li>
+          <li>10,000 plays → Gold + featured slot</li>
+          <li>50,000 plays → Diamond + high-level perks</li>
+        </ul>
+
+        <h3>2. Donations (Future)</h3>
+        <p>Players can tip creators directly.</p>
+        <p>Suggested split:</p>
+        <ul>
+          <li>50% → Creator</li>
+          <li>50% → Platform development</li>
+        </ul>
+        <p>No token burning. No liquidity games.</p>
+
+        <h3>3. Brand Growth (Main Value)</h3>
+        <p>Every game is a small, interactive ad for your project.</p>
+        <p>Creators gain:</p>
+        <ul>
+          <li>More visibility</li>
+          <li>More followers</li>
+          <li>More social traffic</li>
+          <li>More community engagement</li>
+          <li>More viral reach</li>
+        </ul>
+        <p>This is the <strong>real upside</strong> — not price speculation.</p>
+      </section>
+
+      <!-- Platform Revenue Model -->
+      <section id="revenue">
+        <h2>Platform Revenue Model</h2>
+        <p>MemePlay is designed as a sustainable consumer product.</p>
+        <p>Revenue sources (current + future):</p>
+        <ul>
+          <li>Featured slots for creators</li>
+          <li>Sponsored games from token communities</li>
+          <li>Optional donations (creator tips)</li>
+          <li>Anti-spam fees for mass publishing</li>
+          <li>Advertising (non-intrusive, optional)</li>
+          <li>PLAY token utility in later phases</li>
+        </ul>
+        <p><strong>No per-game token.</strong></p>
+        <p><strong>No bonding curve revenue.</strong></p>
+        <p><strong>No artificial pump mechanics.</strong></p>
+      </section>
+
+      <!-- Token & On-Chain Features -->
+      <section id="token-launch">
+        <h2>Token & On-Chain Features (Later Phase)</h2>
+        <p>MVP1 is fully <strong>non-tokenized</strong> except for branding.</p>
+        <p>Creators DO NOT launch new tokens.</p>
+        <p>Future possibilities:</p>
+        <ul>
+          <li>PLAY token utility</li>
+          <li>Sponsored integrations</li>
+          <li>On-chain analytics for games</li>
+          <li>Creator staking for visibility</li>
+          <li>API for meme tokens to embed branded games</li>
+        </ul>
+        <p>Core promise remains:</p>
+        <p><strong>Fun, simple, viral UGC games.</strong></p>
+      </section>
+
+      <!-- Donation System -->
+      <section id="donations">
+        <h2>❤️ How Donations Work (Future)</h2>
+        <ol>
+          <li>Player taps <strong>Donate</strong></li>
+          <li>Sends BNB/USDT</li>
+          <li>Split:
+            <ul style="margin-top:12px;">
+              <li>80% → Creator</li>
+              <li>20% → Platform Development</li>
+            </ul>
+          </li>
+        </ol>
+        <p>Donors receive:</p>
+        <ul>
+          <li>Supporter badges</li>
+          <li>Leaderboard placement</li>
+          <li>Optional shout-outs</li>
+        </ul>
+        <p><strong>No token price manipulation.</strong></p>
+        <p><strong>No auto buy/burn mechanics.</strong></p>
+      </section>
+
+      <!-- Roadmap -->
+      <section id="roadmap">
+        <h2>Roadmap (2025 → 2026)</h2>
+
+        <h3>Q4 2025 — MVP Launch</h3>
+        <ul>
+          <li>Template Editor (Flappy + Pacman + 1 more)</li>
+          <li>Add-your-logo token branding</li>
+          <li>Game publishing + share links</li>
+          <li>Basic analytics dashboard</li>
+        </ul>
+
+        <h3>Q1 2026 — Growth Phase</h3>
+        <ul>
+          <li>Add 10 new templates</li>
+          <li>Mobile optimization</li>
+          <li>Play-count badges</li>
+          <li>Better creator dashboard</li>
+        </ul>
+
+        <h3>Q2 2026 — Creator Economy</h3>
+        <ul>
+          <li>Donation system launch</li>
+          <li>Featured slots</li>
+          <li>PLAY points utility</li>
+          <li>Template marketplace</li>
+        </ul>
+
+        <h3>Q3–Q4 2026 — Ecosystem Phase</h3>
+        <ul>
+          <li>API/SDK for meme communities</li>
+          <li>Partnerships with BNB Chain ecosystems</li>
+          <li>Optional token sponsorship programs</li>
+          <li>Multiplayer meme templates</li>
+          <li>Major creator events & competitions</li>
+        </ul>
+      </section>
+
+      <!-- FAQ -->
+      <section id="faq">
+        <h2>❓ FAQ</h2>
+
+        <h3>Do I need a wallet?</h3>
+        <p>No. Playing and creating games requires <strong>no wallet</strong>.</p>
+        <p>Wallet is only needed for donations (future).</p>
+
+        <h3>Do I need to create a token for my game?</h3>
+        <p><strong>No.</strong></p>
+        <p>MVP1 does not create new tokens.</p>
+        <p>Creators only <strong>attach their existing token/logo</strong>.</p>
+
+        <h3>Can I use MemePlay even if I don't have a token?</h3>
+        <p>Yes. You can use a brand, mascot, meme image, or any identity.</p>
+
+        <h3>How do I earn from games?</h3>
+        <ul>
+          <li>Donations (future)</li>
+          <li>Play-count rewards</li>
+          <li>Community growth</li>
+          <li>Featured slots</li>
+        </ul>
+
+        <h3>Is MemePlay a gambling or GameFi platform?</h3>
+        <p>No.</p>
+        <p>No token speculation.</p>
+        <p>No bonding curve.</p>
+        <p>No trading.</p>
+        <p>No zero-sum mechanics.</p>
+
+        <h3>What makes MemePlay unique?</h3>
+        <ul>
+          <li>Fastest no-code meme game creator</li>
+          <li>Games as free marketing tools</li>
+          <li>Wallet-free onboarding</li>
+          <li>High virality</li>
+          <li>Safe, sustainable, non-speculative UX</li>
+        </ul>
+      </section>
+
+      <hr>
+
+      <div class="callout" style="text-align: center; margin-top: 64px;">
+        <h2 style="margin:0 0 16px 0; color:#ffb642; border:none; padding:0;">MemePlay —</h2>
+        <p style="font-size:20px; color:#ffce7a; margin-bottom:8px;"><strong>The easiest place to create meme games.</strong></p>
+        <p style="font-size:20px; color:#ffce7a;"><strong>The smartest way to grow a community.</strong></p>
+      </div>
+    </main>
+  </div>
+
+  <script>
+    // Mobile Sidebar Toggle
+    (function initMobileSidebar() {
+      const hamburgerBtn = document.getElementById('hamburgerBtn')
+      const sidebar = document.getElementById('sidebar')
+      const sidebarOverlay = document.getElementById('sidebarOverlay')
+      const navLinks = document.querySelectorAll('.sidebar nav a[href^="#"]')
+
+      function openSidebar() {
+        sidebar.classList.add('open')
+        sidebarOverlay.classList.add('active')
+        hamburgerBtn.classList.add('active')
+        document.body.style.overflow = 'hidden' // Prevent scroll khi sidebar mở
+      }
+
+      function closeSidebar() {
+        sidebar.classList.remove('open')
+        sidebarOverlay.classList.remove('active')
+        hamburgerBtn.classList.remove('active')
+        document.body.style.overflow = '' // Restore scroll
+      }
+
+      function toggleSidebar() {
+        if (sidebar.classList.contains('open')) {
+          closeSidebar()
+        } else {
+          openSidebar()
+        }
+      }
+
+      // Toggle khi click hamburger
+      if (hamburgerBtn) {
+        hamburgerBtn.addEventListener('click', toggleSidebar)
+      }
+
+      // Đóng khi click overlay
+      if (sidebarOverlay) {
+        sidebarOverlay.addEventListener('click', closeSidebar)
+      }
+
+      // Đóng sidebar khi click menu item (chỉ trên mobile)
+      navLinks.forEach(link => {
+        link.addEventListener('click', () => {
+          if (window.innerWidth <= 900) {
+            closeSidebar()
+            // Đợi sidebar đóng xong (300ms animation) trước khi scroll
+            setTimeout(() => {
+              const targetId = link.getAttribute('href').slice(1)
+              const targetSection = document.getElementById(targetId)
+              if (targetSection) {
+                const headerHeight = 60
+                const spacing = 20
+                const offset = headerHeight + spacing // 80px
+                const targetPosition = targetSection.offsetTop - offset
+                window.scrollTo({
+                  top: targetPosition,
+                  behavior: 'smooth'
+                })
+              }
+            }, 350) // Đợi 350ms để sidebar animation hoàn tất
+          }
+        })
+      })
+    })()
+
+    // Scroll Spy - Auto highlight sidebar menu khi scroll
+    (function initScrollSpy() {
+      const sections = document.querySelectorAll('section[id]')
+      const navLinks = document.querySelectorAll('.sidebar nav a[href^="#"]')
+      
+      if (!sections.length || !navLinks.length) return
+
+      function updateActiveLink() {
+        let currentSection = ''
+        const scrollY = window.innerWidth <= 900 
+          ? window.scrollY + 100 + 60 // Mobile: +60px cho header
+          : window.scrollY + 100 // Desktop: +100px như cũ
+
+        sections.forEach(section => {
+          const sectionTop = section.offsetTop
+          const sectionHeight = section.clientHeight
+          if (scrollY >= sectionTop && scrollY < sectionTop + sectionHeight) {
+            currentSection = section.getAttribute('id')
+          }
+        })
+
+        // Update active state
+        navLinks.forEach(link => {
+          link.classList.remove('active')
+          const href = link.getAttribute('href')
+          if (href === `#${currentSection}`) {
+            link.classList.add('active')
+          }
+        })
+      }
+
+      // Trigger on scroll
+      window.addEventListener('scroll', updateActiveLink, { passive: true })
+      
+      // Initial check
+      updateActiveLink()
+      
+      // Smooth scroll khi click link (chỉ cho desktop, mobile xử lý trong sidebar toggle)
+      navLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+          // Trên mobile, scroll được xử lý trong sidebar toggle function
+          if (window.innerWidth > 900) {
+            e.preventDefault()
+            const targetId = link.getAttribute('href').slice(1)
+            const targetSection = document.getElementById(targetId)
+            if (targetSection) {
+              const targetPosition = targetSection.offsetTop
+              window.scrollTo({
+                top: targetPosition,
+                behavior: 'smooth'
+              })
+            }
+          }
+        })
+      })
+    })()
+  </script>
+</body>
+</html>

@@ -633,12 +633,6 @@
           </div>
         </div>
       </div>
-      <button id="creatorButton" class="icon-button" title="Create Game">
-        <svg class="header-icon" viewBox="0 0 24 24" aria-hidden="true">
-          <line x1="12" y1="5" x2="12" y2="19"></line>
-          <line x1="5" y1="12" x2="19" y2="12"></line>
-        </svg>
-      </button>
       <button id="walletConnectBtn" class="icon-button wallet-connect" aria-label="Connect MetaMask">
         <img src="assets/icons/metamask.svg" alt="MetaMask" />
       </button>
@@ -682,7 +676,6 @@
       hamburgerDropdown: document.getElementById('hamburgerDropdown'),
       searchToggleButton: document.getElementById('searchToggleButton'),
       navDropdown: document.getElementById('navDropdown'),
-      creatorBtn: document.getElementById('creatorButton'),
       // Wallet
       walletConnectBtn: document.getElementById('walletConnectBtn'),
       walletStatusBtn: document.getElementById('walletStatusBtn'),
@@ -834,11 +827,55 @@
       });
     }
     
-    const creatorBtn = elements.creatorBtn;
-    if (creatorBtn) {
-      creatorBtn.addEventListener('click', () => {
-        window.location.href = '/games/templates-v2/';
-      });
+    // Floating Action Button (FAB) - Create Game
+    function initFabButton() {
+      const btn = document.getElementById('fabCreatorButton');
+      if (!btn) return;
+      
+      // Navigation handler
+      const navigateToEditor = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        e.stopImmediatePropagation();
+        window.location.href = `${window.location.origin}/games/templates-v2/`;
+      };
+      
+      btn.addEventListener('click', navigateToEditor, { capture: true });
+      btn.addEventListener('touchend', navigateToEditor, { passive: false, capture: true });
+      btn.setAttribute('tabindex', '0');
+      
+      // Update FAB position to align with MC (desktop only)
+      function updateFabPosition() {
+        if (window.innerWidth < 1024) return;
+        
+        const activeCard = document.querySelector('.game-card.active');
+        const mcElement = activeCard?.querySelector('[data-role="marketcap"]');
+        if (!mcElement) return;
+        
+        const mcRect = mcElement.getBoundingClientRect();
+        const fabSize = 112;
+        const gap = 20;
+        
+        btn.style.bottom = `${window.innerHeight - mcRect.top - (fabSize / 2) + (mcRect.height / 2)}px`;
+        btn.style.right = `${window.innerWidth - mcRect.right - gap - fabSize}px`;
+      }
+      
+      updateFabPosition();
+      window.addEventListener('scroll', updateFabPosition, { passive: true });
+      window.addEventListener('resize', updateFabPosition);
+      
+      // Update when game cards change
+      const gameContainer = document.querySelector('.game-container');
+      if (gameContainer) {
+        new MutationObserver(() => setTimeout(updateFabPosition, 100))
+          .observe(gameContainer, { childList: true, subtree: true, attributes: true, attributeFilter: ['class'] });
+      }
+    }
+    
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initFabButton);
+    } else {
+      initFabButton();
     }
     
     // ==========================================
@@ -1264,6 +1301,14 @@
   <!-- Confetti Canvas -->
   <canvas id="confettiCanvas" class="confetti-canvas"></canvas>
 
+  <!-- Floating Action Button (FAB) - Create Game -->
+  <button id="fabCreatorButton" class="fab-button" title="Create Game" aria-label="Create Game">
+    <svg viewBox="0 0 24 24" aria-hidden="true">
+      <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+      <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"></line>
+    </svg>
+  </button>
+
   <style>
     /* Achievement Toast Styles */
     .achievement-toast {
@@ -1374,6 +1419,90 @@
       z-index: 999998;
       opacity: 0;
       transition: opacity 0.3s ease;
+    }
+    
+    /* Floating Action Button (FAB) - Create Game */
+    .fab-button {
+      position: fixed !important;
+      bottom: calc(226px + env(safe-area-inset-bottom)) !important;
+      right: 30px !important;
+      width: 56px;
+      height: 56px;
+      border-radius: 50%;
+      background: #ffb642;
+      color: #000;
+      border: none;
+      box-shadow: 0 4px 12px rgba(255, 182, 66, 0.4), 0 8px 24px rgba(0, 0, 0, 0.3);
+      cursor: pointer;
+      display: flex !important;
+      align-items: center;
+      justify-content: center;
+      z-index: 99999 !important;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease !important;
+      padding: 0;
+      pointer-events: auto !important;
+      touch-action: manipulation;
+      transform: translateZ(0) !important;
+      backface-visibility: hidden;
+      contain: layout style paint;
+      isolation: isolate;
+    }
+    
+    .fab-button:hover {
+      background: #ffce7a;
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(255, 182, 66, 0.5), 0 12px 32px rgba(0, 0, 0, 0.4);
+    }
+    
+    .fab-button:active {
+      transform: translateY(0);
+      box-shadow: 0 2px 8px rgba(255, 182, 66, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2);
+    }
+    
+    .fab-button svg {
+      width: 24px;
+      height: 24px;
+      stroke: currentColor;
+      stroke-width: 2.5;
+      stroke-linecap: round;
+    }
+    
+    /* Desktop: Đặt sát màn hình gaming (bên phải game card 720px) và phóng to x2 */
+    @media (min-width: 1024px) {
+      .fab-button {
+        width: 112px;
+        height: 112px;
+        /* Game card width 720px ở giữa màn hình, đặt FAB sát bên phải với khoảng cách 20px */
+        right: calc(50% - 360px - 112px - 20px);
+        /* Bottom sẽ được tính toán bằng JavaScript để cùng hàng với MC */
+        bottom: calc(20px + env(safe-area-inset-bottom));
+      }
+      
+      .fab-button svg {
+        width: 48px;
+        height: 48px;
+        stroke-width: 3;
+      }
+      
+      .fab-button:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 32px rgba(255, 182, 66, 0.5), 0 24px 64px rgba(0, 0, 0, 0.4);
+      }
+    }
+    
+    @media (max-width: 480px) {
+      .fab-button {
+        width: 52px;
+        height: 52px;
+        /* Vị trí: 150px + safe area và lệch sang trái 40px */
+        bottom: calc(150px + env(safe-area-inset-bottom)) !important;
+        right: calc(26px + 40px + env(safe-area-inset-right));
+      }
+      
+      .fab-button svg {
+        width: 22px;
+        height: 22px;
+      }
     }
   </style>
   
