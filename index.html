@@ -1511,6 +1511,8 @@
         /* Vị trí cố định: dưới màn hình gaming cách 20px */
         bottom: calc(20px + env(safe-area-inset-bottom)) !important;
         right: calc(20px + env(safe-area-inset-right)) !important;
+        /* Giảm z-index trên mobile để không đè lên game iframe */
+        z-index: 100 !important;
       }
       
       .fab-button svg {

@@ -1026,6 +1026,13 @@ body[data-mode="play"] iframe .focus-toggle {
     width: 100% !important;
     height: 100% !important;
   }
+}
+
+/* Mobile: Đảm bảo game iframe có z-index cao hơn FAB để không bị đè */
+@media (max-width: 480px) {
+  .game-stage iframe {
+    z-index: 200 !important;
+  }
   .game-footer {
     gap: 10px;
     padding: 8px 16px 12px;
