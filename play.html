@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Redirecting...</title>
+  <script>
+    // Redirect to play-v2.html while preserving query parameters and hash
+    const search = window.location.search;
+    const hash = window.location.hash;
+    window.location.replace('/play-v2.html' + search + hash);
+  </script>
+</head>
+</html>
+

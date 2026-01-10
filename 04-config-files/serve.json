@@ -14,6 +14,10 @@
       "destination": "/play-v2.html?game=playmode-:gameId"
     },
     {
+      "source": "/play.html",
+      "destination": "/play-v2.html"
+    },
+    {
       "source": "/games/templates-v2",
       "destination": "/games/templates-v2/index.html"
     },
