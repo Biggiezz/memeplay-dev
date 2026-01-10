@@ -7,6 +7,8 @@ import { initWalletDisplay } from '../avatar-system/src/wallet-display.js';
 import { MintService } from '../avatar-system/src/mint-service.js';
 import { CONTRACT_ADDRESS } from '../avatar-system/src/contract-address.js';
 import { trackMint } from '../avatar-system/src/tracking.js';
+// ✅ Analytics Tracking
+import { trackAvatarMintClick } from './analytics-tracker.js';
 
 // Current config
 let currentConfig = {
@@ -80,6 +82,17 @@ function initMintButton() {
   const mintMessage = document.getElementById('mintMessage');
   
   mintBtn.addEventListener('click', async () => {
+    // ✅ Track mint click NGAY KHI CLICK (trước khi check wallet, etc.)
+    // Chỉ cần click = có nhu cầu, không cần mint thành công
+    const configHash = generateHash(currentConfig);
+    trackAvatarMintClick({
+      from_page: 'avatar-creator',
+      config_hash: configHash,
+      config: currentConfig
+    }).catch(() => {
+      // Silent fail - tracking is non-critical
+    });
+    
     // Reset message
     mintMessage.className = 'mint-message';
     mintMessage.textContent = '';
@@ -90,9 +103,6 @@ function initMintButton() {
       mintBtn.textContent = 'Preparing...';
       mintMessage.textContent = 'Preparing...';
       mintMessage.className = 'mint-message';
-      
-      // Generate config hash
-      const configHash = generateHash(currentConfig);
       
       // Step 2: Check wallet connection
       mintBtn.textContent = 'Waiting for wallet...';

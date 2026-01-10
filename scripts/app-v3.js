@@ -8,6 +8,11 @@ import {
   getTemplateConfig,
   getEnabledTemplates
 } from '../games/templates-v2/core/template-registry.js'
+// ✅ Analytics Tracking
+import { 
+  trackGameStart, 
+  trackReplay
+} from './analytics-tracker.js'
 
 // ==========================================
 // STEP 2.1: Setup Supabase Client
@@ -37,6 +42,7 @@ let progressInterval = null
 let playCountIncremented = false // Flag to ensure play count is only incremented once per game session
 let isGameOver = false // Flag to prevent showing rewards during gameplay
 let stopGameInProgress = false // Flag to prevent double call to stopGame()
+let playedGames = new Set() // Track games that have been played in this session (for replay detection)
 
 // ✅ Reward thresholds and values
 const REWARD_THRESHOLDS = [10, 60, 300]
@@ -1633,16 +1639,44 @@ function showPendingAchievements(gameId) {
 
 // ✅ Start tracking game playtime
 function startGame(gameId) {
-  if (activeGame && activeGame !== gameId) stopGame()
+  // ✅ Detect replay: nếu game đã từng chơi trong session này
+  // Replay = game đã được play trước đó (trong playedGames Set)
+  const isReplay = playedGames.has(gameId)
+  
+  if (activeGame && activeGame !== gameId) {
+    stopGame() // Non-blocking - stopGame is async but we don't need to wait
+  }
   clearInterval(progressInterval)
   progressInterval = null
   activeGame = gameId
   activeStartTime = Date.now()
   playCountIncremented = false
   stopGameInProgress = false // ✅ Reset flag when starting new game
+  isGameOver = false // Reset game over flag for new game session
   
   const activeCard = document.getElementById(gameId)
   if (activeCard) activeCard.classList.add('is-playing')
+  
+  // ✅ Track game start or replay event (analytics)
+  // Device type sẽ được auto-detect trong analytics-tracker.js
+  if (isReplay) {
+    // QUAN TRỌNG NHẤT: Track replay
+    trackReplay(gameId, {
+      source: 'homepage'
+      // device sẽ được auto-detect trong analytics-tracker.js
+    }).catch(() => {
+      // Silent fail - tracking is non-critical
+    })
+  } else {
+    // First time playing this game
+    trackGameStart(gameId, {
+      source: 'homepage'
+      // device sẽ được auto-detect trong analytics-tracker.js
+    }).catch(() => {
+      // Silent fail - tracking is non-critical
+    })
+    playedGames.add(gameId) // Mark as played
+  }
   
   // Update progress every 5 seconds (check for threshold rewards)
   progressInterval = setInterval(() => {
@@ -1801,8 +1835,9 @@ window.addEventListener('message', async (event) => {
   // ✅ Handle GAME_OVER to stop timer
   if (event.data?.type === 'GAME_OVER' && event.data?.gameId) {
     const { gameId } = event.data
-    // ✅ Set flag to allow showing achievements
+    // ✅ Set flag to allow showing achievements and mark game as played
     isGameOver = true
+    playedGames.add(gameId) // Mark game as played (for replay detection)
     await stopGame()
     
     // ✅ Show pending achievements after game over
