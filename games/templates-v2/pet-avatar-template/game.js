@@ -762,6 +762,7 @@ async function init() {
     setupHelpButton();
     setupActionButtons();
     if (window.parent !== window) {
+      const gameId = getGameId();
       window.parent.postMessage({ type: 'GAME_READY', gameId: gameId || 'pet-avatar' }, '*');
       window.parent.postMessage({ type: 'PET_AVATAR_GAME_READY' }, '*');
     }

@@ -1,0 +1,12 @@
+{
+  "version": "1.0",
+  "name": "MemePlay",
+  "description": "Play games and earn rewards on Base App",
+  "icon": "https://memeplay.dev/assets/favicon.svg",
+  "url": "https://memeplay.dev/base-mini-app.html",
+  "splash": {
+    "image": "https://memeplay.dev/assets/favicon.svg",
+    "backgroundColor": "#111111"
+  }
+}
+
