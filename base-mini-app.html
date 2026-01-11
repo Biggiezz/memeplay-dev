@@ -276,7 +276,8 @@
       margin-top: 0;
       height: calc(100svh - var(--header-h) - env(safe-area-inset-top));
       overflow-y: auto;
-      overscroll-behavior: none !important; /* ✅ Prevent pull-to-refresh (Base App webview) */
+      overscroll-behavior: contain !important; /* ✅ Prevent pull-to-refresh (Base App webview) */
+      touch-action: pan-y !important; /* ✅ Allow vertical scroll, prevent horizontal */
       -webkit-overflow-scrolling: touch;
       scroll-snap-type: y mandatory;
       scroll-padding-top: 0;
@@ -557,11 +558,10 @@
     /* ===== BASE APP SPECIFIC: Disable pull-to-refresh gestures ===== */
     /* ✅ Prevent pull-to-refresh when swiping in game area (Base App webview only) */
     /* ✅ This only affects base-mini-app.html, not telegram-mini-app.html or browser */
-    .game-container,
-    .game-card,
+    /* ✅ Only disable touch gestures on game canvas/iframe, NOT on scroll container */
     .game-stage,
     .game-card iframe {
-      touch-action: none !important; /* Disable all gestures (pull-to-refresh, swipe, etc.) */
+      touch-action: none !important; /* Disable all gestures on game canvas/iframe */
     }
   </style>
 </head>
