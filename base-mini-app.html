@@ -547,6 +547,15 @@
         max-width: 720px !important;
       }
     }
+    
+    /* ===== BASE APP SPECIFIC: Disable pull-to-refresh gestures ===== */
+    /* ✅ Prevent pull-to-refresh when swiping in game area (Base App webview only) */
+    /* ✅ This only affects base-mini-app.html, not telegram-mini-app.html or browser */
+    .game-card,
+    .game-stage,
+    .game-card iframe {
+      touch-action: none; /* Disable all gestures (pull-to-refresh, swipe, etc.) */
+    }
   </style>
 </head>
 <body>
