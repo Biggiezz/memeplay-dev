@@ -1900,17 +1900,24 @@ window.addEventListener('message', async (event) => {
 // ==========================================
 
 // ✅ Prevent pull-to-refresh on document level (Base App webview)
-// ✅ Simple approach: prevent touchmove when at top of scrollable container
+// ✅ Aggressive approach: prevent touchmove when at top of scrollable container
 (function initBaseAppPullToRefreshPrevention() {
   const isBaseApp = window.ethereum?.isBase || window.parent !== window
   if (!isBaseApp) return // Only for Base App
   
   // Prevent pull-to-refresh when swiping down at top
   let touchStartY = 0
+  let isAtTop = false
   
+  // Use capture phase to catch events early
   document.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return
     touchStartY = e.touches[0].clientY
-  }, { passive: true })
+    
+    // Check if at top of game-container
+    const gameContainer = document.querySelector('.game-container')
+    isAtTop = gameContainer ? gameContainer.scrollTop <= 0 : false
+  }, { passive: true, capture: true })
   
   document.addEventListener('touchmove', (e) => {
     // Check if at top of game-container
@@ -1918,16 +1925,35 @@ window.addEventListener('message', async (event) => {
     if (!gameContainer) return
     
     // If game-container is at top (scrollTop === 0) and swiping down
-    if (gameContainer.scrollTop === 0) {
+    const atTop = gameContainer.scrollTop <= 0
+    if (atTop) {
       const touchY = e.touches[0].clientY
       const deltaY = touchY - touchStartY
       
       // Prevent if swiping down (positive deltaY)
       if (deltaY > 0) {
         e.preventDefault()
+        e.stopPropagation()
       }
     }
-  }, { passive: false })
+  }, { passive: false, capture: true })
+  
+  // Also prevent on window level
+  window.addEventListener('touchmove', (e) => {
+    const gameContainer = document.querySelector('.game-container')
+    if (!gameContainer) return
+    
+    const atTop = gameContainer.scrollTop <= 0
+    if (atTop) {
+      const touchY = e.touches[0].clientY
+      const deltaY = touchY - touchStartY
+      
+      if (deltaY > 0) {
+        e.preventDefault()
+        e.stopPropagation()
+      }
+    }
+  }, { passive: false, capture: true })
 })()
 
 // ==========================================
