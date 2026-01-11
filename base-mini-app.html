@@ -253,6 +253,12 @@
     }
 
     /* ===== PAGE LAYOUT SPACING ===== */
+    html,
+    body {
+      overscroll-behavior: none !important; /* ✅ Prevent pull-to-refresh (Base App webview) */
+      overscroll-behavior-y: none !important;
+    }
+    
     body {
       margin: 0;
       padding-top: calc(var(--header-h) + env(safe-area-inset-top));
@@ -270,7 +276,7 @@
       margin-top: 0;
       height: calc(100svh - var(--header-h) - env(safe-area-inset-top));
       overflow-y: auto;
-      overscroll-behavior: contain;
+      overscroll-behavior: none !important; /* ✅ Prevent pull-to-refresh (Base App webview) */
       -webkit-overflow-scrolling: touch;
       scroll-snap-type: y mandatory;
       scroll-padding-top: 0;
@@ -551,10 +557,11 @@
     /* ===== BASE APP SPECIFIC: Disable pull-to-refresh gestures ===== */
     /* ✅ Prevent pull-to-refresh when swiping in game area (Base App webview only) */
     /* ✅ This only affects base-mini-app.html, not telegram-mini-app.html or browser */
+    .game-container,
     .game-card,
     .game-stage,
     .game-card iframe {
-      touch-action: none; /* Disable all gestures (pull-to-refresh, swipe, etc.) */
+      touch-action: none !important; /* Disable all gestures (pull-to-refresh, swipe, etc.) */
     }
   </style>
 </head>

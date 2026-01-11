@@ -1923,6 +1923,7 @@ if (document.readyState === 'loading') {
   initSocialHandlers()
   initStatsOverlay()
   initDailyCheckin()
+  
   // ✅ Base App: Skip referral system (Telegram-specific)
   // initReferralOverlay()
   
