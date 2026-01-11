@@ -1896,6 +1896,41 @@ window.addEventListener('message', async (event) => {
 })
 
 // ==========================================
+// BASE APP: Prevent pull-to-refresh gesture
+// ==========================================
+
+// ✅ Prevent pull-to-refresh on document level (Base App webview)
+// ✅ Simple approach: prevent touchmove when at top of scrollable container
+(function initBaseAppPullToRefreshPrevention() {
+  const isBaseApp = window.ethereum?.isBase || window.parent !== window
+  if (!isBaseApp) return // Only for Base App
+  
+  // Prevent pull-to-refresh when swiping down at top
+  let touchStartY = 0
+  
+  document.addEventListener('touchstart', (e) => {
+    touchStartY = e.touches[0].clientY
+  }, { passive: true })
+  
+  document.addEventListener('touchmove', (e) => {
+    // Check if at top of game-container
+    const gameContainer = document.querySelector('.game-container')
+    if (!gameContainer) return
+    
+    // If game-container is at top (scrollTop === 0) and swiping down
+    if (gameContainer.scrollTop === 0) {
+      const touchY = e.touches[0].clientY
+      const deltaY = touchY - touchStartY
+      
+      // Prevent if swiping down (positive deltaY)
+      if (deltaY > 0) {
+        e.preventDefault()
+      }
+    }
+  }, { passive: false })
+})()
+
+// ==========================================
 // Auto-load when DOM ready
 // ==========================================
 
