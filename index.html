@@ -1662,29 +1662,69 @@
   
   <div id="baseAppDebugPanel" class="base-app-debug-panel" style="display: none;">
     <div class="debug-panel-header">
-      <h3>🔍 Base App Detection Debug</h3>
+      <h3>🔍 Base App DevTools</h3>
       <button class="debug-close-btn" onclick="toggleDebugPanel()">×</button>
     </div>
+    <div class="debug-tabs">
+      <button class="debug-tab active" onclick="switchDebugTab('info')">Info</button>
+      <button class="debug-tab" onclick="switchDebugTab('console')">Console</button>
+      <button class="debug-tab" onclick="switchDebugTab('iframe')">Iframes</button>
+      <button class="debug-tab" onclick="switchDebugTab('network')">Network</button>
+    </div>
     <div class="debug-panel-content">
-      <div class="debug-item">
-        <strong>Base App Detected:</strong>
-        <span id="debugIsBaseApp" class="debug-value">-</span>
+      <!-- Info Tab -->
+      <div id="debugTabInfo" class="debug-tab-content active">
+        <div class="debug-item">
+          <strong>Base App Detected:</strong>
+          <span id="debugIsBaseApp" class="debug-value">-</span>
+        </div>
+        <div class="debug-item">
+          <strong>isCoinbaseWallet:</strong>
+          <span id="debugIsCoinbaseWallet" class="debug-value">-</span>
+        </div>
+        <div class="debug-item">
+          <strong>User Agent:</strong>
+          <span id="debugUserAgent" class="debug-value-small">-</span>
+        </div>
+        <div class="debug-item">
+          <strong>window.__isBaseApp:</strong>
+          <span id="debugWindowFlag" class="debug-value">-</span>
+        </div>
+        <div class="debug-item">
+          <strong>window.ethereum exists:</strong>
+          <span id="debugEthereumExists" class="debug-value">-</span>
+        </div>
+        <div class="debug-item">
+          <strong>Game Cards Count:</strong>
+          <span id="debugGameCardsCount" class="debug-value">-</span>
+        </div>
+        <div class="debug-item">
+          <strong>Active Game:</strong>
+          <span id="debugActiveGame" class="debug-value">-</span>
+        </div>
       </div>
-      <div class="debug-item">
-        <strong>isCoinbaseWallet:</strong>
-        <span id="debugIsCoinbaseWallet" class="debug-value">-</span>
+      
+      <!-- Console Tab -->
+      <div id="debugTabConsole" class="debug-tab-content">
+        <div class="debug-console-header">
+          <button class="debug-btn-small" onclick="clearConsoleLogs()">Clear</button>
+          <span class="debug-console-count">Errors: <span id="debugErrorCount">0</span></span>
+        </div>
+        <div id="debugConsoleLogs" class="debug-console-logs"></div>
       </div>
-      <div class="debug-item">
-        <strong>User Agent:</strong>
-        <span id="debugUserAgent" class="debug-value-small">-</span>
+      
+      <!-- Iframe Tab -->
+      <div id="debugTabIframe" class="debug-tab-content">
+        <div id="debugIframeList" class="debug-iframe-list"></div>
       </div>
-      <div class="debug-item">
-        <strong>window.__isBaseApp:</strong>
-        <span id="debugWindowFlag" class="debug-value">-</span>
-      </div>
-      <div class="debug-item">
-        <strong>window.ethereum exists:</strong>
-        <span id="debugEthereumExists" class="debug-value">-</span>
+      
+      <!-- Network Tab -->
+      <div id="debugTabNetwork" class="debug-tab-content">
+        <div class="debug-console-header">
+          <button class="debug-btn-small" onclick="clearNetworkLogs()">Clear</button>
+          <span class="debug-console-count">Requests: <span id="debugNetworkCount">0</span></span>
+        </div>
+        <div id="debugNetworkLogs" class="debug-console-logs"></div>
       </div>
     </div>
   </div>
@@ -1821,6 +1861,147 @@
       overflow-y: auto;
     }
     
+    /* Debug Tabs */
+    .debug-tabs {
+      display: flex;
+      border-bottom: 1px solid #333;
+      background: rgba(255, 182, 66, 0.05);
+    }
+    
+    .debug-tab {
+      flex: 1;
+      padding: 8px 12px;
+      background: none;
+      border: none;
+      color: #999;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+      border-bottom: 2px solid transparent;
+    }
+    
+    .debug-tab:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.05);
+    }
+    
+    .debug-tab.active {
+      color: #ffb642;
+      border-bottom-color: #ffb642;
+      font-weight: bold;
+    }
+    
+    .debug-tab-content {
+      display: none;
+      max-height: 400px;
+      overflow-y: auto;
+    }
+    
+    .debug-tab-content.active {
+      display: block;
+    }
+    
+    /* Console Logs */
+    .debug-console-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      margin-bottom: 8px;
+      border-bottom: 1px solid #333;
+    }
+    
+    .debug-btn-small {
+      padding: 4px 8px;
+      background: rgba(255, 182, 66, 0.2);
+      border: 1px solid #ffb642;
+      color: #ffb642;
+      border-radius: 4px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+    
+    .debug-btn-small:hover {
+      background: rgba(255, 182, 66, 0.3);
+    }
+    
+    .debug-console-count {
+      font-size: 10px;
+      color: #999;
+    }
+    
+    .debug-console-logs {
+      font-family: 'Courier New', monospace;
+      font-size: 10px;
+      line-height: 1.4;
+      max-height: 350px;
+      overflow-y: auto;
+    }
+    
+    .debug-log-item {
+      padding: 4px 8px;
+      margin-bottom: 4px;
+      border-left: 3px solid #666;
+      background: rgba(255, 255, 255, 0.02);
+      word-break: break-all;
+    }
+    
+    .debug-log-item.error {
+      border-left-color: #ff6b6b;
+      background: rgba(255, 107, 107, 0.1);
+      color: #ff6b6b;
+    }
+    
+    .debug-log-item.warn {
+      border-left-color: #ffd93d;
+      background: rgba(255, 217, 61, 0.1);
+      color: #ffd93d;
+    }
+    
+    .debug-log-item.info {
+      border-left-color: #51cf66;
+      background: rgba(81, 207, 102, 0.1);
+      color: #51cf66;
+    }
+    
+    .debug-log-time {
+      color: #666;
+      font-size: 9px;
+      margin-right: 8px;
+    }
+    
+    /* Iframe List */
+    .debug-iframe-list {
+      font-size: 11px;
+    }
+    
+    .debug-iframe-item {
+      padding: 8px;
+      margin-bottom: 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      border-left: 3px solid #666;
+    }
+    
+    .debug-iframe-item.loaded {
+      border-left-color: #51cf66;
+    }
+    
+    .debug-iframe-item.error {
+      border-left-color: #ff6b6b;
+    }
+    
+    .debug-iframe-item.loading {
+      border-left-color: #ffd93d;
+    }
+    
+    .debug-iframe-url {
+      color: #ccc;
+      font-size: 10px;
+      word-break: break-all;
+      margin-top: 4px;
+    }
+    
     @media (max-width: 480px) {
       .base-app-debug-badge {
         top: 10px;
@@ -1839,10 +2020,35 @@
   
   <script>
     // Debug UI Functions
+    let consoleLogs = [];
+    let networkLogs = [];
+    let errorCount = 0;
+    
     function toggleDebugPanel() {
       const panel = document.getElementById('baseAppDebugPanel');
       panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
       updateDebugInfo();
+      if (panel.style.display === 'block') {
+        updateIframeStatus();
+      }
+    }
+    
+    function switchDebugTab(tabName) {
+      // Hide all tabs
+      document.querySelectorAll('.debug-tab-content').forEach(tab => {
+        tab.classList.remove('active');
+      });
+      document.querySelectorAll('.debug-tab').forEach(btn => {
+        btn.classList.remove('active');
+      });
+      
+      // Show selected tab
+      document.getElementById('debugTab' + tabName.charAt(0).toUpperCase() + tabName.slice(1)).classList.add('active');
+      event.target.classList.add('active');
+      
+      if (tabName === 'iframe') {
+        updateIframeStatus();
+      }
     }
     
     function updateDebugInfo() {
@@ -1863,7 +2069,204 @@
       document.getElementById('debugUserAgent').textContent = userAgent.substring(0, 100) + (userAgent.length > 100 ? '...' : '');
       document.getElementById('debugWindowFlag').textContent = String(window.__isBaseApp);
       document.getElementById('debugEthereumExists').textContent = ethereumExists ? 'true ✅' : 'false ❌';
+      
+      // Game info
+      const gameCards = document.querySelectorAll('.game-card');
+      document.getElementById('debugGameCardsCount').textContent = gameCards.length;
+      
+      const activeCard = document.querySelector('.game-card.active');
+      document.getElementById('debugActiveGame').textContent = activeCard ? (activeCard.id || 'Unknown') : 'None';
     }
+    
+    function addConsoleLog(type, message, stack) {
+      const time = new Date().toLocaleTimeString();
+      consoleLogs.push({ type, message, stack, time });
+      if (type === 'error') errorCount++;
+      
+      const logsContainer = document.getElementById('debugConsoleLogs');
+      if (!logsContainer) return;
+      
+      const logItem = document.createElement('div');
+      logItem.className = 'debug-log-item ' + type;
+      logItem.innerHTML = `
+        <span class="debug-log-time">${time}</span>
+        <strong>${type.toUpperCase()}:</strong> ${message}
+        ${stack ? '<br><span style="font-size: 9px; color: #666;">' + stack.substring(0, 200) + '</span>' : ''}
+      `;
+      logsContainer.appendChild(logItem);
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+      
+      document.getElementById('debugErrorCount').textContent = errorCount;
+    }
+    
+    function addNetworkLog(url, status, method) {
+      const time = new Date().toLocaleTimeString();
+      networkLogs.push({ url, status, method, time });
+      
+      const logsContainer = document.getElementById('debugNetworkLogs');
+      if (!logsContainer) return;
+      
+      const logItem = document.createElement('div');
+      logItem.className = 'debug-log-item ' + (status >= 200 && status < 300 ? 'info' : status >= 400 ? 'error' : 'warn');
+      logItem.innerHTML = `
+        <span class="debug-log-time">${time}</span>
+        <strong>${method || 'GET'}</strong> ${status || 'pending'}
+        <br><span style="font-size: 9px; color: #999;">${url.substring(0, 150)}</span>
+      `;
+      logsContainer.appendChild(logItem);
+      logsContainer.scrollTop = logsContainer.scrollHeight;
+      
+      document.getElementById('debugNetworkCount').textContent = networkLogs.length;
+    }
+    
+    function clearConsoleLogs() {
+      consoleLogs = [];
+      errorCount = 0;
+      document.getElementById('debugConsoleLogs').innerHTML = '';
+      document.getElementById('debugErrorCount').textContent = '0';
+    }
+    
+    function clearNetworkLogs() {
+      networkLogs = [];
+      document.getElementById('debugNetworkLogs').innerHTML = '';
+      document.getElementById('debugNetworkCount').textContent = '0';
+    }
+    
+    function updateIframeStatus() {
+      const iframes = document.querySelectorAll('iframe');
+      const container = document.getElementById('debugIframeList');
+      if (!container) return;
+      
+      container.innerHTML = '';
+      
+      if (iframes.length === 0) {
+        container.innerHTML = '<div class="debug-log-item warn">No iframes found</div>';
+        return;
+      }
+      
+      iframes.forEach((iframe, index) => {
+        const item = document.createElement('div');
+        item.className = 'debug-iframe-item';
+        
+        let status = 'loading';
+        let statusText = 'Loading...';
+        let statusColor = '#ffd93d';
+        
+        try {
+          if (iframe.contentWindow) {
+            status = 'loaded';
+            statusText = 'Loaded ✅';
+            statusColor = '#51cf66';
+          }
+        } catch (e) {
+          // Cross-origin iframe
+          if (iframe.src && iframe.src !== 'about:blank') {
+            status = 'loaded';
+            statusText = 'Loaded (cross-origin) ✅';
+            statusColor = '#51cf66';
+          }
+        }
+        
+        if (!iframe.src || iframe.src === 'about:blank') {
+          status = 'loading';
+          statusText = 'Not loaded (blank)';
+          statusColor = '#999';
+        }
+        
+        item.style.borderLeftColor = statusColor;
+        item.classList.add(status);
+        item.innerHTML = `
+          <strong>Iframe #${index + 1}</strong>
+          <div style="color: ${statusColor}; font-size: 10px; margin-top: 4px;">${statusText}</div>
+          <div class="debug-iframe-url">${iframe.src || 'about:blank'}</div>
+          <div style="font-size: 9px; color: #666; margin-top: 4px;">
+            Size: ${iframe.offsetWidth}x${iframe.offsetHeight}px
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+    
+    // Capture console errors
+    const originalError = console.error;
+    console.error = function(...args) {
+      originalError.apply(console, args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+      const stack = new Error().stack;
+      addConsoleLog('error', message, stack);
+    };
+    
+    const originalWarn = console.warn;
+    console.warn = function(...args) {
+      originalWarn.apply(console, args);
+      const message = args.map(arg => typeof arg === 'object' ? JSON.stringify(arg) : String(arg)).join(' ');
+      addConsoleLog('warn', message);
+    };
+    
+    // Capture unhandled errors
+    window.addEventListener('error', (e) => {
+      addConsoleLog('error', e.message, e.filename + ':' + e.lineno);
+    });
+    
+    window.addEventListener('unhandledrejection', (e) => {
+      addConsoleLog('error', 'Unhandled Promise Rejection: ' + (e.reason?.message || e.reason), e.reason?.stack);
+    });
+    
+    // Monitor iframe loading
+    const originalCreateElement = document.createElement;
+    document.createElement = function(tagName) {
+      const element = originalCreateElement.call(document, tagName);
+      if (tagName.toLowerCase() === 'iframe') {
+        element.addEventListener('load', () => {
+          setTimeout(updateIframeStatus, 100);
+        });
+        element.addEventListener('error', () => {
+          setTimeout(updateIframeStatus, 100);
+        });
+      }
+      return element;
+    };
+    
+    // Monitor fetch requests
+    const originalFetch = window.fetch;
+    window.fetch = function(...args) {
+      const url = args[0];
+      const method = args[1]?.method || 'GET';
+      addNetworkLog(url, 'pending', method);
+      
+      return originalFetch.apply(window, args)
+        .then(response => {
+          addNetworkLog(url, response.status, method);
+          return response;
+        })
+        .catch(error => {
+          addNetworkLog(url, 'error', method);
+          throw error;
+        });
+    };
+    
+    // Monitor XMLHttpRequest
+    const originalXHROpen = XMLHttpRequest.prototype.open;
+    XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+      this._debugUrl = url;
+      this._debugMethod = method;
+      return originalXHROpen.apply(this, [method, url, ...rest]);
+    };
+    
+    const originalXHRSend = XMLHttpRequest.prototype.send;
+    XMLHttpRequest.prototype.send = function(...args) {
+      addNetworkLog(this._debugUrl, 'pending', this._debugMethod);
+      
+      this.addEventListener('load', () => {
+        addNetworkLog(this._debugUrl, this.status, this._debugMethod);
+      });
+      
+      this.addEventListener('error', () => {
+        addNetworkLog(this._debugUrl, 'error', this._debugMethod);
+      });
+      
+      return originalXHRSend.apply(this, args);
+    };
     
     // Click badge to toggle panel
     document.addEventListener('DOMContentLoaded', function() {
