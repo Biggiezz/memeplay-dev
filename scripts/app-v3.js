@@ -25,7 +25,14 @@ let supabaseClient = null
 
 // ==========================================
 // ✅ Task 1.2: Hide External Links function (defined early, exported to global)
+// ✅ MENTOR FIX: Define fallback NGAY ĐẦU FILE để tránh crash
 // ==========================================
+// Fallback để đảm bảo function luôn tồn tại (Base App safe)
+window.hideExternalLinks = window.hideExternalLinks || function() {
+  // no-op fallback - không crash nếu Base App load script chậm
+}
+
+// Define function thật (override fallback)
 window.hideExternalLinks = function hideExternalLinks() {
   if (!window.__isBaseApp) return // Chỉ hide khi Base App
   
@@ -1923,16 +1930,9 @@ if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
     console.log('[V3] DOMContentLoaded fired')
     // ✅ Task 1.2: Hide External Links nếu Base App
+    // ✅ MENTOR FIX: Dùng optional chaining để defensive
     if (window.__isBaseApp) {
-      try {
-        if (typeof window.hideExternalLinks === 'function') {
-          window.hideExternalLinks()
-        } else {
-          console.warn('[Base App] hideExternalLinks function not found')
-        }
-      } catch (e) {
-        console.error('[Base App] hideExternalLinks error:', e)
-      }
+      window.hideExternalLinks?.()
     }
     console.log('[V3] Calling loadGame0()...')
     loadGame0().catch(err => {
@@ -1946,16 +1946,9 @@ if (document.readyState === 'loading') {
 } else {
   console.log('[V3] DOM already ready, initializing immediately')
   // ✅ Task 1.2: Hide External Links nếu Base App
+  // ✅ MENTOR FIX: Dùng optional chaining để defensive
   if (window.__isBaseApp) {
-    try {
-      if (typeof window.hideExternalLinks === 'function') {
-        window.hideExternalLinks()
-      } else {
-        console.warn('[Base App] hideExternalLinks function not found')
-      }
-    } catch (e) {
-      console.error('[Base App] hideExternalLinks error:', e)
-    }
+    window.hideExternalLinks?.()
   }
   console.log('[V3] Calling loadGame0()...')
   loadGame0().catch(err => {
