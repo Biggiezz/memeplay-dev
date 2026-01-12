@@ -1914,32 +1914,53 @@ window.addEventListener('message', async (event) => {
 // Auto-load khi DOM ready
 // ==========================================
 
+// ✅ Initialize on load
+console.log('[V3] Script loaded, initializing...')
+console.log('[V3] window.__isBaseApp:', window.__isBaseApp)
+console.log('[V3] hideExternalLinks function exists:', typeof window.hideExternalLinks === 'function')
+
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
+    console.log('[V3] DOMContentLoaded fired')
     // ✅ Task 1.2: Hide External Links nếu Base App
     if (window.__isBaseApp) {
       try {
-        hideExternalLinks()
+        if (typeof window.hideExternalLinks === 'function') {
+          window.hideExternalLinks()
+        } else {
+          console.warn('[Base App] hideExternalLinks function not found')
+        }
       } catch (e) {
-        console.warn('[Base App] hideExternalLinks error:', e)
+        console.error('[Base App] hideExternalLinks error:', e)
       }
     }
-    loadGame0()
+    console.log('[V3] Calling loadGame0()...')
+    loadGame0().catch(err => {
+      console.error('[V3] loadGame0() failed:', err)
+    })
     initSocialHandlers()
     initStatsOverlay()
     initDailyCheckin()
     initReferralOverlay()
   })
 } else {
+  console.log('[V3] DOM already ready, initializing immediately')
   // ✅ Task 1.2: Hide External Links nếu Base App
   if (window.__isBaseApp) {
     try {
-      hideExternalLinks()
+      if (typeof window.hideExternalLinks === 'function') {
+        window.hideExternalLinks()
+      } else {
+        console.warn('[Base App] hideExternalLinks function not found')
+      }
     } catch (e) {
-      console.warn('[Base App] hideExternalLinks error:', e)
+      console.error('[Base App] hideExternalLinks error:', e)
     }
   }
-  loadGame0()
+  console.log('[V3] Calling loadGame0()...')
+  loadGame0().catch(err => {
+    console.error('[V3] loadGame0() failed:', err)
+  })
   initSocialHandlers()
   initStatsOverlay()
   initDailyCheckin()
