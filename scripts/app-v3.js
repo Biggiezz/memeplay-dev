@@ -1089,11 +1089,111 @@ function initSocialHandlers() {
     window.open(`https://t.me/share/url?url=${encodeURIComponent(url)}`, '_blank')
   }
   
+  // ✅ Task 1.2: Hide External Links trong Base App
+  function hideExternalLinks() {
+    if (!window.__isBaseApp) return // Chỉ hide khi Base App
+    
+    // Hide dropdown social links
+    const socialX = document.querySelector('[data-action="social-x"]')
+    const socialTelegram = document.querySelector('[data-action="social-telegram"]')
+    
+    if (socialX) {
+      socialX.style.display = 'none'
+    }
+    if (socialTelegram) {
+      socialTelegram.style.display = 'none'
+    }
+    
+    // Hide share overlay buttons
+    const shareTelegramBtn = document.getElementById('shareTelegramBtn')
+    const shareXBtn = document.getElementById('shareXBtn')
+    
+    if (shareTelegramBtn) {
+      shareTelegramBtn.style.display = 'none'
+    }
+    if (shareXBtn) {
+      shareXBtn.style.display = 'none'
+    }
+    
+    // Hide divider nếu tất cả social links bị ẩn
+    const divider = document.querySelector('.dropdown-divider')
+    if (divider && socialX && socialTelegram) {
+      // Check nếu cả 2 social links đều bị ẩn
+      if (socialX.style.display === 'none' && socialTelegram.style.display === 'none') {
+        divider.style.display = 'none'
+      }
+    }
+    
+    // Layout adjustment: Center Copy Link nếu chỉ còn 1 button
+    const shareOptions = document.querySelector('.share-options')
+    if (shareOptions) {
+      const visibleButtons = Array.from(shareOptions.querySelectorAll('.share-option-btn')).filter(
+        btn => btn.style.display !== 'none'
+      )
+      // Nếu chỉ còn Copy Link button, center nó
+      if (visibleButtons.length === 1) {
+        shareOptions.style.justifyContent = 'center'
+      }
+    }
+    
+    console.log('[Base App] External links hidden')
+  }
+  
   // ✅ Share: Share to X
   function shareToX() {
     if (!currentShareGameId) return
     const url = buildShareUrl(currentShareGameId)
     window.open(`https://twitter.com/intent/tweet?url=${encodeURIComponent(url)}`, '_blank')
+  }
+  
+  // ✅ Task 1.2: Hide External Links trong Base App
+  function hideExternalLinks() {
+    if (!window.__isBaseApp) return // Chỉ hide khi Base App
+    
+    // Hide dropdown social links
+    const socialX = document.querySelector('[data-action="social-x"]')
+    const socialTelegram = document.querySelector('[data-action="social-telegram"]')
+    
+    if (socialX) {
+      socialX.style.display = 'none'
+    }
+    if (socialTelegram) {
+      socialTelegram.style.display = 'none'
+    }
+    
+    // Hide share overlay buttons
+    const shareTelegramBtn = document.getElementById('shareTelegramBtn')
+    const shareXBtn = document.getElementById('shareXBtn')
+    
+    if (shareTelegramBtn) {
+      shareTelegramBtn.style.display = 'none'
+    }
+    if (shareXBtn) {
+      shareXBtn.style.display = 'none'
+    }
+    
+    // Hide divider nếu tất cả social links bị ẩn
+    const divider = document.querySelector('.dropdown-divider')
+    if (divider && socialX && socialTelegram) {
+      // Check nếu cả 2 social links đều bị ẩn
+      if (socialX.style.display === 'none' && socialTelegram.style.display === 'none') {
+        divider.style.display = 'none'
+      }
+    }
+    
+    // Layout adjustment: Center Copy Link nếu chỉ còn 1 button
+    const shareOptions = document.querySelector('.share-options')
+    if (shareOptions) {
+      const visibleButtons = Array.from(shareOptions.querySelectorAll('.share-option-btn')).filter(
+        btn => btn.style.display !== 'none'
+      )
+      // Nếu chỉ còn Copy Link button, center nó
+      if (visibleButtons.length === 1) {
+        shareOptions.style.justifyContent = 'center'
+      }
+    }
+    
+    console.log('[Base App] External links hidden')
   }
   
   // ✅ Leaderboard: Set active panel
@@ -1851,6 +1951,10 @@ window.addEventListener('message', async (event) => {
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
+    // ✅ Task 1.2: Hide External Links nếu Base App
+    if (window.__isBaseApp) {
+      hideExternalLinks()
+    }
     loadGame0()
     initSocialHandlers()
     initStatsOverlay()
@@ -1858,6 +1962,10 @@ if (document.readyState === 'loading') {
     initReferralOverlay()
   })
 } else {
+  // ✅ Task 1.2: Hide External Links nếu Base App
+  if (window.__isBaseApp) {
+    hideExternalLinks()
+  }
   loadGame0()
   initSocialHandlers()
   initStatsOverlay()
