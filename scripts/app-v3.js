@@ -24,6 +24,62 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = null
 
 // ==========================================
+// ✅ Task 1.2: Hide External Links function (defined early)
+// ==========================================
+function hideExternalLinks() {
+  if (!window.__isBaseApp) return // Chỉ hide khi Base App
+  
+  try {
+    // Hide dropdown social links
+    const socialX = document.querySelector('[data-action="social-x"]')
+    const socialTelegram = document.querySelector('[data-action="social-telegram"]')
+    
+    if (socialX) {
+      socialX.style.display = 'none'
+    }
+    if (socialTelegram) {
+      socialTelegram.style.display = 'none'
+    }
+    
+    // Hide share overlay buttons
+    const shareTelegramBtn = document.getElementById('shareTelegramBtn')
+    const shareXBtn = document.getElementById('shareXBtn')
+    
+    if (shareTelegramBtn) {
+      shareTelegramBtn.style.display = 'none'
+    }
+    if (shareXBtn) {
+      shareXBtn.style.display = 'none'
+    }
+    
+    // Hide divider nếu tất cả social links bị ẩn
+    const divider = document.querySelector('.dropdown-divider')
+    if (divider && socialX && socialTelegram) {
+      // Check nếu cả 2 social links đều bị ẩn
+      if (socialX.style.display === 'none' && socialTelegram.style.display === 'none') {
+        divider.style.display = 'none'
+      }
+    }
+    
+    // Layout adjustment: Center Copy Link nếu chỉ còn 1 button
+    const shareOptions = document.querySelector('.share-options')
+    if (shareOptions) {
+      const visibleButtons = Array.from(shareOptions.querySelectorAll('.share-option-btn')).filter(
+        btn => btn.style.display !== 'none'
+      )
+      // Nếu chỉ còn Copy Link button, center nó
+      if (visibleButtons.length === 1) {
+        shareOptions.style.justifyContent = 'center'
+      }
+    }
+    
+    console.log('[Base App] External links hidden')
+  } catch (e) {
+    console.warn('[Base App] hideExternalLinks error:', e)
+  }
+}
+
+// ==========================================
 // PHASE 3: Global State
 // ==========================================
 
@@ -418,11 +474,14 @@ function renderGameCard(game, config, options = {}) {
 // ==========================================
 
 async function loadGame0() {
+  console.log('[V3] ✅ loadGame0() called')
   const startTime = performance.now()
   
   try {
     // Load game list
+    console.log('[V3] Loading game list from Supabase...')
     const gameList = await loadGameListFromSupabase()
+    console.log('[V3] Game list loaded:', gameList?.length || 0, 'games')
     if (!gameList || gameList.length === 0) {
       console.error('[V3] No games found')
       return null
@@ -448,10 +507,13 @@ async function loadGame0() {
     ])
     
     // Render Game 0 (active)
+    console.log('[V3] Rendering game card for:', game0.id)
     const card0 = renderGameCard(game0, config0, { active: true })
+    console.log('[V3] Game card rendered:', card0 ? 'SUCCESS' : 'FAILED')
     
     // Render Game 1 (preloaded, paused) if exists
     if (game1) {
+      console.log('[V3] Rendering preloaded game card for:', game1.id)
       const card1 = renderGameCard(game1, config1, { active: false, preloaded: true })
     }
     
@@ -463,10 +525,12 @@ async function loadGame0() {
     }
     
     // Init scroll observer
+    console.log('[V3] Initializing scroll observer...')
     initScrollObserver()
     
     const loadTime = performance.now() - startTime
     console.log(`[V3] ✅ Game 0 loaded in ${Math.round(loadTime)}ms`)
+    console.log('[V3] ✅ loadGame0() completed successfully')
     
     if (loadTime > 1000) {
       console.warn(`[V3] ⚠️ Game 0 load time exceeded target: ${Math.round(loadTime)}ms`)
@@ -1849,56 +1913,6 @@ window.addEventListener('message', async (event) => {
 // ==========================================
 // Auto-load khi DOM ready
 // ==========================================
-
-// ✅ Task 1.2: Hide External Links function (defined once)
-function hideExternalLinks() {
-  if (!window.__isBaseApp) return // Chỉ hide khi Base App
-  
-  // Hide dropdown social links
-  const socialX = document.querySelector('[data-action="social-x"]')
-  const socialTelegram = document.querySelector('[data-action="social-telegram"]')
-  
-  if (socialX) {
-    socialX.style.display = 'none'
-  }
-  if (socialTelegram) {
-    socialTelegram.style.display = 'none'
-  }
-  
-  // Hide share overlay buttons
-  const shareTelegramBtn = document.getElementById('shareTelegramBtn')
-  const shareXBtn = document.getElementById('shareXBtn')
-  
-  if (shareTelegramBtn) {
-    shareTelegramBtn.style.display = 'none'
-  }
-  if (shareXBtn) {
-    shareXBtn.style.display = 'none'
-  }
-  
-  // Hide divider nếu tất cả social links bị ẩn
-  const divider = document.querySelector('.dropdown-divider')
-  if (divider && socialX && socialTelegram) {
-    // Check nếu cả 2 social links đều bị ẩn
-    if (socialX.style.display === 'none' && socialTelegram.style.display === 'none') {
-      divider.style.display = 'none'
-    }
-  }
-  
-  // Layout adjustment: Center Copy Link nếu chỉ còn 1 button
-  const shareOptions = document.querySelector('.share-options')
-  if (shareOptions) {
-    const visibleButtons = Array.from(shareOptions.querySelectorAll('.share-option-btn')).filter(
-      btn => btn.style.display !== 'none'
-    )
-    // Nếu chỉ còn Copy Link button, center nó
-    if (visibleButtons.length === 1) {
-      shareOptions.style.justifyContent = 'center'
-    }
-  }
-  
-  console.log('[Base App] External links hidden')
-}
 
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', () => {
