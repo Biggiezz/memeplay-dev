@@ -2,6 +2,9 @@
 // Homepage V3 - Game Loading System
 // ==========================================
 
+// ✅ MENTOR FIX: Log ngay đầu file để verify script load
+console.log('[V3] ✅ Script app-v3.js STARTED loading')
+
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 import { 
   TEMPLATE_REGISTRY,
