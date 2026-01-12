@@ -611,6 +611,13 @@
               </svg>
               Referral
             </div>
+            <div class="dropdown-item" data-action="trade">
+              <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; stroke: #ffb642; fill: none; stroke-width: 2; margin-right: 8px;">
+                <line x1="7" y1="17" x2="17" y2="7"></line>
+                <polyline points="7 7 17 7 17 17"></polyline>
+              </svg>
+              Trade
+            </div>
             <div class="dropdown-divider"></div>
             <a href="https://twitter.com/memeplaydev" target="_blank" rel="noopener noreferrer" class="dropdown-item" data-action="social-x" title="Follow us on X" aria-label="X (Twitter)">
               <svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: #ffb642;">
@@ -696,8 +703,60 @@
       walletCloseBtn: document.getElementById('walletCloseBtn'),
       walletCopyBtn: document.getElementById('walletCopyBtn'),
       walletDisconnectBtn: document.getElementById('walletDisconnectBtn'),
-      walletOverlayAddress: document.getElementById('walletOverlayAddress')
+      walletOverlayAddress: document.getElementById('walletOverlayAddress'),
+      // Trade Overlay
+      tradeOverlay: document.getElementById('tradeOverlay'),
+      tradeCloseBtn: document.getElementById('tradeCloseBtn')
     };
+    
+    // Trade Overlay handlers
+    function initTradeOverlay() {
+      const tradeOverlay = document.getElementById('tradeOverlay');
+      const tradeCloseBtn = document.getElementById('tradeCloseBtn');
+      
+      if (!tradeOverlay) return;
+      
+      function closeTradeOverlay() {
+        tradeOverlay.classList.remove('open');
+      }
+      
+      if (tradeCloseBtn) {
+        tradeCloseBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          closeTradeOverlay();
+        });
+      }
+      
+      // Close when clicking on overlay background
+      tradeOverlay.addEventListener('click', (event) => {
+        // Only close if clicking directly on the overlay (not on child elements)
+        if (event.target === tradeOverlay) {
+          closeTradeOverlay();
+        }
+      });
+      
+      // Prevent clicks inside the content box from bubbling up to overlay
+      const commentsBox = tradeOverlay.querySelector('.comments-box');
+      if (commentsBox) {
+        commentsBox.addEventListener('click', (event) => {
+          event.stopPropagation();
+        });
+      }
+      
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && tradeOverlay.classList.contains('open')) {
+          closeTradeOverlay();
+        }
+      });
+    }
+    
+    // Initialize after DOM is ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initTradeOverlay);
+    } else {
+      initTradeOverlay();
+    }
     
     // ==========================================
     // ✅ OPTIMIZATION: Lazy load ethers.js
@@ -768,6 +827,12 @@
           } else if (action === 'referral') {
             if (typeof window.__openReferralOverlay === 'function') {
               window.__openReferralOverlay();
+            }
+          } else if (action === 'trade') {
+            const tradeOverlay = document.getElementById('tradeOverlay');
+            if (tradeOverlay) {
+              tradeOverlay.classList.add('open');
+              closeHamburgerDropdown();
             }
           } else if (action === 'profile') {
             // Use shared function for navigation
@@ -1308,6 +1373,31 @@
         </div>
         <div class="referral-note">
           Stay tuned! This feature will be available soon.
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- Trade Overlay (Coming Soon) -->
+  <!-- ========================================== -->
+  <div id="tradeOverlay" class="comments-overlay">
+    <div class="comments-box">
+      <div class="stats-header">
+        <div class="stats-title">Trade</div>
+        <button id="tradeCloseBtn" style="background:none;border:1px solid rgba(255,182,66,0.4);color:#ffce7a;border-radius:8px;cursor:pointer;width:44px;height:44px;display:flex;align-items:center;justify-content:center;font-size:36px;line-height:1;font-weight:700;">×</button>
+      </div>
+      <div class="referral-content">
+        <div class="referral-coming-soon">
+          <div class="referral-title" style="font-size: 24px; margin-bottom: 20px;">Trade (Coming Soon)</div>
+          <div class="referral-description" style="text-align: left; line-height: 1.6; font-size: 16px; color: #d5d9e6;">
+            We are exploring a fair ownership layer<br>
+            for creators and communities.<br>
+            No trading. No speculation.<br>
+            Just alignment.<br>
+            <br>
+            <span style="color: #9aa; font-size: 14px;">This feature is not live yet.</span>
+          </div>
         </div>
       </div>
     </div>

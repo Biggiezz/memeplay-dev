@@ -73,25 +73,6 @@ const GAME_LIST_CACHE_KEY = 'mp_v3_game_list_cache'
 const GAME_LIST_CACHE_TTL = 5 * 60 * 1000 // 5 phút
 
 async function loadGameListFromSupabase() {
-  // ✅ FIX: Pet Avatar sẽ được load từ Supabase, không cần built-in object
-  // Fallback object chỉ dùng khi Supabase fails
-  const petAvatarFallback = {
-    id: 'pet-avatar',
-    template_id: 'pet-avatar-template',
-    title: 'Pet Avatar',
-    fragment_logo_url: '',
-    story_one: 'Pet Avatar',
-    story_text: 'Pet Avatar',
-    stories: ['Pet Avatar'],
-    likes_count: 0,
-    plays_count: 0,
-    comments_count: 0,
-    creator_id: 'memeplay-studio',
-    creator_name: 'MemePlay Studio',
-    templateUrl: '/games/templates-v2/pet-avatar-template/index.html',
-    source: 'fallback'
-  }
-  
   // ✅ OPTIMIZATION 1: Check cache first (chỉ dùng nếu có games)
   const cached = localStorage.getItem(GAME_LIST_CACHE_KEY)
   if (cached) {
@@ -100,18 +81,16 @@ async function loadGameListFromSupabase() {
       const age = Date.now() - timestamp
       // ✅ FIX: Chỉ dùng cache nếu có games và chưa hết hạn
       if (Array.isArray(games) && games.length > 0 && age < GAME_LIST_CACHE_TTL) {
-        // ✅ Check nếu Pet Avatar đã có trong cache, nếu chưa thì inject
-        const hasPetAvatar = games.some(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
-        if (!hasPetAvatar) {
-          return [petAvatarFallback, ...games]
-        }
-        // ✅ Ensure Pet Avatar ở đầu
-        const petAvatarIndex = games.findIndex(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
-        if (petAvatarIndex > 0) {
-          const petAvatar = games.splice(petAvatarIndex, 1)[0]
-          return [petAvatar, ...games]
-        }
-        return games
+        // ✅ Sort games from cache by likes DESC
+        const sortedGames = [...games].sort((a, b) => {
+          const aLikes = a.likes_count || 0
+          const bLikes = b.likes_count || 0
+          if (bLikes !== aLikes) {
+            return bLikes - aLikes
+          }
+          return (b.plays_count || 0) - (a.plays_count || 0)
+        })
+        return sortedGames
       } else {
         // Cache invalid hoặc empty, xóa cache cũ
         localStorage.removeItem(GAME_LIST_CACHE_KEY)
@@ -179,8 +158,8 @@ async function loadGameListFromSupabase() {
     return data
       .filter(item => {
         const gameId = item?.game_id || item?.id
-        // ✅ FIX: Cho phép pet-avatar (built-in) và playmode-* (user-created)
-        return gameId === 'pet-avatar' || gameId?.startsWith('playmode-')
+        // ✅ FIX: Chỉ cho phép playmode-* (user-created)
+        return gameId?.startsWith('playmode-')
       })
       .map(item => {
         const gameId = item.game_id || item.id
@@ -227,26 +206,8 @@ async function loadGameListFromSupabase() {
       })
   })
   
-  // ✅ FIX: Pet Avatar đã được load từ Supabase, chỉ cần đảm bảo ở đầu
-  // Nếu chưa có (Supabase fail), dùng fallback
-  const hasPetAvatar = allGames.some(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
-  if (!hasPetAvatar) {
-    console.warn('[V3] Pet Avatar not found in Supabase, using fallback')
-    allGames.unshift(petAvatarFallback)
-  } else {
-    // Đảm bảo Pet Avatar ở đầu
-    const petAvatarIndex = allGames.findIndex(g => g.id === 'pet-avatar' || g.template_id === 'pet-avatar-template')
-    if (petAvatarIndex > 0) {
-      const petAvatar = allGames.splice(petAvatarIndex, 1)[0]
-      allGames.unshift(petAvatar)
-    }
-  }
-  
   // Sort by likes_count DESC, then by plays_count DESC
-  // ✅ Priority: pet-avatar-template luôn đầu tiên (đã ở đầu rồi, không cần sort)
-  // Chỉ sort các game còn lại (từ index 1 trở đi)
-  const restGames = allGames.slice(1)
-  restGames.sort((a, b) => {
+  allGames.sort((a, b) => {
     const aLikes = a.likes_count || 0
     const bLikes = b.likes_count || 0
     if (bLikes !== aLikes) {
@@ -255,13 +216,10 @@ async function loadGameListFromSupabase() {
     return (b.plays_count || 0) - (a.plays_count || 0)
   })
   
-  // Combine: Pet Avatar + sorted rest
-  allGames = [allGames[0], ...restGames]
-  
-  // ✅ OPTIMIZATION 1: Cache game list (cache cả Pet Avatar từ Supabase)
+  // ✅ OPTIMIZATION 1: Cache game list
   try {
     localStorage.setItem(GAME_LIST_CACHE_KEY, JSON.stringify({
-      games: gamesToCache,
+      games: allGames,
       timestamp: Date.now()
     }))
   } catch (e) {
