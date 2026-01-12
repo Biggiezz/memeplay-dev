@@ -18,6 +18,32 @@
     gtag('config', 'G-CMVD7VE5QT');
   </script>
   
+  <!-- Base App Detection - Task 1.1 -->
+  <script>
+    /**
+     * Detect Base App environment
+     * Uses isCoinbaseWallet flag and User Agent check
+     * DO NOT use window.parent !== window (Base App WebView is NOT iframe)
+     * DO NOT use window.ethereum?.isBase (not standard, not documented)
+     */
+    function isBaseAppEnvironment() {
+      const ua = navigator.userAgent || '';
+      return (
+        window.ethereum?.isCoinbaseWallet === true ||
+        ua.includes('CoinbaseWallet') ||
+        ua.includes('CBWallet')
+      );
+    }
+    
+    // Store detection result globally for use in other scripts
+    window.__isBaseApp = isBaseAppEnvironment();
+    
+    // Debug log (remove in production if needed)
+    if (window.__isBaseApp) {
+      console.log('[Base App Detection] Base App environment detected');
+    }
+  </script>
+  
   <link rel="stylesheet" href="style.css">
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
   <script type="module" src="scripts/app-v3.js"></script>
@@ -1627,6 +1653,238 @@
   <script type="module">
     import { setupProfileMenuAvatar } from './avatar-system/src/profile-menu-avatar.js';
     setupProfileMenuAvatar();
+  </script>
+  
+  <!-- Base App Detection Debug UI - Task 1.1 -->
+  <div id="baseAppDebugBadge" class="base-app-debug-badge">
+    Base App: <span id="baseAppDebugStatus">NO</span>
+  </div>
+  
+  <div id="baseAppDebugPanel" class="base-app-debug-panel" style="display: none;">
+    <div class="debug-panel-header">
+      <h3>🔍 Base App Detection Debug</h3>
+      <button class="debug-close-btn" onclick="toggleDebugPanel()">×</button>
+    </div>
+    <div class="debug-panel-content">
+      <div class="debug-item">
+        <strong>Base App Detected:</strong>
+        <span id="debugIsBaseApp" class="debug-value">-</span>
+      </div>
+      <div class="debug-item">
+        <strong>isCoinbaseWallet:</strong>
+        <span id="debugIsCoinbaseWallet" class="debug-value">-</span>
+      </div>
+      <div class="debug-item">
+        <strong>User Agent:</strong>
+        <span id="debugUserAgent" class="debug-value-small">-</span>
+      </div>
+      <div class="debug-item">
+        <strong>window.__isBaseApp:</strong>
+        <span id="debugWindowFlag" class="debug-value">-</span>
+      </div>
+      <div class="debug-item">
+        <strong>window.ethereum exists:</strong>
+        <span id="debugEthereumExists" class="debug-value">-</span>
+      </div>
+    </div>
+  </div>
+  
+  <style>
+    /* Base App Debug Badge - Always visible */
+    .base-app-debug-badge {
+      position: fixed;
+      top: 70px;
+      right: 20px;
+      background: rgba(0, 0, 0, 0.9);
+      color: #fff;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-size: 12px;
+      font-weight: bold;
+      z-index: 10000;
+      border: 2px solid #ffb642;
+      cursor: pointer;
+      user-select: none;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+      transition: all 0.2s ease;
+    }
+    
+    .base-app-debug-badge:hover {
+      transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(255, 182, 66, 0.4);
+    }
+    
+    .base-app-debug-badge #baseAppDebugStatus {
+      color: #ff6b6b;
+      font-weight: bold;
+    }
+    
+    .base-app-debug-badge.detected #baseAppDebugStatus {
+      color: #51cf66;
+    }
+    
+    /* Base App Debug Panel */
+    .base-app-debug-panel {
+      position: fixed;
+      top: 110px;
+      right: 20px;
+      width: 320px;
+      max-width: calc(100vw - 40px);
+      background: rgba(0, 0, 0, 0.95);
+      border: 2px solid #ffb642;
+      border-radius: 12px;
+      z-index: 10001;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+      font-family: 'Courier New', monospace;
+    }
+    
+    .debug-panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 12px 16px;
+      border-bottom: 1px solid #333;
+      background: rgba(255, 182, 66, 0.1);
+    }
+    
+    .debug-panel-header h3 {
+      margin: 0;
+      font-size: 14px;
+      color: #ffb642;
+      font-weight: bold;
+    }
+    
+    .debug-close-btn {
+      background: none;
+      border: none;
+      color: #fff;
+      font-size: 24px;
+      cursor: pointer;
+      padding: 0;
+      width: 24px;
+      height: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      line-height: 1;
+      transition: color 0.2s;
+    }
+    
+    .debug-close-btn:hover {
+      color: #ffb642;
+    }
+    
+    .debug-panel-content {
+      padding: 16px;
+    }
+    
+    .debug-item {
+      margin-bottom: 12px;
+      font-size: 12px;
+    }
+    
+    .debug-item:last-child {
+      margin-bottom: 0;
+    }
+    
+    .debug-item strong {
+      display: block;
+      color: #999;
+      margin-bottom: 4px;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    
+    .debug-value {
+      display: block;
+      color: #fff;
+      font-weight: bold;
+      font-size: 13px;
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      word-break: break-all;
+    }
+    
+    .debug-value-small {
+      display: block;
+      color: #ccc;
+      font-size: 10px;
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 4px;
+      word-break: break-all;
+      max-height: 100px;
+      overflow-y: auto;
+    }
+    
+    @media (max-width: 480px) {
+      .base-app-debug-badge {
+        top: 10px;
+        right: 10px;
+        font-size: 11px;
+        padding: 6px 12px;
+      }
+      
+      .base-app-debug-panel {
+        top: 50px;
+        right: 10px;
+        width: calc(100vw - 20px);
+      }
+    }
+  </style>
+  
+  <script>
+    // Debug UI Functions
+    function toggleDebugPanel() {
+      const panel = document.getElementById('baseAppDebugPanel');
+      panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+      updateDebugInfo();
+    }
+    
+    function updateDebugInfo() {
+      const isBaseApp = window.__isBaseApp || false;
+      const isCoinbaseWallet = window.ethereum?.isCoinbaseWallet || false;
+      const userAgent = navigator.userAgent || '';
+      const ethereumExists = !!window.ethereum;
+      
+      // Update badge
+      const badge = document.getElementById('baseAppDebugBadge');
+      const status = document.getElementById('baseAppDebugStatus');
+      status.textContent = isBaseApp ? 'YES' : 'NO';
+      badge.classList.toggle('detected', isBaseApp);
+      
+      // Update panel
+      document.getElementById('debugIsBaseApp').textContent = isBaseApp ? 'YES ✅' : 'NO ❌';
+      document.getElementById('debugIsCoinbaseWallet').textContent = isCoinbaseWallet ? 'true ✅' : 'false/undefined ❌';
+      document.getElementById('debugUserAgent').textContent = userAgent.substring(0, 100) + (userAgent.length > 100 ? '...' : '');
+      document.getElementById('debugWindowFlag').textContent = String(window.__isBaseApp);
+      document.getElementById('debugEthereumExists').textContent = ethereumExists ? 'true ✅' : 'false ❌';
+    }
+    
+    // Click badge to toggle panel
+    document.addEventListener('DOMContentLoaded', function() {
+      const badge = document.getElementById('baseAppDebugBadge');
+      badge.addEventListener('click', toggleDebugPanel);
+      
+      // Keyboard shortcut: Press 'D' to toggle
+      document.addEventListener('keydown', function(e) {
+        if (e.key === 'd' || e.key === 'D') {
+          if (!e.ctrlKey && !e.metaKey && !e.altKey) {
+            toggleDebugPanel();
+          }
+        }
+      });
+      
+      // Initial update
+      updateDebugInfo();
+      
+      // Update every 2 seconds (in case detection changes)
+      setInterval(updateDebugInfo, 2000);
+    });
   </script>
 </body>
 </html>

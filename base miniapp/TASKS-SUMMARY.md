@@ -3,7 +3,8 @@
 > **Mục tiêu:** Tổng hợp đầy đủ các tasks cần làm để tuân thủ Base App Featured Guidelines và implement các features
 
 **Ngày tạo:** 2024-12-19  
-**Status:** ✅ Sẵn sàng bàn bạc và implement
+**Status:** ✅ **MENTOR APPROVED** - Sẵn sàng implement  
+**Note:** Xem `SPRINT-SCOPE-DO-DONT.md` để biết scope chính xác và các quyết định cứng
 
 ---
 
@@ -82,6 +83,7 @@ function isBaseAppEnvironment() {
 - Design: Logo MemePlay + Slogan "PLAY.CREAT"
 - Show khi detect Base App environment
 - Auto-hide sau 2-3 seconds hoặc user click
+- **⚠️ QUAN TRỌNG:** Chỉ hiển thị 1 lần mỗi session (dùng sessionStorage)
 
 **Design Specifications:**
 - Full screen overlay (semi-transparent dark background)
@@ -149,6 +151,7 @@ function isBaseAppEnvironment() {
 - Hide "Connect Wallet" button trong Base App
 - Show wallet status sau khi auto-connect
 - Update `getUserId()` → Base App wallet priority
+- **⚠️ QUAN TRỌNG:** Implement Username Display Rule (MemePlay → ENS → "Player", KHÔNG hiển thị 0x)
 
 **UI Changes:**
 - Base App → hide "Connect Wallet" button completely
@@ -209,8 +212,9 @@ function isBaseAppEnvironment() {
   - Game name
   - Score
   - Rank (#X)
-  - Percentile (Top X%)
+  - Percentile (Top X%) - chỉ hiển thị trong UI, không thêm vào share text
 - Auto-generate share text: "Got {score} in {gameName}! Rank #{rank}" (English)
+- **⚠️ QUAN TRỌNG:** Share text V1 - KHÔNG thêm percentile vào share text
 
 **Design:**
 - Bottom 1/3 screen (white background overlay)
@@ -467,15 +471,17 @@ function isBaseAppEnvironment() {
 
 ## ⚠️ TẠM BỎ QUA (CHƯA LÀM)
 
-### **1. Base App Avatar Integration**
-- ⏸️ Tạm thời chưa làm
+### **1. Base App Avatar Integration** ❌ **KHÔNG LÀM TRONG SPRINT NÀY**
+- ❌ **Priority: P2 - Làm sau khi list**
+- ❌ **Không thảo luận lại trong sprint này**
 - File: `base miniapp/BASE-APP-AVATAR-INTEGRATION.md` (đã có document)
-- Sẽ làm sau khi các features chính hoàn thành
+- **Lý do:** Chưa có API chính thức, không tăng xác suất Featured, chỉ tăng rủi ro & delay
 
-### **2. Pull-to-Refresh Fix**
+### **2. Pull-to-Refresh Fix** ❌ **KHÔNG TỐI ƯU**
 - ⏸️ Tạm bỏ qua
 - Có thể là limitation của Base App webview
 - Đã thử nhiều cách nhưng chưa thành công
+- **Focus vào features khác trước**
 
 ---
 
@@ -618,6 +624,8 @@ function isBaseAppEnvironment() {
 ---
 
 **Last Updated:** 2024-12-19  
-**Status:** ✅ Ready for Discussion & Implementation  
-**Note:** Base App Avatar Integration tạm bỏ qua, sẽ làm sau
+**Status:** ✅ **MENTOR APPROVED** - Ready for Implementation  
+**Note:** 
+- Base App Avatar Integration: ❌ **KHÔNG LÀM TRONG SPRINT NÀY** (P2 - Làm sau khi list)
+- Xem `SPRINT-SCOPE-DO-DONT.md` để biết scope chính xác và 3 quyết định cứng
 
