@@ -623,6 +623,27 @@ function isBaseAppEnvironment() {
 
 ---
 
+## 📦 DEPLOYMENT SETUP
+
+### **GitHub Pages với GitHub Actions**
+
+**Setup:**
+1. Vào: `https://github.com/Biggiezz/memeplay-dev/settings/pages`
+2. **Source:** Chọn **"GitHub Actions"** (không phải "Deploy from a branch")
+3. Click **Save**
+
+**Workflow File:**
+- File: `.github/workflows/deploy.yml`
+- Tự động deploy khi push lên `main` branch
+- Sử dụng official GitHub Pages actions (v3/v4)
+
+**Verify:**
+- Check Actions tab: `https://github.com/Biggiezz/memeplay-dev/actions`
+- Mỗi lần push → Workflow "Deploy to GitHub Pages" chạy
+- Status: Success → Deployment hoàn thành
+
+---
+
 **Last Updated:** 2024-12-19  
 **Status:** ✅ **MENTOR APPROVED** - Ready for Implementation  
 **Note:** 
