@@ -2,9 +2,6 @@
 // Homepage V3 - Game Loading System
 // ==========================================
 
-// ✅ MENTOR FIX: Log ngay đầu file để verify script load
-console.log('[V3] ✅ Script app-v3.js STARTED loading')
-
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm'
 import { 
   TEMPLATE_REGISTRY,
@@ -27,12 +24,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = null
 
 // ==========================================
-// ✅ Task 1.2: Hide External Links function (defined early, exported to global)
-// ✅ MENTOR FIX: Define function thật (override fallback từ index.html)
-// ✅ NOTE: Fallback đã được define trong index.html TRƯỚC khi load script này
+// Task 1.2: Hide External Links (Base App)
+// Fallback defined in index.html before script load
 // ==========================================
-
-// Define function thật (override fallback)
 window.hideExternalLinks = function hideExternalLinks() {
   if (!window.__isBaseApp) return // Chỉ hide khi Base App
   
@@ -481,14 +475,10 @@ function renderGameCard(game, config, options = {}) {
 // ==========================================
 
 async function loadGame0() {
-  console.log('[V3] ✅ loadGame0() called')
   const startTime = performance.now()
   
   try {
-    // Load game list
-    console.log('[V3] Loading game list from Supabase...')
     const gameList = await loadGameListFromSupabase()
-    console.log('[V3] Game list loaded:', gameList?.length || 0, 'games')
     if (!gameList || gameList.length === 0) {
       console.error('[V3] No games found')
       return null
@@ -514,14 +504,11 @@ async function loadGame0() {
     ])
     
     // Render Game 0 (active)
-    console.log('[V3] Rendering game card for:', game0.id)
     const card0 = renderGameCard(game0, config0, { active: true })
-    console.log('[V3] Game card rendered:', card0 ? 'SUCCESS' : 'FAILED')
     
     // Render Game 1 (preloaded, paused) if exists
     if (game1) {
-      console.log('[V3] Rendering preloaded game card for:', game1.id)
-      const card1 = renderGameCard(game1, config1, { active: false, preloaded: true })
+      renderGameCard(game1, config1, { active: false, preloaded: true })
     }
     
     // Update window state
@@ -531,13 +518,10 @@ async function loadGame0() {
       next: game1?.id || null
     }
     
-    // Init scroll observer
-    console.log('[V3] Initializing scroll observer...')
     initScrollObserver()
     
     const loadTime = performance.now() - startTime
     console.log(`[V3] ✅ Game 0 loaded in ${Math.round(loadTime)}ms`)
-    console.log('[V3] ✅ loadGame0() completed successfully')
     
     if (loadTime > 1000) {
       console.warn(`[V3] ⚠️ Game 0 load time exceeded target: ${Math.round(loadTime)}ms`)
@@ -1921,36 +1905,11 @@ window.addEventListener('message', async (event) => {
 // Auto-load khi DOM ready
 // ==========================================
 
-// ✅ Initialize on load
-console.log('[V3] Script loaded, initializing...')
-console.log('[V3] window.__isBaseApp:', window.__isBaseApp)
-console.log('[V3] hideExternalLinks function exists:', typeof window.hideExternalLinks === 'function')
-
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', () => {
-    console.log('[V3] DOMContentLoaded fired')
-    // ✅ Task 1.2: Hide External Links nếu Base App
-    // ✅ MENTOR FIX: Dùng optional chaining để defensive
-    if (window.__isBaseApp) {
-      window.hideExternalLinks?.()
-    }
-    console.log('[V3] Calling loadGame0()...')
-    loadGame0().catch(err => {
-      console.error('[V3] loadGame0() failed:', err)
-    })
-    initSocialHandlers()
-    initStatsOverlay()
-    initDailyCheckin()
-    initReferralOverlay()
-  })
-} else {
-  console.log('[V3] DOM already ready, initializing immediately')
-  // ✅ Task 1.2: Hide External Links nếu Base App
-  // ✅ MENTOR FIX: Dùng optional chaining để defensive
+// Initialize on load
+function initApp() {
   if (window.__isBaseApp) {
     window.hideExternalLinks?.()
   }
-  console.log('[V3] Calling loadGame0()...')
   loadGame0().catch(err => {
     console.error('[V3] loadGame0() failed:', err)
   })
@@ -1958,6 +1917,12 @@ if (document.readyState === 'loading') {
   initStatsOverlay()
   initDailyCheckin()
   initReferralOverlay()
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initApp)
+} else {
+  initApp()
 }
 
 // ==========================================

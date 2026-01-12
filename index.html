@@ -44,36 +44,13 @@
     }
   </script>
   
-  <!-- ✅ MENTOR FIX: Define fallback TRƯỚC khi load app-v3.js để tránh crash -->
-  <!-- 🔥 FIX 2 (BẮT BUỘC): Define fallback NGAY ĐẦU FILE (trước mọi import) -->
+  <!-- Base App: Define hideExternalLinks fallback before script load -->
   <script>
-    // Define fallback TRƯỚC khi app-v3.js load (Base App safe)
-    window.hideExternalLinks = window.hideExternalLinks || function () {
-      // no-op fallback - Base App safe, không crash nếu script load chậm
-    };
-    console.log('[Base App] hideExternalLinks fallback defined');
+    window.hideExternalLinks = window.hideExternalLinks || function () {};
   </script>
   
   <link rel="stylesheet" href="style.css">
-  <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
   <script type="module" src="scripts/app-v3.js"></script>
-  <!-- ✅ MENTOR FIX: Verify script load với inline script -->
-  <script>
-    // Verify app-v3.js loaded
-    setTimeout(() => {
-      console.log('[V3] Checking if app-v3.js loaded...')
-      console.log('[V3] window.hideExternalLinks exists:', typeof window.hideExternalLinks === 'function')
-      console.log('[V3] window.__isBaseApp:', window.__isBaseApp)
-      
-      // If script didn't load, show error
-      if (typeof window.hideExternalLinks !== 'function') {
-        console.error('[V3] ❌ app-v3.js may not have loaded!')
-        console.error('[V3] This could be a module import error or script blocking issue')
-      } else {
-        console.log('[V3] ✅ app-v3.js loaded successfully')
-      }
-    }, 2000) // Check after 2 seconds
-  </script>
   <style>
     :root { --header-h: 60px; }
     
