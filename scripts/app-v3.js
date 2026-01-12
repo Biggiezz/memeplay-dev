@@ -28,12 +28,9 @@ let supabaseClient = null
 
 // ==========================================
 // ✅ Task 1.2: Hide External Links function (defined early, exported to global)
-// ✅ MENTOR FIX: Define fallback NGAY ĐẦU FILE để tránh crash
+// ✅ MENTOR FIX: Define function thật (override fallback từ index.html)
+// ✅ NOTE: Fallback đã được define trong index.html TRƯỚC khi load script này
 // ==========================================
-// Fallback để đảm bảo function luôn tồn tại (Base App safe)
-window.hideExternalLinks = window.hideExternalLinks || function() {
-  // no-op fallback - không crash nếu Base App load script chậm
-}
 
 // Define function thật (override fallback)
 window.hideExternalLinks = function hideExternalLinks() {

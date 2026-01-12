@@ -44,6 +44,16 @@
     }
   </script>
   
+  <!-- ✅ MENTOR FIX: Define fallback TRƯỚC khi load app-v3.js để tránh crash -->
+  <!-- 🔥 FIX 2 (BẮT BUỘC): Define fallback NGAY ĐẦU FILE (trước mọi import) -->
+  <script>
+    // Define fallback TRƯỚC khi app-v3.js load (Base App safe)
+    window.hideExternalLinks = window.hideExternalLinks || function () {
+      // no-op fallback - Base App safe, không crash nếu script load chậm
+    };
+    console.log('[Base App] hideExternalLinks fallback defined');
+  </script>
+  
   <link rel="stylesheet" href="style.css">
   <!-- ✅ OPTIMIZATION: Lazy load ethers.js - chỉ load khi cần -->
   <script type="module" src="scripts/app-v3.js"></script>
