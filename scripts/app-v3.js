@@ -24,9 +24,9 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 let supabaseClient = null
 
 // ==========================================
-// ✅ Task 1.2: Hide External Links function (defined early)
+// ✅ Task 1.2: Hide External Links function (defined early, exported to global)
 // ==========================================
-function hideExternalLinks() {
+window.hideExternalLinks = function hideExternalLinks() {
   if (!window.__isBaseApp) return // Chỉ hide khi Base App
   
   try {
