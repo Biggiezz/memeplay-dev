@@ -853,9 +853,6 @@ function setupGameReadyDetection(card, iframe, loadingOverlay) {
       hideLoadingBar(card, loadingOverlay)
       card.setAttribute('data-game-ready', 'true')
       window.removeEventListener('message', messageHandler)
-      
-      // ✅ Mobile Audio Fix: Setup user interaction forwarding to unlock audio
-      setupAudioUnlockForwarding(card, iframe)
     }
   }
   
@@ -870,70 +867,6 @@ function setupGameReadyDetection(card, iframe, loadingOverlay) {
       window.removeEventListener('message', messageHandler)
     }
   }, 3000) // 3s fallback
-}
-
-// ✅ Mobile Audio Fix: Forward user interaction to iframe to unlock audio
-// On mobile browsers, audio requires user interaction DIRECTLY in iframe context
-function setupAudioUnlockForwarding(card, iframe) {
-  const stage = card.querySelector('.game-stage')
-  if (!stage) return
-  
-  let audioUnlocked = false
-  
-  const forwardInteractionToIframe = (event) => {
-    if (audioUnlocked) return
-    
-    try {
-      const iframeWindow = iframe.contentWindow
-      const iframeDoc = iframe.contentDocument
-      
-      if (!iframeWindow || !iframeDoc) return
-      
-      // Create synthetic event in iframe to create valid user gesture
-      // This is required for mobile browsers to unlock audio
-      const syntheticEvent = new MouseEvent(event.type, {
-        bubbles: true,
-        cancelable: true,
-        view: iframeWindow,
-        detail: 1
-      })
-      
-      // Dispatch to iframe document body to trigger audio unlock
-      iframeDoc.body?.dispatchEvent(syntheticEvent)
-      
-      // Also try postMessage as fallback (some games listen for this)
-      iframeWindow.postMessage({ type: 'UNLOCK_AUDIO' }, '*')
-      
-      audioUnlocked = true
-    } catch (e) {
-      // Cross-origin or other errors - try postMessage only
-      try {
-        iframe.contentWindow?.postMessage({ type: 'UNLOCK_AUDIO' }, '*')
-        audioUnlocked = true
-      } catch (err) {
-        // Ignore
-      }
-    }
-  }
-  
-  // Forward user interactions to iframe (mobile requirement)
-  // Only forward on first interaction to unlock audio
-  const events = ['click', 'touchstart', 'mousedown']
-  const handler = (event) => {
-    forwardInteractionToIframe(event)
-    // Remove listeners after first successful unlock
-    if (audioUnlocked) {
-      events.forEach(evt => {
-        stage.removeEventListener(evt, handler)
-        card.removeEventListener(evt, handler)
-      })
-    }
-  }
-  
-  events.forEach(eventType => {
-    stage.addEventListener(eventType, handler, { passive: true })
-    card.addEventListener(eventType, handler, { passive: true })
-  })
 }
 
 function hideLoadingBar(card, loadingOverlay) {
