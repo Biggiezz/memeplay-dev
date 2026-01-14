@@ -44,14 +44,18 @@
     
     // Debug log (remove in production if needed)
     if (window.__isBaseApp) {
-      console.log('[Base App Detection] Base App environment detected');
+      console.log('[Base App Detection] ✅ Base App environment detected', {
+        isCoinbaseWallet: window.ethereum?.isCoinbaseWallet,
+        userAgent: navigator.userAgent.substring(0, 100),
+        forceFlag: localStorage.getItem('__forceBaseApp')
+      });
     } else {
       // Debug: Check why not detected
       const forceFlag = localStorage.getItem('__forceBaseApp');
-      console.log('[Base App Detection] Not detected', {
+      console.log('[Base App Detection] ❌ Not detected', {
         forceFlag: forceFlag,
         isCoinbaseWallet: window.ethereum?.isCoinbaseWallet,
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent.substring(0, 100)
       });
     }
   </script>

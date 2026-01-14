@@ -111,6 +111,12 @@ function initBaseAppWelcomeScreen() {
   const currentUrl = window.location.href.split('?')[0] // Ignore query params
   const lastUrl = sessionStorage.getItem(lastUrlKey)
   
+  console.log('[Base App Welcome] Session check:', {
+    currentUrl,
+    lastUrl,
+    sessionKeyValue: sessionStorage.getItem(sessionKey)
+  })
+  
   if (lastUrl !== currentUrl) {
     // New URL or first visit - reset flag and show Welcome Screen
     sessionStorage.removeItem(sessionKey)
