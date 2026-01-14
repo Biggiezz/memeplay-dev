@@ -1969,13 +1969,15 @@ function initApp() {
   if (window.__isBaseApp) {
     window.hideExternalLinks?.()
   }
-  // Base App WebView: Use requestAnimationFrame double to ensure DOM stable
-  requestAnimationFrame(() => {
+  // Load homepage first, then show Welcome Screen after UI is stable
+  loadGame0().then(() => {
+    // Base App WebView: Use requestAnimationFrame double to ensure DOM stable
     requestAnimationFrame(() => {
-      initBaseAppWelcomeScreen()
+      requestAnimationFrame(() => {
+        initBaseAppWelcomeScreen()
+      })
     })
-  })
-  loadGame0().catch(err => {
+  }).catch(err => {
     console.error('[V3] loadGame0() failed:', err)
   })
   initSocialHandlers()
