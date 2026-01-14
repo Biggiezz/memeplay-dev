@@ -133,6 +133,60 @@ function initBaseAppWelcomeScreen() {
 }
 
 // ==========================================
+// PHASE 2: Wallet Auto-Connect (Task 2.1)
+// ==========================================
+
+async function autoConnectWallet() {
+  // Chỉ auto-connect trong Base App
+  if (!window.__isBaseApp) {
+    console.log('[Wallet Auto-Connect] Skipped - Not Base App environment')
+    return
+  }
+  
+  // Check wallet availability
+  if (!window.ethereum) {
+    console.warn('[Wallet Auto-Connect] Wallet not available')
+    return
+  }
+  
+  try {
+    // Step 1: Silent check với eth_accounts (không trigger UI)
+    const accounts = await window.ethereum.request({ method: 'eth_accounts' })
+    const address = (accounts && accounts[0]) ? String(accounts[0]) : ''
+    
+    if (address) {
+      // Accounts exist → auto-connect without UI
+      console.log('[Wallet Auto-Connect] ✅ Accounts found, auto-connecting:', shortAddr(address))
+      localStorage.setItem('mp_user_wallet', address)
+      // Update UI state sẽ được handle bởi wallet handlers (nếu có)
+      return
+    }
+    
+    // Step 2: No accounts → request connection (Base App only)
+    console.log('[Wallet Auto-Connect] No accounts found, requesting connection...')
+    const requestedAccounts = await window.ethereum.request({ method: 'eth_requestAccounts' })
+    const requestedAddress = (requestedAccounts && requestedAccounts[0]) ? String(requestedAccounts[0]) : ''
+    
+    if (requestedAddress) {
+      console.log('[Wallet Auto-Connect] ✅ Connected:', shortAddr(requestedAddress))
+      localStorage.setItem('mp_user_wallet', requestedAddress)
+      // Update UI state sẽ được handle bởi wallet handlers (nếu có)
+    }
+  } catch (error) {
+    // Handle edge cases
+    if (error.code === 4001) {
+      // User rejected request
+      console.log('[Wallet Auto-Connect] User rejected connection')
+    } else if (error.code === -32002) {
+      // Request already pending
+      console.log('[Wallet Auto-Connect] Request already pending')
+    } else {
+      console.warn('[Wallet Auto-Connect] Error:', error.message || error)
+    }
+  }
+}
+
+// ==========================================
 // PHASE 3: Global State
 // ==========================================
 
@@ -1961,6 +2015,8 @@ window.addEventListener('message', async (event) => {
 function initApp() {
   if (window.__isBaseApp) {
     window.hideExternalLinks?.()
+    // Auto-connect wallet trong Base App
+    autoConnectWallet()
   }
   // Initialize Daily Checkin first (will wait for Welcome Screen callback)
   initDailyCheckin()
