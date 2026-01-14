@@ -28,6 +28,10 @@
      */
     function isBaseAppEnvironment() {
       const ua = navigator.userAgent || '';
+      // Check localStorage for forced Base App (for testing)
+      if (localStorage.getItem('__forceBaseApp') === 'true') {
+        return true;
+      }
       return (
         window.ethereum?.isCoinbaseWallet === true ||
         ua.includes('CoinbaseWallet') ||
@@ -41,6 +45,14 @@
     // Debug log (remove in production if needed)
     if (window.__isBaseApp) {
       console.log('[Base App Detection] Base App environment detected');
+    } else {
+      // Debug: Check why not detected
+      const forceFlag = localStorage.getItem('__forceBaseApp');
+      console.log('[Base App Detection] Not detected', {
+        forceFlag: forceFlag,
+        isCoinbaseWallet: window.ethereum?.isCoinbaseWallet,
+        userAgent: navigator.userAgent
+      });
     }
   </script>
   

@@ -102,11 +102,26 @@ function initBaseAppWelcomeScreen() {
     return
   }
   
-  // Check sessionStorage - chỉ hiển thị 1 lần mỗi session
+  // On Base App: Reset sessionStorage flag for new app session
+  // This ensures Welcome Screen shows every time user opens a link in Base App
   const sessionKey = 'baseAppWelcomeShown'
-  if (sessionStorage.getItem(sessionKey) === 'true') {
-    console.log('[Base App Welcome] Skipped - Already shown in this session')
-    return // Đã hiển thị trong session này, không hiển thị lại
+  const lastUrlKey = 'baseAppLastUrl'
+  
+  // Check if this is a new Base App session (different URL or first visit)
+  const currentUrl = window.location.href.split('?')[0] // Ignore query params
+  const lastUrl = sessionStorage.getItem(lastUrlKey)
+  
+  if (lastUrl !== currentUrl) {
+    // New URL or first visit - reset flag and show Welcome Screen
+    sessionStorage.removeItem(sessionKey)
+    sessionStorage.setItem(lastUrlKey, currentUrl)
+    console.log('[Base App Welcome] New Base App session detected, will show Welcome Screen')
+  } else {
+    // Same URL - check if already shown in this session
+    if (sessionStorage.getItem(sessionKey) === 'true') {
+      console.log('[Base App Welcome] Skipped - Already shown in this session')
+      return // Đã hiển thị trong session này, không hiển thị lại
+    }
   }
   
   // Show Welcome Screen
@@ -1970,15 +1985,27 @@ function initApp() {
     window.hideExternalLinks?.()
   }
   // Load homepage first, then show Welcome Screen after UI is stable
+  console.log('[V3] initApp: Starting loadGame0()...')
   loadGame0().then(() => {
+    console.log('[V3] loadGame0() completed, scheduling Welcome Screen')
     // Base App WebView: Use requestAnimationFrame double to ensure DOM stable
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        console.log('[V3] Calling initBaseAppWelcomeScreen after loadGame0() completes')
         initBaseAppWelcomeScreen()
       })
     })
   }).catch(err => {
     console.error('[V3] loadGame0() failed:', err)
+    // Even if loadGame0 fails, try to show welcome screen
+    if (window.__isBaseApp) {
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          console.log('[V3] Calling initBaseAppWelcomeScreen after loadGame0() error')
+          initBaseAppWelcomeScreen()
+        })
+      })
+    }
   })
   initSocialHandlers()
   initStatsOverlay()
