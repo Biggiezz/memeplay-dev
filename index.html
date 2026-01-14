@@ -42,21 +42,8 @@
     // Store detection result globally for use in other scripts
     window.__isBaseApp = isBaseAppEnvironment();
     
-    // Debug log (remove in production if needed)
     if (window.__isBaseApp) {
-      console.log('[Base App Detection] ✅ Base App environment detected', {
-        isCoinbaseWallet: window.ethereum?.isCoinbaseWallet,
-        userAgent: navigator.userAgent.substring(0, 100),
-        forceFlag: localStorage.getItem('__forceBaseApp')
-      });
-    } else {
-      // Debug: Check why not detected
-      const forceFlag = localStorage.getItem('__forceBaseApp');
-      console.log('[Base App Detection] ❌ Not detected', {
-        forceFlag: forceFlag,
-        isCoinbaseWallet: window.ethereum?.isCoinbaseWallet,
-        userAgent: navigator.userAgent.substring(0, 100)
-      });
+      console.log('[Base App Detection] ✅ Base App environment detected');
     }
   </script>
   
@@ -438,16 +425,12 @@
     /* ===== BASE APP WELCOME SCREEN - Task 1.3 ===== */
     .base-app-welcome-screen {
       position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
+      inset: 0;
       background: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 99999;
-      backdrop-filter: none;
       cursor: pointer;
       opacity: 0;
       visibility: hidden;
@@ -480,39 +463,20 @@
       font-weight: 600;
       letter-spacing: 1.2px;
       color: #000000;
-      text-shadow: none;
       user-select: none;
     }
     @keyframes welcomeFadeIn {
-      from {
-        opacity: 0;
-      }
-      to {
-        opacity: 1;
-      }
+      from { opacity: 0; }
+      to { opacity: 1; }
     }
     @keyframes welcomeScaleUp {
-      from {
-        opacity: 0;
-        transform: scale(0.8);
-      }
-      to {
-        opacity: 1;
-        transform: scale(1);
-      }
+      from { opacity: 0; transform: scale(0.8); }
+      to { opacity: 1; transform: scale(1); }
     }
     @media (max-width: 800px) {
-      .base-app-welcome-logo-img {
-        width: 180px;
-        height: 180px;
-      }
-      .base-app-welcome-slogan {
-        font-size: 24px;
-        letter-spacing: 1px;
-      }
-      .base-app-welcome-content {
-        gap: 20px;
-      }
+      .base-app-welcome-logo-img { width: 180px; height: 180px; }
+      .base-app-welcome-slogan { font-size: 24px; letter-spacing: 1px; }
+      .base-app-welcome-content { gap: 20px; }
     }
 
     /* ===== WALLET OVERLAY ===== */

@@ -84,75 +84,47 @@ window.hideExternalLinks = function hideExternalLinks() {
 // Task 1.3: Base App Welcome Screen
 // ==========================================
 function initBaseAppWelcomeScreen() {
-  // Debug: Log Base App detection status
-  console.log('[Base App Welcome] Checking...', {
-    isBaseApp: window.__isBaseApp,
-    windowFlag: window.__isBaseApp
-  })
-  
-  // Chỉ hiển thị khi detect Base App
-  if (!window.__isBaseApp) {
-    console.log('[Base App Welcome] Skipped - Not Base App environment')
-    return
-  }
-  
   const welcomeScreen = document.getElementById('baseAppWelcomeScreen')
-  if (!welcomeScreen) {
-    console.warn('[Base App Welcome] Element not found: baseAppWelcomeScreen')
-    return
-  }
-  
-  // On Base App: Reset sessionStorage flag for new app session
-  // This ensures Welcome Screen shows every time user opens a link in Base App
-  const sessionKey = 'baseAppWelcomeShown'
-  const lastUrlKey = 'baseAppLastUrl'
-  
-  // Check if this is a new Base App session (different URL or first visit)
-  const currentUrl = window.location.href.split('?')[0] // Ignore query params
-  const lastUrl = sessionStorage.getItem(lastUrlKey)
-  
-  console.log('[Base App Welcome] Session check:', {
-    currentUrl,
-    lastUrl,
-    sessionKeyValue: sessionStorage.getItem(sessionKey)
-  })
-  
-  if (lastUrl !== currentUrl) {
-    // New URL or first visit - reset flag and show Welcome Screen
-    sessionStorage.removeItem(sessionKey)
-    sessionStorage.setItem(lastUrlKey, currentUrl)
-    console.log('[Base App Welcome] New Base App session detected, will show Welcome Screen')
-  } else {
-    // Same URL - check if already shown in this session
-    if (sessionStorage.getItem(sessionKey) === 'true') {
-      console.log('[Base App Welcome] Skipped - Already shown in this session')
-      return // Đã hiển thị trong session này, không hiển thị lại
+  const triggerCallbacks = () => {
+    if (window.__welcomeScreenCallbacks) {
+      window.__welcomeScreenCallbacks.forEach(cb => cb())
+      window.__welcomeScreenCallbacks = []
     }
   }
   
-  // Show Welcome Screen
-  welcomeScreen.classList.add('show')
-  console.log('[Base App Welcome] Welcome Screen shown')
+  if (!welcomeScreen) {
+    triggerCallbacks()
+    return
+  }
   
-  // Set sessionStorage flag để không hiển thị lại trong session này
+  const sessionKey = 'baseAppWelcomeShown'
+  const lastUrlKey = 'baseAppLastUrl'
+  const currentUrl = window.location.href.split('?')[0]
+  const lastUrl = sessionStorage.getItem(lastUrlKey)
+  
+  if (lastUrl !== currentUrl) {
+    sessionStorage.removeItem(sessionKey)
+    sessionStorage.setItem(lastUrlKey, currentUrl)
+  } else if (sessionStorage.getItem(sessionKey) === 'true') {
+    triggerCallbacks()
+    return
+  }
+  
+  welcomeScreen.classList.add('show')
   sessionStorage.setItem(sessionKey, 'true')
   
-  // Auto-hide sau 2.5 seconds
-  const autoHideTimeout = setTimeout(() => {
-    hideWelcomeScreen()
-  }, 2500)
+  const autoHideTimeout = setTimeout(() => hideWelcomeScreen(), 2500)
   
-  // Hide khi user click
   function hideWelcomeScreen() {
     clearTimeout(autoHideTimeout)
     welcomeScreen.classList.remove('show')
+    triggerCallbacks()
   }
   
   welcomeScreen.addEventListener('click', hideWelcomeScreen, { once: true })
   
-  // Hide khi user nhấn ESC
-  const escapeHandler = (event) => {
-    if (event.key === 'Escape' && welcomeScreen.classList.contains('show')) {
+  const escapeHandler = (e) => {
+    if (e.key === 'Escape' && welcomeScreen.classList.contains('show')) {
       hideWelcomeScreen()
       document.removeEventListener('keydown', escapeHandler)
     }
@@ -1990,32 +1962,21 @@ function initApp() {
   if (window.__isBaseApp) {
     window.hideExternalLinks?.()
   }
+  // Initialize Daily Checkin first (will wait for Welcome Screen callback)
+  initDailyCheckin()
   // Load homepage first, then show Welcome Screen after UI is stable
-  console.log('[V3] initApp: Starting loadGame0()...')
   loadGame0().then(() => {
-    console.log('[V3] loadGame0() completed, scheduling Welcome Screen')
-    // Base App WebView: Use requestAnimationFrame double to ensure DOM stable
     requestAnimationFrame(() => {
-      requestAnimationFrame(() => {
-        console.log('[V3] Calling initBaseAppWelcomeScreen after loadGame0() completes')
-        initBaseAppWelcomeScreen()
-      })
+      requestAnimationFrame(() => initBaseAppWelcomeScreen())
     })
   }).catch(err => {
     console.error('[V3] loadGame0() failed:', err)
-    // Even if loadGame0 fails, try to show welcome screen
-    if (window.__isBaseApp) {
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          console.log('[V3] Calling initBaseAppWelcomeScreen after loadGame0() error')
-          initBaseAppWelcomeScreen()
-        })
-      })
-    }
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => initBaseAppWelcomeScreen())
+    })
   })
   initSocialHandlers()
   initStatsOverlay()
-  initDailyCheckin()
   initReferralOverlay()
 }
 
@@ -2222,8 +2183,9 @@ function initDailyCheckin() {
   }
   
   // Only run on first load if not already checked in today
+  // Wait for Welcome Screen to close first
   if (!hasCheckedInToday()) {
-    dailyCheckin()
+    (window.__welcomeScreenCallbacks = window.__welcomeScreenCallbacks || []).push(() => dailyCheckin())
   }
 }
 
