@@ -1969,8 +1969,12 @@ function initApp() {
   if (window.__isBaseApp) {
     window.hideExternalLinks?.()
   }
-  // Always call initBaseAppWelcomeScreen (for debugging), but it will only show on Base App
-  initBaseAppWelcomeScreen()
+  // Base App WebView: Use requestAnimationFrame double to ensure DOM stable
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      initBaseAppWelcomeScreen()
+    })
+  })
   loadGame0().catch(err => {
     console.error('[V3] loadGame0() failed:', err)
   })
