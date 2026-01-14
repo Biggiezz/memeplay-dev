@@ -81,6 +81,65 @@ window.hideExternalLinks = function hideExternalLinks() {
 }
 
 // ==========================================
+// Task 1.3: Base App Welcome Screen
+// ==========================================
+function initBaseAppWelcomeScreen() {
+  // Debug: Log Base App detection status
+  console.log('[Base App Welcome] Checking...', {
+    isBaseApp: window.__isBaseApp,
+    windowFlag: window.__isBaseApp
+  })
+  
+  // Chỉ hiển thị khi detect Base App
+  if (!window.__isBaseApp) {
+    console.log('[Base App Welcome] Skipped - Not Base App environment')
+    return
+  }
+  
+  const welcomeScreen = document.getElementById('baseAppWelcomeScreen')
+  if (!welcomeScreen) {
+    console.warn('[Base App Welcome] Element not found: baseAppWelcomeScreen')
+    return
+  }
+  
+  // Check sessionStorage - chỉ hiển thị 1 lần mỗi session
+  const sessionKey = 'baseAppWelcomeShown'
+  if (sessionStorage.getItem(sessionKey) === 'true') {
+    console.log('[Base App Welcome] Skipped - Already shown in this session')
+    return // Đã hiển thị trong session này, không hiển thị lại
+  }
+  
+  // Show Welcome Screen
+  welcomeScreen.classList.add('show')
+  console.log('[Base App Welcome] Welcome Screen shown')
+  
+  // Set sessionStorage flag để không hiển thị lại trong session này
+  sessionStorage.setItem(sessionKey, 'true')
+  
+  // Auto-hide sau 2.5 seconds
+  const autoHideTimeout = setTimeout(() => {
+    hideWelcomeScreen()
+  }, 2500)
+  
+  // Hide khi user click
+  function hideWelcomeScreen() {
+    clearTimeout(autoHideTimeout)
+    welcomeScreen.classList.remove('show')
+  }
+  
+  welcomeScreen.addEventListener('click', hideWelcomeScreen, { once: true })
+  
+  // Hide khi user nhấn ESC
+  const escapeHandler = (event) => {
+    if (event.key === 'Escape' && welcomeScreen.classList.contains('show')) {
+      hideWelcomeScreen()
+      document.removeEventListener('keydown', escapeHandler)
+    }
+  }
+  document.addEventListener('keydown', escapeHandler)
+}
+
+// ==========================================
 // PHASE 3: Global State
 // ==========================================
 
@@ -1910,6 +1969,8 @@ function initApp() {
   if (window.__isBaseApp) {
     window.hideExternalLinks?.()
   }
+  // Always call initBaseAppWelcomeScreen (for debugging), but it will only show on Base App
+  initBaseAppWelcomeScreen()
   loadGame0().catch(err => {
     console.error('[V3] loadGame0() failed:', err)
   })
