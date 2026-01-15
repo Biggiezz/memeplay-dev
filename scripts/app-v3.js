@@ -379,6 +379,24 @@ async function loadGameListFromSupabase() {
     return (b.plays_count || 0) - (a.plays_count || 0)
   })
   
+  // ================================
+  // ONE-TIME DEDUPE: keep top-liked game per template
+  // ================================
+  // ✅ HOTFIX: Vì allGames đã sort DESC theo likes, chỉ cần lấy game đầu tiên của mỗi template_id
+  // Mục tiêu: Homepage chỉ hiển thị tối đa 11 games (1 game/template)
+  // Lưu ý: Đây là one-time fix, không ảnh hưởng backend/DB
+  const seenTemplates = new Set()
+  allGames = allGames.filter(game => {
+    if (seenTemplates.has(game.template_id)) {
+      return false
+    }
+    seenTemplates.add(game.template_id)
+    return true
+  })
+  
+  // Optional safety: limit to 11 templates
+  allGames = allGames.slice(0, 11)
+  
   // ✅ OPTIMIZATION 1: Cache game list
   try {
     localStorage.setItem(GAME_LIST_CACHE_KEY, JSON.stringify({
