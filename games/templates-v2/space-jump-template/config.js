@@ -9,21 +9,43 @@ export const BRAND_CONFIG = {
     storyText: 'memeplay'      // Story text
 };
 
+// ✅ FIX BUG 2: Use correct storage prefix matching editor-adapter.js
+const SPACE_JUMP_STORAGE_PREFIX = 'space_jump_brand_config_';
+
 // Load config từ localStorage
-export function loadBrandConfig() {
-    const gameId = getGameId();
-    if (!gameId) return BRAND_CONFIG;
+export function loadBrandConfig(gameIdOverride = null) {
+    const gameId = gameIdOverride || getGameId();
+    if (!gameId) {
+        // Try playtest key
+        const playtestKey = `${SPACE_JUMP_STORAGE_PREFIX}playtest`;
+        const saved = localStorage.getItem(playtestKey);
+        if (saved) {
+            try {
+                const parsed = JSON.parse(saved);
+                Object.assign(BRAND_CONFIG, parsed);
+                return true;
+            } catch (e) {
+                console.warn('[SpaceJump Config] Failed to parse playtest config:', e);
+            }
+        }
+        return false;
+    }
     
-    const saved = localStorage.getItem(`space-jump-config-${gameId}`);
+    // ✅ FIX: Use correct storage prefix matching editor-adapter.js
+    const storageKey = `${SPACE_JUMP_STORAGE_PREFIX}${gameId}`;
+    const saved = localStorage.getItem(storageKey);
     if (saved) {
         try {
             const parsed = JSON.parse(saved);
             Object.assign(BRAND_CONFIG, parsed);
+            console.log('[SpaceJump Config] Loaded config:', { gameId, storageKey, config: BRAND_CONFIG });
+            return true;
         } catch (e) {
-            console.warn('Failed to parse saved config:', e);
+            console.warn('[SpaceJump Config] Failed to parse saved config:', e);
         }
     }
-    return BRAND_CONFIG;
+    console.log('[SpaceJump Config] No config found for:', storageKey);
+    return false;
 }
 
 // Save config vào localStorage
@@ -32,7 +54,9 @@ export function saveBrandConfig(config) {
     if (!gameId) return;
     
     Object.assign(BRAND_CONFIG, config);
-    localStorage.setItem(`space-jump-config-${gameId}`, JSON.stringify(BRAND_CONFIG));
+    // ✅ FIX: Use correct storage prefix matching editor-adapter.js
+    const storageKey = `${SPACE_JUMP_STORAGE_PREFIX}${gameId}`;
+    localStorage.setItem(storageKey, JSON.stringify(BRAND_CONFIG));
 }
 
 // Generate game ID với prefix space-jump

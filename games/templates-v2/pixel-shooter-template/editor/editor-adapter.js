@@ -79,10 +79,9 @@ export class PixelShooterEditorAdapter extends BaseAdapter {
       }
     }
     
-    // ✅ Sync to Supabase (shared helper)
     try {
       const stories = Array.isArray(config.stories) ? config.stories : [];
-      const success = await syncGameToSupabase({
+      await syncGameToSupabase({
         gameId,
         templateId: TEMPLATE_ID,
         title: config.title || 'Pixel Shooter Game',
@@ -93,12 +92,8 @@ export class PixelShooterEditorAdapter extends BaseAdapter {
         mapColor: config.mapColor || '#1a1a2e',
         mapIndex: 0
       });
-      if (!success) {
-        console.warn('[PixelShooterEditorAdapter] Supabase sync failed, but game saved to localStorage');
-      }
     } catch (error) {
       console.error('[PixelShooterEditorAdapter] Failed to sync to Supabase:', error);
-      // Don't fail the save if Supabase sync fails
     }
     
     this.lastSavedGameId = gameId;

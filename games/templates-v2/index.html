@@ -517,6 +517,8 @@
         
         // 5. Update CURRENT_TEMPLATE và adapter
         CURRENT_TEMPLATE = newTemplateId;
+        // ✅ FIX BUG 2: Reset adapter state khi switch template
+        // Đảm bảo adapter mới không giữ state từ adapter cũ
         adapter = new AdapterClass({
           editorElements: {
             storyInput,
@@ -525,6 +527,9 @@
             mapColors
           }
         });
+        // ✅ FIX BUG 2: Reset dirty state và lastSavedGameId để force generate gameId mới
+        adapter.dirty = true;
+        adapter.lastSavedGameId = null;
         sharedEditor = new SharedEditor(adapter);
         
         // 6. Update UI fields
@@ -825,10 +830,10 @@
         event.stopPropagation();
       }
       
-      // ✅ CRITICAL: Generate gameId FIRST (synchronous, before any async)
-      // This ensures we have the ID ready for immediate copy
-      const isDirty = adapter.isDirty();
-      const gameId = isDirty ? adapter.generateGameId() : (adapter.lastSavedGameId || adapter.generateGameId());
+      // ✅ FIX BUG 1: Always generate NEW gameId when saving
+      // This allows creating multiple games in the same template
+      // Previous behavior: reused gameId when isDirty=false, causing overwrite
+      const gameId = adapter.generateGameId();
       const publicUrl = buildPublicLinkUrl(gameId);
       
       // ✅ CRITICAL: Copy IMMEDIATELY using synchronous execCommand (within user gesture)

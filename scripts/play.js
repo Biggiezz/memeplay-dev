@@ -425,9 +425,26 @@ function guessTemplateFromId(gameId) {
   // ✅ V2 templates (playmode-*)
   if (gameId.startsWith('playmode-')) {
     // Extract template name from gameId: playmode-{template}-{id}
+    // Format: playmode-pixel-shooter-046z → template: 'pixel-shooter'
+    // Format: playmode-pacman-123a → template: 'pacman'
     const parts = gameId.split('-')
     if (parts.length >= 3) {
-      const templateName = parts[1] // e.g., 'fallen-crypto', 'moon', 'pacman'
+      // ✅ FIX BUG 2: Handle templates with multi-word names (pixel-shooter, rocket-bnb, etc.)
+      // GameId format: playmode-{template}-{3digits}{1letter}
+      // Last 2 parts are always digits+letter (e.g., '046z'), so template is everything before that
+      // For playmode-pixel-shooter-046z: parts = ['playmode', 'pixel', 'shooter', '046z']
+      // Template = 'pixel-shooter' (parts[1] to parts[length-2])
+      const lastPart = parts[parts.length - 1] // e.g., '046z'
+      const isLastPartId = /^\d{3}[a-z]$/.test(lastPart) // Check if last part is 3 digits + 1 letter
+      
+      let templateName
+      if (isLastPartId && parts.length >= 4) {
+        // Multi-word template: playmode-pixel-shooter-046z → 'pixel-shooter'
+        templateName = parts.slice(1, -1).join('-') // ['pixel', 'shooter'] → 'pixel-shooter'
+      } else {
+        // Single-word template: playmode-pacman-123a → 'pacman'
+        templateName = parts[1]
+      }
       
       // Try exact match first
       if (TEMPLATE_REGISTRY[templateName]) {
@@ -539,6 +556,39 @@ function loadGameFromLocalStorage(gameId) {
         templateUrl: `${window.location.origin.replace(/\/$/, '')}/games/blow-bubble/index.html?game=${gameId}`
       }
     }
+    // ✅ FIX BUG 2: Detect template from gameId and load correct storage prefix
+    const guessedTemplate = guessTemplateFromId(gameId)
+    if (guessedTemplate) {
+      // Try to load from correct template storage prefix
+      const templateConfig = getTemplateConfig(guessedTemplate)
+      if (templateConfig && templateConfig.storagePrefix) {
+        const storageKey = `${templateConfig.storagePrefix}${gameId}`
+        const raw = localStorage.getItem(storageKey)
+        if (raw) {
+          try {
+            const config = JSON.parse(raw)
+            const templateUrl = templateConfig.templateUrl || getTemplateUrl(guessedTemplate, gameId) || `/games/templates-v2/${guessedTemplate}/index.html?game=${gameId}`
+            return {
+              gameId,
+              templateId: guessedTemplate,
+              title: config.title || config.storyText || 'Untitled Game',
+              creator: config.title || 'Creator',
+              likes: 0,
+              comments: 0,
+              plays: 0,
+              stories: Array.isArray(config.stories) ? config.stories : (config.storyText ? [config.storyText] : []),
+              mapColor: config.mapColor || '#1a1a2e',
+              fragmentLogoUrl: config.fragmentLogoUrl || config.logoUrl || '',
+              templateUrl: `${window.location.origin.replace(/\/$/, '')}${templateUrl}`
+            }
+          } catch (error) {
+            console.warn(`[PLAY MODE] Failed to parse config for ${guessedTemplate}:`, error)
+          }
+        }
+      }
+    }
+    
+    // ✅ Fallback: Try pacman prefix (for backward compatibility)
     const raw = localStorage.getItem(`${PACMAN_STORAGE_PREFIX}${gameId}`)
     if (!raw) return null
     const config = JSON.parse(raw)

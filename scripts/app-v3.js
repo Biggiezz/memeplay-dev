@@ -319,35 +319,17 @@ async function loadGameListFromSupabase() {
     const data = r.data || []
     
     return data
-      .filter(item => {
-        const gameId = item?.game_id || item?.id
-        // ✅ FIX: Chỉ cho phép playmode-* (user-created)
-        return gameId?.startsWith('playmode-')
-      })
+      .filter(item => (item?.game_id || item?.id)?.startsWith('playmode-'))
       .map(item => {
         const gameId = item.game_id || item.id
         
-        // ✅ OPTIMIZATION: Tối ưu stories parsing
-        let stories = []
-        if (Array.isArray(item.stories)) {
-          stories = item.stories
-        } else if (typeof item.stories === 'string') {
-          try {
-            stories = JSON.parse(item.stories)
-          } catch (e) {
-            stories = []
-          }
-        }
-        
-        const legacyStories = [
-          item.story_one,
-          item.story_two,
-          item.story_three
-        ].filter(s => typeof s === 'string' && s.trim())
-        
-        if (legacyStories.length > 0) {
-          stories = [...stories, ...legacyStories]
-        }
+        let stories = Array.isArray(item.stories) ? item.stories : 
+          (typeof item.stories === 'string' ? (() => {
+            try { return JSON.parse(item.stories) } catch { return [] }
+          })() : [])
+        const legacyStories = [item.story_one, item.story_two, item.story_three]
+          .filter(s => typeof s === 'string' && s.trim())
+        if (legacyStories.length) stories = [...stories, ...legacyStories]
         
         return {
           id: gameId,
@@ -364,12 +346,12 @@ async function loadGameListFromSupabase() {
           plays_count: item.plays_count ?? item.plays ?? 0,
           creator_name: item.creator_name || item.creator_id || 'Creator',
           creator_id: item.creator_id || '',
-          ...item
+          created_at: item.created_at,
+          updated_at: item.updated_at
         }
       })
   })
   
-  // Sort by likes_count DESC, then by plays_count DESC
   allGames.sort((a, b) => {
     const aLikes = a.likes_count || 0
     const bLikes = b.likes_count || 0
@@ -379,25 +361,6 @@ async function loadGameListFromSupabase() {
     return (b.plays_count || 0) - (a.plays_count || 0)
   })
   
-  // ================================
-  // ONE-TIME DEDUPE: keep top-liked game per template
-  // ================================
-  // ✅ HOTFIX: Vì allGames đã sort DESC theo likes, chỉ cần lấy game đầu tiên của mỗi template_id
-  // Mục tiêu: Homepage chỉ hiển thị tối đa 11 games (1 game/template)
-  // Lưu ý: Đây là one-time fix, không ảnh hưởng backend/DB
-  const seenTemplates = new Set()
-  allGames = allGames.filter(game => {
-    if (seenTemplates.has(game.template_id)) {
-      return false
-    }
-    seenTemplates.add(game.template_id)
-    return true
-  })
-  
-  // Optional safety: limit to 11 templates
-  allGames = allGames.slice(0, 11)
-  
-  // ✅ OPTIMIZATION 1: Cache game list
   try {
     localStorage.setItem(GAME_LIST_CACHE_KEY, JSON.stringify({
       games: allGames,
@@ -444,7 +407,20 @@ async function loadGameConfig(gameId, templateId) {
 // ✅ OPTIMIZATION 7: Tối ưu getGameUrl() - đơn giản hóa
 function getGameUrl(gameId, templateId) {
   const baseUrl = window.location.origin.replace(/\/$/, '')
-  const config = getTemplateConfig(templateId)
+  // Try original templateId first, then try normalized versions
+  let config = getTemplateConfig(templateId)
+  if (!config && templateId?.endsWith('-template')) {
+    // Try without -template suffix (for pixel-shooter-template → pixel-shooter)
+    config = getTemplateConfig(templateId.replace('-template', ''))
+  }
+  if (!config && !templateId?.endsWith('-template')) {
+    // Try with -template suffix (for space-jump → space-jump-template)
+    config = getTemplateConfig(`${templateId}-template`)
+  }
+  // ✅ FIX: Ensure we have a valid config, otherwise log warning
+  if (!config) {
+    console.warn(`[V3] ⚠️ No config found for templateId: ${templateId}, gameId: ${gameId}, falling back to Pacman`)
+  }
   const templateUrl = config?.templateUrl || `/games/templates-v2/pacman-template/index.html`
   const separator = templateUrl.includes('?') ? '&' : '?'
   return `${baseUrl}${templateUrl}${separator}game=${gameId}&v=${Date.now()}`
@@ -547,7 +523,12 @@ function renderGameCard(game, config, options = {}) {
   stage.className = 'game-stage'
   
   const iframe = document.createElement('iframe')
-  iframe.src = getGameUrl(game.id, game.template_id)
+  const gameUrl = getGameUrl(game.id, game.template_id)
+  // ✅ DEBUG: Log để check template_id trên mobile
+  if (game.id?.startsWith('playmode-pixel-shooter-')) {
+    console.log(`[V3] 🔍 Rendering Pixel Shooter game:`, { gameId: game.id, template_id: game.template_id, gameUrl })
+  }
+  iframe.src = gameUrl
   iframe.loading = active ? 'eager' : 'lazy'
   iframe.setAttribute('frameborder', '0')
   iframe.setAttribute('scrolling', 'no')
