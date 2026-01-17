@@ -366,24 +366,25 @@ body.public-game-view #gameWrapper {
 .game-over-card {
   background: rgba(18, 18, 28, 0.95);
   width: min(90%, 500px);
-  padding: 40px;
+  padding: 36px 40px;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 24px;
+  justify-content: center;
+  min-height: 540px;
 }
 
 .game-over-title {
-  font-size: 32px;
+  font-size: 48px;
   font-weight: 700;
   color: #FFFFFF;
   margin: 0;
 }
 
 .game-over-score {
-  font-size: 20px;
+  font-size: 30px;
   color: #FFFFFF;
   display: flex;
   gap: 8px;
@@ -393,9 +394,10 @@ body.public-game-view #gameWrapper {
 .game-over-buttons {
   display: flex;
   flex-direction: column;
-  gap: 60px;
+  gap: 30px;
   width: 100%;
   align-items: center;
+  margin-top: 32px;
 }
 
 .game-over-buttons-row {
@@ -407,7 +409,6 @@ body.public-game-view #gameWrapper {
 
 .game-over-btn {
   border: none;
-  border-radius: 8px;
   color: #FFFFFF;
   font-weight: 600;
   cursor: pointer;
@@ -419,25 +420,28 @@ body.public-game-view #gameWrapper {
 
 .replay-btn {
   width: 400px; max-width: 90%;
-  height: 84px; padding: 0 24px;
-  font-size: 16px;
+  height: 80px; padding: 0 24px;
+  font-size: 26px;
+  border-radius: 8px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .remix-btn {
-  width: 200px; height: 56px; padding: 0 24px;
-  font-size: 14px;
+  width: 200px; height: 60px; padding: 0 24px;
+  font-size: 26px;
+  border-radius: 14px;
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
 .share-btn {
-  width: 56px; height: 56px; padding: 0;
+  width: 60px; height: 60px; padding: 0;
+  border-radius: 14px;
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
   opacity: 0.5; cursor: not-allowed;
 }
 
 .share-btn .share-icon {
-  width: 24px; height: 24px;
+  width: 30px; height: 30px;
   object-fit: contain;
 }
 
@@ -453,30 +457,31 @@ body.public-game-view #gameWrapper {
 /* Responsive */
 @media (max-width: 600px) {
   .game-over-card {
-    padding: 30px 20px;
-    gap: 20px;
+    padding: 32px 20px;
+    min-height: 480px;
   }
   
   .game-over-title {
-    font-size: 28px;
+    font-size: 36px;
   }
   
   .game-over-score {
-    font-size: 18px;
+    font-size: 24px;
   }
   
   .game-over-buttons {
-    gap: 40px;
+    gap: 24px;
+    margin-top: 28px;
   }
   
   .game-over-buttons-row {
     gap: 14px;
   }
   
-  .replay-btn { height: 72px; padding: 0 20px; font-size: 15px; }
-  .remix-btn { height: 50px; padding: 0 20px; font-size: 13px; }
-  .share-btn { width: 50px; height: 50px; }
-  .share-btn .share-icon { width: 22px; height: 22px; }
+  .replay-btn { height: 70px; padding: 0 20px; font-size: 22px; }
+  .remix-btn { height: 56px; padding: 0 20px; font-size: 22px; border-radius: 12px; }
+  .share-btn { width: 56px; height: 56px; border-radius: 12px; }
+  .share-btn .share-icon { width: 28px; height: 28px; }
 }
 
 /* ====================================
