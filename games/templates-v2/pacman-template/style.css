@@ -363,42 +363,120 @@ body.public-game-view #gameWrapper {
   display: flex;
 }
 
-.game-over-logo {
-  width: 156px;
-  height: 156px;
-  object-fit: contain;
-  margin-bottom: 30px;
-  opacity: 1;
+.game-over-card {
+  background: rgba(18, 18, 28, 0.95);
+  width: min(90%, 500px);
+  padding: 40px;
+  border-radius: 24px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 24px;
 }
 
-.game-over-story {
+.game-over-title {
+  font-size: 32px;
+  font-weight: 700;
   color: #FFFFFF;
-  font-size: 24px;
-  text-align: center;
-  line-height: 1.6;
-  max-width: 600px;
-  margin-bottom: 40px;
-  padding: 20px;
+  margin: 0;
 }
 
-.restart-btn {
-  padding: 15px 40px;
+.game-over-score {
   font-size: 20px;
-  background: #4ECDC4;
-  color: #000;
+  color: #FFFFFF;
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.game-over-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 60px;
+  width: 100%;
+  align-items: center;
+}
+
+.game-over-buttons-row {
+  display: flex;
+  gap: 16px;
+  width: auto;
+  justify-content: center;
+}
+
+.game-over-btn {
   border: none;
   border-radius: 8px;
+  color: #FFFFFF;
+  font-weight: 600;
   cursor: pointer;
-  font-weight: bold;
-  transition: background 0.3s;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.restart-btn:hover {
-  background: #45b8b0;
+.replay-btn {
+  width: 400px; max-width: 90%;
+  height: 84px; padding: 0 24px;
+  font-size: 16px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
-.restart-btn:active {
-  transform: scale(0.95);
+.remix-btn {
+  width: 200px; height: 56px; padding: 0 24px;
+  font-size: 14px;
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.share-btn {
+  width: 56px; height: 56px; padding: 0;
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  opacity: 0.5; cursor: not-allowed;
+}
+
+.share-btn .share-icon {
+  width: 24px; height: 24px;
+  object-fit: contain;
+}
+
+.game-over-btn:hover:not(.share-btn) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.game-over-btn:active:not(.share-btn) {
+  transform: scale(0.98);
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+  .game-over-card {
+    padding: 30px 20px;
+    gap: 20px;
+  }
+  
+  .game-over-title {
+    font-size: 28px;
+  }
+  
+  .game-over-score {
+    font-size: 18px;
+  }
+  
+  .game-over-buttons {
+    gap: 40px;
+  }
+  
+  .game-over-buttons-row {
+    gap: 14px;
+  }
+  
+  .replay-btn { height: 72px; padding: 0 20px; font-size: 15px; }
+  .remix-btn { height: 50px; padding: 0 20px; font-size: 13px; }
+  .share-btn { width: 50px; height: 50px; }
+  .share-btn .share-icon { width: 22px; height: 22px; }
 }
 
 /* ====================================

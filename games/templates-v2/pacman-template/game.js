@@ -2061,63 +2061,19 @@ function gameOver() {
   isGameOver = true;
   gameState = 'gameOver';
   
-  // Show story - If only 1 story, show it directly. If 2+ stories, random from them
-  // ✅ FIX: Only use stories that are actually set (not defaults)
-  const stories = Array.isArray(BRAND_CONFIG.stories) ? BRAND_CONFIG.stories : [];
-  
-  // Filter out empty stories
-  const validStories = stories.filter(story => story && story.trim() !== '');
-  
-  let randomStory = '';
-  if (validStories.length === 1) {
-    // Only 1 story → show it directly (no random needed)
-    randomStory = validStories[0];
-    console.log('[GameOver] Only 1 story found, showing it directly:', randomStory);
-  } else if (validStories.length > 1) {
-    // 2+ stories → random from them (1/2 if 2 stories, 1/3 if 3 stories)
-    const randomIndex = Math.floor(Math.random() * validStories.length);
-    randomStory = validStories[randomIndex];
-    console.log(`[GameOver] Random story selected: ${randomIndex + 1}/${validStories.length}`, randomStory);
-  } else {
-    // No valid stories → use default
-    randomStory = 'Congratulations! You collected all fragments!';
-    console.log('[GameOver] No stories found, using default');
-  }
-  
   const gameOverScreen = document.querySelector('.game-over-screen');
-  const gameOverLogo = document.getElementById('gameOverLogo');
-  const gameOverStory = document.getElementById('gameOverStory');
+  const finalScoreEl = document.getElementById('finalScore');
   
-  if (gameOverScreen) {
-    gameOverScreen.classList.add('active');
-  }
+  if (gameOverScreen) gameOverScreen.classList.add('active');
+  if (finalScoreEl) finalScoreEl.textContent = score;
   
-  if (gameOverLogo) {
-    if (BRAND_CONFIG.fragmentLogo && BRAND_CONFIG.fragmentLogo.complete && BRAND_CONFIG.fragmentLogoUrl) {
-      gameOverLogo.src = BRAND_CONFIG.fragmentLogoUrl;
-      gameOverLogo.style.display = 'block';
-    } else {
-      gameOverLogo.style.display = 'none';
-    }
-  }
-  
-  if (gameOverStory) {
-    gameOverStory.textContent = randomStory;
-  }
-  
-  setTimeout(() => playSound('storyChime'), 200);
-  
-  // Send score to MemePlay
   sendScoreToMemePlay();
   
-  // ✅ V2: Send GAME_OVER message to parent (play-v2.js)
+  // Send GAME_OVER message to parent (play-v2.js)
   if (window.parent && window.parent !== window) {
     const gameId = EMBEDDED_GAME_ID || (typeof getGameId === 'function' ? getGameId() : null);
     if (gameId) {
-      window.parent.postMessage({
-        type: 'GAME_OVER',
-        gameId: gameId
-      }, '*');
+      window.parent.postMessage({ type: 'GAME_OVER', gameId: gameId }, '*');
       console.log('[Pacman] 📤 Sent GAME_OVER to parent:', gameId);
     }
   }
@@ -2702,15 +2658,31 @@ window.addEventListener('DOMContentLoaded', async () => {
   }
 });
 
-// Restart button
-const restartBtn = document.getElementById('restartBtn');
-if (restartBtn) {
-  restartBtn.addEventListener('click', restartGame);
-  restartBtn.addEventListener('touchstart', (e) => {
-    // Ensure mobile tap triggers restart immediately
-    e.preventDefault();
-    restartGame();
-  });
+// Game Over Buttons
+const replayBtn = document.getElementById('replayBtn');
+if (replayBtn) {
+  replayBtn.addEventListener('click', restartGame);
+  replayBtn.addEventListener('touchstart', (e) => { e.preventDefault(); restartGame(); });
+}
+
+const remixBtn = document.getElementById('remixBtn');
+if (remixBtn) {
+  const handleRemix = () => {
+    const editorUrl = '/games/templates-v2/index.html?template=pacman-template';
+    if (window.parent && window.parent !== window) {
+      window.parent.open(editorUrl, '_blank');
+    } else {
+      window.location.href = editorUrl;
+    }
+  };
+  remixBtn.addEventListener('click', handleRemix);
+  remixBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleRemix(); });
+}
+
+const shareBtn = document.getElementById('shareBtn');
+if (shareBtn) {
+  shareBtn.disabled = true;
+  shareBtn.style.cursor = 'not-allowed';
 }
 
 
