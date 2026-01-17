@@ -366,7 +366,7 @@ body.public-game-view #gameWrapper {
 .game-over-card {
   background: rgba(18, 18, 28, 0.95);
   width: min(90%, 500px);
-  padding: 36px 40px;
+  padding: 36px 40px 36px 40px;
   border-radius: 24px;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   display: flex;
@@ -376,11 +376,12 @@ body.public-game-view #gameWrapper {
   min-height: 540px;
 }
 
+/* Header block: Gameover + Score */
 .game-over-title {
   font-size: 48px;
   font-weight: 700;
   color: #FFFFFF;
-  margin: 0;
+  margin: 0 0 14px 0;
 }
 
 .game-over-score {
@@ -391,18 +392,21 @@ body.public-game-view #gameWrapper {
   align-items: center;
 }
 
+/* Primary action block: Replay */
 .game-over-buttons {
   display: flex;
   flex-direction: column;
-  gap: 30px;
+  gap: 88px;
   width: 100%;
   align-items: center;
-  margin-top: 32px;
+  margin-top: 36px;
 }
+
+/* Secondary actions block: Remix + Share */
 
 .game-over-buttons-row {
   display: flex;
-  gap: 16px;
+  gap: 18px;
   width: auto;
   justify-content: center;
 }
@@ -469,13 +473,17 @@ body.public-game-view #gameWrapper {
     font-size: 24px;
   }
   
+  .game-over-title {
+    margin-bottom: 12px;
+  }
+  
   .game-over-buttons {
-    gap: 24px;
-    margin-top: 28px;
+    gap: 72px;
+    margin-top: 32px;
   }
   
   .game-over-buttons-row {
-    gap: 14px;
+    gap: 16px;
   }
   
   .replay-btn { height: 70px; padding: 0 20px; font-size: 22px; }
