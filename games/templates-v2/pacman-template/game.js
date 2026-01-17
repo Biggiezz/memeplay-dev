@@ -2669,14 +2669,21 @@ const remixBtn = document.getElementById('remixBtn');
 if (remixBtn) {
   const handleRemix = () => {
     const editorUrl = '/games/templates-v2/index.html?template=pacman-template';
-    if (window.parent && window.parent !== window) {
-      window.parent.open(editorUrl, '_blank');
+    // Use window.top for mobile iframe compatibility
+    if (window.top && window.top !== window) {
+      window.top.location.href = editorUrl;
+    } else if (window.parent && window.parent !== window) {
+      window.parent.location.href = editorUrl;
     } else {
       window.location.href = editorUrl;
     }
   };
   remixBtn.addEventListener('click', handleRemix);
-  remixBtn.addEventListener('touchstart', (e) => { e.preventDefault(); handleRemix(); });
+  // Mobile: touchend works better than touchstart with preventDefault
+  remixBtn.addEventListener('touchend', (e) => {
+    e.preventDefault();
+    handleRemix();
+  });
 }
 
 const shareBtn = document.getElementById('shareBtn');
