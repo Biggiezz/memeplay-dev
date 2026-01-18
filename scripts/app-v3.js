@@ -1201,14 +1201,29 @@ function initSocialHandlers() {
   
   // ✅ Share: Open overlay
   function openShareOverlay(gameId) {
+    if (!gameId) {
+      console.error('[V3] openShareOverlay: gameId is null or undefined')
+      return
+    }
     currentShareGameId = gameId
+    const url = buildShareUrl(gameId)
+    if (shareUrlDisplay) shareUrlDisplay.textContent = url
     shareOverlay?.classList.add('open')
   }
   
   // ✅ Share: Copy URL (với fallback)
   async function copyShareUrl() {
-    if (!currentShareGameId) return
+    if (!currentShareGameId) {
+      console.error('[V3] copyShareUrl: currentShareGameId is null or undefined')
+      alert('Error: Unable to generate share link. Please try again.')
+      return
+    }
     const url = buildShareUrl(currentShareGameId)
+    if (url === `${window.location.origin}/`) {
+      console.error('[V3] copyShareUrl: buildShareUrl returned homepage URL, gameId:', currentShareGameId)
+      alert(`Error: Invalid game ID: ${currentShareGameId}`)
+      return
+    }
     try {
       // Try modern clipboard API first
       if (navigator.clipboard && navigator.clipboard.writeText) {
