@@ -1,5 +1,5 @@
 /* ====================================
-   PACMAN TEMPLATE - STYLES (V2)
+   HITMEN TEMPLATE - STYLES (V2)
    ==================================== */
 
 * {
@@ -424,28 +424,30 @@ body.public-game-view #gameWrapper {
 
 .replay-btn {
   width: 400px; max-width: 90%;
-  height: 80px; padding: 0 24px;
-  font-size: 26px;
+  height: 100px; padding: 0 24px;
+  font-size: 36px;
+  line-height: 1.2;
   border-radius: 8px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
 }
 
 .remix-btn {
-  width: 200px; height: 60px; padding: 0 24px;
-  font-size: 26px;
+  width: 200px; height: 75px; padding: 0 24px;
+  font-size: 36px;
+  line-height: 1.2;
   border-radius: 14px;
   background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
 }
 
 .share-btn {
-  width: 60px; height: 60px; padding: 0;
+  width: 75px; height: 75px; padding: 0;
   border-radius: 14px;
   background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
   opacity: 0.5; cursor: not-allowed;
 }
 
 .share-btn .share-icon {
-  width: 30px; height: 30px;
+  width: 42px; height: 42px;
   object-fit: contain;
 }
 
@@ -486,10 +488,10 @@ body.public-game-view #gameWrapper {
     gap: 16px;
   }
   
-  .replay-btn { height: 70px; padding: 0 20px; font-size: 22px; }
-  .remix-btn { height: 56px; padding: 0 20px; font-size: 22px; border-radius: 12px; }
-  .share-btn { width: 56px; height: 56px; border-radius: 12px; }
-  .share-btn .share-icon { width: 28px; height: 28px; }
+  .replay-btn { height: 88px; padding: 0 20px; font-size: 31px; line-height: 1.2; }
+  .remix-btn { height: 70px; padding: 0 20px; font-size: 31px; line-height: 1.2; border-radius: 12px; }
+  .share-btn { width: 70px; height: 70px; border-radius: 12px; }
+  .share-btn .share-icon { width: 39px; height: 39px; }
 }
 
 /* ====================================

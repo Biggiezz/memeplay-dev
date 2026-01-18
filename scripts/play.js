@@ -458,7 +458,8 @@ function guessTemplateFromId(gameId) {
       }
       
       // Try legacy V1 mappings
-      if (templateName === 'pacman') return PACMAN_TEMPLATE_ID
+      // ✅ Return 'pacman' for backward compatibility, but will try both prefixes in loadGameFromLocalStorage
+      if (templateName === 'pacman') return 'pacman'
       if (templateName === 'blocks') return BLOCKS_TEMPLATE_ID
       if (templateName === 'wall' || templateName === 'wall-bounce-bird') return WALL_BOUNCE_BIRD_TEMPLATE_ID
       if (templateName === 'blow' || templateName === 'blow-bubble') return BLOW_BUBBLE_TEMPLATE_ID
@@ -558,54 +559,56 @@ function loadGameFromLocalStorage(gameId) {
     }
     // ✅ FIX BUG 2: Detect template from gameId and load correct storage prefix
     const guessedTemplate = guessTemplateFromId(gameId)
-    if (guessedTemplate) {
+    
+    // ✅ For pacman/hitmen: Try both prefixes for backward compatibility
+    const prefixesToTry = []
+    if (guessedTemplate === 'pacman' || guessedTemplate === 'pacman-template' || guessedTemplate === 'hitmen' || guessedTemplate === 'hitmen-template') {
+      prefixesToTry.push('hitmen_brand_config_', 'pacman_brand_config_')
+    } else if (guessedTemplate) {
       // Try to load from correct template storage prefix
       const templateConfig = getTemplateConfig(guessedTemplate)
       if (templateConfig && templateConfig.storagePrefix) {
-        const storageKey = `${templateConfig.storagePrefix}${gameId}`
-        const raw = localStorage.getItem(storageKey)
-        if (raw) {
-          try {
-            const config = JSON.parse(raw)
-            const templateUrl = templateConfig.templateUrl || getTemplateUrl(guessedTemplate, gameId) || `/games/templates-v2/${guessedTemplate}/index.html?game=${gameId}`
-            return {
-              gameId,
-              templateId: guessedTemplate,
-              title: config.title || config.storyText || 'Untitled Game',
-              creator: config.title || 'Creator',
-              likes: 0,
-              comments: 0,
-              plays: 0,
-              stories: Array.isArray(config.stories) ? config.stories : (config.storyText ? [config.storyText] : []),
-              mapColor: config.mapColor || '#1a1a2e',
-              fragmentLogoUrl: config.fragmentLogoUrl || config.logoUrl || '',
-              templateUrl: `${window.location.origin.replace(/\/$/, '')}${templateUrl}`
-            }
-          } catch (error) {
-            console.warn(`[PLAY MODE] Failed to parse config for ${guessedTemplate}:`, error)
-          }
-        }
+        prefixesToTry.push(templateConfig.storagePrefix)
       }
     }
     
     // ✅ Fallback: Try pacman prefix (for backward compatibility)
-    const raw = localStorage.getItem(`${PACMAN_STORAGE_PREFIX}${gameId}`)
-    if (!raw) return null
-    const config = JSON.parse(raw)
-    if (!config?.title) return null
-    return {
-      gameId,
-      templateId: PACMAN_TEMPLATE_ID,
-      title: config.title,
-      creator: config.title,
-      likes: 0,
-      comments: 0,
-      plays: 0,
-      stories: Array.isArray(config.stories) ? config.stories : [],
-      mapColor: config.mapColor || '#1a1a2e',
-      fragmentLogoUrl: config.fragmentLogoUrl || '',
-      templateUrl: `${window.location.origin.replace(/\/$/, '')}/games/templates-v2/pacman-template/index.html?game=${gameId}`
+    if (prefixesToTry.length === 0) {
+      prefixesToTry.push(PACMAN_STORAGE_PREFIX)
     }
+    
+    // Try all prefixes until we find config
+    for (const prefix of prefixesToTry) {
+      const storageKey = `${prefix}${gameId}`
+      const raw = localStorage.getItem(storageKey)
+      if (raw) {
+        try {
+          const config = JSON.parse(raw)
+          if (!config?.title && !config?.storyText) continue // Skip if no valid config
+          
+          const templateConfig = guessedTemplate ? getTemplateConfig(guessedTemplate) : null
+          const templateUrl = templateConfig?.templateUrl || getTemplateUrl(guessedTemplate || 'pacman', gameId) || `/games/templates-v2/pacman-template/index.html?game=${gameId}`
+          
+          return {
+            gameId,
+            templateId: guessedTemplate === 'pacman' || guessedTemplate === 'pacman-template' ? 'hitmen' : (guessedTemplate || 'hitmen'),
+            title: config.title || config.storyText || 'Hitmen Game',
+            creator: config.title || 'Creator',
+            likes: 0,
+            comments: 0,
+            plays: 0,
+            stories: Array.isArray(config.stories) ? config.stories : (config.storyText ? [config.storyText] : []),
+            mapColor: config.mapColor || '#1a1a2e',
+            fragmentLogoUrl: config.fragmentLogoUrl || config.logoUrl || '',
+            templateUrl: `${window.location.origin.replace(/\/$/, '')}${templateUrl}`
+          }
+        } catch (error) {
+          console.warn(`[PLAY MODE] Failed to parse config for ${guessedTemplate}:`, error)
+        }
+      }
+    }
+    
+    return null
   } catch (error) {
     console.warn('[PLAY MODE] Failed to read local game config:', error)
     return null
@@ -727,7 +730,7 @@ async function fetchGameFromSupabase(gameId) {
       return {
         gameId,
         templateId,
-        title: match.title || (isBlocks ? 'Blocks 8x8 Game' : isWallBounceBird ? 'Wall Bounce Bird Game' : isBlowBubble ? 'Blow Bubble Game' : 'Pacman Game'),
+        title: match.title || (isBlocks ? 'Blocks 8x8 Game' : isWallBounceBird ? 'Wall Bounce Bird Game' : isBlowBubble ? 'Blow Bubble Game' : 'Hitmen Game'),
         creator: match.creator_name || match.creator_id || match.title || 'Creator',
         likes: match.likes_count ?? match.likes ?? 0,
         comments: match.comments_count ?? match.comments ?? 0,

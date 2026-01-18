@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Pacman Template - V2</title>
+  <title>Hitmen Template - V2</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -33,10 +33,10 @@
             document.addEventListener('DOMContentLoaded', addPublicViewClass, { once: true });
             setTimeout(addPublicViewClass, 0);
           }
-          console.log('[Pacman V2] ✅ Added public-game-view class (early detection)');
+          console.log('[Hitmen V2] ✅ Added public-game-view class (early detection)');
         }
       } catch (err) {
-        console.warn('[Pacman V2] Failed to set public-game-view class early:', err);
+        console.warn('[Hitmen V2] Failed to set public-game-view class early:', err);
       }
     })();
   </script>
@@ -46,7 +46,7 @@
        ==================================== -->
   <div id="gameWrapper">
     <div class="game-wrapper">
-      <div id="pacmanGameView">
+      <div id="hitmenGameView">
         <!-- ====================================
              HUD (Heads-Up Display)
              ==================================== -->
@@ -126,12 +126,12 @@
           if (gameId) {
             if (document.body && !document.body.classList.contains('public-game-view')) {
               document.body.classList.add('public-game-view');
-              console.log('[Pacman V2] ✅ Added public-game-view class (post-config) for game', gameId);
+              console.log('[Hitmen V2] ✅ Added public-game-view class (post-config) for game', gameId);
             }
           }
         }
       } catch (err) {
-        console.warn('[Pacman V2] Failed to set public-game-view class after config.js:', err);
+        console.warn('[Hitmen V2] Failed to set public-game-view class after config.js:', err);
       }
     })();
   </script>

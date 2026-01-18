@@ -312,7 +312,6 @@ async function loadGameListFromSupabase() {
   const results = await Promise.all(promises)
   
   // ✅ OPTIMIZATION 3: Filter và normalize games
-  // ✅ FIX: Cho phép cả 'pet-avatar' (built-in) và 'playmode-*' (user-created)
   let allGames = results.flatMap((r) => {
     const templateId = r.templateId
     const config = r.config || getTemplateConfig(templateId)
@@ -419,7 +418,7 @@ function getGameUrl(gameId, templateId) {
   }
   // ✅ FIX: Ensure we have a valid config, otherwise log warning
   if (!config) {
-    console.warn(`[V3] ⚠️ No config found for templateId: ${templateId}, gameId: ${gameId}, falling back to Pacman`)
+    console.warn(`[V3] ⚠️ No config found for templateId: ${templateId}, gameId: ${gameId}, falling back to Hitmen`)
   }
   const templateUrl = config?.templateUrl || `/games/templates-v2/pacman-template/index.html`
   const separator = templateUrl.includes('?') ? '&' : '?'
@@ -537,17 +536,14 @@ function renderGameCard(game, config, options = {}) {
   iframe.style.width = '100%'
   iframe.style.height = '100%'
   
-  // ✅ Loading bar overlay (skip for Pet Avatar - it has its own loading)
+  // ✅ Loading bar overlay
   let loadingOverlay = null
-  const isPetAvatar = game.template_id === 'pet-avatar-template' || game.id === 'pet-avatar'
-  if (!isPetAvatar) {
-    loadingOverlay = document.createElement('div')
-    loadingOverlay.className = 'game-loading-overlay show'
-    loadingOverlay.innerHTML = `
-      <div class="game-loading-spinner"></div>
-      <div class="game-loading-text">Loading game...</div>
-    `
-  }
+  loadingOverlay = document.createElement('div')
+  loadingOverlay.className = 'game-loading-overlay show'
+  loadingOverlay.innerHTML = `
+    <div class="game-loading-spinner"></div>
+    <div class="game-loading-text">Loading game...</div>
+  `
   
   stage.appendChild(iframe)
   if (loadingOverlay) stage.appendChild(loadingOverlay)
@@ -837,17 +833,14 @@ function reloadGameIframe(card, game, config) {
   iframe.style.width = '100%'
   iframe.style.height = '100%'
   
-  // ✅ Loading bar overlay (skip for Pet Avatar - it has its own loading)
+  // ✅ Loading bar overlay
   let loadingOverlay = null
-  const isPetAvatar = game.template_id === 'pet-avatar-template' || game.id === 'pet-avatar'
-  if (!isPetAvatar) {
-    loadingOverlay = document.createElement('div')
-    loadingOverlay.className = 'game-loading-overlay show'
-    loadingOverlay.innerHTML = `
-      <div class="game-loading-spinner"></div>
-      <div class="game-loading-text">Loading game...</div>
-    `
-  }
+  loadingOverlay = document.createElement('div')
+  loadingOverlay.className = 'game-loading-overlay show'
+  loadingOverlay.innerHTML = `
+    <div class="game-loading-spinner"></div>
+    <div class="game-loading-text">Loading game...</div>
+  `
   
   stage.appendChild(iframe)
   if (loadingOverlay) stage.appendChild(loadingOverlay)

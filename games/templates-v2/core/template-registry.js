@@ -12,19 +12,20 @@
 
 // Import adapter paths (lazy load khi cần)
 const ADAPTER_PATHS = {
-  'pacman': () => import('../pacman-template/editor/editor-adapter.js').then(m => m.PacmanEditorAdapter)
+  'pacman': () => import('../pacman-template/editor/editor-adapter.js').then(m => m.HitmenEditorAdapter)
 };
 
 /**
  * Template Registry Configuration
  */
 export const TEMPLATE_REGISTRY = {
+  // ✅ Pacman (template_id = 'pacman-template' in Supabase, display as 'Hitmen')
   'pacman': {
     // Adapter class (lazy load)
     adapterPath: '../pacman-template/editor/editor-adapter.js',
-    adapterName: 'PacmanEditorAdapter',
+    adapterName: 'HitmenEditorAdapter',
     
-    // Storage keys
+    // Storage keys (keep legacy names for existing games)
     playtestKey: 'pacman_brand_config_playtest',
     playtestGameId: 'playtest-pacman',
     storagePrefix: 'pacman_brand_config_',
@@ -32,14 +33,14 @@ export const TEMPLATE_REGISTRY = {
     // Template URL
     templateUrl: '/games/templates-v2/pacman-template/index.html',
     
-    // Message types (hiện tại dùng PACMAN_*, sau sẽ migrate sang generic)
+    // Message types (legacy PACMAN_* for backward compatibility)
     messageTypes: {
       READY: 'PACMAN_GAME_READY',
       ERROR: 'PACMAN_GAME_ERROR',
-      UPDATE_CONFIG: 'UPDATE_CONFIG' // Generic, dùng chung
+      UPDATE_CONFIG: 'UPDATE_CONFIG'
     },
     
-    // UI Fields configuration
+    // UI Fields configuration (same as hitmen)
     uiFields: {
       map: {
         enabled: true,
@@ -72,8 +73,8 @@ export const TEMPLATE_REGISTRY = {
     },
     
     // Template metadata
-    displayName: 'Pacman',
-    description: 'Classic Pacman game with custom maps and colors'
+    displayName: 'Hitmen',
+    description: 'Classic Hitmen game with custom maps and colors'
   },
   
   // ✅ Pixel Shooter Template
@@ -109,7 +110,7 @@ export const TEMPLATE_REGISTRY = {
           { value: '#1a2e1a', label: 'Dark Green' }
         ]
       }
-      // KHÔNG có map field (khác Pacman)
+      // KHÔNG có map field (khác Hitmen)
     },
     displayName: 'Pixel Shooter',
     description: 'Space shooter game',
@@ -454,46 +455,20 @@ export const TEMPLATE_REGISTRY = {
     displayName: 'Wall Bounce Bird',
     description: 'Bird bouncing between walls - avoid spikes and collect points',
     enabled: true
-  },
-  
-  // ✅ Pet Avatar Template (Always First)
-  'pet-avatar-template': {
-    adapterPath: '../pet-avatar-template/editor/editor-adapter.js',
-    adapterName: 'PetAvatarEditorAdapter',
-    playtestKey: 'pet_avatar_brand_config_playtest',
-    playtestGameId: 'playtest-pet-avatar',
-    storagePrefix: 'pet_avatar_brand_config_',
-    templateUrl: '/games/templates-v2/pet-avatar-template/index.html',
-    messageTypes: {
-      READY: 'PET_AVATAR_GAME_READY',
-      ERROR: 'PET_AVATAR_GAME_ERROR',
-      UPDATE_CONFIG: 'UPDATE_CONFIG'
-    },
-    uiFields: {
-      story: {
-        enabled: true,
-        inputId: 'storyInput',
-        maxLength: 50
-      },
-      logo: {
-        enabled: true,
-        inputId: 'logoInput',
-        previewId: 'logoPreview'
-      }
-    },
-    displayName: 'Pet Avatar',
-    description: 'Virtual pet avatar game - interact with your pet',
-    enabled: true,
-    priority: true // ✅ Flag để sort game này lên đầu
   }
 };
 
 /**
  * Get template config by ID
- * @param {string} templateId - Template ID (e.g., 'pacman', 'pixel-shooter', 'rocket-bnb-template')
+ * @param {string} templateId - Template ID (e.g., 'hitmen', 'pixel-shooter', 'rocket-bnb-template')
  * @returns {Object|null} Template config or null if not found
  */
 export function getTemplateConfig(templateId) {
+  // Alias: 'hitmen' → 'pacman' (for editor page compatibility)
+  if (templateId === 'hitmen') {
+    templateId = 'pacman';
+  }
+  
   const config = TEMPLATE_REGISTRY[templateId];
   if (!config) {
     console.warn(`[TemplateRegistry] Template not found: ${templateId}`);
@@ -509,7 +484,11 @@ export function getTemplateConfig(templateId) {
 export function getEnabledTemplates() {
   return Object.entries(TEMPLATE_REGISTRY)
     .filter(([id, config]) => config.enabled !== false)
-    .map(([id, config]) => ({ id, ...config }));
+    .map(([id, config]) => {
+      // Map 'pacman' → 'hitmen' for display in editor (displayName is 'Hitmen')
+      const displayId = id === 'pacman' ? 'hitmen' : id;
+      return { id: displayId, ...config };
+    });
 }
 
 /**

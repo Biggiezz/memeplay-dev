@@ -73,99 +73,99 @@ const CONFIG = {
 let BRAND_CONFIG = {
   fragmentLogo: null, // Fragment logo (BNB) image object
   fragmentLogoUrl: '',
-  title: 'Pacman Game',
+  title: 'Hitmen Game',
   smartContract: '', // Smart contract address
   mapColor: '#1a1a2e', // Map wall color (default: dark blue)
   mapIndex: 0, // Selected map index (0 = Map 1, 1 = Map 2, etc.)
   stories: [] // ✅ FIX: Empty array by default - only add stories when user enters them
 };
 
-// Get game ID from URL query param ONLY
-// This ensures editor is visible when there's no ?game= parameter
+// Get game ID from URL (?game= param or pathname starting with playmode-)
 function getGameId() {
-  const url = new URL(window.location.href);
-  
-  // ✅ ONLY check ?game= parameter from URL query string
-  // This ensures editor is not hidden when there's no ?game= parameter
-  const gameIdFromQuery = url.searchParams.get('game');
-  if (gameIdFromQuery) return gameIdFromQuery;
-  
-  // Don't parse from hash/pathname to avoid hiding editor
-  // Hash/pathname parsing is only for backward compatibility when ?game= exists
-  return null;
+  try {
+    const url = new URL(window.location.href);
+    const gameIdFromQuery = url.searchParams.get('game');
+    if (gameIdFromQuery) return gameIdFromQuery;
+    
+    const path = url.pathname.replace(/^\/+/, '');
+    if (path.startsWith('playmode-')) return path;
+    
+    return null; // Editor mode
+  } catch (error) {
+    console.error('[getGameId] Error:', error);
+    return null;
+  }
 }
 
-// Generate unique game ID (format: pacman-7420)
+// Generate unique game ID (format: hitmen-7420)
 function generateGameId() {
   // Generate 4-digit random number (1000-9999)
   const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-  return `pacman-${randomSuffix}`;
+  return `hitmen-${randomSuffix}`;
 }
 
-// Load brand config from localStorage or use defaults
+// Load brand config from localStorage (try both hitmen/pacman prefixes for backward compatibility)
 function loadBrandConfig(gameIdOverride = null) {
   const gameId = gameIdOverride || getGameId();
-  // ✅ Bước 2: Nếu là playtest (gameId = 'playtest-pacman'), load từ key cố định
-  let storageKey;
-  if (gameId === 'playtest-pacman') {
-    storageKey = 'pacman_brand_config_playtest';
-  } else {
-    storageKey = gameId ? `pacman_brand_config_${gameId}` : 'pacman_brand_config';
-  }
-  const saved = localStorage.getItem(storageKey);
-  console.log('[loadBrandConfig] Loading config:', { gameId, storageKey, hasSaved: !!saved });
-  if (saved) {
-    try {
-      const parsed = JSON.parse(saved);
-      BRAND_CONFIG = { ...BRAND_CONFIG, ...parsed };
-      
-      // ✅ FIX: Only keep stories that are actually set by user
-      // Don't fill with defaults - if user only set story 1, only use story 1
-      if (!Array.isArray(BRAND_CONFIG.stories)) {
-        BRAND_CONFIG.stories = [];
+  
+  // Build storage keys to try
+  const isPlaytest = gameId === 'playtest-hitmen' || gameId === 'playtest-pacman';
+  const prefixes = ['hitmen_brand_config_', 'pacman_brand_config_'];
+  const storageKeys = isPlaytest
+    ? ['hitmen_brand_config_playtest', 'pacman_brand_config_playtest']
+    : gameId
+    ? prefixes.map(p => `${p}${gameId}`)
+    : prefixes.map(p => p.slice(0, -1)); // Remove trailing underscore
+  
+  // Try each key until we find config
+  for (const key of storageKeys) {
+    const saved = localStorage.getItem(key);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        BRAND_CONFIG = { ...BRAND_CONFIG, ...parsed };
+        
+        // Normalize stories array
+        if (!Array.isArray(BRAND_CONFIG.stories)) BRAND_CONFIG.stories = [];
+        BRAND_CONFIG.stories = BRAND_CONFIG.stories.filter(s => s && s.trim() !== '');
+        
+        // Load logo image if URL exists
+        if (BRAND_CONFIG.fragmentLogoUrl) {
+          const img = new Image();
+          img.onload = () => { BRAND_CONFIG.fragmentLogo = img; };
+          img.src = BRAND_CONFIG.fragmentLogoUrl;
+        }
+        
+        return true;
+      } catch (e) {
+        console.error('[loadBrandConfig] Parse error:', e);
+        return false;
       }
-      // Remove empty stories (keep only stories with content)
-      BRAND_CONFIG.stories = BRAND_CONFIG.stories.filter(story => story && story.trim() !== '');
-      
-      console.log('[loadBrandConfig] Loaded config:', { 
-        mapIndex: BRAND_CONFIG.mapIndex, 
-        title: BRAND_CONFIG.title,
-        storiesCount: BRAND_CONFIG.stories.length,
-        stories: BRAND_CONFIG.stories
-      });
-      
-      // Load fragment logo image if URL exists
-      if (BRAND_CONFIG.fragmentLogoUrl) {
-        const img = new Image();
-        img.onload = () => {
-          BRAND_CONFIG.fragmentLogo = img;
-        };
-        img.src = BRAND_CONFIG.fragmentLogoUrl;
-      }
-      return true;
-    } catch (e) {
-      console.error('Failed to load brand config:', e);
-      return false;
     }
-  } else {
-    console.log('[loadBrandConfig] No saved config found for:', storageKey);
-    return false;
   }
+  
+  return false;
 }
 
-// Save brand config to localStorage
+// Save brand config to localStorage (prefer pacman prefix for legacy gameIds)
 function saveBrandConfig(gameId = null) {
-  const id = gameId || getGameId() || 'pacman_brand_config';
-  const storageKey = id.startsWith('pacman_brand_config') ? id : `pacman_brand_config_${id}`;
-  const toSave = {
+  const id = gameId || getGameId() || 'hitmen_brand_config';
+  const prefix = (id && (id.startsWith('playmode-pacman-') || id.startsWith('pacman-')))
+    ? 'pacman_brand_config_'
+    : 'hitmen_brand_config_';
+  const storageKey = id.startsWith('hitmen_brand_config') || id.startsWith('pacman_brand_config')
+    ? id
+    : `${prefix}${id}`;
+  
+  localStorage.setItem(storageKey, JSON.stringify({
     fragmentLogoUrl: BRAND_CONFIG.fragmentLogoUrl,
     title: BRAND_CONFIG.title,
     smartContract: BRAND_CONFIG.smartContract || '',
     mapColor: BRAND_CONFIG.mapColor || '#1a1a2e',
     mapIndex: BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0,
     stories: BRAND_CONFIG.stories
-  };
-  localStorage.setItem(storageKey, JSON.stringify(toSave));
+  }));
+  
   return id;
 }
 

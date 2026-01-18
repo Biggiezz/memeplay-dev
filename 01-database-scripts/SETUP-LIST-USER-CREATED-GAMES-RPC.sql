@@ -80,11 +80,11 @@ WHERE proname = 'list_user_created_games';
 -- ✅ DONE: RPC function is ready
 -- ============================================
 -- The function can be called via:
--- SELECT list_user_created_games('pet-avatar-template');
+-- SELECT list_user_created_games('pacman-template');
 -- Or via Supabase client:
--- supabase.rpc('list_user_created_games', { p_template_id: 'pet-avatar-template' })
+-- supabase.rpc('list_user_created_games', { p_template_id: 'pacman-template' })
 -- ============================================
 
 -- Test query
--- SELECT list_user_created_games('pet-avatar-template');
+-- SELECT list_user_created_games('pacman-template');
 

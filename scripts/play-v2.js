@@ -827,23 +827,36 @@ function loadGameFromLocalStorage(gameId) {
       storagePrefix = legacyPrefixes[templateId]
     }
     
-    if (!storagePrefix) {
+    // ✅ For pacman/hitmen: Try both prefixes for backward compatibility
+    const storagePrefixes = []
+    if (templateId === 'pacman' || templateId === 'pacman-template' || templateId === 'hitmen' || templateId === 'hitmen-template') {
+      storagePrefixes.push('hitmen_brand_config_', 'pacman_brand_config_')
+    } else if (storagePrefix) {
+      storagePrefixes.push(storagePrefix)
+    }
+    
+    if (storagePrefixes.length === 0) {
       console.warn(`[PLAY MODE] ⚠️ No storage prefix found for template: ${templateId}`)
       return null
     }
     
-    // ✅ 3. Load từ localStorage - thử tất cả variants của gameId (dùng chung cho TẤT CẢ templates)
+    // ✅ 3. Load từ localStorage - thử tất cả variants của gameId VÀ tất cả prefixes (cho pacman/hitmen)
     const gameIdVariants = getGameIdVariants(gameId)
     let raw = null
     let foundGameId = null
+    let foundPrefix = null
     
-    for (const variant of gameIdVariants) {
-      const storageKey = `${storagePrefix}${variant}`
-      raw = localStorage.getItem(storageKey)
-      if (raw) {
-        foundGameId = variant
-        break
+    for (const prefix of storagePrefixes) {
+      for (const variant of gameIdVariants) {
+        const storageKey = `${prefix}${variant}`
+        raw = localStorage.getItem(storageKey)
+        if (raw) {
+          foundGameId = variant
+          foundPrefix = prefix
+          break
+        }
       }
+      if (raw) break
     }
     
     if (!raw) {

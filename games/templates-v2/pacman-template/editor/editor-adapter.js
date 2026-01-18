@@ -3,11 +3,11 @@ import { TEMPLATE_IDS } from '../../core/constants.js';
 import { cleanupOldGameKeys } from '../../core/storage-manager.js';
 import { syncGameToSupabase } from '../../core/supabase-sync.js';
 
-const PACMAN_STORAGE_PREFIX = 'pacman_brand_config_';
-const TEMPLATE_ID = 'pacman-template';
+const HITMEN_STORAGE_PREFIX = 'hitmen_brand_config_';
+const TEMPLATE_ID = 'hitmen-template';
 
-// Adapter for Pacman template - handles save/load with localStorage
-export class PacmanEditorAdapter extends BaseAdapter {
+// Adapter for Hitmen template - handles save/load with localStorage
+export class HitmenEditorAdapter extends BaseAdapter {
   constructor(options = {}) {
     super(options);
     this.lastSavedGameId = null;
@@ -63,22 +63,22 @@ export class PacmanEditorAdapter extends BaseAdapter {
     };
     
     try {
-      const storageKey = `${PACMAN_STORAGE_PREFIX}${gameId}`;
+      const storageKey = `${HITMEN_STORAGE_PREFIX}${gameId}`;
       localStorage.setItem(storageKey, JSON.stringify(config));
-      console.log('[PacmanEditorAdapter] Saved game config:', { gameId, storageKey, config });
+      console.log('[HitmenEditorAdapter] Saved game config:', { gameId, storageKey, config });
     } catch (error) {
       if (error.name === 'QuotaExceededError') {
         // ✅ Nếu vẫn fail, cleanup lại và thử lại
-        console.warn('[PacmanEditorAdapter] QuotaExceededError, cleaning up more keys and retrying...');
+        console.warn('[HitmenEditorAdapter] QuotaExceededError, cleaning up more keys and retrying...');
         cleanupOldGameKeys(TEMPLATE_ID, 0); // Xóa tất cả key cũ
         try {
           localStorage.setItem(storageKey, JSON.stringify(config));
-          console.log('[PacmanEditorAdapter] Saved game config after cleanup');
+          console.log('[HitmenEditorAdapter] Saved game config after cleanup');
         } catch (retryError) {
-          console.error('[PacmanEditorAdapter] Failed to save config after cleanup:', retryError);
+          console.error('[HitmenEditorAdapter] Failed to save config after cleanup:', retryError);
         }
       } else {
-        console.error('[PacmanEditorAdapter] Failed to save config:', error);
+        console.error('[HitmenEditorAdapter] Failed to save config:', error);
       }
     }
     
@@ -88,7 +88,7 @@ export class PacmanEditorAdapter extends BaseAdapter {
       const success = await syncGameToSupabase({
         gameId,
         templateId: TEMPLATE_ID,
-        title: config.title || 'Pacman Game',
+        title: config.title || 'Hitmen Game',
         fragmentLogoUrl: config.fragmentLogoUrl || null,
         stories,
         creatorId: this.getCreatorId(),
@@ -97,10 +97,10 @@ export class PacmanEditorAdapter extends BaseAdapter {
         mapIndex: config.mapIndex !== undefined ? config.mapIndex : 0
       });
       if (!success) {
-        console.warn('[PacmanEditorAdapter] Supabase sync failed, but game saved to localStorage');
+        console.warn('[HitmenEditorAdapter] Supabase sync failed, but game saved to localStorage');
       }
     } catch (error) {
-      console.error('[PacmanEditorAdapter] Failed to sync to Supabase:', error);
+      console.error('[HitmenEditorAdapter] Failed to sync to Supabase:', error);
       // Don't fail the save if Supabase sync fails
     }
     
@@ -121,7 +121,7 @@ export class PacmanEditorAdapter extends BaseAdapter {
     if (!storyInput || !mapSelect || !logoPreview || !mapColors) return true;
     
     // Load last saved config to compare
-    const storageKey = `${PACMAN_STORAGE_PREFIX}${this.lastSavedGameId}`;
+    const storageKey = `${HITMEN_STORAGE_PREFIX}${this.lastSavedGameId}`;
     const savedRaw = localStorage.getItem(storageKey);
     if (!savedRaw) return true;
     
@@ -154,12 +154,12 @@ export class PacmanEditorAdapter extends BaseAdapter {
   generateGameId() {
     const digits = String(Date.now() % 1000).padStart(3, '0'); // always 3 digits
     const letter = (Math.random().toString(36).match(/[a-z]/) || ['a'])[0]; // single letter
-    return `playmode-pacman-${digits}${letter}`;
+    return `playmode-hitmen-${digits}${letter}`;
   }
 
   // Creator ID helper reused in sync
   getCreatorId() {
-    const creatorKey = 'pacman_creator_id';
+    const creatorKey = 'hitmen_creator_id';
     let creatorId = localStorage.getItem(creatorKey);
     if (!creatorId) {
       creatorId = 'creator_' + Math.random().toString(36).slice(2, 10);

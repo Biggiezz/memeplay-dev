@@ -1,5 +1,5 @@
 // ====================================
-// PACMAN TEMPLATE - MAIN GAME LOGIC
+// HITMEN TEMPLATE - MAIN GAME LOGIC
 // ====================================
 
 // ====================================
@@ -35,16 +35,16 @@ let gateBlinkTimer = 0;
 // Ghosts
 let ghosts = [];
 let ghostCount = 1;
-const PACMAN_DEBUG_ENABLED = (() => {
+const HITMEN_DEBUG_ENABLED = (() => {
   try {
-    if (typeof window !== 'undefined' && window.__PACMAN_DEBUG) return true;
-    if (typeof window !== 'undefined' && window.parent && window.parent.__PACMAN_DEBUG) return true;
-    if (localStorage.getItem('pacman_debug') === 'true') return true;
+    if (typeof window !== 'undefined' && window.__HITMEN_DEBUG) return true;
+    if (typeof window !== 'undefined' && window.parent && window.parent.__HITMEN_DEBUG) return true;
+    if (localStorage.getItem('hitmen_debug') === 'true') return true;
   } catch (_) {}
   return false;
 })();
 
-if (!PACMAN_DEBUG_ENABLED && typeof console !== 'undefined') {
+if (!HITMEN_DEBUG_ENABLED && typeof console !== 'undefined') {
   ['log', 'info', 'debug'].forEach(method => {
     if (typeof console[method] === 'function') {
       console[method] = () => {};
@@ -55,14 +55,14 @@ if (!PACMAN_DEBUG_ENABLED && typeof console !== 'undefined') {
 const EMBEDDED_GAME_ID = typeof getGameId === 'function' ? getGameId() : null;
 const isPublicView = !!EMBEDDED_GAME_ID;
 
-const TEMPLATE_ID = 'pacman-template';
+const TEMPLATE_ID = 'hitmen-template';
 const PRODUCTION_BASE_URL = 'https://memeplay.dev';
 const SUPABASE_URL = 'https://iikckrcdrvnqctzacxgx.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imlpa2NrcmNkcnZucWN0emFjeGd4Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE3Mzc3NDgsImV4cCI6MjA3NzMxMzc0OH0.nIPvf11YfFlWH0XHDZdxI496zaP431QOJCuQ-5XX4DQ';
 let supabaseClientPromise = null;
 
 function getCreatorIdentifier() {
-  const key = 'pacman_creator_id';
+  const key = 'hitmen_creator_id';
   let id = localStorage.getItem(key);
   if (!id) {
     id = 'creator_' + Math.random().toString(36).slice(2, 10);
@@ -115,14 +115,14 @@ async function syncGameToSupabase(gameId, context = 'manual-save') {
     const origin = window.location.origin.toLowerCase();
     const isLocal = origin.includes('localhost') || origin.includes('127.0.0.1') || origin.includes('192.168.') || origin.includes('0.0.0.0');
     const baseUrl = isLocal ? PRODUCTION_BASE_URL : window.location.origin.replace(/\/$/, '');
-    const templateUrl = `${baseUrl}/games/templates-v2/pacman-template/index.html?game=${gameId}`;
-    const publicUrl = buildPublicLinkUrl(gameId, { forceProduction: true, template: 'pacman' });
+    const templateUrl = `${baseUrl}/games/templates-v2/hitmen-template/index.html?game=${gameId}`;
+    const publicUrl = buildPublicLinkUrl(gameId, { forceProduction: true, template: 'hitmen' });
     const stories = Array.isArray(BRAND_CONFIG.stories) ? BRAND_CONFIG.stories : [];
 
     const payload = {
       p_game_id: gameId,
       p_template_id: TEMPLATE_ID,
-      p_title: BRAND_CONFIG.title || 'Pacman Game',
+      p_title: BRAND_CONFIG.title || 'Hitmen Game',
       p_map_color: BRAND_CONFIG.mapColor || '#1a1a2e',
       p_map_index: BRAND_CONFIG.mapIndex !== undefined ? BRAND_CONFIG.mapIndex : 0,
       p_fragment_logo_url: BRAND_CONFIG.fragmentLogoUrl || null,
@@ -149,88 +149,66 @@ async function syncGameToSupabase(gameId, context = 'manual-save') {
   }
 }
 
+// Load brand config from Supabase (try both pacman/hitmen templates for backward compatibility)
 async function loadBrandConfigFromSupabase(gameId) {
-  if (!gameId) {
-    console.warn('[Supabase] Missing gameId, skip loading brand config from Supabase');
-    return false;
-  }
-  if (typeof getSupabaseClient !== 'function') {
-    console.warn('[Supabase] getSupabaseClient is unavailable');
-    return false;
-  }
+  if (!gameId || typeof getSupabaseClient !== 'function') return false;
+  
   try {
     const supabase = await getSupabaseClient();
-    if (!supabase) {
-      console.warn('[Supabase] Client unavailable while loading brand config');
-      return false;
-    }
-    const { data, error } = await supabase.rpc('list_user_created_games', {
-      p_template_id: TEMPLATE_ID
-    });
-    if (error) {
-      console.error('[Supabase] list_user_created_games error:', error.message || error);
-      return false;
-    }
-    if (!Array.isArray(data)) {
-      console.warn('[Supabase] Unexpected response while loading brand config:', data);
-      return false;
-    }
-    const foundGame = data.find(item => {
-      const id = item?.game_id || item?.id;
-      return id === gameId;
-    });
-    if (!foundGame) {
-      console.warn(`[Supabase] Game ${gameId} not found when loading brand config`);
-      return false;
-    }
-    let stories = Array.isArray(foundGame.stories) ? foundGame.stories : [];
-    if (typeof foundGame.stories === 'string') {
-      try {
-        stories = JSON.parse(foundGame.stories);
-      } catch (err) {
-        console.warn('[Supabase] Failed to parse stories JSON:', err);
-        stories = [];
+    if (!supabase) return false;
+    
+    // Query both templates and find game
+    for (const templateId of ['pacman-template', 'hitmen-template']) {
+      const result = await supabase.rpc('list_user_created_games', { p_template_id: templateId });
+      if (result.error || !Array.isArray(result.data)) continue;
+      
+      const game = result.data.find(item => (item?.game_id || item?.id) === gameId);
+      if (!game) continue;
+      
+      // Parse stories (support both array and legacy fields)
+      let stories = Array.isArray(game.stories) ? game.stories : [];
+      if (typeof game.stories === 'string') {
+        try { stories = JSON.parse(game.stories); } catch (e) { stories = []; }
       }
-    }
-    if (!Array.isArray(stories)) {
-      stories = [];
-    }
-    const legacyStories = [foundGame.story_one, foundGame.story_two, foundGame.story_three]
-      .filter(story => typeof story === 'string' && story.trim() !== '')
-      .map(story => story.trim());
-    if (legacyStories.length > 0) {
-      stories = [...stories, ...legacyStories];
-    }
-    const uniqueStories = stories
-      .map(story => (typeof story === 'string' ? story.trim() : ''))
-      .filter(story => story !== '');
-    const supabaseConfig = {
-      fragmentLogoUrl: foundGame.fragment_logo_url || '',
-      title: foundGame.title || 'Pacman Game',
-      mapColor: foundGame.map_color || '#1a1a2e',
-      mapIndex: Number.isInteger(foundGame.map_index) ? foundGame.map_index : 0,
-      stories: uniqueStories
-    };
-    BRAND_CONFIG = { ...BRAND_CONFIG, ...supabaseConfig };
-    saveBrandConfig(gameId);
-    if (BRAND_CONFIG.fragmentLogoUrl) {
-      const logo = new Image();
-      logo.onload = () => {
-        BRAND_CONFIG.fragmentLogo = logo;
+      const legacyStories = [game.story_one, game.story_two, game.story_three]
+        .filter(s => s && typeof s === 'string' && s.trim() !== '')
+        .map(s => s.trim());
+      stories = [...stories, ...legacyStories]
+        .map(s => (typeof s === 'string' ? s.trim() : ''))
+        .filter(s => s !== '');
+      
+      // Merge config and save to localStorage
+      BRAND_CONFIG = {
+        ...BRAND_CONFIG,
+        fragmentLogoUrl: game.fragment_logo_url || '',
+        title: game.title || 'Hitmen Game',
+        mapColor: game.map_color || '#1a1a2e',
+        mapIndex: Number.isInteger(game.map_index) ? game.map_index : 0,
+        stories
       };
-      logo.src = BRAND_CONFIG.fragmentLogoUrl;
+      
+      saveBrandConfig(gameId);
+      
+      // Load logo image if URL exists
+      if (BRAND_CONFIG.fragmentLogoUrl) {
+        const img = new Image();
+        img.onload = () => { BRAND_CONFIG.fragmentLogo = img; };
+        img.src = BRAND_CONFIG.fragmentLogoUrl;
+      }
+      
+      return true;
     }
-    console.log(`[Supabase] Loaded brand config for ${gameId} from Supabase`);
-    return true;
+    
+    return false;
   } catch (error) {
-    console.error('[Supabase] Unexpected error while loading brand config:', error);
+    console.error('[Supabase] Load config error:', error);
     return false;
   }
 }
 
 
 // Ghost AI state
-let ghostSpeedMultiplier = 0.25;          // starts at 25% of Pacman speed
+let ghostSpeedMultiplier = 0.25;          // starts at 25% of Hitmen speed
 let firstFragmentEaten = false;           // track first fragment event
 let ghostFreezeTimer = 0;                 // ms remaining for global ghost freeze
 let ghostGlowTimer = 0;                   // ms remaining for glow effect
@@ -263,7 +241,7 @@ function slugify(text) {
 }
 
 function buildPublicLinkUrl(gameId = null, options = {}) {
-  const { forceProduction = false, template = 'pacman' } = options || {};
+  const { forceProduction = false, template = 'hitmen' } = options || {};
   let id = gameId;
   console.log('[buildPublicLinkUrl] Input gameId:', gameId, 'type:', typeof gameId, 'forceProduction:', forceProduction, 'template:', template);
   
@@ -273,7 +251,7 @@ function buildPublicLinkUrl(gameId = null, options = {}) {
       id = generateGameId();
     } else {
       const randomSuffix = Math.floor(1000 + Math.random() * 9000);
-      id = `pacman-${randomSuffix}`;
+      id = `hitmen-${randomSuffix}`;
     }
     console.log('[buildPublicLinkUrl] Generated new ID:', id);
   }
@@ -564,7 +542,8 @@ function initGame() {
   
   // ✅ DEBUG: Log mapIndex hiện tại
   const currentGameId = getGameId();
-  const lastSavedGameId = localStorage.getItem('pacman_last_saved_game_id');
+  // ✅ Try both hitmen and pacman keys for backward compatibility
+  const lastSavedGameId = localStorage.getItem('hitmen_last_saved_game_id') || localStorage.getItem('pacman_last_saved_game_id');
   console.log('[initGame] BRAND_CONFIG.mapIndex:', BRAND_CONFIG.mapIndex, 'gameId:', currentGameId || lastSavedGameId || 'none');
   
   // ✅ FIX: Load mapIndex from BRAND_CONFIG before initializing level
@@ -590,7 +569,7 @@ function initGame() {
           timestamp: Date.now()
         }, '*');
       } catch (err) {
-        console.warn('[Pacman] Failed to send error signal:', err);
+        console.warn('[Hitmen] Failed to send error signal:', err);
       }
     }
     return; // Stop initialization if level init fails
@@ -622,7 +601,7 @@ function initGame() {
         // Use setTimeout to ensure canvas is fully rendered before focusing
         setTimeout(() => {
           gameCanvas.focus({ preventScroll: true });
-          console.log('[Pacman] Canvas auto-focused for keyboard input');
+          console.log('[Hitmen] Canvas auto-focused for keyboard input');
         }, 100);
       } else {
         // If not visible, retry after a short delay
@@ -2493,7 +2472,7 @@ window.addEventListener('DOMContentLoaded', async () => {
         BRAND_CONFIG = {
           fragmentLogo: null,
           fragmentLogoUrl: '',
-          title: 'Pacman Game',
+          title: 'Hitmen Game',
           smartContract: '',
           mapColor: '#1a1a2e',
           mapIndex: 0,

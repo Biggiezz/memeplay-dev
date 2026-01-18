@@ -1,5 +1,5 @@
 // ====================================
-// Single MAP definition for Pacman template
+// Single MAP definition for Hitmen template
 // ====================================
 // 1 = wall, 0 = path
 // Map size: 36 rows (730px / 20px tiles) x 35 cols (700px / 20px tiles)

@@ -270,7 +270,7 @@
       <div>
         <label for="templateSelect">Template</label>
         <select id="templateSelect">
-          <option value="pacman" selected>Pacman</option>
+          <option value="hitmen" selected>Hitmen</option>
         </select>
       </div>
 
@@ -288,7 +288,7 @@
         <textarea id="storyInput" maxlength="50" placeholder="Enter story (≤50 chars)"></textarea>
       </div>
 
-      <div id="pacmanFields">
+      <div id="hitmenFields">
         <!-- Map selection: Only show if template has map.enabled -->
         <div id="mapSelectContainer" style="display: none;">
           <label for="mapSelect">Map</label>
@@ -331,7 +331,7 @@
 
   <script type="module">
     import { SharedEditor } from './core/shared-editor.js';
-    import { PacmanEditorAdapter } from './pacman-template/editor/editor-adapter.js';
+    import { HitmenEditorAdapter } from './pacman-template/editor/editor-adapter.js';
     import { buildPublicLinkUrl } from './core/url-builder.js';
     import { processLogoImage } from './core/image-optimizer.js';
     // ✅ Bước 2: Import Template Registry
@@ -367,10 +367,10 @@
     const mapColors = document.getElementById('mapColors');
     const mapSelect = document.getElementById('mapSelect');
     const templateSelect = document.getElementById('templateSelect');
-    const pacmanFields = document.getElementById('pacmanFields');
+    const hitmenFields = document.getElementById('hitmenFields');
 
     // ✅ Bước 4: Template đầu tiên - dùng synchronous (như Bước 3)
-    let CURRENT_TEMPLATE = 'pacman';
+    let CURRENT_TEMPLATE = 'hitmen';
     const templateConfig = getTemplateConfig(CURRENT_TEMPLATE);
     
     // ✅ Bước 2: Lấy values từ registry thay vì hardcode
@@ -382,7 +382,7 @@
     let currentPlaytestIframe = null;
 
     // ✅ Bước 4: Template đầu tiên - khởi tạo synchronous (như Bước 3)
-    let adapter = new PacmanEditorAdapter({
+    let adapter = new HitmenEditorAdapter({
       editorElements: {
         storyInput,
         mapSelect,
@@ -420,10 +420,10 @@
       const config = getTemplateConfig(templateId);
       if (!config || !config.uiFields) return;
       
-      // Show/hide Pacman-specific fields
-      if (pacmanFields) {
+      // Show/hide Hitmen-specific fields
+      if (hitmenFields) {
         const hasMapFields = config.uiFields.map?.enabled || config.uiFields.mapColor?.enabled;
-        pacmanFields.style.display = hasMapFields ? 'block' : 'none';
+        hitmenFields.style.display = hasMapFields ? 'block' : 'none';
       }
       
       // ✅ Show/hide Map selection separately (only for templates with map.enabled)
@@ -645,7 +645,7 @@
         };
       }
       
-      // ✅ Pacman/Pixel Shooter: Format cũ
+      // ✅ Hitmen/Pixel Shooter: Format cũ
       return {
         fragmentLogoUrl: fragmentLogoUrl,
         title: story || 'Untitled Game',
